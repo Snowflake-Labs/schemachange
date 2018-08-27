@@ -1,11 +1,11 @@
 # snowchange
-Snowchange is a simple python script which helps manage schema changes for the Snowflake data warehouse.
+Snowchange is a simple python script which helps manage schema changes for the [Snowflake](https://www.snowflake.com/) data warehouse.
 
 When combined with a version control system and a CI/CD tool, schema changes can be approved and deployed through a pipeline using modern software delivery practises.
 
 ## Usage
 
-It's just a single python file named snowchange.py. Create a repository, copy it in there, and follow the example databases structure to get started.
+It's just a single python file named [snowchange.py](snowchange.py). Create your own repository, copy it in there, and follow the example databases structure to get started.
 
 ### Preparation
 
