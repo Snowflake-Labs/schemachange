@@ -69,6 +69,8 @@ Here's an example configuration, where pull requests move changes between enviro
 
 In the interest of safety, if databases/schemas are removed from the repository, they will not automatically be removed in snowflake. The script only giveth, it does not taketh away.
 
+This is a community-developed script, not an official Snowflake offering. It comes with no support..
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
