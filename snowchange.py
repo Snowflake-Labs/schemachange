@@ -94,7 +94,8 @@ def create_schema_history_table_if_missing(snowflake_database,snowflake_schema,v
 
 def apply_schema_file(snowflake_database,snowflake_schema,file,repo_revision,verbose):
   with open(file.path,'r') as content_file:
-    content=content_file.read()
+    content = content_file.read().strip()
+    content = content[:-1] if content.endswith(';') else content
   query = "ALTER SESSION SET TRANSACTION_ABORT_ON_ERROR=TRUE;BEGIN TRANSACTION;{0};INSERT INTO schema_history (script_name,repo_revision) values ('{1}','{2}');COMMIT;".format(content,file.name,repo_revision)
   execute_snowflake_query(snowflake_database,snowflake_schema,query,verbose)
 
