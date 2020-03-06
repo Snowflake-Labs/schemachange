@@ -19,6 +19,7 @@ def sorted_alphanumeric(data):
 
 def get_all_scripts_recursively(root_directory, verbose):
   all_files = dict()
+  all_versions = list()
   # Walk the entire directory structure recursively
   for (directory_path, directory_names, file_names) in os.walk(root_directory):
     for file_name in file_names:
@@ -31,10 +32,6 @@ def get_all_scripts_recursively(root_directory, verbose):
           print("Skipping non-change file " + file_full_path)
         continue
 
-      # Throw an error if the same file name exists more than once
-      if file_name in all_files:
-        raise ValueError("The script %s exists more than once" % file_name)
-
       # Add this script to our dictionary (as nested dictionary)
       script = dict()
       script['script_name'] = file_name
@@ -43,6 +40,11 @@ def get_all_scripts_recursively(root_directory, verbose):
       script['script_version'] = script_name_parts.group(2)
       script['script_description'] = script_name_parts.group(3)
       all_files[file_name] = script
+
+      # Throw an error if the same version exists more than once
+      if script['script_version'] in all_versions:
+        raise ValueError("The script version %s exists more than once (second instance %s)" % (script['script_version'], script['script_full_path']))
+      all_versions.append(script['script_version'])
 
   return all_files
 
@@ -58,12 +60,12 @@ def snowchange(environment_name, append_environment_name, snowflake_account, sno
   print("Environment name: %s" % environment_name)
 
   # TODO: Is there a better way to do this without setting environment variables?
-  os.environ["SNOWFLAKE_ACCOUNT"]=snowflake_account
-  os.environ["SNOWFLAKE_USER"]=snowflake_user
-  os.environ["SNOWFLAKE_ROLE"]=snowflake_role
-  os.environ["SNOWFLAKE_WAREHOUSE"]=snowflake_warehouse
+  os.environ["SNOWFLAKE_ACCOUNT"] = snowflake_account
+  os.environ["SNOWFLAKE_USER"] = snowflake_user
+  os.environ["SNOWFLAKE_ROLE"] = snowflake_role
+  os.environ["SNOWFLAKE_WAREHOUSE"] = snowflake_warehouse
   os.environ["SNOWFLAKE_REGION"] = snowflake_region
-  os.environ["SNOWFLAKE_AUTHENTICATOR"]='snowflake'
+  os.environ["SNOWFLAKE_AUTHENTICATOR"] = 'snowflake'
 
   # Each top level folder represents a database. Loop through each folder/database.
   for database_folder in os.scandir(root_folder):
@@ -158,7 +160,7 @@ def fetch_change_history(database, verbose):
   results = execute_snowflake_query(database, query, verbose)
 
   # Collect all the results into a list
-  change_history=[]
+  change_history = list()
   for cursor in results:
     for row in cursor:
       change_history.append(row[0])
