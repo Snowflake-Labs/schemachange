@@ -1,5 +1,5 @@
 # snowchange
-<img src="logo.png" alt="drawing"/>
+![logo](logo.png "Logo")
 
 snowchange is a simple python script which helps manage schema changes for the [Snowflake](https://www.snowflake.com/) data warehouse.
 
