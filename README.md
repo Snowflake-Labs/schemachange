@@ -1,4 +1,6 @@
 # snowchange
+<img src="logo.png" alt="drawing"/>
+
 snowchange is a simple python script which helps manage schema changes for the [Snowflake](https://www.snowflake.com/) data warehouse.
 
 When combined with a version control system and a CI/CD tool, schema changes can be approved and deployed through a pipeline using modern software delivery practises.
@@ -77,9 +79,12 @@ Here's an example configuration, where pull requests move changes between enviro
 
 ## Notes
 
-In the interest of safety, if scripts are removed from the repository, they will not automatically be removed in snowflake. The script only giveth, it does not taketh away.
+This is a community-developed script, not an official Snowflake offering. It comes with no support or warranty. However, feel free to raise a github issue if you find a bug or would like a new feature.
 
-This is a community-developed script, not an official Snowflake offering. It comes with no support.
+## Maintainers
+
+- James Weakley (@jamesweakley)
+- Jeremiah Hansen (@jeremiahhansen)
 
 ## License
 
