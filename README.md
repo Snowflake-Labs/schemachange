@@ -1,5 +1,7 @@
 # snowchange
-Snowchange is a simple python script which helps manage schema changes for the [Snowflake](https://www.snowflake.com/) data warehouse.
+![logo](logo.png "Logo")
+
+snowchange is a simple python script which helps manage schema changes for the [Snowflake](https://www.snowflake.com/) data warehouse.
 
 When combined with a version control system and a CI/CD tool, schema changes can be approved and deployed through a pipeline using modern software delivery practises.
 
@@ -7,41 +9,52 @@ When combined with a version control system and a CI/CD tool, schema changes can
 
 It's just a single python file named [snowchange.py](snowchange.py). Create your own repository, copy it in there, and follow the example databases structure to get started.
 
-### Preparation
+### Project folder structure
 
-The function expects a directory structure like the following to exist:
+snowchange expects a directory structure like the following to exist:
 ```
-(rootFolder)
+(rootfolder)
  |
- |-> databases
-      |-> database1
-           |->schema1
-           |   |-> 20180825_create_customer_table.sql
-           |   |-> 20180826_create_sales_table.sql
-           |->schema2
-           |   |-> 20180715_create_flights_table.sql
-           |   |-> 20180805_create_bookings_table.sql
+ |-> database1
+      |-> folder1
+           |-> V1.1.1__first_change.sql
+           |-> V1.1.2__second_change.sql
+      |-> folder2
+           |-> V1.1.3__third_change.sql
+           |-> V1.1.4__fourth_change.sql
 ```
 
-The database name in the directory structure is combined with the environment name, so that a single snowflake  account can include all environments.
+The folder structure is very flexible, the only requirement is that the first level of folders correspond to database names. Within a database folder there are no further requirements. snowchange will recursively find all change scripts and sort them by version. How you manage the scripts within each database folder is up to you.
 
-Every database will have a table automatically created to track the applying of these change sets.
+If you add the `-n` flag (or `--append-environment-name`) then the environment name (specified in the `-e` or `--environment-name` argument) will be appended to the database name with an underscore. This can be used to support multiple environments (dev, test, prod) within the same Snowflake account.
 
-You will need a user account that has the ```CREATE DATABASE``` account-level permission. 
+Every database will have a table automatically created to track the history of changes applied. The table `CHANGE_HISTORY` will be created within a `SNOWCHANGE` schema. You will need a user account that has the ```CREATE DATABASE``` account-level permission. 
 
-It is recommended that the script be triggered to run via repository webhooks, however it can safely be re-ran repeatedly.
+### Script naming
+Change scripts follow a similar naming convention to that used by [Flyway Versioned Migrations](https://flywaydb.org/documentation/migrations#versioned-migrations). An example of a script name might be `V1.1.1__first_change.sql`. The overall structure of the script name must follow these rules:
+
+* Begin with the letter "V"
+* Followed by a unique version (e.g. 1.0.0)
+* Followed by two underscores (__)
+* Followed by an artibrary name (which can not include two underscores)
+
+As with Flyway, the unique version string is very flexible. You just need to be consistent and always use the same convention, like 3 sets of numbers separated by periods. Here are a few valid version strings:
+
+* 1
+* 5.2
+* 1.2.3.4.5.6.7.8.9
+* 205.68
+* 20130115113556
+* 2013.1.15.11.35.56
 
 ### Running the script
 
 If your build agent has python 3 installed, the script can be ran like so:
 ```
 pip install --upgrade snowflake-connector-python
-python snowchange.py -e $ENVIRONMENT_NAME -a $SNOWFLAKE_ACCOUNT -u $SNOWFLAKE_USER -r $SNOWFLAKE_ROLE -w $SNOWFLAKE_WAREHOUSE --snowflak
-e-region $SNOWFLAKE_REGION --repo-revision $GIT_COMMIT_REF
+python snowchange.py -f <Root Folder Path> -e <Environment> -a <Snowflake Account> --snowflake-region <Snowflake Region> -u <Snowflake User> -r <Snowflake Role> -w <Snowflake Warehouse>
 ```
-it is expected that the environment variable SNOWSQL_PWD be set prior to calling the script, you should make this available to your build agent in some secure fashion.
-
-You'll need to map between the branch name and the target environment name, e.g. 
+It is expected that the environment variable `SNOWSQL_PWD` be set prior to calling the script, you should make this available to your build agent in some secure fashion.
 
 Or if you prefer docker, set the environment variables and run like so:
 ```
@@ -53,10 +66,9 @@ docker run -it --rm \
   -e SNOWFLAKE_ROLE \
   -e SNOWFLAKE_WAREHOUSE \
   -e SNOWFLAKE_REGION \
-  -e SNOWFLAKE_REGION \
   -e SNOWSQL_PWD \
   --name snowchange-script \
-  python:3 /bin/bash -c "pip install --upgrade snowflake-connector-python && python snowchange.py -e $ENVIRONMENT_NAME -a $SNOWFLAKE_ACCOUNT -u $SNOWFLAKE_USER -r $SNOWFLAKE_ROLE -w $SNOWFLAKE_WAREHOUSE --snowflake-region $SNOWFLAKE_REGION --repo-revision $BUILDKITE_COMMIT"
+  python:3 /bin/bash -c "pip install --upgrade snowflake-connector-python && python snowchange.py -e $ENVIRONMENT_NAME -a $SNOWFLAKE_ACCOUNT -u $SNOWFLAKE_USER -r $SNOWFLAKE_ROLE -w $SNOWFLAKE_WAREHOUSE --snowflake-region $SNOWFLAKE_REGION"
 ```
 
 ## The script in context
@@ -67,9 +79,12 @@ Here's an example configuration, where pull requests move changes between enviro
 
 ## Notes
 
-In the interest of safety, if databases/schemas are removed from the repository, they will not automatically be removed in snowflake. The script only giveth, it does not taketh away.
+This is a community-developed script, not an official Snowflake offering. It comes with no support or warranty. However, feel free to raise a github issue if you find a bug or would like a new feature.
 
-This is a community-developed script, not an official Snowflake offering. It comes with no support..
+## Maintainers
+
+- James Weakley (@jamesweakley)
+- Jeremiah Hansen (@jeremiahhansen)
 
 ## License
 
