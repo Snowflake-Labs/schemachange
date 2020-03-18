@@ -16,9 +16,9 @@ DCM tools (also known as Database Migration, Schema Change Management, or Schema
    1. [Script Naming](#script-naming)
    1. [Change History Table](#change-history-table)
 1. [Using snowchange](#using-snowchange)
-   1. [Permissions](#permissions)
+   1. [Prerequisites](#prerequisites)
    1. [Running The Script](#running-the-script)
-   1. [Parameters](#parameters)
+   1. [Script Parameters](#script-parameters)
 1. [Integrating With DevOps](#integrating-with-devops)
    1. [Using in a CI/CD Pipeline](#using-in-a-cicd-pipeline)
 1. [Maintainers](#maintainers)
@@ -54,7 +54,7 @@ By default the name of the first level folder is used as the database name, as s
 
 Change scripts follow a similar naming convention to that used by [Flyway Versioned Migrations](https://flywaydb.org/documentation/migrations#versioned-migrations). The script name must follow this pattern (image taken from [Flyway docs](https://flywaydb.org/documentation/migrations#versioned-migrations)):
 
-<img src="docs/flyway-naming-convention.png" alt="Flyway naming conventions" title="Flyway naming conventions" width="400" />
+<img src="docs/flyway-naming-convention.png" alt="Flyway naming conventions" title="Flyway naming conventions" width="300" />
 
 With the following rules for each part of the filename:
 
@@ -64,16 +64,15 @@ With the following rules for each part of the filename:
 * **Description**: An arbitrary description with words separated by underscores or spaces (can not include two underscores)
 * **Suffix**: .sql
 
-For example, a script name that follows this convention is: `V1.1.1__first_change.sql`. 
-
-As with Flyway, the unique version string is very flexible. You just need to be consistent and always use the same convention, like 3 sets of numbers separated by periods. Here are a few valid version strings:
+For example, a script name that follows this convention is: `V1.1.1__first_change.sql`. As with Flyway, the unique version string is very flexible. You just need to be consistent and always use the same convention, like 3 sets of numbers separated by periods. Here are a few valid version strings:
 
 * 1
 * 5.2
+* 5_2
 * 1.2.3.4.5.6.7.8.9
-* 205.68
-* 20130115113556
-* 2013.1.15.11.35.56
+* 205_68
+* 20200115113556
+* 2020.1.15.11.35.56
 
 Every script within a database folder must have a unique version number. snowchange will check for duplicate version numbers and throw an error if it finds any. This helps to ensure that developers who are working in parallel don't accidently (re-)use the same version number.
 
@@ -94,13 +93,16 @@ INSTALLED_ON | TIMESTAMP_LTZ | 2020-03-17 12:54:33.056 -0700
 EXECUTION_TIME | NUMBER | 4
 STATUS | VARCHAR | Success
 
-A new row will be added to this table everytime a change script has been applied to the database. snowchange will use this table to idenitfy which changes have been applied to the database and will ot apply the same one twice.
+A new row will be added to this table everytime a change script has been applied to the database. snowchange will use this table to idenitfy which changes have been applied to the database and will not apply the same version more than once.
 
 ## Using snowchange
 
-### Permissions
+### Prerequisites
 
-In order to run snowchange you will need to use a user account that has the ```CREATE DATABASE``` account-level permission. 
+In order to run snowchange you must have the following:
+
+* You will need to have a recent version of python 3 installed
+* You will need to use a user account that has the ```CREATE DATABASE``` account-level permission
 
 ### Running The Script
 
@@ -112,7 +114,7 @@ python snowchange.py [-h] [-f ROOT_FOLDER] -e ENVIRONMENT_NAME [-n] -a SNOWFLAKE
 
 The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWSQL_PWD` prior to calling the script. snowchange will fail if the `SNOWSQL_PWD` environment variable is not set.
 
-### Parameters
+### Script Parameters
 
 Here is the list of supported parameters to the script:
 
@@ -137,7 +139,7 @@ Here is a sample DevOps development lifecycle with snowchange:
 
 ### Using in a CI/CD Pipeline
 
-If your build agent has python 3 installed, the script can be ran like so:
+If your build agent has a recent version of python 3 installed, the script can be ran like so:
 ```
 pip install --upgrade snowflake-connector-python
 python snowchange.py [-h] [-f ROOT_FOLDER] -e ENVIRONMENT_NAME [-n] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-v]
