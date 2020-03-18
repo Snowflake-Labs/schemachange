@@ -9,17 +9,19 @@ DCM tools (also known as Database Migration, Schema Change Management, or Schema
 
 ## Table of Contents
 
+1. [Overview](#overview)
 1. [Project Structure](#project-structure)
    1. [Folder Structure](#folder-structure)
    1. [Database Mapping](#database-mapping)
 1. [Change Scripts](#change-scripts)
    1. [Script Naming](#script-naming)
    1. [Change History Table](#change-history-table)
-1. [Using snowchange](#using-snowchange)
+1. [Running snowchange](#running-snowchange)
    1. [Prerequisites](#prerequisites)
    1. [Running The Script](#running-the-script)
    1. [Script Parameters](#script-parameters)
 1. [Integrating With DevOps](#integrating-with-devops)
+   1. [Sample DevOps Process Flow](#sample-devops-process-flow)
    1. [Using in a CI/CD Pipeline](#using-in-a-cicd-pipeline)
 1. [Maintainers](#maintainers)
 1. [Legal](#legal)
@@ -95,7 +97,7 @@ STATUS | VARCHAR | Success
 
 A new row will be added to this table everytime a change script has been applied to the database. snowchange will use this table to idenitfy which changes have been applied to the database and will not apply the same version more than once.
 
-## Using snowchange
+## Running snowchange
 
 ### Prerequisites
 
@@ -133,6 +135,7 @@ Parameter | Description
 
 ## Integrating With DevOps
 
+### Sample DevOps Process Flow
 Here is a sample DevOps development lifecycle with snowchange:
 
 <img src="docs/diagram.png" alt="snowchange DevOps process" title="snowchange DevOps process" />
@@ -173,6 +176,6 @@ This is a community-developed script, not an official Snowflake offering. It com
 
 ## Legal
 
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use this connector except in compliance with the License. You may obtain a copy of the License at: [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0)
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this tool except in compliance with the License. You may obtain a copy of the License at: [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0)
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
