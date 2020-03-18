@@ -1,5 +1,5 @@
 # snowchange
-![logo](docs/logo.png "Logo")
+<img src="docs/logo.png" alt="snowchange" title="snowchange logo" width="600" />
 
 ## Overview
 
@@ -54,7 +54,7 @@ By default the name of the first level folder is used as the database name, as s
 
 Change scripts follow a similar naming convention to that used by [Flyway Versioned Migrations](https://flywaydb.org/documentation/migrations#versioned-migrations). The script name must follow this pattern (image taken from [Flyway docs](https://flywaydb.org/documentation/migrations#versioned-migrations)):
 
-![flyway-naming-convention](docs/flyway-naming-convention.png?raw=true "Flyway naming convention")
+<img src="docs/flyway-naming-convention.png" alt="Flyway naming conventions" title="Flyway naming conventions" width="400" />
 
 With the following rules for each part of the filename:
 
@@ -133,7 +133,7 @@ Parameter | Description
 
 Here is a sample DevOps development lifecycle with snowchange:
 
-![diagram](docs/diagram.png "Diagram")
+<img src="docs/diagram.png" alt="snowchange DevOps process" title="snowchange DevOps process" />
 
 ### Using in a CI/CD Pipeline
 
