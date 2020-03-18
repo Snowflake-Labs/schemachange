@@ -20,6 +20,7 @@ DCM tools (also known as Database Migration, Schema Change Management, or Schema
    1. [Prerequisites](#prerequisites)
    1. [Running The Script](#running-the-script)
    1. [Script Parameters](#script-parameters)
+1. [snowchange Demo](#snowchange-demo)
 1. [Integrating With DevOps](#integrating-with-devops)
    1. [Sample DevOps Process Flow](#sample-devops-process-flow)
    1. [Using in a CI/CD Pipeline](#using-in-a-cicd-pipeline)
@@ -133,9 +134,21 @@ Parameter | Description
 -w SNOWFLAKE_WAREHOUSE, --snowflake-warehouse SNOWFLAKE_WAREHOUSE | The name of the warehouse to use (e.g. DEPLOYER_WAREHOUSE)
 -v, --verbose | Display verbose debugging details during execution
 
+## snowchange Demo
+
+The [demo](demo) folder in this project repository contains a snowchange demo project for you to try out. This demo is based on the standard Snowflake Citibike demo which can be found in [the Snowflake Hands-on Lab](https://docs.snowflake.net/manuals/other-resources.html#hands-on-lab). It contains the following database change scripts:
+
+Change Script | Description
+--- | ---
+v1.1__initial_database_objects.sql | Create the initial Citibike demo objects including file formats, stages, and tables.
+v1.2__load_tables_from_s3.sql | Load the Citibike and weather data from the Snowlake lab S3 bucket.
+
+The [Citibike data](https://www.citibikenyc.com/system-data) for this demo comes from the NYC Citi Bike bike share program.
+
 ## Integrating With DevOps
 
 ### Sample DevOps Process Flow
+
 Here is a sample DevOps development lifecycle with snowchange:
 
 <img src="docs/diagram.png" alt="snowchange DevOps process" title="snowchange DevOps process" />
