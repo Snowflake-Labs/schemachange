@@ -1,91 +1,194 @@
 # snowchange
-![logo](logo.png "Logo")
+<img src="images/logo.png" alt="snowchange" title="snowchange logo" width="600" />
 
-snowchange is a simple python script which helps manage schema changes for the [Snowflake](https://www.snowflake.com/) data warehouse.
+## Overview
 
-When combined with a version control system and a CI/CD tool, schema changes can be approved and deployed through a pipeline using modern software delivery practises.
+snowchange is a simple python based tool to manage all of your [Snowflake](https://www.snowflake.com/) objects. It follows an Imperative-style approach to Database Change Management (DCM) and was inspired by the [Flyway database migration tool](https://flywaydb.org). When combined with a version control system and a CI/CD tool, database changes can be approved and deployed through a pipeline using modern software delivery practices. As such snowchange plays a critical role in enabling Database (or Data) DevOps.
 
-## Usage
+DCM tools (also known as Database Migration, Schema Change Management, or Schema Migration tools) follow one of two approaches: Declarative or Imperative. For a background on Database DevOps, including a discussion on the differences between the Declarative and Imperative approaches, please read the [Embracing Agile Software Delivery and DevOps with Snowflake](https://www.snowflake.com/blog/embracing-agile-software-delivery-and-devops-with-snowflake/) blog post.
 
-It's just a single python file named [snowchange.py](snowchange.py). Create your own repository, copy it in there, and follow the example databases structure to get started.
+## Table of Contents
 
-### Project folder structure
+1. [Overview](#overview)
+1. [Project Structure](#project-structure)
+   1. [Folder Structure](#folder-structure)
+   1. [Database Mapping](#database-mapping)
+1. [Change Scripts](#change-scripts)
+   1. [Script Naming](#script-naming)
+   1. [Change History Table](#change-history-table)
+1. [Running snowchange](#running-snowchange)
+   1. [Prerequisites](#prerequisites)
+   1. [Running The Script](#running-the-script)
+   1. [Script Parameters](#script-parameters)
+1. [snowchange Demo](#snowchange-demo)
+1. [Integrating With DevOps](#integrating-with-devops)
+   1. [Sample DevOps Process Flow](#sample-devops-process-flow)
+   1. [Using in a CI/CD Pipeline](#using-in-a-cicd-pipeline)
+1. [Maintainers](#maintainers)
+1. [Legal](#legal)
+
+
+## Project Structure
+
+### Folder Structure
 
 snowchange expects a directory structure like the following to exist:
 ```
-(rootfolder)
- |
- |-> database1
-      |-> folder1
-           |-> V1.1.1__first_change.sql
-           |-> V1.1.2__second_change.sql
-      |-> folder2
-           |-> V1.1.3__third_change.sql
-           |-> V1.1.4__fourth_change.sql
+(project_root)
+|
+|-- database_1
+    |-- folder_1
+    |   |-- V1.1.1__first_change.sql
+    |   |-- V1.1.2__second_change.sql
+    |-- folder_2
+        |-- V1.1.3__third_change.sql
+        |-- V1.1.4__fourth_change.sql
 ```
 
-The folder structure is very flexible, the only requirement is that the first level of folders correspond to database names. Within a database folder there are no further requirements. snowchange will recursively find all change scripts and sort them by version. How you manage the scripts within each database folder is up to you.
+The folder structure is very flexible; the only requirement is that the first level of folders under the project root (specified with the `-f` or `--root-folder` argument) correspond to database names. Within a database folder there are no further requirements. snowchange will recursively find all change scripts and sort them by version. How you manage the scripts within each database folder is up to you.
 
-If you add the `-n` flag (or `--append-environment-name`) then the environment name (specified in the `-e` or `--environment-name` argument) will be appended to the database name with an underscore. This can be used to support multiple environments (dev, test, prod) within the same Snowflake account.
+### Database Mapping 
 
-Every database will have a table automatically created to track the history of changes applied. The table `CHANGE_HISTORY` will be created within a `SNOWCHANGE` schema. You will need a user account that has the ```CREATE DATABASE``` account-level permission. 
+By default the name of the first level folder is used as the database name, as shown above. If you add the `-n` flag (or `--append-environment-name`) then the environment name (specified in the `-e` or `--environment-name` argument) will be appended to the database name with an underscore. This can be used to support multiple environments (dev, test, prod) within the same Snowflake account.
 
-### Script naming
-Change scripts follow a similar naming convention to that used by [Flyway Versioned Migrations](https://flywaydb.org/documentation/migrations#versioned-migrations). An example of a script name might be `V1.1.1__first_change.sql`. The overall structure of the script name must follow these rules:
+## Change Scripts
 
-* Begin with the letter "V"
-* Followed by a unique version (e.g. 1.0.0)
-* Followed by two underscores (__)
-* Followed by an artibrary name (which can not include two underscores)
+### Script Naming
 
-As with Flyway, the unique version string is very flexible. You just need to be consistent and always use the same convention, like 3 sets of numbers separated by periods. Here are a few valid version strings:
+Change scripts follow a similar naming convention to that used by [Flyway Versioned Migrations](https://flywaydb.org/documentation/migrations#versioned-migrations). The script name must follow this pattern (image taken from [Flyway docs](https://flywaydb.org/documentation/migrations#versioned-migrations)):
+
+<img src="images/flyway-naming-convention.png" alt="Flyway naming conventions" title="Flyway naming conventions" width="300" />
+
+With the following rules for each part of the filename:
+
+* **Prefix**: The letter 'V' for versioned change
+* **Version**: A unique version number with dots or underscores separating as many number parts as you like
+* **Separator**: __ (two underscores)
+* **Description**: An arbitrary description with words separated by underscores or spaces (can not include two underscores)
+* **Suffix**: .sql
+
+For example, a script name that follows this convention is: `V1.1.1__first_change.sql`. As with Flyway, the unique version string is very flexible. You just need to be consistent and always use the same convention, like 3 sets of numbers separated by periods. Here are a few valid version strings:
 
 * 1
 * 5.2
+* 5_2
 * 1.2.3.4.5.6.7.8.9
-* 205.68
-* 20130115113556
-* 2013.1.15.11.35.56
+* 205_68
+* 20200115113556
+* 2020.1.15.11.35.56
 
-### Running the script
+Every script within a database folder must have a unique version number. snowchange will check for duplicate version numbers and throw an error if it finds any. This helps to ensure that developers who are working in parallel don't accidently (re-)use the same version number.
 
-If your build agent has python 3 installed, the script can be ran like so:
+### Change History Table
+
+Every database will have a table automatically created to track the history of changes applied. The table `CHANGE_HISTORY` will be created within a `SNOWCHANGE` schema. The structure of the `CHANGE_HISTORY` table is as follows:
+
+Column Name | Type |  Example
+--- | --- | ---
+INSTALLED_RANK | NUMBER | 1
+VERSION | VARCHAR | 1.1.1
+DESCRIPTION | VARCHAR | first_change
+TYPE | VARCHAR | V
+SCRIPT | VARCHAR | V1.1.1__first_change.sql
+CHECKSUM | VARCHAR | 38e5ba03b1a6d2...
+INSTALLED_BY | VARCHAR | SNOWFLAKE_USER
+INSTALLED_ON | TIMESTAMP_LTZ | 2020-03-17 12:54:33.056 -0700
+EXECUTION_TIME | NUMBER | 4
+STATUS | VARCHAR | Success
+
+A new row will be added to this table everytime a change script has been applied to the database. snowchange will use this table to idenitfy which changes have been applied to the database and will not apply the same version more than once.
+
+## Running snowchange
+
+### Prerequisites
+
+In order to run snowchange you must have the following:
+
+* You will need to have a recent version of python 3 installed
+* You will need to use a user account that has the ```CREATE DATABASE``` account-level permission
+
+### Running The Script
+
+snowchange is a single python script named [snowchange.py](snowchange.py). It can be executed as follows:
+
+```
+python snowchange.py [-h] [-f ROOT_FOLDER] -e ENVIRONMENT_NAME [-n] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-v]
+```
+
+The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWSQL_PWD` prior to calling the script. snowchange will fail if the `SNOWSQL_PWD` environment variable is not set.
+
+### Script Parameters
+
+Here is the list of supported parameters to the script:
+
+Parameter | Description
+--- | ---
+-h, --help | Show the help message and exit
+-f ROOT_FOLDER, --root-folder ROOT_FOLDER| *(Optional)* The root folder for the database change scripts. The default is the current directory.
+-e ENVIRONMENT_NAME, --environment-name ENVIRONMENT_NAME | The name of the environment (e.g. dev, test, prod)
+-n, --append-environment-name | *(Optional)* Append the --environment-name to the database name
+-a SNOWFLAKE_ACCOUNT, --snowflake-account SNOWFLAKE_ACCOUNT | The name of the snowflake account (e.g. ly12345)
+--snowflake-region SNOWFLAKE_REGION | The name of the snowflake region (e.g. ap-southeast-2)
+-u SNOWFLAKE_USER, --snowflake-user SNOWFLAKE_USER | The name of the snowflake user (e.g. DEPLOYER)
+-r SNOWFLAKE_ROLE, --snowflake-role SNOWFLAKE_ROLE | The name of the role to use (e.g. DEPLOYER_ROLE)
+-w SNOWFLAKE_WAREHOUSE, --snowflake-warehouse SNOWFLAKE_WAREHOUSE | The name of the warehouse to use (e.g. DEPLOYER_WAREHOUSE)
+-v, --verbose | Display verbose debugging details during execution
+
+## snowchange Demo
+
+The [demo](demo) folder in this project repository contains a snowchange demo project for you to try out. This demo is based on the standard Snowflake Citibike demo which can be found in [the Snowflake Hands-on Lab](https://docs.snowflake.net/manuals/other-resources.html#hands-on-lab). It contains the following database change scripts:
+
+Change Script | Description
+--- | ---
+v1.1__initial_database_objects.sql | Create the initial Citibike demo objects including file formats, stages, and tables.
+v1.2__load_tables_from_s3.sql | Load the Citibike and weather data from the Snowlake lab S3 bucket.
+
+The [Citibike data](https://www.citibikenyc.com/system-data) for this demo comes from the NYC Citi Bike bike share program.
+
+## Integrating With DevOps
+
+### Sample DevOps Process Flow
+
+Here is a sample DevOps development lifecycle with snowchange:
+
+<img src="images/diagram.png" alt="snowchange DevOps process" title="snowchange DevOps process" />
+
+### Using in a CI/CD Pipeline
+
+If your build agent has a recent version of python 3 installed, the script can be ran like so:
 ```
 pip install --upgrade snowflake-connector-python
-python snowchange.py -f <Root Folder Path> -e <Environment> -a <Snowflake Account> --snowflake-region <Snowflake Region> -u <Snowflake User> -r <Snowflake Role> -w <Snowflake Warehouse>
+python snowchange.py [-h] [-f ROOT_FOLDER] -e ENVIRONMENT_NAME [-n] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-v]
 ```
-It is expected that the environment variable `SNOWSQL_PWD` be set prior to calling the script, you should make this available to your build agent in some secure fashion.
 
 Or if you prefer docker, set the environment variables and run like so:
 ```
 docker run -it --rm \
+  --name snowchange-script \
   -v "$PWD":/usr/src/snowchange \
   -w /usr/src/snowchange \
+  -e ROOT_FOLDER \
+  -e ENVIRONMENT_NAME \
   -e SNOWFLAKE_ACCOUNT \
   -e SNOWFLAKE_USER \
   -e SNOWFLAKE_ROLE \
   -e SNOWFLAKE_WAREHOUSE \
   -e SNOWFLAKE_REGION \
   -e SNOWSQL_PWD \
-  --name snowchange-script \
-  python:3 /bin/bash -c "pip install --upgrade snowflake-connector-python && python snowchange.py -e $ENVIRONMENT_NAME -a $SNOWFLAKE_ACCOUNT -u $SNOWFLAKE_USER -r $SNOWFLAKE_ROLE -w $SNOWFLAKE_WAREHOUSE --snowflake-region $SNOWFLAKE_REGION"
+  python:3 /bin/bash -c "pip install --upgrade snowflake-connector-python && python snowchange.py -f $ROOT_FOLDER -e $ENVIRONMENT_NAME -a $SNOWFLAKE_ACCOUNT --snowflake-region $SNOWFLAKE_REGION -u $SNOWFLAKE_USER -r $SNOWFLAKE_ROLE -w $SNOWFLAKE_WAREHOUSE"
 ```
 
-## The script in context
-
-Here's an example configuration, where pull requests move changes between environments.
-
-![diagram](diagram.png "Diagram")
-
-## Notes
-
-This is a community-developed script, not an official Snowflake offering. It comes with no support or warranty. However, feel free to raise a github issue if you find a bug or would like a new feature.
+Either way, don't forget to set the `SNOWSQL_PWD` environment variable!
 
 ## Maintainers
 
 - James Weakley (@jamesweakley)
 - Jeremiah Hansen (@jeremiahhansen)
 
-## License
+This is a community-developed script, not an official Snowflake offering. It comes with no support or warranty. However, feel free to raise a github issue if you find a bug or would like a new feature.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
+## Legal
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this tool except in compliance with the License. You may obtain a copy of the License at: [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0)
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
