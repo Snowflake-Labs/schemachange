@@ -68,39 +68,43 @@ def snowchange(environment_name, append_environment_name, snowflake_account, sno
     if verbose:
       print("Change history: %s" % change_history)
 
-    # The second level folders represent a database. Loop through each folder/database.
+    # Each of the second level folders represent a database
+    # Make sure all databases exist in Snowflake
     for database_folder in os.scandir(subject_area_folder):
       if not database_folder.is_dir():
         continue
 
-      database_folder_path = os.path.join(subject_area_folder, database_folder.name)
-      print("Processing database folder %s" % database_folder_path)
-
       # Map folder name to target database name
       snowflake_database_name = build_database_name(database_folder.name, environment_name, append_environment_name)
-      print("Using Snowflake database name: %s" % snowflake_database_name)
-
       # Create the database if it doesn't exist
       create_database_if_missing(snowflake_database_name, verbose)
 
-      # Find all scripts for this database (recursively) and sort them correctly
-      all_scripts = get_all_scripts_recursively(database_folder_path, verbose)
-      all_script_names = list(all_scripts.keys())
-      all_script_names_sorted = sorted_alphanumeric(all_script_names)
+    # Find all scripts for this subject area (recursively) and sort them correctly
+    all_scripts = get_all_scripts_recursively(subject_area_folder, verbose)
+    all_script_names = list(all_scripts.keys())
+    all_script_names_sorted = sorted_alphanumeric(all_script_names)
 
-      # Loop through each script in order and apply any required changes
-      for script_name in all_script_names_sorted:
-        script = all_scripts[script_name]
+    # Loop through each script in order and apply any required changes
+    for script_name in all_script_names_sorted:
+      script = all_scripts[script_name]
 
-        # Only apply a change script if the version is newer than the most recent change in the database
-        if get_alphanum_key(script['script_version']) <= get_alphanum_key(max_published_version):
-          if verbose:
-            print("Skipping change script %s because it's older than the most recently applied change (%s)" % (script['script_name'], max_published_version))
-          scripts_skipped += 1
-        else:
-          print("Applying change script %s to database %s" % (script['script_name'], snowflake_database_name))
-          apply_change_script(snowflake_database_name, script, change_history_table, subject_area_name, verbose)
-          scripts_applied += 1
+      # Only apply a change script if the version is newer than the most recent change in the database
+      if get_alphanum_key(script['script_version']) <= get_alphanum_key(max_published_version):
+        if verbose:
+          print("Skipping change script %s because it's older than the most recently applied change (%s)" % (script['script_name'], max_published_version))
+        scripts_skipped += 1
+        continue
+
+      # Find the associated database name for this script
+      # Remove the subject area base path from the script path
+      relative_subject_area_path = script['script_full_path'][len(subject_area_folder.path)+1:]
+      # Take the top level folder under the subject area base path, this is the database name
+      database_folder_name = relative_subject_area_path.split(os.path.sep, 1)[0]
+      snowflake_database_name = build_database_name(database_folder_name, environment_name, append_environment_name)
+
+      print("Applying change script %s to database %s" % (script['script_name'], snowflake_database_name))
+      apply_change_script(snowflake_database_name, script, change_history_table, subject_area_name, verbose)
+      scripts_applied += 1
 
     print("Successfully applied %d change scripts (skipping %d)" % (scripts_applied, scripts_skipped))
 
@@ -138,7 +142,7 @@ def get_all_scripts_recursively(root_directory, verbose):
       # Only process valid change scripts
       if script_name_parts == None:
         if verbose:
-          print("Skipping non-change file " + file_full_path)
+          print("Ignoring non-change file " + file_full_path)
         continue
 
       # Add this script to our dictionary (as nested dictionary)
@@ -147,7 +151,7 @@ def get_all_scripts_recursively(root_directory, verbose):
       script['script_full_path'] = file_full_path
       script['script_type'] = script_name_parts.group(1)
       script['script_version'] = script_name_parts.group(2)
-      script['script_description'] = script_name_parts.group(3).replace('_', ' ')
+      script['script_description'] = script_name_parts.group(3).replace('_', ' ').capitalize()
       all_files[file_name] = script
 
       # Throw an error if the same version exists more than once
@@ -196,7 +200,7 @@ def get_change_history_table_details(subject_area, environment_name, append_envi
     return details
 
 def create_change_history_table_if_missing(change_history_table, verbose):
-  query = "CREATE TABLE IF NOT EXISTS {0}.{1} (SUBJECT_AREA VARCHAR, VERSION VARCHAR, DESCRIPTION VARCHAR, TYPE VARCHAR, SCRIPT VARCHAR, CHECKSUM VARCHAR, EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)".format(change_history_table['schema_name'], change_history_table['table_name'])
+  query = "CREATE TABLE IF NOT EXISTS {0}.{1} (SUBJECT_AREA VARCHAR, VERSION VARCHAR, TARGET_DATABASE VARCHAR, DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR, EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)".format(change_history_table['schema_name'], change_history_table['table_name'])
   execute_snowflake_query(change_history_table['database_name'], query, verbose)
 
 def fetch_change_history(change_history_table, subject_area, verbose):
@@ -230,7 +234,7 @@ def apply_change_script(database, script, change_history_table, subject_area, ve
     execution_time = round(end - start)
 
   # Finally record this change in the change history table
-  query = "INSERT INTO {0}.{1} (SUBJECT_AREA, VERSION, DESCRIPTION, TYPE, SCRIPT, CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{2}','{3}','{4}','{5}','{6}','{7}',{8},'{9}','{10}',CURRENT_TIMESTAMP);".format(change_history_table['schema_name'], change_history_table['table_name'], subject_area, script['script_version'], script['script_description'], script['script_type'], script['script_name'], checksum, execution_time, status, os.environ["SNOWFLAKE_USER"])
+  query = "INSERT INTO {0}.{1} (SUBJECT_AREA, VERSION, TARGET_DATABASE, DESCRIPTION, SCRIPT, SCRIPT_TYPE, CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{2}','{3}','{4}','{5}','{6}','{7}','{8}',{9},'{10}','{11}',CURRENT_TIMESTAMP);".format(change_history_table['schema_name'], change_history_table['table_name'], subject_area, script['script_version'], database, script['script_description'], script['script_name'], script['script_type'], checksum, execution_time, status, os.environ["SNOWFLAKE_USER"])
   execute_snowflake_query(change_history_table['database_name'], query, verbose)
 
 
