@@ -20,9 +20,9 @@ def snowchange(environment_name, append_environment_name, snowflake_account, sno
   if not os.path.isdir(root_folder):
     raise ValueError("Invalid root folder: %s" % root_folder)
 
-  print("snowchange version: %d" % _snowchange_version)
-  print("Root folder: %s" % root_folder)
+  print("snowchange version: %s" % _snowchange_version)
   print("Environment name: %s" % environment_name)
+  print("Root folder: %s" % root_folder)
 
   # TODO: Is there a better way to do this without setting environment variables?
   os.environ["SNOWFLAKE_ACCOUNT"] = snowflake_account
@@ -43,6 +43,7 @@ def snowchange(environment_name, append_environment_name, snowflake_account, sno
     scripts_applied = 0
 
     subject_area_name = subject_area_folder.name
+    print("**************************************************")
     print("Processing subject area %s" % subject_area_name)
 
     # Get the change history table details
@@ -54,32 +55,33 @@ def snowchange(environment_name, append_environment_name, snowflake_account, sno
     create_database_if_missing(change_history_table['database_name'], verbose)
     create_schema_if_missing(change_history_table['database_name'], change_history_table['schema_name'], verbose)
     create_change_history_table_if_missing(change_history_table, verbose)
+    print("Using change history table %s.%s.%s" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name']))
+
+    # Find the max published version for this subject area
+    # TODO: Figure out how to directly SELECT the max value from Snowflake with a SQL version of the sorted_alphanumeric() logic
+    max_published_version = ''
+    change_history = fetch_change_history(change_history_table, subject_area_name, verbose)
+    if change_history:
+      change_history_sorted = sorted_alphanumeric(change_history)
+      max_published_version = change_history_sorted[-1]
+    print("Max applied change script version: %s" % max_published_version)
+    if verbose:
+      print("Change history: %s" % change_history)
 
     # The second level folders represent a database. Loop through each folder/database.
     for database_folder in os.scandir(subject_area_folder):
       if not database_folder.is_dir():
         continue
 
-      database_folder_path = os.path.join(root_folder, database_folder.name)
+      database_folder_path = os.path.join(subject_area_folder, database_folder.name)
       print("Processing database folder %s" % database_folder_path)
 
       # Map folder name to target database name
       snowflake_database_name = build_database_name(database_folder.name, environment_name, append_environment_name)
-      print("Snowflake database name: %s" % snowflake_database_name)
+      print("Using Snowflake database name: %s" % snowflake_database_name)
 
       # Create the database if it doesn't exist
       create_database_if_missing(snowflake_database_name, verbose)
-
-      # Find the max published version for this database in Snowflake
-      # TODO: Figure out how to directly SELECT the max value from Snowflake with a SQL version of the sorted_alphanumeric() logic
-      max_published_version = ''
-      change_history = fetch_change_history(change_history_table, subject_area_name, verbose)
-      if change_history:
-        change_history_sorted = sorted_alphanumeric(change_history)
-        max_published_version = change_history_sorted[-1]
-      print("Max published version: %s" % max_published_version)
-      if verbose:
-        print("Change history: %s" % change_history)
 
       # Find all scripts for this database (recursively) and sort them correctly
       all_scripts = get_all_scripts_recursively(database_folder_path, verbose)
@@ -100,7 +102,7 @@ def snowchange(environment_name, append_environment_name, snowflake_account, sno
           apply_change_script(snowflake_database_name, script, change_history_table, subject_area_name, verbose)
           scripts_applied += 1
 
-      print("Successfully applied %d change scripts (skipping %d)" % (scripts_applied, scripts_skipped))
+    print("Successfully applied %d change scripts (skipping %d)" % (scripts_applied, scripts_skipped))
 
   print("Completed successfully")
 
@@ -198,7 +200,7 @@ def create_change_history_table_if_missing(change_history_table, verbose):
   execute_snowflake_query(change_history_table['database_name'], query, verbose)
 
 def fetch_change_history(change_history_table, subject_area, verbose):
-  query = 'SELECT VERSION FROM {0}.{1} WHERE SUBJECT_AREA = ''{2}'''.format(change_history_table['schema_name'], change_history_table['table_name'], subject_area)
+  query = 'SELECT VERSION FROM {0}.{1} WHERE SUBJECT_AREA = \'{2}\''.format(change_history_table['schema_name'], change_history_table['table_name'], subject_area)
   results = execute_snowflake_query(change_history_table['database_name'], query, verbose)
 
   # Collect all the results into a list
