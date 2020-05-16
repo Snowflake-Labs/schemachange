@@ -12,6 +12,7 @@ DCM tools (also known as Database Migration, Schema Change Management, or Schema
 1. [Overview](#overview)
 1. [Project Structure](#project-structure)
    1. [Folder Structure](#folder-structure)
+   1. [Subject Areas](#subject-areas)
    1. [Database Mapping](#database-mapping)
 1. [Change Scripts](#change-scripts)
    1. [Script Naming](#script-naming)
@@ -36,20 +37,31 @@ snowchange expects a directory structure like the following to exist:
 ```
 (project_root)
 |
-|-- database_1
-    |-- folder_1
-    |   |-- V1.1.1__first_change.sql
-    |   |-- V1.1.2__second_change.sql
-    |-- folder_2
-        |-- V1.1.3__third_change.sql
+|-- subject_area_1
+    |-- database_1
+        |-- folder_1
+            |-- V1.1.1__first_change.sql
+            |-- V1.1.2__second_change.sql
+        |-- folder_2
+            |-- V1.1.3__third_change.sql
+    |-- database_2
         |-- V1.1.4__fourth_change.sql
+|-- subject_area_2
 ```
 
-The folder structure is very flexible; the only requirement is that the first level of folders under the project root (specified with the `-f` or `--root-folder` argument) correspond to database names. Within a database folder there are no further requirements. snowchange will recursively find all change scripts and sort them by version. How you manage the scripts within each database folder is up to you.
+The folder structure is very flexible with only two requirements:
+1. The first level of folders under the project root (specified with the `-f` or `--root-folder` argument) correspond to subject areas
+1. The second level of folders, those directly under a subject area, correspond to database names
+
+Within a database folder there are no further requirements, and you can have as many nested subfolders as you would like.
+
+### Subject Areas
+
+The subject area folders accomplish two things. First they allows multiple teams to work independently, and second they makes it possible to manage dependencies across databases. A subject area is the basic unit of dependency management in snowchange. snowchange will recursively find all change scripts in a subject area and sort them by version. This enforces dependencies across databases in the same subject areas.
 
 ### Database Mapping 
 
-By default the name of the first level folder is used as the database name, as shown above. If you add the `-n` flag (or `--append-environment-name`) then the environment name (specified in the `-e` or `--environment-name` argument) will be appended to the database name with an underscore. This can be used to support multiple environments (dev, test, prod) within the same Snowflake account.
+By default the names of the second level folders are used as the database names, as shown above. If you add the `-n` flag (or `--append-environment-name`) then the environment name (specified in the `-e` or `--environment-name` argument) will be appended to the database name with an underscore. This can be used to support multiple environments (dev, test, prod) within the same Snowflake account. snowchange will create any databases that don't already exist in Snowflake.
 
 ## Change Scripts
 
@@ -81,20 +93,21 @@ Every script within a database folder must have a unique version number. snowcha
 
 ### Change History Table
 
-Every database will have a table automatically created to track the history of changes applied. The table `CHANGE_HISTORY` will be created within a `SNOWCHANGE` schema. The structure of the `CHANGE_HISTORY` table is as follows:
+Every subject area will have a table automatically created to track the history of changes applied. Currently there is one table created per Snowflake account, so multiple subject areas will share the same table. By default the table `CHANGE_HISTORY` will be created within a `SNOWCHANGE` schema in a `METADATA` database. The structure of the `CHANGE_HISTORY` table is as follows:
 
 Column Name | Type |  Example
 --- | --- | ---
-INSTALLED_RANK | NUMBER | 1
+SUBJECT_AREA | VARCHAR | Default
 VERSION | VARCHAR | 1.1.1
-DESCRIPTION | VARCHAR | first_change
-TYPE | VARCHAR | V
+TARGET_DATABASE | VARCHAR | CITIBIKE
+DESCRIPTION | VARCHAR | First change
 SCRIPT | VARCHAR | V1.1.1__first_change.sql
+SCRIPT_TYPE | VARCHAR | V
 CHECKSUM | VARCHAR | 38e5ba03b1a6d2...
-INSTALLED_BY | VARCHAR | SNOWFLAKE_USER
-INSTALLED_ON | TIMESTAMP_LTZ | 2020-03-17 12:54:33.056 -0700
 EXECUTION_TIME | NUMBER | 4
 STATUS | VARCHAR | Success
+INSTALLED_BY | VARCHAR | SNOWFLAKE_USER
+INSTALLED_ON | TIMESTAMP_LTZ | 2020-03-17 12:54:33.056 -0700
 
 A new row will be added to this table everytime a change script has been applied to the database. snowchange will use this table to idenitfy which changes have been applied to the database and will not apply the same version more than once.
 
