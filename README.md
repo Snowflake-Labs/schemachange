@@ -16,6 +16,7 @@ DCM tools (also known as Database Migration, Schema Change Management, or Schema
    1. [Database Mapping](#database-mapping)
 1. [Change Scripts](#change-scripts)
    1. [Script Naming](#script-naming)
+   1. [Script Requirements](#script-requirements)
    1. [Change History Table](#change-history-table)
 1. [Running snowchange](#running-snowchange)
    1. [Prerequisites](#prerequisites)
@@ -91,6 +92,12 @@ For example, a script name that follows this convention is: `V1.1.1__first_chang
 
 Every script within a database folder must have a unique version number. snowchange will check for duplicate version numbers and throw an error if it finds any. This helps to ensure that developers who are working in parallel don't accidently (re-)use the same version number.
 
+### Script Requirements
+
+Change scripts are limited in scope to a single database each. While a single change script can have any number of SQL statement within it, they must all apply to the same database. What's more, a script should not contain any explicit `USE <DATABASE>` commands. Leveraging the folder structure described above, snowchange will create any databases that don't exist and will run each change script against the corresponding database (based off the relationship of the script to the database folder where it resides).
+
+The reason for these requirements is so that snowchange can provide support for managing multiple environments (dev, test, prod) in a single Snowflake account. As mentioned above, if you add the `-n` flag (or `--append-environment-name`) then the environment name (specified in the `-e` or `--environment-name` argument) will be appended to all database names with an underscore.
+
 ### Change History Table
 
 Every subject area will have a table automatically created to track the history of changes applied. Currently there is one table created per Snowflake account, so multiple subject areas will share the same table. By default the table `CHANGE_HISTORY` will be created within a `SNOWCHANGE` schema in a `METADATA` database. The structure of the `CHANGE_HISTORY` table is as follows:
@@ -109,7 +116,7 @@ STATUS | VARCHAR | Success
 INSTALLED_BY | VARCHAR | SNOWFLAKE_USER
 INSTALLED_ON | TIMESTAMP_LTZ | 2020-03-17 12:54:33.056 -0700
 
-A new row will be added to this table everytime a change script has been applied to the database. snowchange will use this table to idenitfy which changes have been applied to the database and will not apply the same version more than once.
+A new row will be added to this table every time a change script has been applied to the database. snowchange will use this table to identify which changes have been applied to the database and will not apply the same version more than once.
 
 ## Running snowchange
 
