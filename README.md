@@ -28,6 +28,9 @@ DCM tools (also known as Database Migration, Schema Change Management, or Schema
 1. [Legal](#legal)
 
 
+## Installation
+`pip install snowchange`
+
 ## Project Structure
 
 ### Folder Structure
@@ -47,7 +50,7 @@ snowchange expects a directory structure like the following to exist:
 
 The folder structure is very flexible; the only requirement is that the first level of folders under the project root (specified with the `-f` or `--root-folder` argument) correspond to database names. Within a database folder there are no further requirements. snowchange will recursively find all change scripts and sort them by version. How you manage the scripts within each database folder is up to you.
 
-### Database Mapping 
+### Database Mapping
 
 By default the name of the first level folder is used as the database name, as shown above. If you add the `-n` flag (or `--append-environment-name`) then the environment name (specified in the `-e` or `--environment-name` argument) will be appended to the database name with an underscore. This can be used to support multiple environments (dev, test, prod) within the same Snowflake account.
 
@@ -109,10 +112,8 @@ In order to run snowchange you must have the following:
 
 ### Running The Script
 
-snowchange is a single python script named [snowchange.py](snowchange.py). It can be executed as follows:
-
 ```
-python snowchange.py [-h] [-f ROOT_FOLDER] -e ENVIRONMENT_NAME [-n] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-v]
+snowchange [-h] [-f ROOT_FOLDER] -e ENVIRONMENT_NAME [-n] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-v]
 ```
 
 The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWSQL_PWD` prior to calling the script. snowchange will fail if the `SNOWSQL_PWD` environment variable is not set.
