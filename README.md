@@ -12,12 +12,10 @@ DCM tools (also known as Database Migration, Schema Change Management, or Schema
 1. [Overview](#overview)
 1. [Project Structure](#project-structure)
    1. [Folder Structure](#folder-structure)
-   1. [Subject Areas](#subject-areas)
-   1. [Database Mapping](#database-mapping)
 1. [Change Scripts](#change-scripts)
    1. [Script Naming](#script-naming)
    1. [Script Requirements](#script-requirements)
-   1. [Change History Table](#change-history-table)
+1. [Change History Table](#change-history-table)
 1. [Running snowchange](#running-snowchange)
    1. [Prerequisites](#prerequisites)
    1. [Running The Script](#running-the-script)
@@ -38,31 +36,15 @@ snowchange expects a directory structure like the following to exist:
 ```
 (project_root)
 |
-|-- subject_area_1
-    |-- database_1
-        |-- folder_1
-            |-- V1.1.1__first_change.sql
-            |-- V1.1.2__second_change.sql
-        |-- folder_2
-            |-- V1.1.3__third_change.sql
-    |-- database_2
-        |-- V1.1.4__fourth_change.sql
-|-- subject_area_2
+|-- folder_1
+    |-- V1.1.1__first_change.sql
+    |-- V1.1.2__second_change.sql
+|-- folder_2
+    |-- folder_3
+        |-- V1.1.3__third_change.sql
 ```
 
-The folder structure is very flexible with only two requirements:
-1. The first level of folders under the project root (specified with the `-f` or `--root-folder` argument) correspond to subject areas
-1. The second level of folders, those directly under a subject area, correspond to database names
-
-Within a database folder there are no further requirements, and you can have as many nested subfolders as you would like.
-
-### Subject Areas
-
-The subject area folders accomplish two things. First they allows multiple teams to work independently, and second they makes it possible to manage dependencies across databases. A subject area is the basic unit of dependency management in snowchange. snowchange will recursively find all change scripts in a subject area and sort them by version. This enforces dependencies across databases in the same subject areas.
-
-### Database Mapping 
-
-By default the names of the second level folders are used as the database names, as shown above. If you add the `-n` flag (or `--append-environment-name`) then the environment name (specified in the `-e` or `--environment-name` argument) will be appended to the database name with an underscore. This can be used to support multiple environments (dev, test, prod) within the same Snowflake account. snowchange will create any databases that don't already exist in Snowflake.
+The snowchange folder structure is very flexible. The `project_root` folder is specified with the `-f` or `--root-folder` argument. Under the `project_root` folder you are free to arrange the change scripts any way you see fit. You can have as many subfolders (and nested subfolders) as you would like.
 
 ## Change Scripts
 
@@ -94,19 +76,17 @@ Every script within a database folder must have a unique version number. snowcha
 
 ### Script Requirements
 
-Change scripts are limited in scope to a single database each. While a single change script can have any number of SQL statement within it, they must all apply to the same database. What's more, a script should not contain any explicit `USE <DATABASE>` commands. Leveraging the folder structure described above, snowchange will create any databases that don't exist and will run each change script against the corresponding database (based off the relationship of the script to the database folder where it resides).
+snowchange is designed to be very lightweight and not impose to many limitations. Each change script can have any number of SQL statements within it and must supply the necessary context, like database and schema names. The context can be supplied by using an explicit `USE <DATABASE>` command or by naming all objects with a three-part name (`<database name>.<schema name>.<object name>`). snowchange will simply run the contents of each script against the target Snowflake account, in the correct order.
 
-The reason for these requirements is so that snowchange can provide support for managing multiple environments (dev, test, prod) in a single Snowflake account. As mentioned above, if you add the `-n` flag (or `--append-environment-name`) then the environment name (specified in the `-e` or `--environment-name` argument) will be appended to all database names with an underscore.
+## Change History Table
 
-### Change History Table
+snowchange will automatically create a change history table to track the history of all changes applied. By default the table `CHANGE_HISTORY` will be created within a `SNOWCHANGE` schema in a `METADATA` database. If you add the `-n` flag (or `--append-environment-name`) then the environment name (specified in the `-e` or `--environment-name` argument) will be appended to the metadata database name with an underscore. This can be used to support multiple environments (dev, test, prod) within the same Snowflake account.
 
-Every subject area will have a table automatically created to track the history of changes applied. Currently there is one table created per Snowflake account, so multiple subject areas will share the same table. By default the table `CHANGE_HISTORY` will be created within a `SNOWCHANGE` schema in a `METADATA` database. The structure of the `CHANGE_HISTORY` table is as follows:
+The structure of the `CHANGE_HISTORY` table is as follows:
 
 Column Name | Type |  Example
 --- | --- | ---
-SUBJECT_AREA | VARCHAR | Default
 VERSION | VARCHAR | 1.1.1
-TARGET_DATABASE | VARCHAR | CITIBIKE
 DESCRIPTION | VARCHAR | First change
 SCRIPT | VARCHAR | V1.1.1__first_change.sql
 SCRIPT_TYPE | VARCHAR | V
@@ -125,14 +105,14 @@ A new row will be added to this table every time a change script has been applie
 In order to run snowchange you must have the following:
 
 * You will need to have a recent version of python 3 installed
-* You will need to use a user account that has the ```CREATE DATABASE``` account-level permission
+* You will need to use a user account that has permission to apply the changes in your change script
 
 ### Running The Script
 
 snowchange is a single python script named [snowchange.py](snowchange.py). It can be executed as follows:
 
 ```
-python snowchange.py [-h] [-f ROOT_FOLDER] -e ENVIRONMENT_NAME [-n] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-v]
+python snowchange.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE -e ENVIRONMENT_NAME [-n] [-v]
 ```
 
 The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWSQL_PWD` prior to calling the script. snowchange will fail if the `SNOWSQL_PWD` environment variable is not set.
@@ -145,13 +125,13 @@ Parameter | Description
 --- | ---
 -h, --help | Show the help message and exit
 -f ROOT_FOLDER, --root-folder ROOT_FOLDER| *(Optional)* The root folder for the database change scripts. The default is the current directory.
--e ENVIRONMENT_NAME, --environment-name ENVIRONMENT_NAME | The name of the environment (e.g. dev, test, prod)
--n, --append-environment-name | *(Optional)* Append the --environment-name to the database name
 -a SNOWFLAKE_ACCOUNT, --snowflake-account SNOWFLAKE_ACCOUNT | The name of the snowflake account (e.g. ly12345)
 --snowflake-region SNOWFLAKE_REGION | The name of the snowflake region (e.g. ap-southeast-2)
 -u SNOWFLAKE_USER, --snowflake-user SNOWFLAKE_USER | The name of the snowflake user (e.g. DEPLOYER)
 -r SNOWFLAKE_ROLE, --snowflake-role SNOWFLAKE_ROLE | The name of the role to use (e.g. DEPLOYER_ROLE)
 -w SNOWFLAKE_WAREHOUSE, --snowflake-warehouse SNOWFLAKE_WAREHOUSE | The name of the warehouse to use (e.g. DEPLOYER_WAREHOUSE)
+-e ENVIRONMENT_NAME, --environment-name ENVIRONMENT_NAME | The name of the environment (e.g. dev, test, prod)
+-n, --append-environment-name | *(Optional)* Append the --environment-name to the database name
 -v, --verbose | Display verbose debugging details during execution
 
 ## snowchange Demo
@@ -178,7 +158,7 @@ Here is a sample DevOps development lifecycle with snowchange:
 If your build agent has a recent version of python 3 installed, the script can be ran like so:
 ```
 pip install --upgrade snowflake-connector-python
-python snowchange.py [-h] [-f ROOT_FOLDER] -e ENVIRONMENT_NAME [-n] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-v]
+python snowchange.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE -e ENVIRONMENT_NAME [-n] [-v]
 ```
 
 Or if you prefer docker, set the environment variables and run like so:

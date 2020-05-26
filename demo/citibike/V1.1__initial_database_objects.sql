@@ -1,4 +1,8 @@
-USE SCHEMA PUBLIC;
+-- Create the database if it doesn't exist
+CREATE DATABASE IF NOT EXISTS SNOWCHANGE_DEMO;
+
+-- Set the database and schema context
+USE SCHEMA SNOWCHANGE_DEMO.PUBLIC;
 
 -- Create the file formats
 CREATE OR REPLACE FILE FORMAT CSV_NO_HEADER

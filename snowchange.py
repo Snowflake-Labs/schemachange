@@ -32,91 +32,49 @@ def snowchange(environment_name, append_environment_name, snowflake_account, sno
   os.environ["SNOWFLAKE_REGION"] = snowflake_region
   os.environ["SNOWFLAKE_AUTHENTICATOR"] = 'snowflake'
 
-  # Each top level folder represents a subject area. This is the basic unit of dependency
-  # management in snowchange. First loop through each folder/subject area.
-  for subject_area_folder in os.scandir(root_folder):
-    # Skip any files that may exist here
-    if not subject_area_folder.is_dir():
+  scripts_skipped = 0
+  scripts_applied = 0
+
+  # Get the change history table details
+  change_history_table = get_change_history_table_details(environment_name, append_environment_name)
+ 
+  # Create the change history table (and containing objects) if it don't exist.
+  create_change_history_table_if_missing(change_history_table, verbose)
+  print("Using change history table %s.%s.%s" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name']))
+
+  # Find the max published version
+  # TODO: Figure out how to directly SELECT the max value from Snowflake with a SQL version of the sorted_alphanumeric() logic
+  max_published_version = ''
+  change_history = fetch_change_history(change_history_table, verbose)
+  if change_history:
+    change_history_sorted = sorted_alphanumeric(change_history)
+    max_published_version = change_history_sorted[-1]
+  print("Max applied change script version: %s" % max_published_version)
+  if verbose:
+    print("Change history: %s" % change_history)
+
+  # Find all scripts in the root folder (recursively) and sort them correctly
+  all_scripts = get_all_scripts_recursively(root_folder, verbose)
+  all_script_names = list(all_scripts.keys())
+  all_script_names_sorted = sorted_alphanumeric(all_script_names)
+
+  # Loop through each script in order and apply any required changes
+  for script_name in all_script_names_sorted:
+    script = all_scripts[script_name]
+
+    # Only apply a change script if the version is newer than the most recent change in the database
+    if get_alphanum_key(script['script_version']) <= get_alphanum_key(max_published_version):
+      if verbose:
+        print("Skipping change script %s because it's older than the most recently applied change (%s)" % (script['script_name'], max_published_version))
+      scripts_skipped += 1
       continue
 
-    scripts_skipped = 0
-    scripts_applied = 0
+    print("Applying change script %s" % script['script_name'])
+    apply_change_script(script, change_history_table, verbose)
+    scripts_applied += 1
 
-    subject_area_name = subject_area_folder.name
-    print("**************************************************")
-    print("Processing subject area %s" % subject_area_name)
-
-    # Get the change history table details
-    # This must be outside the database context so that we can handle cross-database dependencies.
-    # There could be one change history table per subject area.
-    change_history_table = get_change_history_table_details(subject_area_name, environment_name, append_environment_name)
- 
-    # Create the change history table (and containing objects) if it don't exist.
-    create_database_if_missing(change_history_table['database_name'], verbose)
-    create_schema_if_missing(change_history_table['database_name'], change_history_table['schema_name'], verbose)
-    create_change_history_table_if_missing(change_history_table, verbose)
-    print("Using change history table %s.%s.%s" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name']))
-
-    # Find the max published version for this subject area
-    # TODO: Figure out how to directly SELECT the max value from Snowflake with a SQL version of the sorted_alphanumeric() logic
-    max_published_version = ''
-    change_history = fetch_change_history(change_history_table, subject_area_name, verbose)
-    if change_history:
-      change_history_sorted = sorted_alphanumeric(change_history)
-      max_published_version = change_history_sorted[-1]
-    print("Max applied change script version: %s" % max_published_version)
-    if verbose:
-      print("Change history: %s" % change_history)
-
-    # Each of the second level folders represent a database
-    # Make sure all databases exist in Snowflake
-    for database_folder in os.scandir(subject_area_folder):
-      if not database_folder.is_dir():
-        continue
-
-      # Map folder name to target database name
-      snowflake_database_name = build_database_name(database_folder.name, environment_name, append_environment_name)
-      # Create the database if it doesn't exist
-      create_database_if_missing(snowflake_database_name, verbose)
-
-    # Find all scripts for this subject area (recursively) and sort them correctly
-    all_scripts = get_all_scripts_recursively(subject_area_folder, verbose)
-    all_script_names = list(all_scripts.keys())
-    all_script_names_sorted = sorted_alphanumeric(all_script_names)
-
-    # Loop through each script in order and apply any required changes
-    for script_name in all_script_names_sorted:
-      script = all_scripts[script_name]
-
-      # Only apply a change script if the version is newer than the most recent change in the database
-      if get_alphanum_key(script['script_version']) <= get_alphanum_key(max_published_version):
-        if verbose:
-          print("Skipping change script %s because it's older than the most recently applied change (%s)" % (script['script_name'], max_published_version))
-        scripts_skipped += 1
-        continue
-
-      # Find the associated database name for this script
-      # Remove the subject area base path from the script path
-      relative_subject_area_path = script['script_full_path'][len(subject_area_folder.path)+1:]
-      # Take the top level folder under the subject area base path, this is the database name
-      database_folder_name = relative_subject_area_path.split(os.path.sep, 1)[0]
-      snowflake_database_name = build_database_name(database_folder_name, environment_name, append_environment_name)
-
-      print("Applying change script %s to database %s" % (script['script_name'], snowflake_database_name))
-      apply_change_script(snowflake_database_name, script, change_history_table, subject_area_name, verbose)
-      scripts_applied += 1
-
-    print("Successfully applied %d change scripts (skipping %d)" % (scripts_applied, scripts_skipped))
-
+  print("Successfully applied %d change scripts (skipping %d)" % (scripts_applied, scripts_skipped))
   print("Completed successfully")
-
-def build_database_name(database_name, environment_name, append_environment_name):
-  # Form the database name, appending the environment if desired
-  final_database_name = database_name.upper()
-  if append_environment_name:
-    final_database_name = final_database_name + '_' + environment_name.upper()
-
-  return final_database_name
 
 # This function will return a list containing the parts of the key (split by number parts)
 # Each number is converted to and integer and string parts are left as strings
@@ -181,30 +139,34 @@ def execute_snowflake_query(snowflake_database, query, verbose):
   finally:
     con.close()
 
-def create_database_if_missing(database, verbose):
-  query = "CREATE DATABASE IF NOT EXISTS {0}".format(database)
-  execute_snowflake_query('', query, verbose)
-
-def create_schema_if_missing(database, schema, verbose):
-  query = "CREATE SCHEMA IF NOT EXISTS {0}".format(schema)
-  execute_snowflake_query(database, query, verbose)
-
-def get_change_history_table_details(subject_area, environment_name, append_environment_name):
-    database = build_database_name(_metadata_database_name, environment_name, append_environment_name)
+def get_change_history_table_details(environment_name, append_environment_name):
+    # Form the database name, appending the environment if desired
+    database = _metadata_database_name.upper()
+    if append_environment_name:
+      database = database + '_' + environment_name.upper()
 
     details = dict()
     details['database_name'] = database
-    details['schema_name'] = _metadata_schema_name
-    details['table_name'] = _metadata_table_name
+    details['schema_name'] = _metadata_schema_name.upper()
+    details['table_name'] = _metadata_table_name.upper()
 
     return details
 
 def create_change_history_table_if_missing(change_history_table, verbose):
-  query = "CREATE TABLE IF NOT EXISTS {0}.{1} (SUBJECT_AREA VARCHAR, VERSION VARCHAR, TARGET_DATABASE VARCHAR, DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR, EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)".format(change_history_table['schema_name'], change_history_table['table_name'])
+  # Create the database if it doesn't exist
+  query = "CREATE DATABASE IF NOT EXISTS {0}".format(change_history_table['database_name'])
+  execute_snowflake_query('', query, verbose)
+
+  # Create the schema if it doesn't exist
+  query = "CREATE SCHEMA IF NOT EXISTS {0}".format(change_history_table['schema_name'])
   execute_snowflake_query(change_history_table['database_name'], query, verbose)
 
-def fetch_change_history(change_history_table, subject_area, verbose):
-  query = 'SELECT VERSION FROM {0}.{1} WHERE SUBJECT_AREA = \'{2}\''.format(change_history_table['schema_name'], change_history_table['table_name'], subject_area)
+  # Finally, create the change history table if it doesn't exist
+  query = "CREATE TABLE IF NOT EXISTS {0}.{1} (VERSION VARCHAR, DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR, EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)".format(change_history_table['schema_name'], change_history_table['table_name'])
+  execute_snowflake_query(change_history_table['database_name'], query, verbose)
+
+def fetch_change_history(change_history_table, verbose):
+  query = 'SELECT VERSION FROM {0}.{1}'.format(change_history_table['schema_name'], change_history_table['table_name'])
   results = execute_snowflake_query(change_history_table['database_name'], query, verbose)
 
   # Collect all the results into a list
@@ -215,7 +177,7 @@ def fetch_change_history(change_history_table, subject_area, verbose):
 
   return change_history
 
-def apply_change_script(database, script, change_history_table, subject_area, verbose):
+def apply_change_script(script, change_history_table, verbose):
   # First read the contents of the script
   with open(script['script_full_path'],'r') as content_file:
     content = content_file.read().strip()
@@ -229,25 +191,25 @@ def apply_change_script(database, script, change_history_table, subject_area, ve
   # Execute the contents of the script
   if len(content) > 0:
     start = time.time()
-    execute_snowflake_query(database, content, verbose)
+    execute_snowflake_query('', content, verbose)
     end = time.time()
     execution_time = round(end - start)
 
   # Finally record this change in the change history table
-  query = "INSERT INTO {0}.{1} (SUBJECT_AREA, VERSION, TARGET_DATABASE, DESCRIPTION, SCRIPT, SCRIPT_TYPE, CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{2}','{3}','{4}','{5}','{6}','{7}','{8}',{9},'{10}','{11}',CURRENT_TIMESTAMP);".format(change_history_table['schema_name'], change_history_table['table_name'], subject_area, script['script_version'], database, script['script_description'], script['script_name'], script['script_type'], checksum, execution_time, status, os.environ["SNOWFLAKE_USER"])
+  query = "INSERT INTO {0}.{1} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{2}','{3}','{4}','{5}','{6}',{7},'{8}','{9}',CURRENT_TIMESTAMP);".format(change_history_table['schema_name'], change_history_table['table_name'], script['script_version'], script['script_description'], script['script_name'], script['script_type'], checksum, execution_time, status, os.environ["SNOWFLAKE_USER"])
   execute_snowflake_query(change_history_table['database_name'], query, verbose)
 
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(prog = 'python snowchange.py', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/jamesweakley/snowchange', formatter_class = argparse.RawTextHelpFormatter)
-  parser.add_argument('-e', '--environment-name', type = str, help = 'The name of the environment (e.g. dev, test, prod)', required = True)
-  parser.add_argument('-n','--append-environment-name', action='store_true', help = 'Append the --environment-name to the database name')
+  parser.add_argument('-f','--root-folder', type = str, default = ".", help = 'The root folder for the database change scripts')
   parser.add_argument('-a', '--snowflake-account', type = str, help = 'The name of the snowflake account (e.g. ly12345)', required = True)
   parser.add_argument('--snowflake-region', type = str, help = 'The name of the snowflake region (e.g. ap-southeast-2)', required = True)
   parser.add_argument('-u', '--snowflake-user', type = str, help = 'The name of the snowflake user (e.g. DEPLOYER)', required = True)
   parser.add_argument('-r', '--snowflake-role', type = str, help = 'The name of the role to use (e.g. DEPLOYER_ROLE)', required = True)
   parser.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the warehouse to use (e.g. DEPLOYER_WAREHOUSE)', required = True)
-  parser.add_argument('-f','--root-folder', type = str, default = ".", help = 'The root folder for the database change scripts')
+  parser.add_argument('-e', '--environment-name', type = str, help = 'The name of the environment (e.g. dev, test, prod)', required = True)
+  parser.add_argument('-n','--append-environment-name', action='store_true', help = 'Append the --environment-name to the metadata database name')
   parser.add_argument('-v','--verbose', action='store_true')
   args = parser.parse_args()
 
