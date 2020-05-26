@@ -49,7 +49,10 @@ def snowchange(environment_name, append_environment_name, snowflake_account, sno
   if change_history:
     change_history_sorted = sorted_alphanumeric(change_history)
     max_published_version = change_history_sorted[-1]
-  print("Max applied change script version: %s" % max_published_version)
+  max_published_version_display = max_published_version
+  if max_published_version_display == '':
+    max_published_version_display = 'None'
+  print("Max applied change script version: %s" % max_published_version_display)
   if verbose:
     print("Change history: %s" % change_history)
 
