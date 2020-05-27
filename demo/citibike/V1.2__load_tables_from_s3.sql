@@ -1,4 +1,5 @@
-USE SCHEMA PUBLIC;
+-- Set the database and schema context
+USE SCHEMA SNOWCHANGE_DEMO.PUBLIC;
 
 -- Load the trips data
 COPY INTO TRIPS FROM @TRIPS
