@@ -6,13 +6,13 @@ import hashlib
 import snowflake.connector
 
 # Set a few global variables here
-_snowchange_version = 2.1
+_snowchange_version = '2.1.0'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SNOWCHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
 
 
-def snowchange(environment_name, append_environment_name, snowflake_account, snowflake_region, snowflake_user, snowflake_role, snowflake_warehouse, root_folder, verbose):
+def snowchange(root_folder, snowflake_account, snowflake_region, snowflake_user, snowflake_role, snowflake_warehouse, change_history_table_override, verbose):
   if "SNOWSQL_PWD" not in os.environ:
     raise ValueError("The SNOWSQL_PWD environment variable has not been defined")
 
@@ -21,8 +21,7 @@ def snowchange(environment_name, append_environment_name, snowflake_account, sno
     raise ValueError("Invalid root folder: %s" % root_folder)
 
   print("snowchange version: %s" % _snowchange_version)
-  print("Environment name: %s" % environment_name)
-  print("Root folder: %s" % root_folder)
+  print("Using root folder %s" % root_folder)
 
   # TODO: Is there a better way to do this without setting environment variables?
   os.environ["SNOWFLAKE_ACCOUNT"] = snowflake_account
@@ -36,7 +35,7 @@ def snowchange(environment_name, append_environment_name, snowflake_account, sno
   scripts_applied = 0
 
   # Get the change history table details
-  change_history_table = get_change_history_table_details(environment_name, append_environment_name)
+  change_history_table = get_change_history_table_details(change_history_table_override)
  
   # Create the change history table (and containing objects) if it don't exist.
   create_change_history_table_if_missing(change_history_table, verbose)
@@ -101,7 +100,7 @@ def get_all_scripts_recursively(root_directory, verbose):
       script_name_parts = re.search(r'^([V])(.+)__(.+)\.sql$', file_name.strip())
 
       # Only process valid change scripts
-      if script_name_parts == None:
+      if script_name_parts is None:
         if verbose:
           print("Ignoring non-change file " + file_full_path)
         continue
@@ -142,18 +141,30 @@ def execute_snowflake_query(snowflake_database, query, verbose):
   finally:
     con.close()
 
-def get_change_history_table_details(environment_name, append_environment_name):
-    # Form the database name, appending the environment if desired
-    database = _metadata_database_name.upper()
-    if append_environment_name:
-      database = database + '_' + environment_name.upper()
+def get_change_history_table_details(change_history_table_override):
+  # Start with the global defaults
+  details = dict()
+  details['database_name'] = _metadata_database_name.upper()
+  details['schema_name'] = _metadata_schema_name.upper()
+  details['table_name'] = _metadata_table_name.upper()
 
-    details = dict()
-    details['database_name'] = database
-    details['schema_name'] = _metadata_schema_name.upper()
-    details['table_name'] = _metadata_table_name.upper()
+  # Then override the defaults if requested. The name could be in one, two or three part notation.
+  if change_history_table_override is not None:
+    table_name_parts = change_history_table_override.strip().split('.')
 
-    return details
+    if len(table_name_parts) == 1:
+      details['table_name'] = table_name_parts[0].upper()
+    elif len(table_name_parts) == 2:
+      details['table_name'] = table_name_parts[1].upper()
+      details['schema_name'] = table_name_parts[0].upper()
+    elif len(table_name_parts) == 3:
+      details['table_name'] = table_name_parts[2].upper()
+      details['schema_name'] = table_name_parts[1].upper()
+      details['database_name'] = table_name_parts[0].upper()
+    else:
+      raise ValueError("Invalid change history table name: %s" % change_history_table_override)
+
+  return details
 
 def create_change_history_table_if_missing(change_history_table, verbose):
   # Create the database if it doesn't exist
@@ -211,9 +222,8 @@ if __name__ == '__main__':
   parser.add_argument('-u', '--snowflake-user', type = str, help = 'The name of the snowflake user (e.g. DEPLOYER)', required = True)
   parser.add_argument('-r', '--snowflake-role', type = str, help = 'The name of the role to use (e.g. DEPLOYER_ROLE)', required = True)
   parser.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the warehouse to use (e.g. DEPLOYER_WAREHOUSE)', required = True)
-  parser.add_argument('-e', '--environment-name', type = str, help = 'The name of the environment (e.g. dev, test, prod)', required = True)
-  parser.add_argument('-n','--append-environment-name', action='store_true', help = 'Append the --environment-name to the metadata database name')
+  parser.add_argument('-c', '--change-history-table', type = str, help = 'Used to override the default name of the change history table (e.g. METADATA.SNOWCHANGE.CHANGE_HISTORY)', required = False)
   parser.add_argument('-v','--verbose', action='store_true')
   args = parser.parse_args()
 
-  snowchange(args.environment_name, args.append_environment_name, args.snowflake_account, args.snowflake_region, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.root_folder, args.verbose)
+  snowchange(args.root_folder, args.snowflake_account, args.snowflake_region, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.change_history_table, args.verbose)
