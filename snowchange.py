@@ -6,13 +6,13 @@ import hashlib
 import snowflake.connector
 
 # Set a few global variables here
-_snowchange_version = '2.1.0'
+_snowchange_version = '2.1.1'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SNOWCHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
 
 
-def snowchange(root_folder, snowflake_account, snowflake_region, snowflake_user, snowflake_role, snowflake_warehouse, change_history_table_override, verbose):
+def snowchange(root_folder, snowflake_account, snowflake_region, snowflake_user, snowflake_role, snowflake_warehouse, change_history_table_override, authenticator, verbose):
   if "SNOWSQL_PWD" not in os.environ:
     raise ValueError("The SNOWSQL_PWD environment variable has not been defined")
 
@@ -28,8 +28,12 @@ def snowchange(root_folder, snowflake_account, snowflake_region, snowflake_user,
   os.environ["SNOWFLAKE_USER"] = snowflake_user
   os.environ["SNOWFLAKE_ROLE"] = snowflake_role
   os.environ["SNOWFLAKE_WAREHOUSE"] = snowflake_warehouse
-  os.environ["SNOWFLAKE_REGION"] = snowflake_region
-  os.environ["SNOWFLAKE_AUTHENTICATOR"] = 'snowflake'
+  if snowflake_region:
+    os.environ["SNOWFLAKE_REGION"] = snowflake_region
+  if authenticator:
+    os.environ["SNOWFLAKE_AUTHENTICATOR"] = authenticator
+  else:
+    os.environ["SNOWFLAKE_AUTHENTICATOR"] = 'snowflake'
 
   scripts_skipped = 0
   scripts_applied = 0
@@ -123,19 +127,41 @@ def get_all_scripts_recursively(root_directory, verbose):
 
 def execute_snowflake_query(snowflake_database, query, verbose):
   con = snowflake.connector.connect(
-    user = os.environ["SNOWFLAKE_USER"],
-    account = os.environ["SNOWFLAKE_ACCOUNT"],
-    role = os.environ["SNOWFLAKE_ROLE"],
-    warehouse = os.environ["SNOWFLAKE_WAREHOUSE"],
-    database = snowflake_database,
-    region = os.environ["SNOWFLAKE_REGION"],
-    authenticator = os.environ["SNOWFLAKE_AUTHENTICATOR"],
-    password = os.environ["SNOWSQL_PWD"]
+    user=os.environ["SNOWFLAKE_USER"],
+    account=os.environ["SNOWFLAKE_ACCOUNT"],
+    role=os.environ["SNOWFLAKE_ROLE"],
+    warehouse=os.environ["SNOWFLAKE_WAREHOUSE"],
+    database=snowflake_database,
+    region=os.environ.get("SNOWFLAKE_WAREHOUSE") if os.environ.get("SNOWFLAKE_REGION") else '',  # no region if not specified
+    authenticator=os.environ["SNOWFLAKE_AUTHENTICATOR"],
+    password=os.environ["SNOWSQL_PWD"],
   )
+  # if os.environ.get("SNOWFLAKE_REGION"):
+  #   con = snowflake.connector.connect(
+  #     user = os.environ["SNOWFLAKE_USER"],
+  #     account = os.environ["SNOWFLAKE_ACCOUNT"],
+  #     role = os.environ["SNOWFLAKE_ROLE"],
+  #     warehouse = os.environ["SNOWFLAKE_WAREHOUSE"],
+  #     database = snowflake_database,
+  #     region = os.environ["SNOWFLAKE_REGION"],  # no region if not specified
+  #     authenticator = os.environ["SNOWFLAKE_AUTHENTICATOR"],
+  #     password = os.environ["SNOWSQL_PWD"],
+  #   )
+  # else:
+  #   con = snowflake.connector.connect(
+  #     user = os.environ["SNOWFLAKE_USER"],
+  #     account = os.environ["SNOWFLAKE_ACCOUNT"],
+  #     role = os.environ["SNOWFLAKE_ROLE"],
+  #     warehouse = os.environ["SNOWFLAKE_WAREHOUSE"],
+  #     database = snowflake_database,
+  #     authenticator = os.environ["SNOWFLAKE_AUTHENTICATOR"],
+  #     password = os.environ["SNOWSQL_PWD"],
+  #   )
 
   if verbose:
       print("SQL query: %s" % query)
 
+  # TODO: we are connecting and closing connection after every query? Let's make all of this not use env vars and just be a class.
   try:
     return con.execute_string(query)
   finally:
@@ -215,15 +241,70 @@ def apply_change_script(script, change_history_table, verbose):
 
 
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser(prog = 'python snowchange.py', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/jamesweakley/snowchange', formatter_class = argparse.RawTextHelpFormatter)
-  parser.add_argument('-f','--root-folder', type = str, default = ".", help = 'The root folder for the database change scripts')
-  parser.add_argument('-a', '--snowflake-account', type = str, help = 'The name of the snowflake account (e.g. ly12345)', required = True)
-  parser.add_argument('--snowflake-region', type = str, help = 'The name of the snowflake region (e.g. ap-southeast-2)', required = True)
-  parser.add_argument('-u', '--snowflake-user', type = str, help = 'The name of the snowflake user (e.g. DEPLOYER)', required = True)
-  parser.add_argument('-r', '--snowflake-role', type = str, help = 'The name of the role to use (e.g. DEPLOYER_ROLE)', required = True)
-  parser.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the warehouse to use (e.g. DEPLOYER_WAREHOUSE)', required = True)
-  parser.add_argument('-c', '--change-history-table', type = str, help = 'Used to override the default name of the change history table (e.g. METADATA.SNOWCHANGE.CHANGE_HISTORY)', required = False)
-  parser.add_argument('-v','--verbose', action='store_true')
+  parser = argparse.ArgumentParser(
+    prog='python snowchange.py',
+    description='Apply schema changes to a Snowflake account. Full readme at https://github.com/jamesweakley/snowchange',
+    formatter_class = argparse.RawTextHelpFormatter,
+  )
+  parser.add_argument(
+    '-f',
+    '--root-folder',
+    type=str,
+    default=".",
+    help='The root folder for the database change scripts',
+  )
+  parser.add_argument(
+    '-a',
+    '--snowflake-account',
+    type=str,
+    help='The name of the snowflake account (e.g. ly12345)',
+    required=True)
+  parser.add_argument(
+    '-u',
+    '--snowflake-user',
+    type=str,
+    help='The name of the snowflake user (e.g. DEPLOYER)',
+    required=True,
+  )
+  parser.add_argument(
+    '-r',
+    '--snowflake-role',
+    type=str,
+    help='The name of the role to use (e.g. DEPLOYER_ROLE)',
+    required=True,
+  )
+  parser.add_argument(
+    '-w',
+    '--snowflake-warehouse',
+    type=str,
+    help='The name of the warehouse to use (e.g. DEPLOYER_WAREHOUSE)',
+    required=True,
+  )
+  parser.add_argument(
+    '--snowflake-region',
+    type=str,
+    help='The name of the snowflake region (e.g. ap-southeast-2)',
+    required=False,
+  )
+  parser.add_argument(
+    '-c',
+    '--change-history-table',
+    type=str,
+    help='Used to override the default name of the change history table (e.g. METADATA.SNOWCHANGE.CHANGE_HISTORY)',
+    required=False,
+  )
+  parser.add_argument(
+    '-ath',
+    '--authenticator',
+    type=str,
+    help='Used to override the default setting of "snowflake" for the snowflake.connector authenticator setting (e.g. https://myaccount.okta.com/)',
+    required=False,
+  )
+  parser.add_argument(
+    '-v',
+    '--verbose',
+    action='store_true',
+  )
   args = parser.parse_args()
 
-  snowchange(args.root_folder, args.snowflake_account, args.snowflake_region, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.change_history_table, args.verbose)
+  snowchange(args.root_folder, args.snowflake_account, args.snowflake_region, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.change_history_table, args.authenticator, args.verbose)
