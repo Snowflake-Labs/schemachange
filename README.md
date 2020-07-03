@@ -30,6 +30,9 @@ For the complete list of changes made to snowchange check out the [CHANGELOG](CH
 1. [Legal](#legal)
 
 
+## Installation
+`pip install snowchange`
+
 ## Project Structure
 
 ### Folder Structure
@@ -114,7 +117,7 @@ In order to run snowchange you must have the following:
 snowchange is a single python script named [snowchange.py](snowchange.py). It can be executed as follows:
 
 ```
-python snowchange.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v]
+snowchange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v] [-ac]
 ```
 
 The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWSQL_PWD` prior to calling the script. snowchange will fail if the `SNOWSQL_PWD` environment variable is not set.
@@ -133,6 +136,7 @@ Parameter | Description
 -r SNOWFLAKE_ROLE, --snowflake-role SNOWFLAKE_ROLE | The name of the role to use (e.g. DEPLOYER_ROLE)
 -w SNOWFLAKE_WAREHOUSE, --snowflake-warehouse SNOWFLAKE_WAREHOUSE | The name of the warehouse to use (e.g. DEPLOYER_WAREHOUSE)
 -c CHANGE_HISTORY_TABLE, --change-history-table CHANGE_HISTORY_TABLE | Used to override the default name of the change history table (e.g. METADATA.SNOWCHANGE.CHANGE_HISTORY)
+-ac, --autocommit | A signal for Snowflake Python connector to enable autocommit feature for DML commands.
 -v, --verbose | Display verbose debugging details during execution
 
 ## Getting Started with snowchange
@@ -165,7 +169,7 @@ Here is a sample DevOps development lifecycle with snowchange:
 If your build agent has a recent version of python 3 installed, the script can be ran like so:
 ```
 pip install --upgrade snowflake-connector-python
-python snowchange.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v]
+python snowchange.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v] [-ac]
 ```
 
 Or if you prefer docker, set the environment variables and run like so:
