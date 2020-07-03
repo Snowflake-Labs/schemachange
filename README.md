@@ -30,6 +30,9 @@ For the complete list of changes made to snowchange check out the [CHANGELOG](CH
 1. [Legal](#legal)
 
 
+## Installation
+`pip install snowchange`
+
 ## Project Structure
 
 ### Folder Structure
@@ -114,7 +117,7 @@ In order to run snowchange you must have the following:
 snowchange is a single python script named [snowchange.py](snowchange.py). It can be executed as follows:
 
 ```
-python snowchange.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v] [-ac]
+snowchange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v] [-ac]
 ```
 
 The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWSQL_PWD` prior to calling the script. snowchange will fail if the `SNOWSQL_PWD` environment variable is not set.
