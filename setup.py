@@ -15,7 +15,7 @@ setup(
     name="snowchange",
     version="0.0.2",
     author="jamesweakley/jeremiahhansen/zeitgeistf",
-    author_email="jamesweakley.github.io",
+    author_email="shawnsfeng@gmail.com",
     description="Python package for managing Snowflake schema.",
     long_description=long_description,
     long_description_content_type="text/markdown",
