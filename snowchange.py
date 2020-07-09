@@ -12,7 +12,7 @@ _metadata_schema_name = 'SNOWCHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
 
 
-def snowchange(root_folder, snowflake_account, snowflake_region, snowflake_user, snowflake_role, snowflake_warehouse, change_history_table_override, verbose):
+def snowchange(root_folder, snowflake_account, snowflake_region, snowflake_user, snowflake_role, snowflake_warehouse, change_history_table_override, autocommit, verbose):
   if "SNOWSQL_PWD" not in os.environ:
     raise ValueError("The SNOWSQL_PWD environment variable has not been defined")
 
@@ -38,13 +38,13 @@ def snowchange(root_folder, snowflake_account, snowflake_region, snowflake_user,
   change_history_table = get_change_history_table_details(change_history_table_override)
  
   # Create the change history table (and containing objects) if it don't exist.
-  create_change_history_table_if_missing(change_history_table, verbose)
+  create_change_history_table_if_missing(change_history_table, autocommit, verbose)
   print("Using change history table %s.%s.%s" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name']))
 
   # Find the max published version
   # TODO: Figure out how to directly SELECT the max value from Snowflake with a SQL version of the sorted_alphanumeric() logic
   max_published_version = ''
-  change_history = fetch_change_history(change_history_table, verbose)
+  change_history = fetch_change_history(change_history_table, autocommit, verbose)
   if change_history:
     change_history_sorted = sorted_alphanumeric(change_history)
     max_published_version = change_history_sorted[-1]
@@ -72,7 +72,7 @@ def snowchange(root_folder, snowflake_account, snowflake_region, snowflake_user,
       continue
 
     print("Applying change script %s" % script['script_name'])
-    apply_change_script(script, change_history_table, verbose)
+    apply_change_script(script, change_history_table, autocommit, verbose)
     scripts_applied += 1
 
   print("Successfully applied %d change scripts (skipping %d)" % (scripts_applied, scripts_skipped))
@@ -121,7 +121,7 @@ def get_all_scripts_recursively(root_directory, verbose):
 
   return all_files
 
-def execute_snowflake_query(snowflake_database, query, verbose):
+def execute_snowflake_query(snowflake_database, query, autocommit, verbose):
   con = snowflake.connector.connect(
     user = os.environ["SNOWFLAKE_USER"],
     account = os.environ["SNOWFLAKE_ACCOUNT"],
@@ -132,12 +132,21 @@ def execute_snowflake_query(snowflake_database, query, verbose):
     authenticator = os.environ["SNOWFLAKE_AUTHENTICATOR"],
     password = os.environ["SNOWSQL_PWD"]
   )
+  if not autocommit:
+    con.autocommit(False)
 
   if verbose:
       print("SQL query: %s" % query)
 
   try:
-    return con.execute_string(query)
+    res = con.execute_string(query)
+    if not autocommit:
+      con.commit()
+    return res
+  except Exception as e:
+    if not autocommit:
+      con.rollback()
+    raise e
   finally:
     con.close()
 
@@ -166,22 +175,22 @@ def get_change_history_table_details(change_history_table_override):
 
   return details
 
-def create_change_history_table_if_missing(change_history_table, verbose):
+def create_change_history_table_if_missing(change_history_table, autocommit, verbose):
   # Create the database if it doesn't exist
   query = "CREATE DATABASE IF NOT EXISTS {0}".format(change_history_table['database_name'])
-  execute_snowflake_query('', query, verbose)
+  execute_snowflake_query('', query, autocommit, verbose)
 
   # Create the schema if it doesn't exist
   query = "CREATE SCHEMA IF NOT EXISTS {0}".format(change_history_table['schema_name'])
-  execute_snowflake_query(change_history_table['database_name'], query, verbose)
+  execute_snowflake_query(change_history_table['database_name'], query, autocommit, verbose)
 
   # Finally, create the change history table if it doesn't exist
   query = "CREATE TABLE IF NOT EXISTS {0}.{1} (VERSION VARCHAR, DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR, EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)".format(change_history_table['schema_name'], change_history_table['table_name'])
-  execute_snowflake_query(change_history_table['database_name'], query, verbose)
+  execute_snowflake_query(change_history_table['database_name'], query, autocommit, verbose)
 
-def fetch_change_history(change_history_table, verbose):
+def fetch_change_history(change_history_table, autocommit, verbose):
   query = 'SELECT VERSION FROM {0}.{1}'.format(change_history_table['schema_name'], change_history_table['table_name'])
-  results = execute_snowflake_query(change_history_table['database_name'], query, verbose)
+  results = execute_snowflake_query(change_history_table['database_name'], query, autocommit, verbose)
 
   # Collect all the results into a list
   change_history = list()
@@ -191,7 +200,7 @@ def fetch_change_history(change_history_table, verbose):
 
   return change_history
 
-def apply_change_script(script, change_history_table, verbose):
+def apply_change_script(script, change_history_table, autocommit, verbose):
   # First read the contents of the script
   with open(script['script_full_path'],'r') as content_file:
     content = content_file.read().strip()
@@ -205,13 +214,13 @@ def apply_change_script(script, change_history_table, verbose):
   # Execute the contents of the script
   if len(content) > 0:
     start = time.time()
-    execute_snowflake_query('', content, verbose)
+    execute_snowflake_query('', content, autocommit, verbose)
     end = time.time()
     execution_time = round(end - start)
 
   # Finally record this change in the change history table
   query = "INSERT INTO {0}.{1} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{2}','{3}','{4}','{5}','{6}',{7},'{8}','{9}',CURRENT_TIMESTAMP);".format(change_history_table['schema_name'], change_history_table['table_name'], script['script_version'], script['script_description'], script['script_name'], script['script_type'], checksum, execution_time, status, os.environ["SNOWFLAKE_USER"])
-  execute_snowflake_query(change_history_table['database_name'], query, verbose)
+  execute_snowflake_query(change_history_table['database_name'], query, autocommit, verbose)
 
 
 if __name__ == '__main__':
@@ -223,7 +232,8 @@ if __name__ == '__main__':
   parser.add_argument('-r', '--snowflake-role', type = str, help = 'The name of the role to use (e.g. DEPLOYER_ROLE)', required = True)
   parser.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the warehouse to use (e.g. DEPLOYER_WAREHOUSE)', required = True)
   parser.add_argument('-c', '--change-history-table', type = str, help = 'Used to override the default name of the change history table (e.g. METADATA.SNOWCHANGE.CHANGE_HISTORY)', required = False)
+  parser.add_argument('-ac', '--autocommit', action='store_true')
   parser.add_argument('-v','--verbose', action='store_true')
   args = parser.parse_args()
 
-  snowchange(args.root_folder, args.snowflake_account, args.snowflake_region, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.change_history_table, args.verbose)
+  snowchange(args.root_folder, args.snowflake_account, args.snowflake_region, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.change_history_table, args.autocommit, args.verbose)
