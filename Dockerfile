@@ -1,5 +1,5 @@
 FROM python:3.7
 
-RUN pip install snowchange==0.0.2
+RUN pip install snowchange
 
 ENTRYPOINT snowchange

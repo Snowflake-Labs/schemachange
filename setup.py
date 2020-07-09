@@ -13,13 +13,12 @@ test_requires = parse_requirements("requirements.txt", session="snowchnage")
 
 setup(
     name="snowchange",
-    version="0.0.2",
+    version="2.1.0",
     author="jamesweakley/jeremiahhansen/zeitgeistf",
-    author_email="shawnsfeng@gmail.com",
     description="Python package for managing Snowflake schema.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/zeitgeistf/snowchange",
+    url="https://github.com/jamesweakley/snowchange",
     packages=find_packages(),
     package_dir={"snowchange": "snowchange"},
     setup_requires=[],
