@@ -24,8 +24,8 @@ setup(
     package_dir={"snowchange": "snowchange"},
     setup_requires=[],
     python_requires=">=3.7",
-    install_requires=[str(ir.req) for ir in install_requires],
-    tests_require=[str(tr.req) for tr in test_requires],
+    install_requires=[str(ir.requirement) for ir in install_requires],
+    tests_require=[str(tr.requirement) for tr in test_requires],
     entry_points={"console_scripts": ["snowchange=snowchange.cli:main"]},
     classifiers=[
         "Programming Language :: Python :: 3.7",
