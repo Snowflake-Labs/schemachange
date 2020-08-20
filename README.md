@@ -119,6 +119,7 @@ A new row will be added to this table every time a change script has been applie
 In order to run snowchange you must have the following:
 
 * You will need to have a recent version of python 3 installed
+* You will need to have the latest [Snowflake Python driver installed](https://docs.snowflake.com/en/user-guide/python-connector-install.html)
 * You will need to use a user account that has permission to apply the changes in your change script
 
 ### Running the Script
