@@ -17,6 +17,7 @@ For the complete list of changes made to snowchange check out the [CHANGELOG](CH
 1. [Change Scripts](#change-scripts)
    1. [Script Naming](#script-naming)
    1. [Script Requirements](#script-requirements)
+   1. [Using Variables in Scripts](#using-variables-in-scripts)
 1. [Change History Table](#change-history-table)
 1. [Running snowchange](#running-snowchange)
    1. [Prerequisites](#prerequisites)
@@ -80,6 +81,17 @@ Every script within a database folder must have a unique version number. snowcha
 
 snowchange is designed to be very lightweight and not impose to many limitations. Each change script can have any number of SQL statements within it and must supply the necessary context, like database and schema names. The context can be supplied by using an explicit `USE <DATABASE>` command or by naming all objects with a three-part name (`<database name>.<schema name>.<object name>`). snowchange will simply run the contents of each script against the target Snowflake account, in the correct order.
 
+### Using Variables in Scripts
+
+snowchange supports a light weight variable replacement strategy. One important use of variables is to support multiple environments (dev, test, prod) in a single Snowflake account by dynamically changing the database name during deployment.
+
+To use a variable in a change script, use this syntax anywhere in the script: `{{ variable1 }}`. So the pattern is two left curly braces, followed by a space, followed by the variable name, followed by a space, and finally followed by two right curly braces. And the spaces are important. The format for including variables in change scripts mimics [Jinja expressions](https://jinja.palletsprojects.com/en/2.11.x/templates/#expressions). Please note that at this point snowchange hasn't been integrated with Jinja, but by using the same syntax for variables and expressions a future migration will be seamless.
+
+To pass variables to snowchange, use the `--vars` command line parameter like this: `--vars '{"variable1": "value", "variable2": "value2"}'`. This parameter accepts a flat JSON object formatted as a string. Nested objects and arrays don't make sense at this point and aren't supported.
+
+snowchange will replace any variable placeholders before running your change script code and will throw an error if it finds any variable placeholders that haven't been replaced.
+
+
 ## Change History Table
 
 snowchange will automatically create a change history table to track the history of all changes applied. By default the table `CHANGE_HISTORY` will be created within a `SNOWCHANGE` schema in a `METADATA` database. The name and location of the change history table can be overriden by using the `-c` (or `--change-history-table`) parameter. The value passed to the parameter can have a one, two, or three part name (e.g. "TABLE_NAME", or "SCHEMA_NAME.TABLE_NAME", or "DATABASE_NAME.SCHEMA_NAME.TABLE_NAME"). This can be used to support multiple environments (dev, test, prod) or multiple subject areas within the same Snowflake account.
@@ -114,7 +126,7 @@ In order to run snowchange you must have the following:
 snowchange is a single python script named [snowchange.py](snowchange.py). It can be executed as follows:
 
 ```
-python snowchange.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v] [-ac]
+python snowchange.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [--vars VARS] [-ac] [-v]
 ```
 
 The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWSQL_PWD` prior to calling the script. snowchange will fail if the `SNOWSQL_PWD` environment variable is not set.
@@ -132,9 +144,10 @@ Parameter | Description
 -u SNOWFLAKE_USER, --snowflake-user SNOWFLAKE_USER | The name of the snowflake user (e.g. DEPLOYER)
 -r SNOWFLAKE_ROLE, --snowflake-role SNOWFLAKE_ROLE | The name of the role to use (e.g. DEPLOYER_ROLE)
 -w SNOWFLAKE_WAREHOUSE, --snowflake-warehouse SNOWFLAKE_WAREHOUSE | The name of the warehouse to use (e.g. DEPLOYER_WAREHOUSE)
--c CHANGE_HISTORY_TABLE, --change-history-table CHANGE_HISTORY_TABLE | Used to override the default name of the change history table (e.g. METADATA.SNOWCHANGE.CHANGE_HISTORY)
--ac, --autocommit | A signal for Snowflake Python connector to enable autocommit feature for DML commands.
--v, --verbose | Display verbose debugging details during execution
+-c CHANGE_HISTORY_TABLE, --change-history-table CHANGE_HISTORY_TABLE | *(Optional)* Used to override the default name of the change history table (e.g. METADATA.SNOWCHANGE.CHANGE_HISTORY)
+--vars VARS | *(Optional)* Define values for the variables to replaced in change scripts, given in JSON format (e.g. '{"variable1": "value1", "variable2": "value2"}')
+-ac, --autocommit | *(Optional)* A signal for Snowflake Python connector to enable autocommit feature for DML commands.
+-v, --verbose | *(Optional)* Display verbose debugging details during execution
 
 ## Getting Started with snowchange
 
@@ -166,7 +179,7 @@ Here is a sample DevOps development lifecycle with snowchange:
 If your build agent has a recent version of python 3 installed, the script can be ran like so:
 ```
 pip install --upgrade snowflake-connector-python
-python snowchange.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v] [-ac]
+python snowchange.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [--vars VARS] [-v] [-ac]
 ```
 
 Or if you prefer docker, set the environment variables and run like so:

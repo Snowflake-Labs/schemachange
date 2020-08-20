@@ -1,18 +1,19 @@
 import os
 import re
 import argparse
+import json
 import time
 import hashlib
 import snowflake.connector
 
 # Set a few global variables here
-_snowchange_version = '2.1.0'
+_snowchange_version = '2.2.0'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SNOWCHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
 
 
-def snowchange(root_folder, snowflake_account, snowflake_region, snowflake_user, snowflake_role, snowflake_warehouse, change_history_table_override, autocommit, verbose):
+def snowchange(root_folder, snowflake_account, snowflake_region, snowflake_user, snowflake_role, snowflake_warehouse, change_history_table_override, vars, autocommit, verbose):
   if "SNOWSQL_PWD" not in os.environ:
     raise ValueError("The SNOWSQL_PWD environment variable has not been defined")
 
@@ -22,6 +23,7 @@ def snowchange(root_folder, snowflake_account, snowflake_region, snowflake_user,
 
   print("snowchange version: %s" % _snowchange_version)
   print("Using root folder %s" % root_folder)
+  print("Using variables %s" % vars)
 
   # TODO: Is there a better way to do this without setting environment variables?
   os.environ["SNOWFLAKE_ACCOUNT"] = snowflake_account
@@ -72,7 +74,7 @@ def snowchange(root_folder, snowflake_account, snowflake_region, snowflake_user,
       continue
 
     print("Applying change script %s" % script['script_name'])
-    apply_change_script(script, change_history_table, autocommit, verbose)
+    apply_change_script(script, vars, change_history_table, autocommit, verbose)
     scripts_applied += 1
 
   print("Successfully applied %d change scripts (skipping %d)" % (scripts_applied, scripts_skipped))
@@ -200,7 +202,7 @@ def fetch_change_history(change_history_table, autocommit, verbose):
 
   return change_history
 
-def apply_change_script(script, change_history_table, autocommit, verbose):
+def apply_change_script(script, vars, change_history_table, autocommit, verbose):
   # First read the contents of the script
   with open(script['script_full_path'],'r') as content_file:
     content = content_file.read().strip()
@@ -210,6 +212,9 @@ def apply_change_script(script, change_history_table, autocommit, verbose):
   checksum = hashlib.sha224(content.encode('utf-8')).hexdigest()
   execution_time = 0
   status = 'Success'
+
+  # Replace any variables used in the script content
+  content = replace_variables_references(content, vars, verbose)
 
   # Execute the contents of the script
   if len(content) > 0:
@@ -222,6 +227,32 @@ def apply_change_script(script, change_history_table, autocommit, verbose):
   query = "INSERT INTO {0}.{1} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{2}','{3}','{4}','{5}','{6}',{7},'{8}','{9}',CURRENT_TIMESTAMP);".format(change_history_table['schema_name'], change_history_table['table_name'], script['script_version'], script['script_description'], script['script_name'], script['script_type'], checksum, execution_time, status, os.environ["SNOWFLAKE_USER"])
   execute_snowflake_query(change_history_table['database_name'], query, autocommit, verbose)
 
+# snowchange uses Jinja style variable references of the form "{{ variablename }}"
+# See https://jinja.palletsprojects.com/en/2.11.x/templates/
+# Variable names follow Python variable naming conventions
+def count_variable_references(content):
+  result = re.findall(r'\{\{ ([A-Za-z_]{1}[A-Za-z0-9_]*) \}\}', content)
+
+  if result is None:
+    return 0
+  else:
+    return len(result)
+
+def replace_variables_references(content, vars, verbose):
+  # First check to see if there are any variables to replace
+  if count_variable_references(content) == 0:
+    return content
+
+  # Loop through each variable and replace it
+  for key in vars:
+    content = re.sub(r"\{\{ " + key + r" \}\}", vars[key], content)
+
+  # If there are any leftover variables through an error now
+  if count_variable_references(content) > 0:
+    raise ValueError("Found variables remaining in script content")
+
+  return content
+
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(prog = 'python snowchange.py', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/jamesweakley/snowchange', formatter_class = argparse.RawTextHelpFormatter)
@@ -232,8 +263,9 @@ if __name__ == '__main__':
   parser.add_argument('-r', '--snowflake-role', type = str, help = 'The name of the role to use (e.g. DEPLOYER_ROLE)', required = True)
   parser.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the warehouse to use (e.g. DEPLOYER_WAREHOUSE)', required = True)
   parser.add_argument('-c', '--change-history-table', type = str, help = 'Used to override the default name of the change history table (e.g. METADATA.SNOWCHANGE.CHANGE_HISTORY)', required = False)
+  parser.add_argument('--vars', type = json.loads, help = 'Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})', required = False)
   parser.add_argument('-ac', '--autocommit', action='store_true')
   parser.add_argument('-v','--verbose', action='store_true')
   args = parser.parse_args()
 
-  snowchange(args.root_folder, args.snowflake_account, args.snowflake_region, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.change_history_table, args.autocommit, args.verbose)
+  snowchange(args.root_folder, args.snowflake_account, args.snowflake_region, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.change_history_table, args.vars, args.autocommit, args.verbose)
