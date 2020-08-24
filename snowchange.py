@@ -1,4 +1,5 @@
 import os
+import string
 import re
 import argparse
 import json
@@ -12,8 +13,22 @@ _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SNOWCHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
 
+# Define the Jinja expression template class
+# snowchange uses Jinja style variable references of the form "{{ variablename }}"
+# See https://jinja.palletsprojects.com/en/2.11.x/templates/
+# Variable names follow Python variable naming conventions
+class JinjaExpressionTemplate(string.Template):
+    delimiter = '{{ '
+    pattern = r'''
+    \{\{[ ](?:
+    (?P<escaped>\{\{)|
+    (?P<named>[_A-Za-z][_A-Za-z0-9]*)[ ]\}\}|
+    (?P<braced>[_A-Za-z][_A-Za-z0-9]*)[ ]\}\}|
+    (?P<invalid>)
+    )
+    '''
 
-def snowchange(root_folder, snowflake_account, snowflake_region, snowflake_user, snowflake_role, snowflake_warehouse, change_history_table_override, vars, autocommit, verbose):
+def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, change_history_table_override, vars, autocommit, verbose):
   if "SNOWSQL_PWD" not in os.environ:
     raise ValueError("The SNOWSQL_PWD environment variable has not been defined")
 
@@ -24,13 +39,13 @@ def snowchange(root_folder, snowflake_account, snowflake_region, snowflake_user,
   print("snowchange version: %s" % _snowchange_version)
   print("Using root folder %s" % root_folder)
   print("Using variables %s" % vars)
+  print("Using Snowflake account %s" % snowflake_account)
 
   # TODO: Is there a better way to do this without setting environment variables?
   os.environ["SNOWFLAKE_ACCOUNT"] = snowflake_account
   os.environ["SNOWFLAKE_USER"] = snowflake_user
   os.environ["SNOWFLAKE_ROLE"] = snowflake_role
   os.environ["SNOWFLAKE_WAREHOUSE"] = snowflake_warehouse
-  os.environ["SNOWFLAKE_REGION"] = snowflake_region
   os.environ["SNOWFLAKE_AUTHENTICATOR"] = 'snowflake'
 
   scripts_skipped = 0
@@ -130,7 +145,6 @@ def execute_snowflake_query(snowflake_database, query, autocommit, verbose):
     role = os.environ["SNOWFLAKE_ROLE"],
     warehouse = os.environ["SNOWFLAKE_WAREHOUSE"],
     database = snowflake_database,
-    region = os.environ["SNOWFLAKE_REGION"],
     authenticator = os.environ["SNOWFLAKE_AUTHENTICATOR"],
     password = os.environ["SNOWSQL_PWD"]
   )
@@ -227,38 +241,18 @@ def apply_change_script(script, vars, change_history_table, autocommit, verbose)
   query = "INSERT INTO {0}.{1} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{2}','{3}','{4}','{5}','{6}',{7},'{8}','{9}',CURRENT_TIMESTAMP);".format(change_history_table['schema_name'], change_history_table['table_name'], script['script_version'], script['script_description'], script['script_name'], script['script_type'], checksum, execution_time, status, os.environ["SNOWFLAKE_USER"])
   execute_snowflake_query(change_history_table['database_name'], query, autocommit, verbose)
 
-# snowchange uses Jinja style variable references of the form "{{ variablename }}"
-# See https://jinja.palletsprojects.com/en/2.11.x/templates/
-# Variable names follow Python variable naming conventions
-def count_variable_references(content):
-  result = re.findall(r'\{\{ ([A-Za-z_]{1}[A-Za-z0-9_]*) \}\}', content)
-
-  if result is None:
-    return 0
-  else:
-    return len(result)
-
+# This method will throw an error if there are any leftover variables in the change script
+# Since a leftover variable in the script isn't valid SQL, and will fail when run it's
+# better to throw an error here and have the user fix the problem ahead of time.
 def replace_variables_references(content, vars, verbose):
-  # First check to see if there are any variables to replace
-  if count_variable_references(content) == 0:
-    return content
-
-  # Loop through each variable and replace it
-  for key in vars:
-    content = re.sub(r"\{\{ " + key + r" \}\}", vars[key], content)
-
-  # If there are any leftover variables through an error now
-  if count_variable_references(content) > 0:
-    raise ValueError("Found variables remaining in script content")
-
-  return content
+  t = JinjaExpressionTemplate(content)
+  return t.substitute(vars)
 
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(prog = 'python snowchange.py', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/jamesweakley/snowchange', formatter_class = argparse.RawTextHelpFormatter)
   parser.add_argument('-f','--root-folder', type = str, default = ".", help = 'The root folder for the database change scripts')
-  parser.add_argument('-a', '--snowflake-account', type = str, help = 'The name of the snowflake account (e.g. ly12345)', required = True)
-  parser.add_argument('--snowflake-region', type = str, help = 'The name of the snowflake region (e.g. ap-southeast-2)', required = True)
+  parser.add_argument('-a', '--snowflake-account', type = str, help = 'The name of the snowflake account (e.g. abc123.east-us-2.azure)', required = True)
   parser.add_argument('-u', '--snowflake-user', type = str, help = 'The name of the snowflake user (e.g. DEPLOYER)', required = True)
   parser.add_argument('-r', '--snowflake-role', type = str, help = 'The name of the role to use (e.g. DEPLOYER_ROLE)', required = True)
   parser.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the warehouse to use (e.g. DEPLOYER_WAREHOUSE)', required = True)
@@ -268,4 +262,4 @@ if __name__ == '__main__':
   parser.add_argument('-v','--verbose', action='store_true')
   args = parser.parse_args()
 
-  snowchange(args.root_folder, args.snowflake_account, args.snowflake_region, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.change_history_table, args.vars, args.autocommit, args.verbose)
+  snowchange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.change_history_table, args.vars, args.autocommit, args.verbose)

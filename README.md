@@ -127,7 +127,7 @@ In order to run snowchange you must have the following:
 snowchange is a single python script named [snowchange.py](snowchange.py). It can be executed as follows:
 
 ```
-python snowchange.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [--vars VARS] [-ac] [-v]
+python snowchange.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [--vars VARS] [-ac] [-v]
 ```
 
 The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWSQL_PWD` prior to calling the script. snowchange will fail if the `SNOWSQL_PWD` environment variable is not set.
@@ -140,8 +140,7 @@ Parameter | Description
 --- | ---
 -h, --help | Show the help message and exit
 -f ROOT_FOLDER, --root-folder ROOT_FOLDER| *(Optional)* The root folder for the database change scripts. The default is the current directory.
--a SNOWFLAKE_ACCOUNT, --snowflake-account SNOWFLAKE_ACCOUNT | The name of the snowflake account (e.g. ly12345)
---snowflake-region SNOWFLAKE_REGION | The name of the snowflake region (e.g. ap-southeast-2)
+-a SNOWFLAKE_ACCOUNT, --snowflake-account SNOWFLAKE_ACCOUNT | The name of the snowflake account (e.g. abc123.east-us-2.azure). See [Usage Notes for the account Parameter (for the connect Method)](https://docs.snowflake.com/en/user-guide/python-connector-api.html#label-account-format-info) for more details on how to structure the account name.
 -u SNOWFLAKE_USER, --snowflake-user SNOWFLAKE_USER | The name of the snowflake user (e.g. DEPLOYER)
 -r SNOWFLAKE_ROLE, --snowflake-role SNOWFLAKE_ROLE | The name of the role to use (e.g. DEPLOYER_ROLE)
 -w SNOWFLAKE_WAREHOUSE, --snowflake-warehouse SNOWFLAKE_WAREHOUSE | The name of the warehouse to use (e.g. DEPLOYER_WAREHOUSE)
@@ -180,7 +179,7 @@ Here is a sample DevOps development lifecycle with snowchange:
 If your build agent has a recent version of python 3 installed, the script can be ran like so:
 ```
 pip install --upgrade snowflake-connector-python
-python snowchange.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [--vars VARS] [-v] [-ac]
+python snowchange.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [--vars VARS] [-v] [-ac]
 ```
 
 Or if you prefer docker, set the environment variables and run like so:
@@ -194,9 +193,8 @@ docker run -it --rm \
   -e SNOWFLAKE_USER \
   -e SNOWFLAKE_ROLE \
   -e SNOWFLAKE_WAREHOUSE \
-  -e SNOWFLAKE_REGION \
   -e SNOWSQL_PWD \
-  python:3 /bin/bash -c "pip install --upgrade snowflake-connector-python && python snowchange.py -f $ROOT_FOLDER -a $SNOWFLAKE_ACCOUNT --snowflake-region $SNOWFLAKE_REGION -u $SNOWFLAKE_USER -r $SNOWFLAKE_ROLE -w $SNOWFLAKE_WAREHOUSE"
+  python:3 /bin/bash -c "pip install --upgrade snowflake-connector-python && python snowchange.py -f $ROOT_FOLDER -a $SNOWFLAKE_ACCOUNT -u $SNOWFLAKE_USER -r $SNOWFLAKE_ROLE -w $SNOWFLAKE_WAREHOUSE"
 ```
 
 Either way, don't forget to set the `SNOWSQL_PWD` environment variable!

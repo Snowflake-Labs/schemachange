@@ -6,8 +6,14 @@ All notable changes to this project will be documented in this file.
 ## [2.2.0] - 2020-08-19
 
 ### Added
-- Support for variables in change scripts (following a Jinja expression syntax)!
+- Support for variables in change scripts (following a Jinja expression syntax)! See the [README](README.md) for more details.
 - A new optional parameter `--vars` which accepts a JSON formatted string of variables and values (e.g. `{"variable1": "value1", "variable2": "value2"}`)
+
+### Changed
+- Add the Snowflake account name to the script output to provide more log context
+
+### Removed
+- Removed the deprecated `--snowflake-region` parameter. Instead use the `-a` or `--snowflake-account` account parameter. See [Usage Notes for the account Parameter (for the connect Method)](https://docs.snowflake.com/en/user-guide/python-connector-api.html#label-account-format-info) for more details on how to structure the account name.
 
 
 ## [2.1.0] - 2020-05-26
