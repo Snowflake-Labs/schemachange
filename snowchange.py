@@ -8,7 +8,7 @@ import hashlib
 import snowflake.connector
 
 # Set a few global variables here
-_snowchange_version = '2.2.0'
+_snowchange_version = '2.3.0'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SNOWCHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
@@ -75,14 +75,17 @@ def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, s
   # Find all scripts in the root folder (recursively) and sort them correctly
   all_scripts = get_all_scripts_recursively(root_folder, verbose)
   all_script_names = list(all_scripts.keys())
-  all_script_names_sorted = sorted_alphanumeric(all_script_names)
-
+  # Sort scripts such that versioned scripts get applied first and then the repeatable ones.
+  all_script_names_sorted =   sorted_alphanumeric([script for script in all_script_names if script[0] == 'V']) \
+                            + sorted_alphanumeric([script for script in all_script_names if script[0] != 'V'])
+  
   # Loop through each script in order and apply any required changes
   for script_name in all_script_names_sorted:
     script = all_scripts[script_name]
 
-    # Only apply a change script if the version is newer than the most recent change in the database
-    if get_alphanum_key(script['script_version']) <= get_alphanum_key(max_published_version):
+    # Apply a versioned-change script only if the version is newer than the most recent change in the database
+    # Apply any other scripts, i.e. repeatable scripts, irrespective of the most recent change in the database
+    if script_name[0] == 'V' and get_alphanum_key(script['script_version']) <= get_alphanum_key(max_published_version):
       if verbose:
         print("Skipping change script %s because it's older than the most recently applied change (%s)" % (script['script_name'], max_published_version))
       scripts_skipped += 1
@@ -113,28 +116,38 @@ def get_all_scripts_recursively(root_directory, verbose):
   # Walk the entire directory structure recursively
   for (directory_path, directory_names, file_names) in os.walk(root_directory):
     for file_name in file_names:
+      
+      # Ignore files other than .sql
+      if not file_name.endswith('.sql'):
+        continue
+    
       file_full_path = os.path.join(directory_path, file_name)
       script_name_parts = re.search(r'^([V])(.+)__(.+)\.sql$', file_name.strip())
 
-      # Only process valid change scripts
+      # Set script type depending on whether it matches the versioned file naming format
       if script_name_parts is None:
+        script_type = 'R'
         if verbose:
-          print("Ignoring non-change file " + file_full_path)
-        continue
+          print("Repeatable file " + file_full_path)
+      else:
+        script_type = 'V'
+        if verbose:
+          print("Versioned file " + file_full_path)
 
       # Add this script to our dictionary (as nested dictionary)
       script = dict()
       script['script_name'] = file_name
       script['script_full_path'] = file_full_path
-      script['script_type'] = script_name_parts.group(1)
-      script['script_version'] = script_name_parts.group(2)
-      script['script_description'] = script_name_parts.group(3).replace('_', ' ').capitalize()
+      script['script_type'] = script_type
+      script['script_version'] = None if script_type == 'R' else script_name_parts.group(2)
+      script['script_description'] = None if script_type == 'R' else script_name_parts.group(3).replace('_', ' ').capitalize()
       all_files[file_name] = script
 
       # Throw an error if the same version exists more than once
-      if script['script_version'] in all_versions:
-        raise ValueError("The script version %s exists more than once (second instance %s)" % (script['script_version'], script['script_full_path']))
-      all_versions.append(script['script_version'])
+      if script_type == 'V':
+        if script['script_version'] in all_versions:
+          raise ValueError("The script version %s exists more than once (second instance %s)" % (script['script_version'], script['script_full_path']))
+        all_versions.append(script['script_version'])
 
   return all_files
 
@@ -205,7 +218,7 @@ def create_change_history_table_if_missing(change_history_table, autocommit, ver
   execute_snowflake_query(change_history_table['database_name'], query, autocommit, verbose)
 
 def fetch_change_history(change_history_table, autocommit, verbose):
-  query = 'SELECT VERSION FROM {0}.{1}'.format(change_history_table['schema_name'], change_history_table['table_name'])
+  query = "SELECT VERSION FROM {0}.{1} where SCRIPT_TYPE = 'V'".format(change_history_table['schema_name'], change_history_table['table_name'])
   results = execute_snowflake_query(change_history_table['database_name'], query, autocommit, verbose)
 
   # Collect all the results into a list

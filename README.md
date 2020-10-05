@@ -15,7 +15,8 @@ For the complete list of changes made to snowchange check out the [CHANGELOG](CH
 1. [Project Structure](#project-structure)
    1. [Folder Structure](#folder-structure)
 1. [Change Scripts](#change-scripts)
-   1. [Script Naming](#script-naming)
+   1. [Versioned Script Naming](#versioned-script-naming)
+   1. [Repeatable Script Naming](#repeatable-script-naming)
    1. [Script Requirements](#script-requirements)
    1. [Using Variables in Scripts](#using-variables-in-scripts)
 1. [Change History Table](#change-history-table)
@@ -42,18 +43,21 @@ snowchange expects a directory structure like the following to exist:
 |-- folder_1
     |-- V1.1.1__first_change.sql
     |-- V1.1.2__second_change.sql
+    |-- sp_calculate_running_total.sql
+    |-- fn_get_timezone.sql
 |-- folder_2
     |-- folder_3
         |-- V1.1.3__third_change.sql
+        |-- fn_sort_ascii.sql
 ```
 
 The snowchange folder structure is very flexible. The `project_root` folder is specified with the `-f` or `--root-folder` argument. Under the `project_root` folder you are free to arrange the change scripts any way you see fit. You can have as many subfolders (and nested subfolders) as you would like.
 
 ## Change Scripts
 
-### Script Naming
+### Versioned Script Naming
 
-Change scripts follow a similar naming convention to that used by [Flyway Versioned Migrations](https://flywaydb.org/documentation/migrations#versioned-migrations). The script name must follow this pattern (image taken from [Flyway docs](https://flywaydb.org/documentation/migrations#versioned-migrations)):
+Versioned change scripts follow a similar naming convention to that used by [Flyway Versioned Migrations](https://flywaydb.org/documentation/migrations#versioned-migrations). The script name must follow this pattern (image taken from [Flyway docs](https://flywaydb.org/documentation/migrations#versioned-migrations)):
 
 <img src="images/flyway-naming-convention.png" alt="Flyway naming conventions" title="Flyway naming conventions" width="300" />
 
@@ -76,6 +80,20 @@ For example, a script name that follows this convention is: `V1.1.1__first_chang
 * 2020.1.15.11.35.56
 
 Every script within a database folder must have a unique version number. snowchange will check for duplicate version numbers and throw an error if it finds any. This helps to ensure that developers who are working in parallel don't accidently (re-)use the same version number.
+
+### Repeatable Script Naming
+
+Any change script that does not follow the versioned script naming convention is considered to be a repeatable script.
+e.g: 
+
+* sp_calculate_running_total.sql
+* fn_get_timezone.sql
+* fn_sort_ascii.sql
+
+All repeatable change scripts are applied each time the utility is run, irrespective of the most recent change in the database.
+Repeatable scripts could be used for maintaining code that always needs to be applied in its entirety. e.g. stores procedures, functions and view definitions etc.
+
+Please note that all the repeatable scripts are executed only after all the applicable versioned scripts. This helps in getting all the versioned parent ddl changes applied, before any dependend code can be applied.
 
 ### Script Requirements
 
