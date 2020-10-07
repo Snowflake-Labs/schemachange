@@ -77,7 +77,7 @@ def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, s
   all_script_names = list(all_scripts.keys())
   # Sort scripts such that versioned scripts get applied first and then the repeatable ones.
   all_script_names_sorted =   sorted_alphanumeric([script for script in all_script_names if script[0] == 'V']) \
-                            + sorted_alphanumeric([script for script in all_script_names if script[0] != 'V'])
+                            + sorted_alphanumeric([script for script in all_script_names if script[0] == 'R'])
   
   # Loop through each script in order and apply any required changes
   for script_name in all_script_names_sorted:
@@ -117,30 +117,31 @@ def get_all_scripts_recursively(root_directory, verbose):
   for (directory_path, directory_names, file_names) in os.walk(root_directory):
     for file_name in file_names:
       
-      # Ignore files other than .sql
-      if not file_name.endswith('.sql'):
-        continue
-    
       file_full_path = os.path.join(directory_path, file_name)
       script_name_parts = re.search(r'^([V])(.+)__(.+)\.sql$', file_name.strip())
+      repeatable_script_name_parts = re.search(r'^([R])__(.+)\.sql$', file_name.strip())
 
       # Set script type depending on whether it matches the versioned file naming format
-      if script_name_parts is None:
+      if script_name_parts is not None:
+        script_type = 'V'
+        if verbose:
+          print("Versioned file " + file_full_path)
+      elif repeatable_script_name_parts is not None:
         script_type = 'R'
         if verbose:
           print("Repeatable file " + file_full_path)
       else:
-        script_type = 'V'
         if verbose:
-          print("Versioned file " + file_full_path)
-
+          print("Ignoring non-change file " + file_full_path)
+        continue
+      
       # Add this script to our dictionary (as nested dictionary)
       script = dict()
       script['script_name'] = file_name
       script['script_full_path'] = file_full_path
       script['script_type'] = script_type
       script['script_version'] = None if script_type == 'R' else script_name_parts.group(2)
-      script['script_description'] = None if script_type == 'R' else script_name_parts.group(3).replace('_', ' ').capitalize()
+      script['script_description'] = (repeatable_script_name_parts.group(2) if script_type == 'R' else script_name_parts.group(3)).replace('_', ' ').capitalize()
       all_files[file_name] = script
 
       # Throw an error if the same version exists more than once
