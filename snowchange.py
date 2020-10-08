@@ -59,12 +59,10 @@ def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, s
   print("Using change history table %s.%s.%s" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name']))
 
   # Find the max published version
-  # TODO: Figure out how to directly SELECT the max value from Snowflake with a SQL version of the sorted_alphanumeric() logic
   max_published_version = ''
   change_history = fetch_change_history(change_history_table, autocommit, verbose)
   if change_history:
-    change_history_sorted = sorted_alphanumeric(change_history)
-    max_published_version = change_history_sorted[-1]
+    max_published_version = change_history[0]
   max_published_version_display = max_published_version
   if max_published_version_display == '':
     max_published_version_display = 'None'
@@ -219,7 +217,7 @@ def create_change_history_table_if_missing(change_history_table, autocommit, ver
   execute_snowflake_query(change_history_table['database_name'], query, autocommit, verbose)
 
 def fetch_change_history(change_history_table, autocommit, verbose):
-  query = "SELECT VERSION FROM {0}.{1} where SCRIPT_TYPE = 'V'".format(change_history_table['schema_name'], change_history_table['table_name'])
+  query = "SELECT VERSION FROM {0}.{1} where SCRIPT_TYPE = 'V' order by INSTALLED_ON desc limit 1".format(change_history_table['schema_name'], change_history_table['table_name'])
   results = execute_snowflake_query(change_history_table['database_name'], query, autocommit, verbose)
 
   # Collect all the results into a list
