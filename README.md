@@ -15,8 +15,10 @@ For the complete list of changes made to snowchange check out the [CHANGELOG](CH
 1. [Project Structure](#project-structure)
    1. [Folder Structure](#folder-structure)
 1. [Change Scripts](#change-scripts)
-   1. [Script Naming](#script-naming)
+   1. [Versioned Script Naming](#versioned-script-naming)
+   1. [Repeatable Script Naming](#repeatable-script-naming)
    1. [Script Requirements](#script-requirements)
+   1. [Using Variables in Scripts](#using-variables-in-scripts)
 1. [Change History Table](#change-history-table)
 1. [Running snowchange](#running-snowchange)
    1. [Prerequisites](#prerequisites)
@@ -42,18 +44,21 @@ snowchange expects a directory structure like the following to exist:
 |-- folder_1
     |-- V1.1.1__first_change.sql
     |-- V1.1.2__second_change.sql
+    |-- R__sp_add_sales.sql
+    |-- R__fn_get_timezone.sql
 |-- folder_2
     |-- folder_3
         |-- V1.1.3__third_change.sql
+        |-- R__fn_sort_ascii.sql
 ```
 
 The snowchange folder structure is very flexible. The `project_root` folder is specified with the `-f` or `--root-folder` argument. Under the `project_root` folder you are free to arrange the change scripts any way you see fit. You can have as many subfolders (and nested subfolders) as you would like.
 
 ## Change Scripts
 
-### Script Naming
+### Versioned Script Naming
 
-Change scripts follow a similar naming convention to that used by [Flyway Versioned Migrations](https://flywaydb.org/documentation/migrations#versioned-migrations). The script name must follow this pattern (image taken from [Flyway docs](https://flywaydb.org/documentation/migrations#versioned-migrations)):
+Versioned change scripts follow a similar naming convention to that used by [Flyway Versioned Migrations](https://flywaydb.org/documentation/migrations#versioned-migrations). The script name must follow this pattern (image taken from [Flyway docs](https://flywaydb.org/documentation/migrations#versioned-migrations)):
 
 <img src="images/flyway-naming-convention.png" alt="Flyway naming conventions" title="Flyway naming conventions" width="300" />
 
@@ -77,9 +82,37 @@ For example, a script name that follows this convention is: `V1.1.1__first_chang
 
 Every script within a database folder must have a unique version number. snowchange will check for duplicate version numbers and throw an error if it finds any. This helps to ensure that developers who are working in parallel don't accidently (re-)use the same version number.
 
+### Repeatable Script Naming
+
+Repeatable change scripts follow a similar naming convention to that used by [Flyway Versioned Migrations](https://flywaydb.org/documentation/concepts/migrations.html#repeatable-migrations). The script name must follow this pattern (image taken from [Flyway docs](https://flywaydb.org/documentation/concepts/migrations.html#repeatable-migrations):
+
+<img src="images/flyway-repeatable-naming-convention.png" alt="Flyway naming conventions" title="Flyway naming conventions" width="300" />
+
+e.g: 
+
+* R__sp_add_sales.sql
+* R__fn_get_timezone.sql
+* R__fn_sort_ascii.sql
+
+All repeatable change scripts are applied each time the utility is run, irrespective of the most recent change in the database.
+Repeatable scripts could be used for maintaining code that always needs to be applied in its entirety. e.g. stores procedures, functions and view definitions etc.
+
+Just like Flyway, within a single migration run, repeatable scripts are always applied last, after all pending versioned scripts have been executed. Repeatable scripts are applied in the order of their description.
+
 ### Script Requirements
 
 snowchange is designed to be very lightweight and not impose to many limitations. Each change script can have any number of SQL statements within it and must supply the necessary context, like database and schema names. The context can be supplied by using an explicit `USE <DATABASE>` command or by naming all objects with a three-part name (`<database name>.<schema name>.<object name>`). snowchange will simply run the contents of each script against the target Snowflake account, in the correct order.
+
+### Using Variables in Scripts
+
+snowchange supports a light weight variable replacement strategy. One important use of variables is to support multiple environments (dev, test, prod) in a single Snowflake account by dynamically changing the database name during deployment.
+
+To use a variable in a change script, use this syntax anywhere in the script: `{{ variable1 }}`. So the pattern is two left curly braces, followed by a space, followed by the variable name, followed by a space, and finally followed by two right curly braces. And the spaces are important. The format for including variables in change scripts mimics [Jinja expressions](https://jinja.palletsprojects.com/en/2.11.x/templates/#expressions). Please note that at this point snowchange hasn't been integrated with Jinja, but by using the same syntax for variables and expressions a future migration will be seamless.
+
+To pass variables to snowchange, use the `--vars` command line parameter like this: `--vars '{"variable1": "value", "variable2": "value2"}'`. This parameter accepts a flat JSON object formatted as a string. Nested objects and arrays don't make sense at this point and aren't supported.
+
+snowchange will replace any variable placeholders before running your change script code and will throw an error if it finds any variable placeholders that haven't been replaced.
+
 
 ## Change History Table
 
@@ -108,6 +141,7 @@ A new row will be added to this table every time a change script has been applie
 In order to run snowchange you must have the following:
 
 * You will need to have a recent version of python 3 installed
+* You will need to have the latest [Snowflake Python driver installed](https://docs.snowflake.com/en/user-guide/python-connector-install.html)
 * You will need to use a user account that has permission to apply the changes in your change script
 
 ### Running the Script
@@ -115,7 +149,7 @@ In order to run snowchange you must have the following:
 snowchange is a single python script named [snowchange.py](snowchange.py). It can be executed as follows:
 
 ```
-snowchange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v] [-ac]
+snowchange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v] [-ac]
 ```
 
 The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWSQL_PWD` prior to calling the script. snowchange will fail if the `SNOWSQL_PWD` environment variable is not set.
@@ -128,14 +162,14 @@ Parameter | Description
 --- | ---
 -h, --help | Show the help message and exit
 -f ROOT_FOLDER, --root-folder ROOT_FOLDER| *(Optional)* The root folder for the database change scripts. The default is the current directory.
--a SNOWFLAKE_ACCOUNT, --snowflake-account SNOWFLAKE_ACCOUNT | The name of the snowflake account (e.g. ly12345)
---snowflake-region SNOWFLAKE_REGION | The name of the snowflake region (e.g. ap-southeast-2)
+-a SNOWFLAKE_ACCOUNT, --snowflake-account SNOWFLAKE_ACCOUNT | The name of the snowflake account (e.g. abc123.east-us-2.azure). See [Usage Notes for the account Parameter (for the connect Method)](https://docs.snowflake.com/en/user-guide/python-connector-api.html#label-account-format-info) for more details on how to structure the account name.
 -u SNOWFLAKE_USER, --snowflake-user SNOWFLAKE_USER | The name of the snowflake user (e.g. DEPLOYER)
 -r SNOWFLAKE_ROLE, --snowflake-role SNOWFLAKE_ROLE | The name of the role to use (e.g. DEPLOYER_ROLE)
 -w SNOWFLAKE_WAREHOUSE, --snowflake-warehouse SNOWFLAKE_WAREHOUSE | The name of the warehouse to use (e.g. DEPLOYER_WAREHOUSE)
--c CHANGE_HISTORY_TABLE, --change-history-table CHANGE_HISTORY_TABLE | Used to override the default name of the change history table (e.g. METADATA.SNOWCHANGE.CHANGE_HISTORY)
--ac, --autocommit | A signal for Snowflake Python connector to enable autocommit feature for DML commands.
--v, --verbose | Display verbose debugging details during execution
+-c CHANGE_HISTORY_TABLE, --change-history-table CHANGE_HISTORY_TABLE | *(Optional)* Used to override the default name of the change history table (e.g. METADATA.SNOWCHANGE.CHANGE_HISTORY)
+--vars VARS | *(Optional)* Define values for the variables to replaced in change scripts, given in JSON format (e.g. '{"variable1": "value1", "variable2": "value2"}')
+-ac, --autocommit | *(Optional)* A signal for Snowflake Python connector to enable autocommit feature for DML commands.
+-v, --verbose | *(Optional)* Display verbose debugging details during execution
 
 ## Getting Started with snowchange
 
@@ -167,7 +201,7 @@ Here is a sample DevOps development lifecycle with snowchange:
 If your build agent has a recent version of python 3 installed, the script can be ran like so:
 ```
 pip install snowchange --upgrade
-snowchange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT --snowflake-region SNOWFLAKE_REGION -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v] [-ac]
+snowchange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v] [-ac]
 ```
 
 Or if you prefer docker, set the environment variables and run like so:
@@ -181,9 +215,8 @@ docker run -it --rm \
   -e SNOWFLAKE_USER \
   -e SNOWFLAKE_ROLE \
   -e SNOWFLAKE_WAREHOUSE \
-  -e SNOWFLAKE_REGION \
   -e SNOWSQL_PWD \
-  python:3 /bin/bash -c "pip install snowchange --upgrade && snowchange -f $ROOT_FOLDER -a $SNOWFLAKE_ACCOUNT --snowflake-region $SNOWFLAKE_REGION -u $SNOWFLAKE_USER -r $SNOWFLAKE_ROLE -w $SNOWFLAKE_WAREHOUSE"
+  python:3 /bin/bash -c "pip install snowchange --upgrade && snowchange -f $ROOT_FOLDER -a $SNOWFLAKE_ACCOUNT -u $SNOWFLAKE_USER -r $SNOWFLAKE_ROLE -w $SNOWFLAKE_WAREHOUSE"
 ```
 
 Either way, don't forget to set the `SNOWSQL_PWD` environment variable!
