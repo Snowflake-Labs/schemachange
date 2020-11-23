@@ -32,6 +32,7 @@ For the complete list of changes made to snowchange check out the [CHANGELOG](CH
 1. [Legal](#legal)
 
 
+
 ## Project Structure
 
 ### Folder Structure
@@ -148,7 +149,7 @@ In order to run snowchange you must have the following:
 snowchange is a single python script named [snowchange.py](snowchange.py). It can be executed as follows:
 
 ```
-python snowchange.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [--vars VARS] [-ac] [-v]
+snowchange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v] [-ac]
 ```
 
 The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWSQL_PWD` prior to calling the script. snowchange will fail if the `SNOWSQL_PWD` environment variable is not set.
@@ -199,8 +200,8 @@ Here is a sample DevOps development lifecycle with snowchange:
 
 If your build agent has a recent version of python 3 installed, the script can be ran like so:
 ```
-pip install --upgrade snowflake-connector-python
-python snowchange.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [--vars VARS] [-v] [-ac]
+pip install snowchange --upgrade
+snowchange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v] [-ac]
 ```
 
 Or if you prefer docker, set the environment variables and run like so:
@@ -215,7 +216,7 @@ docker run -it --rm \
   -e SNOWFLAKE_ROLE \
   -e SNOWFLAKE_WAREHOUSE \
   -e SNOWSQL_PWD \
-  python:3 /bin/bash -c "pip install --upgrade snowflake-connector-python && python snowchange.py -f $ROOT_FOLDER -a $SNOWFLAKE_ACCOUNT -u $SNOWFLAKE_USER -r $SNOWFLAKE_ROLE -w $SNOWFLAKE_WAREHOUSE"
+  python:3 /bin/bash -c "pip install snowchange --upgrade && snowchange -f $ROOT_FOLDER -a $SNOWFLAKE_ACCOUNT -u $SNOWFLAKE_USER -r $SNOWFLAKE_ROLE -w $SNOWFLAKE_WAREHOUSE"
 ```
 
 Either way, don't forget to set the `SNOWSQL_PWD` environment variable!

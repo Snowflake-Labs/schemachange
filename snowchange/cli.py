@@ -261,7 +261,7 @@ def replace_variables_references(content, vars, verbose):
   return t.substitute(vars)
 
 
-if __name__ == '__main__':
+def main():
   parser = argparse.ArgumentParser(prog = 'python snowchange.py', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/jamesweakley/snowchange', formatter_class = argparse.RawTextHelpFormatter)
   parser.add_argument('-f','--root-folder', type = str, default = ".", help = 'The root folder for the database change scripts')
   parser.add_argument('-a', '--snowflake-account', type = str, help = 'The name of the snowflake account (e.g. abc123.east-us-2.azure)', required = True)
@@ -274,4 +274,7 @@ if __name__ == '__main__':
   parser.add_argument('-v','--verbose', action='store_true')
   args = parser.parse_args()
 
-  snowchange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.change_history_table, args.vars, args.autocommit, args.verbose)
+  snowchange(args.root_folder, args.snowflake_account, args.snowflake_region, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.change_history_table, args.autocommit, args.verbose)
+
+if __name__ == "__main__":
+    main()
