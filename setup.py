@@ -18,7 +18,7 @@ setup(
     description="Python package for managing Snowflake schema.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/jamesweakley/snowchange",
+    url="https://github.com/Snowflake-Labs/snowchange",
     packages=find_packages(),
     package_dir={"snowchange": "snowchange"},
     setup_requires=[],
