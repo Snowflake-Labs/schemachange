@@ -8,7 +8,7 @@ import hashlib
 import snowflake.connector
 
 # Set a few global variables here
-_snowchange_version = '2.3.0'
+_snowchange_version = '2.4.0'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SNOWCHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
@@ -67,8 +67,6 @@ def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, s
   if max_published_version_display == '':
     max_published_version_display = 'None'
   print("Max applied change script version: %s" % max_published_version_display)
-  if verbose:
-    print("Change history: %s" % change_history)
 
   # Find all scripts in the root folder (recursively) and sort them correctly
   all_scripts = get_all_scripts_recursively(root_folder, verbose)
@@ -116,8 +114,8 @@ def get_all_scripts_recursively(root_directory, verbose):
     for file_name in file_names:
       
       file_full_path = os.path.join(directory_path, file_name)
-      script_name_parts = re.search(r'^([V])(.+)__(.+)\.sql$', file_name.strip())
-      repeatable_script_name_parts = re.search(r'^([R])__(.+)\.sql$', file_name.strip())
+      script_name_parts = re.search(r'^([V])(.+)__(.+)\.(?:sql|SQL)$', file_name.strip())
+      repeatable_script_name_parts = re.search(r'^([R])__(.+)\.(?:sql|SQL)$', file_name.strip())
 
       # Set script type depending on whether it matches the versioned file naming format
       if script_name_parts is not None:
@@ -262,7 +260,7 @@ def replace_variables_references(content, vars, verbose):
 
 
 def main():
-  parser = argparse.ArgumentParser(prog = 'python snowchange.py', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/jamesweakley/snowchange', formatter_class = argparse.RawTextHelpFormatter)
+  parser = argparse.ArgumentParser(prog = 'snowchange', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/jamesweakley/snowchange', formatter_class = argparse.RawTextHelpFormatter)
   parser.add_argument('-f','--root-folder', type = str, default = ".", help = 'The root folder for the database change scripts')
   parser.add_argument('-a', '--snowflake-account', type = str, help = 'The name of the snowflake account (e.g. abc123.east-us-2.azure)', required = True)
   parser.add_argument('-u', '--snowflake-user', type = str, help = 'The name of the snowflake user (e.g. DEPLOYER)', required = True)
@@ -274,7 +272,7 @@ def main():
   parser.add_argument('-v','--verbose', action='store_true')
   args = parser.parse_args()
 
-  snowchange(args.root_folder, args.snowflake_account, args.snowflake_region, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.change_history_table, args.autocommit, args.verbose)
+  snowchange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.change_history_table, args.vars, args.autocommit, args.verbose)
 
 if __name__ == "__main__":
     main()

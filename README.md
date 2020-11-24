@@ -146,7 +146,13 @@ In order to run snowchange you must have the following:
 
 ### Running the Script
 
-snowchange is a single python script named [snowchange.py](snowchange.py). It can be executed as follows:
+snowchange is a single python script located at [snowchange/cli.py](snowchange/cli.py). It can be executed as follows:
+
+```
+python snowchange/cli.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v] [-ac]
+```
+
+Or if installed via `pip`, it can be executed as follows:
 
 ```
 snowchange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v] [-ac]
