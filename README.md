@@ -170,7 +170,7 @@ In the event both authentication criteria are provided, snowchange will prioriti
 The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWSQL_PWD` prior to calling the script. snowchange will fail if the `SNOWSQL_PWD` environment variable is not set.
 
 #### Private Key Authentication
-The Snowflake user private key for `SNOWFLAKE_USER` is required to be in a file with the file path set in the environment variable `PRIVATE_KEY_PATH`. Additionally, the password for the private key file is required to be set in the environment variable `PRIVATE_KEY_PASSPHRASE`. These two environment variables must be set prior to calling the script. snowchange will fail if the `PRIVATE_KEY_PATH` and `PRIVATE_KEY_PASSPHRASE` environment variables are not set.
+The Snowflake user encrypted private key for `SNOWFLAKE_USER` is required to be in a file with the file path set in the environment variable `PRIVATE_KEY_PATH`. Additionally, the password for the encrypted private key file is required to be set in the environment variable `PRIVATE_KEY_PASSPHRASE`. These two environment variables must be set prior to calling the script. snowchange will fail if the `PRIVATE_KEY_PATH` and `PRIVATE_KEY_PASSPHRASE` environment variables are not set.
 
 ### Script Parameters
 
