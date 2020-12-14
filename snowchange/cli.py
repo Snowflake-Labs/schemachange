@@ -6,9 +6,13 @@ import json
 import time
 import hashlib
 import snowflake.connector
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import dsa
+from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_snowchange_version = '2.4.0'
+_snowchange_version = '2.5.0'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SNOWCHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
@@ -29,8 +33,10 @@ class JinjaExpressionTemplate(string.Template):
     '''
 
 def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, change_history_table_override, vars, autocommit, verbose):
+  # Password authentication will take priority
   if "SNOWSQL_PWD" not in os.environ:
-    raise ValueError("The SNOWSQL_PWD environment variable has not been defined")
+    if "PRIVATE_KEY_PATH" not in os.environ or "PRIVATE_KEY_PASSPHRASE" not in os.environ:
+      raise ValueError("Missing environment variable(s). SNOWSQL_PWD must be defined for password authentication. PRIVATE_KEY_PATH and PRIVATE_KEY_PASSPHRASE must be defined for private key authentication")
 
   root_folder = os.path.abspath(root_folder)
   if not os.path.isdir(root_folder):
@@ -74,7 +80,7 @@ def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, s
   # Sort scripts such that versioned scripts get applied first and then the repeatable ones.
   all_script_names_sorted =   sorted_alphanumeric([script for script in all_script_names if script[0] == 'V']) \
                             + sorted_alphanumeric([script for script in all_script_names if script[0] == 'R'])
-  
+
   # Loop through each script in order and apply any required changes
   for script_name in all_script_names_sorted:
     script = all_scripts[script_name]
@@ -130,7 +136,7 @@ def get_all_scripts_recursively(root_directory, verbose):
         if verbose:
           print("Ignoring non-change file " + file_full_path)
         continue
-      
+
       # Add this script to our dictionary (as nested dictionary)
       script = dict()
       script['script_name'] = file_name
@@ -149,15 +155,45 @@ def get_all_scripts_recursively(root_directory, verbose):
   return all_files
 
 def execute_snowflake_query(snowflake_database, query, autocommit, verbose):
-  con = snowflake.connector.connect(
-    user = os.environ["SNOWFLAKE_USER"],
-    account = os.environ["SNOWFLAKE_ACCOUNT"],
-    role = os.environ["SNOWFLAKE_ROLE"],
-    warehouse = os.environ["SNOWFLAKE_WAREHOUSE"],
-    database = snowflake_database,
-    authenticator = os.environ["SNOWFLAKE_AUTHENTICATOR"],
-    password = os.environ["SNOWSQL_PWD"]
-  )
+  # Password authentication is the default
+  if os.getenv("SNOWSQL_PWD") is not None and os.getenv("SNOWSQL_PWD"):
+    print("Proceeding with password authentication")
+    con = snowflake.connector.connect(
+      user = os.environ["SNOWFLAKE_USER"],
+      account = os.environ["SNOWFLAKE_ACCOUNT"],
+      role = os.environ["SNOWFLAKE_ROLE"],
+      warehouse = os.environ["SNOWFLAKE_WAREHOUSE"],
+      database = snowflake_database,
+      authenticator = os.environ["SNOWFLAKE_AUTHENTICATOR"],
+      password = os.environ["SNOWSQL_PWD"]
+    )
+  # If no password, try private key authentication
+  elif os.getenv("PRIVATE_KEY_PATH") is not None and os.getenv("PRIVATE_KEY_PATH") and os.getenv("PRIVATE_KEY_PASSPHRASE") is not None and os.getenv("PRIVATE_KEY_PASSPHRASE"):
+    print("Proceeding with private key authentication")
+    with open(os.environ["PRIVATE_KEY_PATH"], "rb") as key:
+      p_key= serialization.load_pem_private_key(
+          key.read(),
+          password=os.environ['PRIVATE_KEY_PASSPHRASE'].encode(),
+          backend=default_backend()
+      )
+
+    pkb = p_key.private_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption())
+
+    con = snowflake.connector.connect(
+      user = os.environ["SNOWFLAKE_USER"],
+      account = os.environ["SNOWFLAKE_ACCOUNT"],
+      role = os.environ["SNOWFLAKE_ROLE"],
+      warehouse = os.environ["SNOWFLAKE_WAREHOUSE"],
+      database = snowflake_database,
+      authenticator = os.environ["SNOWFLAKE_AUTHENTICATOR"],
+      private_key=pkb,
+    )
+  else:
+    raise ValueError("Unable to find connection credentials for private key or password authentication")
+
   if not autocommit:
     con.autocommit(False)
 
