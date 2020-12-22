@@ -167,7 +167,9 @@ snowchange supports both [password authentication](https://docs.snowflake.com/en
 In the event both authentication criteria are provided, snowchange will prioritize password authentication.
 
 #### Password Authentication
-The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWSQL_PWD` prior to calling the script. snowchange will fail if the `SNOWSQL_PWD` environment variable is not set.
+The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWFLAKE_PASSWORD` prior to calling the script. snowchange will fail if the `SNOWFLAKE_PASSWORD` environment variable is not set.
+
+_**DEPRECATION NOTICE**: The `SNOWSQL_PWD` environment variable is deprecated but currently still supported. Support for it will be removed in a later version of snowchange. Please use `SNOWFLAKE_PASSWORD` instead._
 
 #### Private Key Authentication
 The Snowflake user encrypted private key for `SNOWFLAKE_USER` is required to be in a file with the file path set in the environment variable `PRIVATE_KEY_PATH`. Additionally, the password for the encrypted private key file is required to be set in the environment variable `PRIVATE_KEY_PASSPHRASE`. These two environment variables must be set prior to calling the script. snowchange will fail if the `PRIVATE_KEY_PATH` and `PRIVATE_KEY_PASSPHRASE` environment variables are not set.
@@ -233,11 +235,11 @@ docker run -it --rm \
   -e SNOWFLAKE_USER \
   -e SNOWFLAKE_ROLE \
   -e SNOWFLAKE_WAREHOUSE \
-  -e SNOWSQL_PWD \
+  -e SNOWFLAKE_PASSWORD \
   python:3 /bin/bash -c "pip install snowchange --upgrade && snowchange -f $ROOT_FOLDER -a $SNOWFLAKE_ACCOUNT -u $SNOWFLAKE_USER -r $SNOWFLAKE_ROLE -w $SNOWFLAKE_WAREHOUSE"
 ```
 
-Either way, don't forget to set the `SNOWSQL_PWD` environment variable!
+Either way, don't forget to set the `SNOWFLAKE_PASSWORD` environment variable if using password authentication!
 
 ## Maintainers
 
