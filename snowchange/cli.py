@@ -157,6 +157,7 @@ def get_all_scripts_recursively(root_directory, verbose):
 
 def execute_snowflake_query(snowflake_database, query, autocommit, verbose):
   # Password authentication is the default
+  snowflake_password = None
   if os.getenv("SNOWFLAKE_PASSWORD") is not None and os.getenv("SNOWFLAKE_PASSWORD"):
     snowflake_password = os.getenv("SNOWFLAKE_PASSWORD")
   elif os.getenv("SNOWSQL_PWD") is not None and os.getenv("SNOWSQL_PWD"):  # Check legacy/deprecated env variable
