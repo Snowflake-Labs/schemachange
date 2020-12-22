@@ -6,6 +6,7 @@ import json
 import time
 import hashlib
 import snowflake.connector
+import warnings
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import dsa
@@ -34,9 +35,9 @@ class JinjaExpressionTemplate(string.Template):
 
 def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, change_history_table_override, vars, autocommit, verbose):
   # Password authentication will take priority
-  if "SNOWSQL_PWD" not in os.environ:
+  if "SNOWFLAKE_PASSWORD" not in os.environ and "SNOWSQL_PWD" not in os.environ:  # We will accept SNOWSQL_PWD for now, but it is deprecated
     if "PRIVATE_KEY_PATH" not in os.environ or "PRIVATE_KEY_PASSPHRASE" not in os.environ:
-      raise ValueError("Missing environment variable(s). SNOWSQL_PWD must be defined for password authentication. PRIVATE_KEY_PATH and PRIVATE_KEY_PASSPHRASE must be defined for private key authentication")
+      raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. PRIVATE_KEY_PATH and PRIVATE_KEY_PASSPHRASE must be defined for private key authentication")
 
   root_folder = os.path.abspath(root_folder)
   if not os.path.isdir(root_folder):
@@ -156,7 +157,13 @@ def get_all_scripts_recursively(root_directory, verbose):
 
 def execute_snowflake_query(snowflake_database, query, autocommit, verbose):
   # Password authentication is the default
-  if os.getenv("SNOWSQL_PWD") is not None and os.getenv("SNOWSQL_PWD"):
+  if os.getenv("SNOWFLAKE_PASSWORD") is not None and os.getenv("SNOWFLAKE_PASSWORD"):
+    snowflake_password = os.getenv("SNOWFLAKE_PASSWORD")
+  elif os.getenv("SNOWSQL_PWD") is not None and os.getenv("SNOWSQL_PWD"):  # Check legacy/deprecated env variable
+    snowflake_password = os.getenv("SNOWSQL_PWD")
+    warnings.warn("The SNOWSQL_PWD environment variable is deprecated and will be removed in a later version of snowchange. Please use SNOWFLAKE_PASSWORD instead.", DeprecationWarning)
+    
+  if snowflake_password is not None:
     print("Proceeding with password authentication")
     con = snowflake.connector.connect(
       user = os.environ["SNOWFLAKE_USER"],
@@ -165,7 +172,7 @@ def execute_snowflake_query(snowflake_database, query, autocommit, verbose):
       warehouse = os.environ["SNOWFLAKE_WAREHOUSE"],
       database = snowflake_database,
       authenticator = os.environ["SNOWFLAKE_AUTHENTICATOR"],
-      password = os.environ["SNOWSQL_PWD"]
+      password = snowflake_password
     )
   # If no password, try private key authentication
   elif os.getenv("PRIVATE_KEY_PATH") is not None and os.getenv("PRIVATE_KEY_PATH") and os.getenv("PRIVATE_KEY_PASSPHRASE") is not None and os.getenv("PRIVATE_KEY_PASSPHRASE"):
