@@ -36,8 +36,8 @@ class JinjaExpressionTemplate(string.Template):
 def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, change_history_table_override, vars, autocommit, verbose):
   # Password authentication will take priority
   if "SNOWFLAKE_PASSWORD" not in os.environ and "SNOWSQL_PWD" not in os.environ:  # We will accept SNOWSQL_PWD for now, but it is deprecated
-    if "PRIVATE_KEY_PATH" not in os.environ or "PRIVATE_KEY_PASSPHRASE" not in os.environ:
-      raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. PRIVATE_KEY_PATH and PRIVATE_KEY_PASSPHRASE must be defined for private key authentication")
+    if "SNOWFLAKE_PRIVATE_KEY_PATH" not in os.environ or "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE" not in os.environ:
+      raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. SNOWFLAKE_PRIVATE_KEY_PATH and SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication")
 
   root_folder = os.path.abspath(root_folder)
   if not os.path.isdir(root_folder):
@@ -176,12 +176,12 @@ def execute_snowflake_query(snowflake_database, query, autocommit, verbose):
       password = snowflake_password
     )
   # If no password, try private key authentication
-  elif os.getenv("PRIVATE_KEY_PATH") is not None and os.getenv("PRIVATE_KEY_PATH") and os.getenv("PRIVATE_KEY_PASSPHRASE") is not None and os.getenv("PRIVATE_KEY_PASSPHRASE"):
+  elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH") is not None and os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH") and os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE") is not None and os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE"):
     print("Proceeding with private key authentication")
-    with open(os.environ["PRIVATE_KEY_PATH"], "rb") as key:
+    with open(os.environ["SNOWFLAKE_PRIVATE_KEY_PATH"], "rb") as key:
       p_key= serialization.load_pem_private_key(
           key.read(),
-          password=os.environ['PRIVATE_KEY_PASSPHRASE'].encode(),
+          password=os.environ['SNOWFLAKE_PRIVATE_KEY_PASSPHRASE'].encode(),
           backend=default_backend()
       )
 
