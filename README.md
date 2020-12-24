@@ -172,7 +172,7 @@ The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the en
 _**DEPRECATION NOTICE**: The `SNOWSQL_PWD` environment variable is deprecated but currently still supported. Support for it will be removed in a later version of snowchange. Please use `SNOWFLAKE_PASSWORD` instead._
 
 #### Private Key Authentication
-The Snowflake user encrypted private key for `SNOWFLAKE_USER` is required to be in a file with the file path set in the environment variable `PRIVATE_KEY_PATH`. Additionally, the password for the encrypted private key file is required to be set in the environment variable `PRIVATE_KEY_PASSPHRASE`. These two environment variables must be set prior to calling the script. snowchange will fail if the `PRIVATE_KEY_PATH` and `PRIVATE_KEY_PASSPHRASE` environment variables are not set.
+The Snowflake user encrypted private key for `SNOWFLAKE_USER` is required to be in a file with the file path set in the environment variable `SNOWFLAKE_PRIVATE_KEY_PATH`. Additionally, the password for the encrypted private key file is required to be set in the environment variable `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE`. These two environment variables must be set prior to calling the script. snowchange will fail if the `SNOWFLAKE_PRIVATE_KEY_PATH` and `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` environment variables are not set.
 
 ### Script Parameters
 

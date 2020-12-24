@@ -37,7 +37,7 @@ def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, s
   # Password authentication will take priority
   if "SNOWFLAKE_PASSWORD" not in os.environ and "SNOWSQL_PWD" not in os.environ:  # We will accept SNOWSQL_PWD for now, but it is deprecated
     if "SNOWFLAKE_PRIVATE_KEY_PATH" not in os.environ or "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE" not in os.environ:
-      raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. SNOWFLAKE_PRIVATE_KEY_PATH and SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication")
+      raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. SNOWFLAKE_PRIVATE_KEY_PATH and SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication.")
 
   root_folder = os.path.abspath(root_folder)
   if not os.path.isdir(root_folder):
@@ -165,7 +165,9 @@ def execute_snowflake_query(snowflake_database, query, autocommit, verbose):
     warnings.warn("The SNOWSQL_PWD environment variable is deprecated and will be removed in a later version of snowchange. Please use SNOWFLAKE_PASSWORD instead.", DeprecationWarning)
     
   if snowflake_password is not None:
-    print("Proceeding with password authentication")
+    if verbose:
+      print("Proceeding with password authentication")
+
     con = snowflake.connector.connect(
       user = os.environ["SNOWFLAKE_USER"],
       account = os.environ["SNOWFLAKE_ACCOUNT"],
@@ -177,18 +179,20 @@ def execute_snowflake_query(snowflake_database, query, autocommit, verbose):
     )
   # If no password, try private key authentication
   elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH") is not None and os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH") and os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE") is not None and os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE"):
-    print("Proceeding with private key authentication")
+    if verbose:
+      print("Proceeding with private key authentication")
+
     with open(os.environ["SNOWFLAKE_PRIVATE_KEY_PATH"], "rb") as key:
       p_key= serialization.load_pem_private_key(
           key.read(),
-          password=os.environ['SNOWFLAKE_PRIVATE_KEY_PASSPHRASE'].encode(),
-          backend=default_backend()
+          password = os.environ['SNOWFLAKE_PRIVATE_KEY_PASSPHRASE'].encode(),
+          backend = default_backend()
       )
 
     pkb = p_key.private_bytes(
-        encoding=serialization.Encoding.DER,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption())
+        encoding = serialization.Encoding.DER,
+        format = serialization.PrivateFormat.PKCS8,
+        encryption_algorithm = serialization.NoEncryption())
 
     con = snowflake.connector.connect(
       user = os.environ["SNOWFLAKE_USER"],
@@ -197,7 +201,7 @@ def execute_snowflake_query(snowflake_database, query, autocommit, verbose):
       warehouse = os.environ["SNOWFLAKE_WAREHOUSE"],
       database = snowflake_database,
       authenticator = os.environ["SNOWFLAKE_AUTHENTICATOR"],
-      private_key=pkb,
+      private_key = pkb
     )
   else:
     raise ValueError("Unable to find connection credentials for private key or password authentication")
@@ -259,7 +263,7 @@ def create_change_history_table_if_missing(change_history_table, autocommit, ver
   execute_snowflake_query(change_history_table['database_name'], query, autocommit, verbose)
 
 def fetch_change_history(change_history_table, autocommit, verbose):
-  query = "SELECT VERSION FROM {0}.{1} where SCRIPT_TYPE = 'V' order by INSTALLED_ON desc limit 1".format(change_history_table['schema_name'], change_history_table['table_name'])
+  query = "SELECT VERSION FROM {0}.{1} WHERE SCRIPT_TYPE = 'V' ORDER BY INSTALLED_ON DESC LIMIT 1".format(change_history_table['schema_name'], change_history_table['table_name'])
   results = execute_snowflake_query(change_history_table['database_name'], query, autocommit, verbose)
 
   # Collect all the results into a list
