@@ -10,8 +10,12 @@ All notable changes to this project will be documented in this file.
 - Added a new optional parameter `--create-change-history-table` to create the change history table if it does not exist
 
 ### Changed
+- The default mode of operation now is to not create the change history table if it doesn't exist. Instead, now if the history table doesn't exist the tool will fail by default.
 - Added a check to see if the change history table exists before trying to create it, which is now also dependent upon the `--create-change-history-table` command line argument.
 - Cleaned up command line argument descriptions
+
+### Removed
+- Removed the ability for snowchange to create the database for the change history table. snowchange now requires the database to be created ahead of time.
 
 
 ## [2.5.0] - 2020-12-23

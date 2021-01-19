@@ -119,9 +119,9 @@ snowchange will replace any variable placeholders before running your change scr
 
 ## Change History Table
 
-snowchange records all applied changes scripts to the change history table. By default snowchange will attempt to log all activities to the `CHANGE_HISTORY.SNOWCHANGE.METADATA` table. The name and location of the change history table can be overriden by using the `-c` (or `--change-history-table`) parameter. The value passed to the parameter can have a one, two, or three part name (e.g. "TABLE_NAME", or "SCHEMA_NAME.TABLE_NAME", or "DATABASE_NAME.SCHEMA_NAME.TABLE_NAME"). This can be used to support multiple environments (dev, test, prod) or multiple subject areas within the same Snowflake account.
+snowchange records all applied changes scripts to the change history table. By default snowchange will attempt to log all activities to the `METADATA.SNOWCHANGE.CHANGE_HISTORY` table. The name and location of the change history table can be overriden by using the `-c` (or `--change-history-table`) parameter. The value passed to the parameter can have a one, two, or three part name (e.g. "TABLE_NAME", or "SCHEMA_NAME.TABLE_NAME", or "DATABASE_NAME.SCHEMA_NAME.TABLE_NAME"). This can be used to support multiple environments (dev, test, prod) or multiple subject areas within the same Snowflake account. By default snowchange will not try to create the change history table, and will fail if the table does not exist.
 
-Additionally, if the `--create-change-history-table` parameter is given, then snowchange attempt to create the database, schema, and table associated with the change history table.
+Additionally, if the `--create-change-history-table` parameter is given, then snowchange will attempt to create the schema and table associated with the change history table. snowchange will not attempt to create the database for the change history table, so that must be created ahead of time, even when using the `--create-change-history-table` parameter.
 
 The structure of the `CHANGE_HISTORY` table is as follows:
 
@@ -139,28 +139,49 @@ INSTALLED_ON | TIMESTAMP_LTZ | 2020-03-17 12:54:33.056 -0700
 
 A new row will be added to this table every time a change script has been applied to the database. snowchange will use this table to identify which changes have been applied to the database and will not apply the same version more than once.
 
+Here is the current schema DDL for the change history table (found in the [snowchange/cli.py](snowchange/cli.py) script), in case you choose to create it manually and not use the `--create-change-history-table` parameter:
+
+```sql
+CREATE TABLE IF NOT EXISTS SNOWCHANGE.CHANGE_HISTORY
+(
+    VERSION VARCHAR
+   ,DESCRIPTION VARCHAR
+   ,SCRIPT VARCHAR
+   ,SCRIPT_TYPE VARCHAR
+   ,CHECKSUM VARCHAR
+   ,EXECUTION_TIME NUMBER
+   ,STATUS VARCHAR
+   ,INSTALLED_BY VARCHAR
+   ,INSTALLED_ON TIMESTAMP_LTZ
+)
+```
+
 ## Running snowchange
 
 ### Prerequisites
 
 In order to run snowchange you must have the following:
 
-* You will need to have a recent version of python 3 installed
+* You will need to have a recent version of python 3 installed (not 3.9.x as of 1/19/21)
 * You will need to have the latest [Snowflake Python driver installed](https://docs.snowflake.com/en/user-guide/python-connector-install.html)
-* You will need to use a user account that has permission to apply the changes in your change script
+* You will need to create the change history table used by snowchange in Snowflake (see [Change History Table](#change-history-table) above for more details)
+    * First, you will need to create a database to store your change history table (snowchange will not help you with this)
+    * Second, you will need to create the change history schema and table. You can do this manually (see [Change History Table](#change-history-table) above for the DDL) or have snowchange create them by running it with the `--create-change-history-table` parameter (just make sure the Snowflake user you're running snowchange with has privileges to create a schema and table in that database)
+* You will need to create (or choose) a user account that has privileges to apply the changes in your change script
+    * Don't forget that this user also needs the SELECT and INSERT privileges on the change history table
 
 ### Running the Script
 
 snowchange is a single python script located at [snowchange/cli.py](snowchange/cli.py). It can be executed as follows:
 
 ```
-python snowchange/cli.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v] [-ac]
+python snowchange/cli.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v]
 ```
 
 Or if installed via `pip`, it can be executed as follows:
 
 ```
-snowchange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v] [-ac]
+snowchange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v]
 ```
 
 ### Authentication
@@ -225,7 +246,7 @@ Here is a sample DevOps development lifecycle with snowchange:
 If your build agent has a recent version of python 3 installed, the script can be ran like so:
 ```
 pip install snowchange --upgrade
-snowchange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE  [-c CHANGE_HISTORY_TABLE] [-v] [-ac]
+snowchange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v]
 ```
 
 Or if you prefer docker, set the environment variables and run like so:

@@ -47,6 +47,9 @@ def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, s
   print("Using root folder %s" % root_folder)
   print("Using variables %s" % vars)
   print("Using Snowflake account %s" % snowflake_account)
+  print("Using default role %s" % snowflake_role)
+  print("Using default warehouse %s" % snowflake_warehouse)
+  print("Using default database %s" % snowflake_database)
 
   # TODO: Is there a better way to do this without setting environment variables?
   os.environ["SNOWFLAKE_ACCOUNT"] = snowflake_account
@@ -269,10 +272,6 @@ def fetch_change_history_metadata(change_history_table, autocommit, verbose):
   return change_history_metadata
 
 def create_change_history_table_if_missing(change_history_table, autocommit, verbose):
-  # Create the database if it doesn't exist
-  query = "CREATE DATABASE IF NOT EXISTS {0}".format(change_history_table['database_name'])
-  execute_snowflake_query('', query, autocommit, verbose)
-
   # Create the schema if it doesn't exist
   query = "CREATE SCHEMA IF NOT EXISTS {0}".format(change_history_table['schema_name'])
   execute_snowflake_query(change_history_table['database_name'], query, autocommit, verbose)
@@ -334,11 +333,11 @@ def main():
   parser.add_argument('-r', '--snowflake-role', type = str, help = 'The name of the default role to use', required = True)
   parser.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the default warehouse to use. Can be overridden in the change scripts.', required = True)
   parser.add_argument('-d', '--snowflake-database', type = str, help = 'The name of the default database to use. Can be overridden in the change scripts.', required = False)
-  parser.add_argument('-c', '--change-history-table', type = str, help = 'Used to override the default name of the change history table (e.g. METADATA.SNOWCHANGE.CHANGE_HISTORY)', required = False)
+  parser.add_argument('-c', '--change-history-table', type = str, help = 'Used to override the default name of the change history table (the default is METADATA.SNOWCHANGE.CHANGE_HISTORY)', required = False)
   parser.add_argument('--vars', type = json.loads, help = 'Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})', required = False)
-  parser.add_argument('--create-change-history-table', action='store_true', help = 'Create the change history table if it does not exist', required = False)
-  parser.add_argument('-ac', '--autocommit', action='store_true', required = False)
-  parser.add_argument('-v','--verbose', action='store_true', required = False)
+  parser.add_argument('--create-change-history-table', action='store_true', help = 'Create the change history schema and table, if they do not exist (the default is False)', required = False)
+  parser.add_argument('-ac', '--autocommit', action='store_true', help = 'Enable autocommit feature for DML commands (the default is False)', required = False)
+  parser.add_argument('-v','--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
   args = parser.parse_args()
 
   snowchange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose)
