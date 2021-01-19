@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_snowchange_version = '2.6.0'
+_snowchange_version = '2.6.1'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SNOWCHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
