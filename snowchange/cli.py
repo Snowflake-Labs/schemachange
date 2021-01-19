@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_snowchange_version = '2.5.0'
+_snowchange_version = '2.6.0'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SNOWCHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
@@ -33,7 +33,7 @@ class JinjaExpressionTemplate(string.Template):
     )
     '''
 
-def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, change_history_table_override, vars, autocommit, verbose):
+def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose):
   # Password authentication will take priority
   if "SNOWFLAKE_PASSWORD" not in os.environ and "SNOWSQL_PWD" not in os.environ:  # We will accept SNOWSQL_PWD for now, but it is deprecated
     if "SNOWFLAKE_PRIVATE_KEY_PATH" not in os.environ or "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE" not in os.environ:
@@ -58,12 +58,17 @@ def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, s
   scripts_skipped = 0
   scripts_applied = 0
 
-  # Get the change history table details
+  # Deal with the change history table (create if specified)
   change_history_table = get_change_history_table_details(change_history_table_override)
- 
-  # Create the change history table (and containing objects) if it don't exist.
-  create_change_history_table_if_missing(change_history_table, autocommit, verbose)
-  print("Using change history table %s.%s.%s" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name']))
+  change_history_metadata = fetch_change_history_metadata(change_history_table, autocommit, verbose)
+  if change_history_metadata:
+    print("Using change history table %s.%s.%s (last altered %s)" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name'], change_history_metadata['last_altered']))
+  elif create_change_history_table:
+    # Create the change history table (and containing objects) if it don't exist.
+    create_change_history_table_if_missing(change_history_table, autocommit, verbose)
+    print("Created change history table %s.%s.%s" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name']))
+  else:
+    raise ValueError("Unable to find change history table %s.%s.%s" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name']))
 
   # Find the max published version
   max_published_version = ''
@@ -95,7 +100,7 @@ def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, s
       continue
 
     print("Applying change script %s" % script['script_name'])
-    apply_change_script(script, vars, change_history_table, autocommit, verbose)
+    apply_change_script(script, vars, snowflake_database, change_history_table, autocommit, verbose)
     scripts_applied += 1
 
   print("Successfully applied %d change scripts (skipping %d)" % (scripts_applied, scripts_skipped))
@@ -249,6 +254,20 @@ def get_change_history_table_details(change_history_table_override):
 
   return details
 
+def fetch_change_history_metadata(change_history_table, autocommit, verbose):
+  # This should only ever return 0 or 1 rows
+  query = "SELECT CREATED, LAST_ALTERED FROM {0}.INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA ILIKE '{1}' AND TABLE_NAME ILIKE '{2}'".format(change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name'])
+  results = execute_snowflake_query(change_history_table['database_name'], query, autocommit, verbose)
+
+  # Collect all the results into a list
+  change_history_metadata = dict()
+  for cursor in results:
+    for row in cursor:
+      change_history_metadata['created'] = row[0]
+      change_history_metadata['last_altered'] = row[1]
+
+  return change_history_metadata
+
 def create_change_history_table_if_missing(change_history_table, autocommit, verbose):
   # Create the database if it doesn't exist
   query = "CREATE DATABASE IF NOT EXISTS {0}".format(change_history_table['database_name'])
@@ -274,7 +293,7 @@ def fetch_change_history(change_history_table, autocommit, verbose):
 
   return change_history
 
-def apply_change_script(script, vars, change_history_table, autocommit, verbose):
+def apply_change_script(script, vars, default_database, change_history_table, autocommit, verbose):
   # First read the contents of the script
   with open(script['script_full_path'],'r') as content_file:
     content = content_file.read().strip()
@@ -291,7 +310,7 @@ def apply_change_script(script, vars, change_history_table, autocommit, verbose)
   # Execute the contents of the script
   if len(content) > 0:
     start = time.time()
-    execute_snowflake_query('', content, autocommit, verbose)
+    execute_snowflake_query(default_database, content, autocommit, verbose)
     end = time.time()
     execution_time = round(end - start)
 
@@ -308,19 +327,21 @@ def replace_variables_references(content, vars, verbose):
 
 
 def main():
-  parser = argparse.ArgumentParser(prog = 'snowchange', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/jamesweakley/snowchange', formatter_class = argparse.RawTextHelpFormatter)
-  parser.add_argument('-f','--root-folder', type = str, default = ".", help = 'The root folder for the database change scripts')
-  parser.add_argument('-a', '--snowflake-account', type = str, help = 'The name of the snowflake account (e.g. abc123.east-us-2.azure)', required = True)
-  parser.add_argument('-u', '--snowflake-user', type = str, help = 'The name of the snowflake user (e.g. DEPLOYER)', required = True)
-  parser.add_argument('-r', '--snowflake-role', type = str, help = 'The name of the role to use (e.g. DEPLOYER_ROLE)', required = True)
-  parser.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the warehouse to use (e.g. DEPLOYER_WAREHOUSE)', required = True)
+  parser = argparse.ArgumentParser(prog = 'snowchange', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/Snowflake-Labs/snowchange', formatter_class = argparse.RawTextHelpFormatter)
+  parser.add_argument('-f','--root-folder', type = str, default = ".", help = 'The root folder for the database change scripts', required = False)
+  parser.add_argument('-a', '--snowflake-account', type = str, help = 'The name of the snowflake account (e.g. xy12345.east-us-2.azure)', required = True)
+  parser.add_argument('-u', '--snowflake-user', type = str, help = 'The name of the snowflake user', required = True)
+  parser.add_argument('-r', '--snowflake-role', type = str, help = 'The name of the default role to use', required = True)
+  parser.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the default warehouse to use. Can be overridden in the change scripts.', required = True)
+  parser.add_argument('-d', '--snowflake-database', type = str, help = 'The name of the default database to use. Can be overridden in the change scripts.', required = False)
   parser.add_argument('-c', '--change-history-table', type = str, help = 'Used to override the default name of the change history table (e.g. METADATA.SNOWCHANGE.CHANGE_HISTORY)', required = False)
   parser.add_argument('--vars', type = json.loads, help = 'Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})', required = False)
-  parser.add_argument('-ac', '--autocommit', action='store_true')
-  parser.add_argument('-v','--verbose', action='store_true')
+  parser.add_argument('--create-change-history-table', action='store_true', help = 'Create the change history table if it does not exist', required = False)
+  parser.add_argument('-ac', '--autocommit', action='store_true', required = False)
+  parser.add_argument('-v','--verbose', action='store_true', required = False)
   args = parser.parse_args()
 
-  snowchange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.change_history_table, args.vars, args.autocommit, args.verbose)
+  snowchange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose)
 
 if __name__ == "__main__":
     main()

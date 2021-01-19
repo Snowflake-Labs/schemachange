@@ -119,7 +119,9 @@ snowchange will replace any variable placeholders before running your change scr
 
 ## Change History Table
 
-snowchange will automatically create a change history table to track the history of all changes applied. By default the table `CHANGE_HISTORY` will be created within a `SNOWCHANGE` schema in a `METADATA` database. The name and location of the change history table can be overriden by using the `-c` (or `--change-history-table`) parameter. The value passed to the parameter can have a one, two, or three part name (e.g. "TABLE_NAME", or "SCHEMA_NAME.TABLE_NAME", or "DATABASE_NAME.SCHEMA_NAME.TABLE_NAME"). This can be used to support multiple environments (dev, test, prod) or multiple subject areas within the same Snowflake account.
+snowchange records all applied changes scripts to the change history table. By default snowchange will attempt to log all activities to the `CHANGE_HISTORY.SNOWCHANGE.METADATA` table. The name and location of the change history table can be overriden by using the `-c` (or `--change-history-table`) parameter. The value passed to the parameter can have a one, two, or three part name (e.g. "TABLE_NAME", or "SCHEMA_NAME.TABLE_NAME", or "DATABASE_NAME.SCHEMA_NAME.TABLE_NAME"). This can be used to support multiple environments (dev, test, prod) or multiple subject areas within the same Snowflake account.
+
+Additionally, if the `--create-change-history-table` parameter is given, then snowchange attempt to create the database, schema, and table associated with the change history table.
 
 The structure of the `CHANGE_HISTORY` table is as follows:
 
@@ -182,14 +184,16 @@ Parameter | Description
 --- | ---
 -h, --help | Show the help message and exit
 -f ROOT_FOLDER, --root-folder ROOT_FOLDER| *(Optional)* The root folder for the database change scripts. The default is the current directory.
--a SNOWFLAKE_ACCOUNT, --snowflake-account SNOWFLAKE_ACCOUNT | The name of the snowflake account (e.g. abc123.east-us-2.azure). See [Usage Notes for the account Parameter (for the connect Method)](https://docs.snowflake.com/en/user-guide/python-connector-api.html#label-account-format-info) for more details on how to structure the account name.
--u SNOWFLAKE_USER, --snowflake-user SNOWFLAKE_USER | The name of the snowflake user (e.g. DEPLOYER)
--r SNOWFLAKE_ROLE, --snowflake-role SNOWFLAKE_ROLE | The name of the role to use (e.g. DEPLOYER_ROLE)
--w SNOWFLAKE_WAREHOUSE, --snowflake-warehouse SNOWFLAKE_WAREHOUSE | The name of the warehouse to use (e.g. DEPLOYER_WAREHOUSE)
--c CHANGE_HISTORY_TABLE, --change-history-table CHANGE_HISTORY_TABLE | *(Optional)* Used to override the default name of the change history table (e.g. METADATA.SNOWCHANGE.CHANGE_HISTORY)
+-a SNOWFLAKE_ACCOUNT, --snowflake-account SNOWFLAKE_ACCOUNT | The name of the snowflake account (e.g. xy12345.east-us-2.azure). See [Usage Notes for the account Parameter (for the connect Method)](https://docs.snowflake.com/en/user-guide/python-connector-api.html#label-account-format-info) for more details on how to structure the account name.
+-u SNOWFLAKE_USER, --snowflake-user SNOWFLAKE_USER | The name of the snowflake user
+-r SNOWFLAKE_ROLE, --snowflake-role SNOWFLAKE_ROLE | The name of the role to use
+-w SNOWFLAKE_WAREHOUSE, --snowflake-warehouse SNOWFLAKE_WAREHOUSE | The name of the default warehouse to use. Can be overridden in the change scripts.
+-d SNOWFLAKE_DATABASE, --snowflake-database SNOWFLAKE_DATABASE | The name of the default database to use. Can be overridden in the change scripts.
+-c CHANGE_HISTORY_TABLE, --change-history-table CHANGE_HISTORY_TABLE | *(Optional)* Used to override the default name of the change history table (which is METADATA.SNOWCHANGE.CHANGE_HISTORY)
 --vars VARS | *(Optional)* Define values for the variables to replaced in change scripts, given in JSON format (e.g. '{"variable1": "value1", "variable2": "value2"}')
--ac, --autocommit | *(Optional)* A signal for Snowflake Python connector to enable autocommit feature for DML commands.
--v, --verbose | *(Optional)* Display verbose debugging details during execution
+--create-change-history-table | *(Optional)* Create the change history table if it does not exist. The default is 'False'.
+-ac, --autocommit | *(Optional)* Enable autocommit feature for DML commands. The default is 'False'.
+-v, --verbose | *(Optional)* Display verbose debugging details during execution. The default is 'False'.
 
 ## Getting Started with snowchange
 

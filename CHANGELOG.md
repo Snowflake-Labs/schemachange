@@ -3,10 +3,22 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [2.6.0] - 2021-01-18
+
+### Added
+- Added a new optional parameter `-d` or `--snowflake-database` to specify the default database to use (which can always be overridden in an individual change script)
+- Added a new optional parameter `--create-change-history-table` to create the change history table if it does not exist
+
+### Changed
+- Added a check to see if the change history table exists before trying to create it, which is now also dependent upon the `--create-change-history-table` command line argument.
+- Cleaned up command line argument descriptions
+
+
 ## [2.5.0] - 2020-12-23
 
 ### Added
 - Support for encrypted key pair authentication
+
 
 ## [2.4.0] - 2020-11-24
 
@@ -17,10 +29,12 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Allow for .SQL file extensions (common in Windows environments) in addition to .sql extensions
 
+
 ## [2.3.0] - 2020-10-05
 
 ### Added
 - Support for "repeatable" scripts such as stored procedures, functions etc
+
 
 ## [2.2.0] - 2020-08-19
 

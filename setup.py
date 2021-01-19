@@ -13,8 +13,8 @@ test_requires = parse_requirements("requirements.txt", session="snowchnage")
 
 setup(
     name="snowchange",
-    version="2.5.0",
-    author="jamesweakley/jeremiahhansen/zeitgeistf",
+    version="2.6.0",
+    author="jamesweakley/jeremiahhansen",
     description="A Database Change Management tool for Snowflake",
     long_description=long_description,
     long_description_content_type="text/markdown",
