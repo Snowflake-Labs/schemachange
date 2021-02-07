@@ -87,7 +87,7 @@ def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, s
 
   change_history = None
   if (dry_run and change_history_metadata) or not dry_run:
-    change_history = fetch_change_history(change_history_table, snowflake_session_parameters, autocommit, verbose, dry_run)
+    change_history = fetch_change_history(change_history_table, snowflake_session_parameters, autocommit, verbose)
 
   if change_history:
     max_published_version = change_history[0]
@@ -297,7 +297,7 @@ def create_change_history_table_if_missing(change_history_table, snowflake_sessi
   query = "CREATE TABLE IF NOT EXISTS {0}.{1} (VERSION VARCHAR, DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR, EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)".format(change_history_table['schema_name'], change_history_table['table_name'])
   execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
 
-def fetch_change_history(change_history_table, snowflake_session_parameters, autocommit, verbose, dry_run):
+def fetch_change_history(change_history_table, snowflake_session_parameters, autocommit, verbose):
   query = "SELECT VERSION FROM {0}.{1} WHERE SCRIPT_TYPE = 'V' ORDER BY INSTALLED_ON DESC LIMIT 1".format(change_history_table['schema_name'], change_history_table['table_name'])
   results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
 
