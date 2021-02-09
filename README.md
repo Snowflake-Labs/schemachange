@@ -215,6 +215,7 @@ Parameter | Description
 --create-change-history-table | *(Optional)* Create the change history table if it does not exist. The default is 'False'.
 -ac, --autocommit | *(Optional)* Enable autocommit feature for DML commands. The default is 'False'.
 -v, --verbose | *(Optional)* Display verbose debugging details during execution. The default is 'False'.
+--dry-run | *(Optional)* Run snowchange in dry run mode. the default is 'False'.
 
 ## Getting Started with snowchange
 
