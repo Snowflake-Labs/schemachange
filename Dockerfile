@@ -1,5 +1,5 @@
 FROM python:3.7
 
-RUN pip install snowchange
+RUN pip install schemachange
 
-ENTRYPOINT snowchange
+ENTRYPOINT schemachange

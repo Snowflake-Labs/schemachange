@@ -13,13 +13,13 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_snowchange_version = '2.8.0'
+_schemachange_version = '2.9.0'
 _metadata_database_name = 'METADATA'
-_metadata_schema_name = 'SNOWCHANGE'
+_metadata_schema_name = 'SCHEMACHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
 
 # Define the Jinja expression template class
-# snowchange uses Jinja style variable references of the form "{{ variablename }}"
+# schemachange uses Jinja style variable references of the form "{{ variablename }}"
 # See https://jinja.palletsprojects.com/en/2.11.x/templates/
 # Variable names follow Python variable naming conventions
 class JinjaExpressionTemplate(string.Template):
@@ -33,7 +33,7 @@ class JinjaExpressionTemplate(string.Template):
     )
     '''
 
-def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run):
+def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run):
   if dry_run:
     print("Running in dry-run mode")
 
@@ -46,7 +46,7 @@ def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, s
   if not os.path.isdir(root_folder):
     raise ValueError("Invalid root folder: %s" % root_folder)
 
-  print("snowchange version: %s" % _snowchange_version)
+  print("schemachange version: %s" % _schemachange_version)
   print("Using root folder %s" % root_folder)
   print("Using variables %s" % vars)
   print("Using Snowflake account %s" % snowflake_account)
@@ -56,7 +56,7 @@ def snowchange(root_folder, snowflake_account, snowflake_user, snowflake_role, s
 
   # Set default Snowflake session parameters
   snowflake_session_parameters = {
-    "QUERY_TAG": "snowchange %s" % _snowchange_version
+    "QUERY_TAG": "schemachange %s" % _schemachange_version
   }
 
   # TODO: Is there a better way to do this without setting environment variables?
@@ -185,7 +185,7 @@ def execute_snowflake_query(snowflake_database, query, snowflake_session_paramet
     snowflake_password = os.getenv("SNOWFLAKE_PASSWORD")
   elif os.getenv("SNOWSQL_PWD") is not None and os.getenv("SNOWSQL_PWD"):  # Check legacy/deprecated env variable
     snowflake_password = os.getenv("SNOWSQL_PWD")
-    warnings.warn("The SNOWSQL_PWD environment variable is deprecated and will be removed in a later version of snowchange. Please use SNOWFLAKE_PASSWORD instead.", DeprecationWarning)
+    warnings.warn("The SNOWSQL_PWD environment variable is deprecated and will be removed in a later version of schemachange. Please use SNOWFLAKE_PASSWORD instead.", DeprecationWarning)
     
   if snowflake_password is not None:
     if verbose:
@@ -345,22 +345,22 @@ def replace_variables_references(content, vars, verbose):
 
 
 def main():
-  parser = argparse.ArgumentParser(prog = 'snowchange', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/Snowflake-Labs/snowchange', formatter_class = argparse.RawTextHelpFormatter)
+  parser = argparse.ArgumentParser(prog = 'schemachange', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/Snowflake-Labs/schemachange', formatter_class = argparse.RawTextHelpFormatter)
   parser.add_argument('-f','--root-folder', type = str, default = ".", help = 'The root folder for the database change scripts', required = False)
   parser.add_argument('-a', '--snowflake-account', type = str, help = 'The name of the snowflake account (e.g. xy12345.east-us-2.azure)', required = True)
   parser.add_argument('-u', '--snowflake-user', type = str, help = 'The name of the snowflake user', required = True)
   parser.add_argument('-r', '--snowflake-role', type = str, help = 'The name of the default role to use', required = True)
   parser.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the default warehouse to use. Can be overridden in the change scripts.', required = True)
   parser.add_argument('-d', '--snowflake-database', type = str, help = 'The name of the default database to use. Can be overridden in the change scripts.', required = False)
-  parser.add_argument('-c', '--change-history-table', type = str, help = 'Used to override the default name of the change history table (the default is METADATA.SNOWCHANGE.CHANGE_HISTORY)', required = False)
+  parser.add_argument('-c', '--change-history-table', type = str, help = 'Used to override the default name of the change history table (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)', required = False)
   parser.add_argument('--vars', type = json.loads, help = 'Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})', required = False)
   parser.add_argument('--create-change-history-table', action='store_true', help = 'Create the change history schema and table, if they do not exist (the default is False)', required = False)
   parser.add_argument('-ac', '--autocommit', action='store_true', help = 'Enable autocommit feature for DML commands (the default is False)', required = False)
   parser.add_argument('-v','--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
-  parser.add_argument('--dry-run', action='store_true', help = 'Run snowchange in dry run mode (the default is False)', required = False)
+  parser.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
   args = parser.parse_args()
 
-  snowchange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run)
+  schemachange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run)
 
 if __name__ == "__main__":
     main()

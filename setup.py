@@ -8,24 +8,24 @@ with open("README.md", "r") as fh:
 
 
 # Pulls pip packages with versions from the requirements file
-install_requires = parse_requirements("requirements.txt", session="snowchange")
-test_requires = parse_requirements("requirements.txt", session="snowchnage")
+install_requires = parse_requirements("requirements.txt", session="schemachange")
+test_requires = parse_requirements("requirements.txt", session="schemachange")
 
 setup(
-    name="snowchange",
-    version="2.8.0",
+    name="schemachange",
+    version="2.9.0",
     author="jamesweakley/jeremiahhansen",
     description="A Database Change Management tool for Snowflake",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/Snowflake-Labs/snowchange",
+    url="https://github.com/Snowflake-Labs/schemachange",
     packages=find_packages(),
-    package_dir={"snowchange": "snowchange"},
+    package_dir={"schemachange": "schemachange"},
     setup_requires=[],
     python_requires=">=3.7",
     install_requires=[str(ir.requirement) for ir in install_requires],
     tests_require=[str(tr.requirement) for tr in test_requires],
-    entry_points={"console_scripts": ["snowchange=snowchange.cli:main"]},
+    entry_points={"console_scripts": ["schemachange=schemachange.cli:main"]},
     classifiers=[
         "Programming Language :: Python :: 3.7",
         "Operating System :: OS Independent",
