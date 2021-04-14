@@ -166,7 +166,7 @@ CREATE TABLE IF NOT EXISTS SCHEMACHANGE.CHANGE_HISTORY
 
 In order to run schemachange you must have the following:
 
-* You will need to have a recent version of python 3 installed (not 3.9.x as of 1/19/21)
+* You will need to have a recent version of python 3 installed
 * You will need to have the latest [Snowflake Python driver installed](https://docs.snowflake.com/en/user-guide/python-connector-install.html)
 * You will need to create the change history table used by schemachange in Snowflake (see [Change History Table](#change-history-table) above for more details)
     * First, you will need to create a database to store your change history table (schemachange will not help you with this)
