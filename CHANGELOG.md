@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [2.9.1] - 2021-04-15
+
+### Changed
+- Bumped snowflake-connector-python to 2.4.2 and relaxed the pip dependency to ~= (pick the latest patch release 2.4.X on install)
+- Bumped the docker container python version to 3.9 as snowflake-connector-python now supports this as of 2.4
+- Created a 'Dockerfile-src' for users wanting to build schemachange themselves from source in Docker
+
 ## [2.9.0] - 2021-04-02
 
 ### Changed
