@@ -289,9 +289,18 @@ def fetch_change_history_metadata(change_history_table, snowflake_session_parame
   return change_history_metadata
 
 def create_change_history_table_if_missing(change_history_table, snowflake_session_parameters, autocommit, verbose):
+  # Check if schema exists
+  query = "SELECT COUNT(1) FROM {0}.INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME ILIKE '{1}'".format(change_history_table['database_name'], change_history_table['schema_name'])
+  results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
+  schema_exists = False
+  for cursor in results:
+    for row in cursor:
+      schema_exists = (row[0] > 0)
+
   # Create the schema if it doesn't exist
-  query = "CREATE SCHEMA IF NOT EXISTS {0}".format(change_history_table['schema_name'])
-  execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
+  if not schema_exists:
+    query = "CREATE SCHEMA {0}".format(change_history_table['schema_name'])
+    execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
 
   # Finally, create the change history table if it doesn't exist
   query = "CREATE TABLE IF NOT EXISTS {0}.{1} (VERSION VARCHAR, DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR, EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)".format(change_history_table['schema_name'], change_history_table['table_name'])
