@@ -33,7 +33,7 @@ class JinjaExpressionTemplate(string.Template):
     )
     '''
 
-def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run):
+def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run, varspath):
   if dry_run:
     print("Running in dry-run mode")
 
@@ -46,13 +46,27 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
   if not os.path.isdir(root_folder):
     raise ValueError("Invalid root folder: %s" % root_folder)
 
+  if varspath and not os.path.isfile(varspath):
+    raise ValueError("Invalid Vars File : %s" % varspath)
+    
+
   print("schemachange version: %s" % _schemachange_version)
   print("Using root folder %s" % root_folder)
-  print("Using variables %s" % vars)
+  if varspath:
+    if vars:
+      print("WARNING:Using variables in %s instead of vars" % varspath)
+    else:
+      print("Using variables in:  %s" % varspath)
+    with open (varspath) as jsonfilefvars:
+      vars = json.loads(jsonfilefvars.read())
+      print("loaded vars: %s" % vars)
+  else:
+      print("Using variables in vars:  %s" % vars)
   print("Using Snowflake account %s" % snowflake_account)
   print("Using default role %s" % snowflake_role)
   print("Using default warehouse %s" % snowflake_warehouse)
   print("Using default database %s" % snowflake_database)
+
 
   # Set default Snowflake session parameters
   snowflake_session_parameters = {
@@ -367,9 +381,10 @@ def main():
   parser.add_argument('-ac', '--autocommit', action='store_true', help = 'Enable autocommit feature for DML commands (the default is False)', required = False)
   parser.add_argument('-v','--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
   parser.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
+  parser.add_argument('--varspath', type = str, help = 'Path to Json of Variables, Will take precedence over values in Vars argument', required = False)
   args = parser.parse_args()
 
-  schemachange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run)
+  schemachange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run, args.varspath)
 
 if __name__ == "__main__":
     main()
