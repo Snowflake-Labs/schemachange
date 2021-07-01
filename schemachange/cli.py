@@ -33,7 +33,7 @@ class JinjaExpressionTemplate(string.Template):
     )
     '''
 
-def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run, varspath):
+def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run, varspath,history_table_in_vars):
   if dry_run:
     print("Running in dry-run mode")
 
@@ -84,6 +84,14 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
   scripts_applied = 0
 
   # Deal with the change history table (create if specified)
+  if history_table_in_vars:
+    #try to find it in Vars
+    if history_table_in_vars in vars:
+      change_history_table_override =  vars[history_table_in_vars]
+      print("Using %s as Project History Table Defintion" % vars[history_table_in_vars]) 
+    else:
+      print("Value %s not found in Vars definition, falling back to --change-history-table/-c/ default value" % history_table_in_vars) 
+  
   change_history_table = get_change_history_table_details(change_history_table_override)
   change_history_metadata = fetch_change_history_metadata(change_history_table, snowflake_session_parameters, autocommit, verbose)
   if change_history_metadata:
@@ -382,9 +390,10 @@ def main():
   parser.add_argument('-v','--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
   parser.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
   parser.add_argument('--varspath', type = str, help = 'Path to Json of Variables, Will take precedence over values in Vars argument', required = False)
+  parser.add_argument('--history-table-in-vars', type = str, help = 'Indicate whether change history table is stored in the JSON vars or file under passed name.', required = False)
   args = parser.parse_args()
 
-  schemachange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run, args.varspath)
+  schemachange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run, args.varspath, args.history_table_in_vars)
 
 if __name__ == "__main__":
     main()
