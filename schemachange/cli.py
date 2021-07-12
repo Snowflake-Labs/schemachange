@@ -33,7 +33,7 @@ class JinjaExpressionTemplate(string.Template):
     )
     '''
 
-def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run, varspath,history_table_in_vars):
+def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run, JSONpath):
   if dry_run:
     print("Running in dry-run mode")
 
@@ -41,27 +41,32 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
   if "SNOWFLAKE_PASSWORD" not in os.environ and "SNOWSQL_PWD" not in os.environ:  # We will accept SNOWSQL_PWD for now, but it is deprecated
     if "SNOWFLAKE_PRIVATE_KEY_PATH" not in os.environ or "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE" not in os.environ:
       raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. SNOWFLAKE_PRIVATE_KEY_PATH and SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication.")
+  
+  print("schemachange version: %s" % _schemachange_version)
+  if JSONpath and not os.path.isfile(JSONpath):
+    raise ValueError("Invalid JSON File : %s" % JSONpath)
+  elif JSONpath:
+    with open (JSONpath) as JSONclifile:
+      JSONcli = json.loads(JSONclifile.read())
+    #check root folder var
+    if 'ROOT_FOLDER' in JSONcli:
+      root_folder =  JSONcli['ROOT_FOLDER']
+      print("Using %s as Root Folder Defintion from JSON File" % JSONcli['ROOT_FOLDER']) 
+    #check project history table
+    if 'CHANGE_HISTORY_TABLE' in JSONcli:
+      change_history_table_override =  JSONcli['CHANGE_HISTORY_TABLE']
+      print("Using %s as Project History Table Defintion" % JSONcli['CHANGE_HISTORY_TABLE']) 
+    # check Vars
+    if 'VARS' in JSONcli:
+      vars =  JSONcli['VARS']
+      print("Using %s as Project History Table Defintion" % JSONcli['VARS']) 
 
   root_folder = os.path.abspath(root_folder)
   if not os.path.isdir(root_folder):
     raise ValueError("Invalid root folder: %s" % root_folder)
 
-  if varspath and not os.path.isfile(varspath):
-    raise ValueError("Invalid Vars File : %s" % varspath)
-    
 
-  print("schemachange version: %s" % _schemachange_version)
   print("Using root folder %s" % root_folder)
-  if varspath:
-    if vars:
-      print("WARNING:Using variables in %s instead of vars" % varspath)
-    else:
-      print("Using variables in:  %s" % varspath)
-    with open (varspath) as jsonfilefvars:
-      vars = json.loads(jsonfilefvars.read())
-      print("loaded vars: %s" % vars)
-  else:
-      print("Using variables in vars:  %s" % vars)
   print("Using Snowflake account %s" % snowflake_account)
   print("Using default role %s" % snowflake_role)
   print("Using default warehouse %s" % snowflake_warehouse)
@@ -84,13 +89,6 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
   scripts_applied = 0
 
   # Deal with the change history table (create if specified)
-  if history_table_in_vars:
-    #try to find it in Vars
-    if history_table_in_vars in vars:
-      change_history_table_override =  vars[history_table_in_vars]
-      print("Using %s as Project History Table Defintion" % vars[history_table_in_vars]) 
-    else:
-      print("Value %s not found in Vars definition, falling back to --change-history-table/-c/ default value" % history_table_in_vars) 
   
   change_history_table = get_change_history_table_details(change_history_table_override)
   change_history_metadata = fetch_change_history_metadata(change_history_table, snowflake_session_parameters, autocommit, verbose)
@@ -389,11 +387,10 @@ def main():
   parser.add_argument('-ac', '--autocommit', action='store_true', help = 'Enable autocommit feature for DML commands (the default is False)', required = False)
   parser.add_argument('-v','--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
   parser.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
-  parser.add_argument('--varspath', type = str, help = 'Path to Json of Variables, Will take precedence over values in Vars argument', required = False)
-  parser.add_argument('--history-table-in-vars', type = str, help = 'Indicate whether change history table is stored in the JSON vars or file under passed name.', required = False)
+  parser.add_argument('--JSONpath', type = str, help = 'Path to Json of Command line Variable, ROOT_FOLDER,CHANGE_HISTORY_TABLE and VARS Will be replaced with the contents  over values in  Command line switch', required = False)
   args = parser.parse_args()
 
-  schemachange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run, args.varspath, args.history_table_in_vars)
+  schemachange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run, args.JSONpath)
 
 if __name__ == "__main__":
     main()
