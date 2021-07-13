@@ -50,11 +50,11 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
       JSONcli = json.loads(JSONclifile.read())
     #check root folder var
     if 'ROOT_FOLDER' in JSONcli:
-      root_folder =  JSONcli['ROOT_FOLDER']
+      root_folder =  str(JSONcli['ROOT_FOLDER'])
       print("Using %s as Root Folder Defintion from JSON File" % JSONcli['ROOT_FOLDER']) 
     #check project history table
     if 'CHANGE_HISTORY_TABLE' in JSONcli:
-      change_history_table_override =  JSONcli['CHANGE_HISTORY_TABLE']
+      change_history_table_override =  str(JSONcli['CHANGE_HISTORY_TABLE'])
       print("Using %s as Project History Table Defintion" % JSONcli['CHANGE_HISTORY_TABLE']) 
     # check Vars
     if 'VARS' in JSONcli:
