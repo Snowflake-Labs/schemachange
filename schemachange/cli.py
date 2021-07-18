@@ -46,20 +46,20 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
   if json_path and not os.path.isfile(json_path):
     raise ValueError("Invalid JSON File : %s" % json_path)
   elif json_path:
-    with open (json_path) as JSONclifile:
-      JSONcli = json.loads(JSONclifile.read())
+    with open (json_path) as json_cli_file:
+      json_cli = json.loads(json_cli_file.read())
     #check root folder var
-    if 'ROOT_FOLDER' in JSONcli:
-      root_folder =  str(JSONcli['ROOT_FOLDER'])
-      print("Using %s as Root Folder Defintion from JSON File" % JSONcli['ROOT_FOLDER']) 
+    if 'ROOT_FOLDER' in json_cli:
+      root_folder =  str(json_cli['ROOT_FOLDER'])
+      print("Using %s as Root Folder Defintion from JSON File" % json_cli['ROOT_FOLDER']) 
     #check project history table
-    if 'CHANGE_HISTORY_TABLE' in JSONcli:
-      change_history_table_override =  str(JSONcli['CHANGE_HISTORY_TABLE'])
-      print("Using %s as Project History Table Defintion" % JSONcli['CHANGE_HISTORY_TABLE']) 
+    if 'CHANGE_HISTORY_TABLE' in json_cli:
+      change_history_table_override =  str(json_cli['CHANGE_HISTORY_TABLE'])
+      print("Using %s as Project History Table Defintion" % json_cli['CHANGE_HISTORY_TABLE']) 
     # check Vars
-    if 'VARS' in JSONcli:
-      vars =  JSONcli['VARS']
-      print("Using %s as Project History Table Defintion" % JSONcli['VARS']) 
+    if 'VARS' in json_cli:
+      vars =  json_cli['VARS']
+      print("Using %s as Project History Table Defintion" % json_cli['VARS']) 
 
   root_folder = os.path.abspath(root_folder)
   if not os.path.isdir(root_folder):
