@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '2.9.2'
+_schemachange_version = '2.9.3'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
@@ -33,7 +33,7 @@ class JinjaExpressionTemplate(string.Template):
     )
     '''
 
-def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run, JSONpath):
+def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run, json_path):
   if dry_run:
     print("Running in dry-run mode")
 
@@ -43,10 +43,10 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
       raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. SNOWFLAKE_PRIVATE_KEY_PATH and SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication.")
   
   print("schemachange version: %s" % _schemachange_version)
-  if JSONpath and not os.path.isfile(JSONpath):
-    raise ValueError("Invalid JSON File : %s" % JSONpath)
-  elif JSONpath:
-    with open (JSONpath) as JSONclifile:
+  if json_path and not os.path.isfile(json_path):
+    raise ValueError("Invalid JSON File : %s" % json_path)
+  elif json_path:
+    with open (json_path) as JSONclifile:
       JSONcli = json.loads(JSONclifile.read())
     #check root folder var
     if 'ROOT_FOLDER' in JSONcli:
@@ -87,6 +87,8 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
 
   scripts_skipped = 0
   scripts_applied = 0
+  # Attempt to connect to snowflake
+  snowflakeCon = authenticate_snowflake_connection()
 
   # Deal with the change history table (create if specified)
   
@@ -387,10 +389,10 @@ def main():
   parser.add_argument('-ac', '--autocommit', action='store_true', help = 'Enable autocommit feature for DML commands (the default is False)', required = False)
   parser.add_argument('-v','--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
   parser.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
-  parser.add_argument('--JSONpath', type = str, help = 'Path to Json of Command line Variable, ROOT_FOLDER,CHANGE_HISTORY_TABLE and VARS Will be replaced with the contents  over values in  Command line switch', required = False)
+  parser.add_argument('--json-path', type = str, help = 'Path to Json of Command line Variable, ROOT_FOLDER,CHANGE_HISTORY_TABLE and VARS Will be replaced with the contents  over values in  Command line switch', required = False)
   args = parser.parse_args()
 
-  schemachange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run, args.JSONpath)
+  schemachange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run, args.json_path)
 
 if __name__ == "__main__":
     main()

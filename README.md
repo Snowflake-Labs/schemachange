@@ -179,13 +179,13 @@ In order to run schemachange you must have the following:
 schemachange is a single python script located at [schemachange/cli.py](schemachange/cli.py). It can be executed as follows:
 
 ```
-python schemachange/cli.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--varspath VARPATH] [--history-table-in-vars]
+python schemachange/cli.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--json-path JSON_PATH]
 ```
 
 Or if installed via `pip`, it can be executed as follows:
 
 ```
-schemachange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--varpath VARPATH] [--history-table-in-vars]
+schemachange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--json-path JSON_PATH]
 ```
 
 ### Authentication
@@ -220,8 +220,7 @@ Parameter | Description
 -ac, --autocommit | *(Optional)* Enable autocommit feature for DML commands. The default is 'False'.
 -v, --verbose | *(Optional)* Display verbose debugging details during execution. The default is 'False'.
 --dry-run | *(Optional)* Run schemachange in dry run mode. the default is 'False'.
---varspath VARS | *(Optional)* Load Define values for the variables to replaced in change scripts from a file path where the Format is JSON (e.g. '{"variable1": "value1", "variable2": "value2"}')
---history-table-in-vars TABLE | *(Optional)* Provide a name of the dictionary key in the vars data. Will look for that value in the Vars argument and use it for the -c argument.
+--json-path JSON_PATH | *(Optional)*  path to a JSON file with keys VARS, ROOT_FOLDER, CHANGE_HISTORY_TABLE that can be stored in a repo (overrides command line inputs -f,-c,--vars)
 
 ## Getting Started with schemachange
 
@@ -253,7 +252,7 @@ Here is a sample DevOps development lifecycle with schemachange:
 If your build agent has a recent version of python 3 installed, the script can be ran like so:
 ```
 pip install schemachange --upgrade
-schemachange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v]  [--varspath VARSPATH] [--history-table-in-vars KEYNAME]
+schemachange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--json-path JSON_PATH]
 ```
 
 Or if you prefer docker, set the environment variables and run like so:
