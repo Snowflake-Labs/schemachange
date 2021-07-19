@@ -145,7 +145,7 @@ def get_all_scripts_recursively(root_directory, verbose):
     for file_name in file_names:
       
       file_full_path = os.path.join(directory_path, file_name)
-      script_name_parts = re.search(r'^([V])(.+)__(.+)\.(?:sql|SQL)$', file_name.strip())
+      script_name_parts = re.search(r'^([V])(.+?)__(.+)\.(?:sql|SQL)$', file_name.strip())
       repeatable_script_name_parts = re.search(r'^([R])__(.+)\.(?:sql|SQL)$', file_name.strip())
 
       # Set script type depending on whether it matches the versioned file naming format
