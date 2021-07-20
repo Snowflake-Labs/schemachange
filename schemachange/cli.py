@@ -87,8 +87,7 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
 
   scripts_skipped = 0
   scripts_applied = 0
-  # Attempt to connect to snowflake
-  snowflakeCon = authenticate_snowflake_connection()
+ 
 
   # Deal with the change history table (create if specified)
   
