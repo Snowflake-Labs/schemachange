@@ -7,6 +7,7 @@ import time
 import hashlib
 import snowflake.connector
 import warnings
+import codecs
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import dsa
@@ -33,7 +34,7 @@ class JinjaExpressionTemplate(string.Template):
     )
     '''
 
-def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run):
+def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run, full_compare):
   if dry_run:
     print("Running in dry-run mode")
 
@@ -96,6 +97,11 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
     max_published_version_display = 'None'
   print("Max applied change script version: %s" % max_published_version_display)
 
+  change_history_full = None
+  if full_compare:
+    change_history_full = fetch_change_history_full(change_history_table, snowflake_session_parameters, autocommit, verbose)
+
+
   # Find all scripts in the root folder (recursively) and sort them correctly
   all_scripts = get_all_scripts_recursively(root_folder, verbose)
   all_script_names = list(all_scripts.keys())
@@ -107,13 +113,22 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
   for script_name in all_script_names_sorted:
     script = all_scripts[script_name]
 
-    # Apply a versioned-change script only if the version is newer than the most recent change in the database
+    # Apply a versioned-change script only if the version is newer than the most recent change in the database and full-compare is not set
     # Apply any other scripts, i.e. repeatable scripts, irrespective of the most recent change in the database
-    if script_name[0] == 'V' and get_alphanum_key(script['script_version']) <= get_alphanum_key(max_published_version):
-      if verbose:
-        print("Skipping change script %s because it's older than the most recently applied change (%s)" % (script['script_name'], max_published_version))
-      scripts_skipped += 1
-      continue
+    if not full_compare:
+      if script_name[0] == 'V' and get_alphanum_key(script['script_version']) <= get_alphanum_key(max_published_version):
+        if verbose:
+          print("Skipping change script %s because it's older than the most recently applied change (%s)" % (script['script_name'], max_published_version))
+        scripts_skipped += 1
+        continue
+
+    # Apply a versioned-change script if the version does not exist in the change_table and the full-compare flage is set
+    if full_compare:
+      if script['script_version'] in change_history_full:
+          if verbose:
+            print("Skipping change script %s because it was already applied" % (script['script_name']))
+          scripts_skipped += 1
+          continue
 
     print("Applying change script %s" % script['script_name'])
     if not dry_run:
@@ -151,11 +166,11 @@ def get_all_scripts_recursively(root_directory, verbose):
       if script_name_parts is not None:
         script_type = 'V'
         if verbose:
-          print("Versioned file " + file_full_path)
+          print("Found : Versioned file " + file_full_path)
       elif repeatable_script_name_parts is not None:
         script_type = 'R'
         if verbose:
-          print("Repeatable file " + file_full_path)
+          print("Found : Repeatable file " + file_full_path)
       else:
         if verbose:
           print("Ignoring non-change file " + file_full_path)
@@ -318,11 +333,26 @@ def fetch_change_history(change_history_table, snowflake_session_parameters, aut
 
   return change_history
 
+def fetch_change_history_full(change_history_table, snowflake_session_parameters, autocommit, verbose):
+  query = "SELECT VERSION FROM {0}.{1} WHERE SCRIPT_TYPE = 'V' ORDER BY VERSION DESC;".format(change_history_table['schema_name'], change_history_table['table_name'])
+  results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
+
+  # Collect all the results into a list
+  change_history_full = list()
+  for cursor in results:
+    for row in cursor:
+      change_history_full.append(row[0])
+
+  return change_history_full
+
 def apply_change_script(script, vars, default_database, change_history_table, snowflake_session_parameters, autocommit, verbose):
   # First read the contents of the script
   with open(script['script_full_path'],'r') as content_file:
     content = content_file.read().strip()
     content = content[:-1] if content.endswith(';') else content
+    # Remove BOM if file is UTF8-BOM
+    if content.__contains__(codecs.BOM_UTF8.decode(content_file.encoding)):
+      content = content.strip(codecs.BOM_UTF8.decode(content_file.encoding))
 
   # Define a few other change related variables
   checksum = hashlib.sha224(content.encode('utf-8')).hexdigest()
@@ -367,9 +397,10 @@ def main():
   parser.add_argument('-ac', '--autocommit', action='store_true', help = 'Enable autocommit feature for DML commands (the default is False)', required = False)
   parser.add_argument('-v','--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
   parser.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
+  parser.add_argument('--full-compare', action='store_true', help = 'Compare based on existence of version in change history table and not on versionnumber (the default is False)', required = False)
   args = parser.parse_args()
 
-  schemachange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run)
+  schemachange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run, args.full_compare)
 
 if __name__ == "__main__":
     main()
