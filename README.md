@@ -101,7 +101,7 @@ e.g:
 * R__fn_get_timezone.sql
 * R__fn_sort_ascii.sql
 
-All repeatable change scripts are applied each time the utility is run, irrespective of the most recent change in the database.
+All repeatable change scripts are applied each time when there is a change in the script.
 Repeatable scripts could be used for maintaining code that always needs to be applied in its entirety. e.g. stores procedures, functions and view definitions etc.
 
 Just like Flyway, within a single migration run, repeatable scripts are always applied last, after all pending versioned scripts have been executed. Repeatable scripts are applied in the order of their description.

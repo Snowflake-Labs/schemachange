@@ -7,6 +7,7 @@ import time
 import hashlib
 import snowflake.connector
 import warnings
+from pandas import DataFrame
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import dsa
@@ -88,6 +89,7 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
   change_history = None
   if (dry_run and change_history_metadata) or not dry_run:
     change_history = fetch_change_history(change_history_table, snowflake_session_parameters, autocommit, verbose)
+    r_scripts_checksum = fetch_r_scripts_checksum(change_history_table, snowflake_session_parameters, autocommit, verbose)
 
   if change_history:
     max_published_version = change_history[0]
@@ -101,7 +103,7 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
   all_script_names = list(all_scripts.keys())
   # Sort scripts such that versioned scripts get applied first and then the repeatable ones.
   all_script_names_sorted =   sorted_alphanumeric([script for script in all_script_names if script[0] == 'V']) \
-                            + sorted_alphanumeric([script for script in all_script_names if script[0] == 'R'])
+                            + sorted_alphanumeric([script for script in all_script_names if script[0] == 'R'])  
 
   # Loop through each script in order and apply any required changes
   for script_name in all_script_names_sorted:
@@ -114,6 +116,22 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
         print("Skipping change script %s because it's older than the most recently applied change (%s)" % (script['script_name'], max_published_version))
       scripts_skipped += 1
       continue
+    
+    # Apply only R scripts where the checksum changed compared to the last execution of snowchange
+    if script_name[0] == 'R':
+      # get checksum of current R script
+      with open(script['script_full_path'],'r') as content_file:
+        content = content_file.read().strip()
+        content = content[:-1] if content.endswith(';') else content
+        checksum_current = hashlib.sha224(content.encode('utf-8')).hexdigest()
+        checksum_last = list(r_scripts_checksum.loc[r_scripts_checksum['script_name'] == script_name, 'checksum'])[0]
+
+        # check if there is a change of the checksum in the script
+        if checksum_current == checksum_last:
+          if verbose:
+            print(f"Skipping change script {script_name} because there is no change since the last execution")
+          scripts_skipped += 1
+          continue
 
     print("Applying change script %s" % script['script_name'])
     if not dry_run:
@@ -305,6 +323,25 @@ def create_change_history_table_if_missing(change_history_table, snowflake_sessi
   # Finally, create the change history table if it doesn't exist
   query = "CREATE TABLE IF NOT EXISTS {0}.{1} (VERSION VARCHAR, DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR, EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)".format(change_history_table['schema_name'], change_history_table['table_name'])
   execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
+
+def fetch_r_scripts_checksum(change_history_table, snowflake_session_parameters, autocommit, verbose):
+  query = f"SELECT DISTINCT SCRIPT, FIRST_VALUE(CHECKSUM) OVER (PARTITION BY SCRIPT ORDER BY INSTALLED_ON DESC) \
+          FROM {change_history_table['schema_name']}.{change_history_table['table_name']} \
+          WHERE SCRIPT_TYPE = 'R' AND STATUS = 'Success'"
+  results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
+
+  # Collect all the results into a dict
+  r_script_checksums = DataFrame(columns=['script_name', 'checksum'])
+  script_names = []
+  checksums = []
+  for cursor in results:
+    for row in cursor:
+      script_names.append(row[0])
+      checksums.append(row[1])
+
+  r_script_checksums['script_name'] = script_names
+  r_script_checksums['checksum'] = checksums
+  return r_script_checksums
 
 def fetch_change_history(change_history_table, snowflake_session_parameters, autocommit, verbose):
   query = "SELECT VERSION FROM {0}.{1} WHERE SCRIPT_TYPE = 'V' ORDER BY INSTALLED_ON DESC LIMIT 1".format(change_history_table['schema_name'], change_history_table['table_name'])
