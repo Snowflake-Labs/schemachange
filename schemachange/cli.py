@@ -13,10 +13,11 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '2.9.2'
+_schemachange_version = '2.9.3'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
+_snowflake_application_name = 'schemachange'
 
 # Define the Jinja expression template class
 # schemachange uses Jinja style variable references of the form "{{ variablename }}"
@@ -199,6 +200,7 @@ def execute_snowflake_query(snowflake_database, query, snowflake_session_paramet
       database = snowflake_database,
       authenticator = os.environ["SNOWFLAKE_AUTHENTICATOR"],
       password = snowflake_password,
+      application = _snowflake_application_name,
       session_parameters = snowflake_session_parameters
     )
   # If no password, try private key authentication
@@ -225,6 +227,7 @@ def execute_snowflake_query(snowflake_database, query, snowflake_session_paramet
       warehouse = os.environ["SNOWFLAKE_WAREHOUSE"],
       database = snowflake_database,
       authenticator = os.environ["SNOWFLAKE_AUTHENTICATOR"],
+      application = _snowflake_application_name,
       private_key = pkb,
       session_parameters = snowflake_session_parameters
     )
