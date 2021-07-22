@@ -89,6 +89,15 @@ For example, a script name that follows this convention is: `V1.1.1__first_chang
 
 Every script within a database folder must have a unique version number. schemachange will check for duplicate version numbers and throw an error if it finds any. This helps to ensure that developers who are working in parallel don't accidently (re-)use the same version number.
 
+### Delta Script Naming
+Delta change scripts are based on the logic of repeatable scripts. The difference is, that delta scripts are only executed if there is a change in the sql code. The script name must follow this pattern:
+D__<Description>
+e.g.
+* D__sp_load_dimenstion.sql
+* D__dm_view_sales.sql
+
+Delta scripts are good for stored procedures, views, etc. which should not applied with any run, but you want to be able to do a prober code review. 
+
 ### Repeatable Script Naming
 
 Repeatable change scripts follow a similar naming convention to that used by [Flyway Versioned Migrations](https://flywaydb.org/documentation/concepts/migrations.html#repeatable-migrations). The script name must follow this pattern (image taken from [Flyway docs](https://flywaydb.org/documentation/concepts/migrations.html#repeatable-migrations):
@@ -101,7 +110,7 @@ e.g:
 * R__fn_get_timezone.sql
 * R__fn_sort_ascii.sql
 
-All repeatable change scripts are applied each time when there is a change in the script.
+All repeatable change scripts are applied each time the utility is run, irrespective of the most recent change in the database.
 Repeatable scripts could be used for maintaining code that always needs to be applied in its entirety. e.g. stores procedures, functions and view definitions etc.
 
 Just like Flyway, within a single migration run, repeatable scripts are always applied last, after all pending versioned scripts have been executed. Repeatable scripts are applied in the order of their description.
