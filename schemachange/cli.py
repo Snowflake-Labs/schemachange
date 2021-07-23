@@ -199,7 +199,7 @@ def get_all_scripts_recursively(root_directory, verbose):
       if script_type == 'R':
         script['script_description'] = repeatable_script_name_parts.group(2).replace('_', ' ').capitalize()
       elif script_type == 'D':
-        script['script_description'] = delta_script_name_parts.group(2).replace('_', ' ').capitalize()
+        script['script_description'] = delta_script_name_parts.group(3).replace('_', ' ').capitalize()
       else:
         script_name_parts.group(3).replace('_', ' ').capitalize()
       
