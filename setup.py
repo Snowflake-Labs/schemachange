@@ -14,7 +14,7 @@ test_requires = parse_requirements("requirements.txt", session="schemachange")
 setup(
     name="schemachange",
     version="2.9.3",
-    author="jamesweakley/jeremiahhansen/Thomasmackay",
+    author="jamesweakley/jeremiahhansen",
     description="A Database Change Management tool for Snowflake",
     long_description=long_description,
     long_description_content_type="text/markdown",

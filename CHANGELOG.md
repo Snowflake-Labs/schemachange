@@ -2,9 +2,14 @@
 All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
-## [2.9.3] - 2021-07-18
+## [2.9.4] - 2021-07-27
 - added --json-file that can called in place of and override the arguments for --vars -f/--root-folder and -c/--change-history-table   
  
+## [2.9.3] - 2021-07-22
+
+### Changed
+- Added 'schemachange' as an application parameter when connecting, to enable usage stats.
+
 ## [2.9.2] - 2021-06-11
 
 ### Changed

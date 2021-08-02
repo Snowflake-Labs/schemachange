@@ -17,6 +17,7 @@ _schemachange_version = '2.9.3'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
+_snowflake_application_name = 'schemachange'
 
 # Define the Jinja expression template class
 # schemachange uses Jinja style variable references of the form "{{ variablename }}"
@@ -43,6 +44,7 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
       raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. SNOWFLAKE_PRIVATE_KEY_PATH and SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication.")
   
   print("schemachange version: %s" % _schemachange_version)
+  found_json_keys = ''
   if json_path and not os.path.isfile(json_path):
     raise ValueError("Invalid JSON File : %s" % json_path)
   elif json_path:
@@ -51,26 +53,45 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
     #check root folder var
     if 'ROOT_FOLDER' in json_cli:
       root_folder =  str(json_cli['ROOT_FOLDER'])
-      print("Using %s as Root Folder Defintion from JSON File" % json_cli['ROOT_FOLDER']) 
-    #check project history table
-    if 'CHANGE_HISTORY_TABLE' in json_cli:
-      change_history_table_override =  str(json_cli['CHANGE_HISTORY_TABLE'])
-      print("Using %s as Project History Table Defintion" % json_cli['CHANGE_HISTORY_TABLE']) 
+      found_json_keys = found_json_keys + "root folder, "
     # check Vars
     if 'VARS' in json_cli:
       vars =  json_cli['VARS']
-      print("Using %s as Project History Table Defintion" % json_cli['VARS']) 
+      found_json_keys = found_json_keys + "variables, "
+    # check account
+    if 'SNOWFLAKE_ACCOUNT' in json_cli:
+      snowflake_account =  json_cli['SNOWFLAKE_ACCOUNT']
+      found_json_keys = found_json_keys + "Snowflake account, "
+    # check default role
+    if 'SNOWFLAKE_ROLE' in json_cli:
+      snowflake_account =  json_cli['SNOWFLAKE_ROLE']
+      found_json_keys = found_json_keys + "default role, "
+    # check default warehouse
+    if 'SNOWFLAKE_WAREHOUSE' in json_cli:
+      snowflake_account =  json_cli['SNOWFLAKE_WAREHOUSE']
+      found_json_keys = found_json_keys + "default warehouse, "
+    # check default database
+    if 'SNOWFLAKE_DATABASE' in json_cli:
+      snowflake_account =  json_cli['SNOWFLAKE_DATABASE']
+      found_json_keys = found_json_keys + "default database, "
+    #check project history table
+    if 'CHANGE_HISTORY_TABLE' in json_cli:
+      change_history_table_override =  str(json_cli['CHANGE_HISTORY_TABLE'])
+      found_json_keys = found_json_keys + "Change History Table Defintion, "
 
+  # Log inputs
+  if len(found_json_keys) >0 :
+    print("Using JSON File Keys for %s"  % found_json_keys[:-2]) 
   root_folder = os.path.abspath(root_folder)
+  print("Using root folder %s" % root_folder)
   if not os.path.isdir(root_folder):
     raise ValueError("Invalid root folder: %s" % root_folder)
-
-
-  print("Using root folder %s" % root_folder)
+  print("Using variables %s" % vars)
   print("Using Snowflake account %s" % snowflake_account)
   print("Using default role %s" % snowflake_role)
   print("Using default warehouse %s" % snowflake_warehouse)
   print("Using default database %s" % snowflake_database)
+  print("Using %s as Change History Table Defintion" % change_history_table_override) 
 
 
   # Set default Snowflake session parameters
