@@ -74,10 +74,14 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
     if 'SNOWFLAKE_DATABASE' in json_cli:
       snowflake_account =  json_cli['SNOWFLAKE_DATABASE']
       found_json_keys = found_json_keys + "default database, "
-    #check project history table
+    #check change  history table
     if 'CHANGE_HISTORY_TABLE' in json_cli:
       change_history_table_override =  str(json_cli['CHANGE_HISTORY_TABLE'])
       found_json_keys = found_json_keys + "Change History Table Defintion, "
+    #check USER
+    if 'SNOWFLAKE_USER' in json_cli:
+      snowflake_user =  str(json_cli['SNOWFLAKE_USER'])
+      found_json_keys = found_json_keys + "Log in user, "
 
   # Log inputs
   if len(found_json_keys) >0 :
@@ -92,6 +96,7 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
   print("Using default warehouse %s" % snowflake_warehouse)
   print("Using default database %s" % snowflake_database)
   print("Using %s as Change History Table Defintion" % change_history_table_override) 
+  print("Using Login user %s" % snowflake_user)
 
 
   # Set default Snowflake session parameters
