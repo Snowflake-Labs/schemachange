@@ -40,8 +40,8 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
 
   # Password authentication will take priority
   if "SNOWFLAKE_PASSWORD" not in os.environ and "SNOWSQL_PWD" not in os.environ:  # We will accept SNOWSQL_PWD for now, but it is deprecated
-    if "SNOWFLAKE_PRIVATE_KEY_PATH" not in os.environ or "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE" not in os.environ:
-      raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. SNOWFLAKE_PRIVATE_KEY_PATH and SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication.")
+    if "SNOWFLAKE_PRIVATE_KEY_PATH" not in os.environ:
+      raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. SNOWFLAKE_PRIVATE_KEY_PATH and (optional) SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication.")
 
   root_folder = os.path.abspath(root_folder)
   if not os.path.isdir(root_folder):
