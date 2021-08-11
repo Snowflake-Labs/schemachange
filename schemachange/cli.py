@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '2.9.3'
+_schemachange_version = '2.9.4'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
@@ -40,8 +40,8 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
 
   # Password authentication will take priority
   if "SNOWFLAKE_PASSWORD" not in os.environ and "SNOWSQL_PWD" not in os.environ:  # We will accept SNOWSQL_PWD for now, but it is deprecated
-    if "SNOWFLAKE_PRIVATE_KEY_PATH" not in os.environ or "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE" not in os.environ:
-      raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. SNOWFLAKE_PRIVATE_KEY_PATH and SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication.")
+    if "SNOWFLAKE_PRIVATE_KEY_PATH" not in os.environ:
+      raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. SNOWFLAKE_PRIVATE_KEY_PATH and (optional) SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication.")
 
   root_folder = os.path.abspath(root_folder)
   if not os.path.isdir(root_folder):
@@ -204,14 +204,21 @@ def execute_snowflake_query(snowflake_database, query, snowflake_session_paramet
       session_parameters = snowflake_session_parameters
     )
   # If no password, try private key authentication
-  elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH") is not None and os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH") and os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE") is not None and os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE"):
+  elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH", ''):
     if verbose:
       print("Proceeding with private key authentication")
 
+    private_key_password = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE", '')
+    if private_key_password:
+      private_key_password = private_key_password.encode()
+    else:
+      private_key_password = None
+      if verbose:
+        print("No private key passphrase provided. Assuming the key is not encrypted.")
     with open(os.environ["SNOWFLAKE_PRIVATE_KEY_PATH"], "rb") as key:
       p_key= serialization.load_pem_private_key(
           key.read(),
-          password = os.environ['SNOWFLAKE_PRIVATE_KEY_PASSPHRASE'].encode(),
+          password = private_key_password,
           backend = default_backend()
       )
 
