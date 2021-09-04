@@ -104,7 +104,8 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
   all_script_names = list(all_scripts.keys())
   # Sort scripts such that versioned scripts get applied first and then the repeatable ones.
   all_script_names_sorted =   sorted_alphanumeric([script for script in all_script_names if script[0] == 'V']) \
-                            + sorted_alphanumeric([script for script in all_script_names if script[0] == 'R'])  
+                            + sorted_alphanumeric([script for script in all_script_names if script[0] == 'R']) \
+                            + sorted_alphanumeric([script for script in all_script_names if script[0] == 'A'])
 
   # Loop through each script in order and apply any required changes
   for script_name in all_script_names_sorted:
@@ -172,6 +173,7 @@ def get_all_scripts_recursively(root_directory, verbose):
       file_full_path = os.path.join(directory_path, file_name)
       script_name_parts = re.search(r'^([V])(.+)__(.+)\.(?:sql|SQL)$', file_name.strip())
       repeatable_script_name_parts = re.search(r'^([R])__(.+)\.(?:sql|SQL)$', file_name.strip())
+      always_script_name_parts = re.search(r'^([A])__(.+)\.(?:sql|SQL)$', file_name.strip())
 
       # Set script type depending on whether it matches the versioned file naming format
       if script_name_parts is not None:
@@ -182,6 +184,10 @@ def get_all_scripts_recursively(root_directory, verbose):
         script_type = 'R'
         if verbose:
           print("Repeatable file " + file_full_path)
+      elif always_script_name_parts is not None:
+        script_type = 'A'
+        if verbose:
+          print("Always file " + file_full_path)
       else:
         if verbose:
           print("Ignoring non-change file " + file_full_path)
@@ -192,8 +198,8 @@ def get_all_scripts_recursively(root_directory, verbose):
       script['script_name'] = file_name
       script['script_full_path'] = file_full_path
       script['script_type'] = script_type
-      script['script_version'] = None if script_type in ['R'] else script_name_parts.group(2)
-      if script_type == 'R':
+      script['script_version'] = None if script_type in ['R', 'A'] else script_name_parts.group(2)
+      if script_type in ['R', 'A']:
         script['script_description'] = repeatable_script_name_parts.group(2).replace('_', ' ').capitalize()
       else:
         script['script_description'] = script_name_parts.group(3).replace('_', ' ').capitalize()
