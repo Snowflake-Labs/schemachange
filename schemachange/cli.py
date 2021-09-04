@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '2.9.3'
+_schemachange_version = '3.0.0'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
@@ -199,8 +199,10 @@ def get_all_scripts_recursively(root_directory, verbose):
       script['script_full_path'] = file_full_path
       script['script_type'] = script_type
       script['script_version'] = None if script_type in ['R', 'A'] else script_name_parts.group(2)
-      if script_type in ['R', 'A']:
+      if script_type == 'R':
         script['script_description'] = repeatable_script_name_parts.group(2).replace('_', ' ').capitalize()
+      elif script_type == 'A':
+        script['script_description'] = always_script_name_parts.group(2).replace('_', ' ').capitalize()
       else:
         script['script_description'] = script_name_parts.group(3).replace('_', ' ').capitalize()
       
