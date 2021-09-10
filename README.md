@@ -101,10 +101,22 @@ e.g:
 * R__fn_get_timezone.sql
 * R__fn_sort_ascii.sql
 
-All repeatable change scripts are applied each time the utility is run, irrespective of the most recent change in the database.
+All repeatable change scripts are applied each time the utility is run, if there is a change in the file.
 Repeatable scripts could be used for maintaining code that always needs to be applied in its entirety. e.g. stores procedures, functions and view definitions etc.
 
-Just like Flyway, within a single migration run, repeatable scripts are always applied last, after all pending versioned scripts have been executed. Repeatable scripts are applied in the order of their description.
+Just like Flyway, within a single migration run, repeatable scripts are always applied after all pending versioned scripts have been executed. Repeatable scripts are applied in the order of their description.
+
+### Always Script Naming
+
+Always change scripts are executed with every run of schemachange. This is an addition to the implementation of [Flyway Versioned Migrations](https://flywaydb.org/documentation/concepts/migrations.html#repeatable-migrations).
+The script name must following pattern: 
+A__<description>.sql
+
+e.g.
+* A__add_user.sql
+* A__assign_roles.sql
+
+This type of change script is useful for an environment set up after cloning. Always scripts are applied always last.
 
 ### Script Requirements
 

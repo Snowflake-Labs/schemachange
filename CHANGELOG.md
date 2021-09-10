@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [3.0.0] - 2021-09-04
+- Fix repeatable scripts to only execute if there is a change in the script. Repeatable scripts will not be executed with every run anymore!!!
+- Add Always script type. Always scripts are executed with every run of schemachange.
+
 ## [2.9.4] - 2021-08-12
 ### Changed
 * Added support for unencrypted private keys
