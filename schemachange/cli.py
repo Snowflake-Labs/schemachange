@@ -198,7 +198,7 @@ def get_all_scripts_recursively(root_directory, verbose):
       script['script_name'] = file_name
       script['script_full_path'] = file_full_path
       script['script_type'] = script_type
-      script['script_version'] = None if script_type in ['R', 'A'] else script_name_parts.group(2)
+      script['script_version'] = '' if script_type in ['R', 'A'] else script_name_parts.group(2)
       if script_type == 'R':
         script['script_description'] = repeatable_script_name_parts.group(2).replace('_', ' ').capitalize()
       elif script_type == 'A':
