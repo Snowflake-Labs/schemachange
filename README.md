@@ -21,6 +21,7 @@ For the complete list of changes made to schemachange check out the [CHANGELOG](
 1. [Change Scripts](#change-scripts)
    1. [Versioned Script Naming](#versioned-script-naming)
    1. [Repeatable Script Naming](#repeatable-script-naming)
+   1. [Always Script Naming](#always-script-naming)
    1. [Script Requirements](#script-requirements)
    1. [Using Variables in Scripts](#using-variables-in-scripts)
 1. [Change History Table](#change-history-table)
@@ -79,13 +80,10 @@ With the following rules for each part of the filename:
 
 For example, a script name that follows this convention is: `V1.1.1__first_change.sql`. As with Flyway, the unique version string is very flexible. You just need to be consistent and always use the same convention, like 3 sets of numbers separated by periods. Here are a few valid version strings:
 
-* 1
-* 5.2
-* 5_2
-* 1.2.3.4.5.6.7.8.9
-* 205_68
-* 20200115113556
-* 2020.1.15.11.35.56
+* 1.1
+* 1_1
+* 1.2.3
+* 1_2_3
 
 Every script within a database folder must have a unique version number. schemachange will check for duplicate version numbers and throw an error if it finds any. This helps to ensure that developers who are working in parallel don't accidently (re-)use the same version number.
 
@@ -110,9 +108,11 @@ Just like Flyway, within a single migration run, repeatable scripts are always a
 
 Always change scripts are executed with every run of schemachange. This is an addition to the implementation of [Flyway Versioned Migrations](https://flywaydb.org/documentation/concepts/migrations.html#repeatable-migrations).
 The script name must following pattern: 
-A__<description>.sql
+
+`A__Some_description.sql`
 
 e.g.
+
 * A__add_user.sql
 * A__assign_roles.sql
 
