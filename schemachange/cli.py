@@ -16,7 +16,7 @@ from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
 _schemachange_version = '3.1.0'
-_config_file_name = 'schemachange-configs.yml'
+_config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
@@ -509,7 +509,7 @@ def replace_variables_references(content, vars, verbose):
 
 def main():
   parser = argparse.ArgumentParser(prog = 'schemachange', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/Snowflake-Labs/schemachange', formatter_class = argparse.RawTextHelpFormatter)
-  parser.add_argument('--config-folder', type = str, default = ".", help = 'The folder to look in for the schemachange-config.yml file (the default is the current working directory', required = False)
+  parser.add_argument('--config-folder', type = str, default = ".", help = 'The folder to look in for the schemachange-config.yml file (the default is the current working directory)', required = False)
   parser.add_argument('-f','--root-folder', type = str, help = 'The root folder for the database change scripts', required = False)
   parser.add_argument('-a', '--snowflake-account', type = str, help = 'The name of the snowflake account (e.g. xy12345.east-us-2.azure)', required = False)
   parser.add_argument('-u', '--snowflake-user', type = str, help = 'The name of the snowflake user', required = False)

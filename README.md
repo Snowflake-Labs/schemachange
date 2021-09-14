@@ -28,17 +28,18 @@ For the complete list of changes made to schemachange check out the [CHANGELOG](
 1. [Authentication](#authentication)
    1. [Password Authentication](#password-authentication)
    1. [Private Key Authentication](#private-key-authentication)
+1. [Configuration](#configuration)
+   1. [YAML Config File](#yaml-config-file)
+   1. [Command Line Arguments](#command-line-arguments)
 1. [Running schemachange](#running-schemachange)
    1. [Prerequisites](#prerequisites)
    1. [Running The Script](#running-the-script)
-   1. [Script Parameters](#script-parameters)
 1. [Getting Started with schemachange](#getting-started-with-schemachange)
 1. [Integrating With DevOps](#integrating-with-devops)
    1. [Sample DevOps Process Flow](#sample-devops-process-flow)
    1. [Using in a CI/CD Pipeline](#using-in-a-cicd-pipeline)
 1. [Maintainers](#maintainers)
 1. [Legal](#legal)
-
 
 
 ## Project Structure
@@ -185,6 +186,89 @@ _**DEPRECATION NOTICE**: The `SNOWSQL_PWD` environment variable is deprecated bu
 ### Private Key Authentication
 The Snowflake user encrypted private key for `SNOWFLAKE_USER` is required to be in a file with the file path set in the environment variable `SNOWFLAKE_PRIVATE_KEY_PATH`. Additionally, the password for the encrypted private key file is required to be set in the environment variable `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE`. If the variable is not set, schemachange will assume the private key is not encrypted. These two environment variables must be set prior to calling the script. Schemachange will fail if the `SNOWFLAKE_PRIVATE_KEY_PATH` is not set.
 
+## Configuration
+
+Parameters to schemachange can be supplied in two different ways:
+1. Through a YAML config file
+2. Via command line arguments
+
+Additionally, regardless of the approach taken, the following paramaters are required to run schemachange:
+* snowflake-account
+* snowflake-user
+* snowflake-role
+* snowflake-warehouse
+
+Plese see [Usage Notes for the account Parameter (for the connect Method)](https://docs.snowflake.com/en/user-guide/python-connector-api.html#label-account-format-info) for more details on how to structure the account name.
+
+### YAML Config File
+
+schemachange expects the YAML config file to be named `schemachange-config.yml` and looks for it by default in the current folder. The folder can be overridden by using the `--config-folder` command line argument (see [Command Line Arguments](#command-line-arguments) below for more details).
+
+Here is the list of available configurations in the `schemachange-config.yml` file:
+
+```yaml
+config-version: 1
+
+# The root folder for the database change scripts
+root-folder: '/path/to/folder'
+
+# The name of the snowflake account (e.g. xy12345.east-us-2.azure)
+snowflake-account: 'xy12345.east-us-2.azure'
+
+# The name of the snowflake user
+snowflake-user: 'user'
+
+# The name of the default role to use. Can be overrideen in the change scripts.
+snowflake-role: 'role'
+
+# The name of the default warehouse to use. Can be overridden in the change scripts.
+snowflake-warehouse: 'warehouse'
+
+# The name of the default database to use. Can be overridden in the change scripts.
+snowflake-database: null
+
+# Used to override the default name of the change history table (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)
+change-history-table: null
+
+# Define values for the variables to replaced in change scripts
+vars:
+  var1: 'value1'
+  var2: 'value2'
+
+# Create the change history schema and table, if they do not exist (the default is False)
+create-change-history-table: false
+
+# Enable autocommit feature for DML commands (the default is False)
+autocommit: false
+
+# Display verbose debugging details during execution (the default is False)
+verbose: false
+
+# Run schemachange in dry run mode (the default is False)
+dry-run: false
+```
+
+### Command Line Arguments
+
+Here is the list of supported command line arguments to the script:
+
+Parameter | Description
+--- | ---
+-h, --help | Show the help message and exit
+--config-folder CONFIG_FOLDER | The folder to look in for the schemachange-config.yml file (the default is the current working directory)
+-f ROOT_FOLDER, --root-folder ROOT_FOLDER | The root folder for the database change scripts. The default is the current directory.
+-a SNOWFLAKE_ACCOUNT, --snowflake-account SNOWFLAKE_ACCOUNT | The name of the snowflake account (e.g. xy12345.east-us-2.azure).
+-u SNOWFLAKE_USER, --snowflake-user SNOWFLAKE_USER | The name of the snowflake user
+-r SNOWFLAKE_ROLE, --snowflake-role SNOWFLAKE_ROLE | The name of the role to use
+-w SNOWFLAKE_WAREHOUSE, --snowflake-warehouse SNOWFLAKE_WAREHOUSE | The name of the default warehouse to use. Can be overridden in the change scripts.
+-d SNOWFLAKE_DATABASE, --snowflake-database SNOWFLAKE_DATABASE | The name of the default database to use. Can be overridden in the change scripts.
+-c CHANGE_HISTORY_TABLE, --change-history-table CHANGE_HISTORY_TABLE | Used to override the default name of the change history table (which is METADATA.SCHEMACHANGE.CHANGE_HISTORY)
+--vars VARS | Define values for the variables to replaced in change scripts, given in JSON format (e.g. '{"variable1": "value1", "variable2": "value2"}')
+--create-change-history-table | Create the change history table if it does not exist. The default is 'False'.
+-ac, --autocommit | Enable autocommit feature for DML commands. The default is 'False'.
+-v, --verbose | Display verbose debugging details during execution. The default is 'False'.
+--dry-run | Run schemachange in dry run mode. the default is 'False'.
+
 ## Running schemachange
 
 ### Prerequisites
@@ -204,34 +288,14 @@ In order to run schemachange you must have the following:
 schemachange is a single python script located at [schemachange/cli.py](schemachange/cli.py). It can be executed as follows:
 
 ```
-python schemachange/cli.py [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v]
+python schemachange/cli.py [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run]
 ```
 
 Or if installed via `pip`, it can be executed as follows:
 
 ```
-schemachange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v]
+schemachange [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run]
 ```
-
-### Script Parameters
-
-Here is the list of supported parameters to the script:
-
-Parameter | Description
---- | ---
--h, --help | Show the help message and exit
--f ROOT_FOLDER, --root-folder ROOT_FOLDER| *(Optional)* The root folder for the database change scripts. The default is the current directory.
--a SNOWFLAKE_ACCOUNT, --snowflake-account SNOWFLAKE_ACCOUNT | The name of the snowflake account (e.g. xy12345.east-us-2.azure). See [Usage Notes for the account Parameter (for the connect Method)](https://docs.snowflake.com/en/user-guide/python-connector-api.html#label-account-format-info) for more details on how to structure the account name.
--u SNOWFLAKE_USER, --snowflake-user SNOWFLAKE_USER | The name of the snowflake user
--r SNOWFLAKE_ROLE, --snowflake-role SNOWFLAKE_ROLE | The name of the role to use
--w SNOWFLAKE_WAREHOUSE, --snowflake-warehouse SNOWFLAKE_WAREHOUSE | The name of the default warehouse to use. Can be overridden in the change scripts.
--d SNOWFLAKE_DATABASE, --snowflake-database SNOWFLAKE_DATABASE | The name of the default database to use. Can be overridden in the change scripts.
--c CHANGE_HISTORY_TABLE, --change-history-table CHANGE_HISTORY_TABLE | *(Optional)* Used to override the default name of the change history table (which is METADATA.SCHEMACHANGE.CHANGE_HISTORY)
---vars VARS | *(Optional)* Define values for the variables to replaced in change scripts, given in JSON format (e.g. '{"variable1": "value1", "variable2": "value2"}')
---create-change-history-table | *(Optional)* Create the change history table if it does not exist. The default is 'False'.
--ac, --autocommit | *(Optional)* Enable autocommit feature for DML commands. The default is 'False'.
--v, --verbose | *(Optional)* Display verbose debugging details during execution. The default is 'False'.
---dry-run | *(Optional)* Run schemachange in dry run mode. the default is 'False'.
 
 ## Getting Started with schemachange
 
