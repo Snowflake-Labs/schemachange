@@ -7,6 +7,7 @@ import time
 import hashlib
 import snowflake.connector
 import warnings
+import yaml
 from pandas import DataFrame
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -14,7 +15,8 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '3.0.0'
+_schemachange_version = '3.1.0'
+_config_file_name = 'schemachange-configs.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
@@ -35,8 +37,16 @@ class JinjaExpressionTemplate(string.Template):
     )
     '''
 
-def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run):
-  if dry_run:
+def schemachange(config_folder, root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run):
+  print("schemachange version: %s" % _schemachange_version)
+
+  # First get the config values
+  config_file_path = os.path.join(config_folder, _config_file_name)
+  config = get_schemachange_config(config_file_path, root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run)
+  if not config['snowflake-account'] or not config['snowflake-user'] or not config['snowflake-role'] or not config['snowflake-warehouse']:
+    raise ValueError("Missing config values. The following config values are required: snowflake-account, snowflake-user, snowflake-role, snowflake-warehouse")
+
+  if config['dry-run']:
     print("Running in dry-run mode")
 
   # Password authentication will take priority
@@ -44,17 +54,16 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
     if "SNOWFLAKE_PRIVATE_KEY_PATH" not in os.environ:
       raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. SNOWFLAKE_PRIVATE_KEY_PATH and (optional) SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication.")
 
-  root_folder = os.path.abspath(root_folder)
+  root_folder = os.path.abspath(config['root-folder'])
   if not os.path.isdir(root_folder):
     raise ValueError("Invalid root folder: %s" % root_folder)
 
-  print("schemachange version: %s" % _schemachange_version)
   print("Using root folder %s" % root_folder)
-  print("Using variables %s" % vars)
-  print("Using Snowflake account %s" % snowflake_account)
-  print("Using default role %s" % snowflake_role)
-  print("Using default warehouse %s" % snowflake_warehouse)
-  print("Using default database %s" % snowflake_database)
+  print("Using variables %s" % config['vars'])
+  print("Using Snowflake account %s" % config['snowflake-account'])
+  print("Using default role %s" % config['snowflake-role'])
+  print("Using default warehouse %s" % config['snowflake-warehouse'])
+  print("Using default database %s" % config['snowflake-database'])
 
   # Set default Snowflake session parameters
   snowflake_session_parameters = {
@@ -62,24 +71,24 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
   }
 
   # TODO: Is there a better way to do this without setting environment variables?
-  os.environ["SNOWFLAKE_ACCOUNT"] = snowflake_account
-  os.environ["SNOWFLAKE_USER"] = snowflake_user
-  os.environ["SNOWFLAKE_ROLE"] = snowflake_role
-  os.environ["SNOWFLAKE_WAREHOUSE"] = snowflake_warehouse
+  os.environ["SNOWFLAKE_ACCOUNT"] = config['snowflake-account']
+  os.environ["SNOWFLAKE_USER"] = config['snowflake-user']
+  os.environ["SNOWFLAKE_ROLE"] = config['snowflake-role']
+  os.environ["SNOWFLAKE_WAREHOUSE"] = config['snowflake-warehouse']
   os.environ["SNOWFLAKE_AUTHENTICATOR"] = 'snowflake'
 
   scripts_skipped = 0
   scripts_applied = 0
 
   # Deal with the change history table (create if specified)
-  change_history_table = get_change_history_table_details(change_history_table_override)
-  change_history_metadata = fetch_change_history_metadata(change_history_table, snowflake_session_parameters, autocommit, verbose)
+  change_history_table = get_change_history_table_details(config['change-history-table'])
+  change_history_metadata = fetch_change_history_metadata(change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
   if change_history_metadata:
     print("Using change history table %s.%s.%s (last altered %s)" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name'], change_history_metadata['last_altered']))
-  elif create_change_history_table:
+  elif config['create-change-history-table']:
     # Create the change history table (and containing objects) if it don't exist.
-    if not dry_run:
-      create_change_history_table_if_missing(change_history_table, snowflake_session_parameters, autocommit, verbose)
+    if not config['dry-run']:
+      create_change_history_table_if_missing(change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
     print("Created change history table %s.%s.%s" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name']))
   else:
     raise ValueError("Unable to find change history table %s.%s.%s" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name']))
@@ -88,9 +97,9 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
   max_published_version = ''
 
   change_history = None
-  if (dry_run and change_history_metadata) or not dry_run:
-    change_history = fetch_change_history(change_history_table, snowflake_session_parameters, autocommit, verbose)
-    r_scripts_checksum = fetch_r_scripts_checksum(change_history_table, snowflake_session_parameters, autocommit, verbose)
+  if (config['dry-run'] and change_history_metadata) or not config['dry-run']:
+    change_history = fetch_change_history(change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
+    r_scripts_checksum = fetch_r_scripts_checksum(change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
 
   if change_history:
     max_published_version = change_history[0]
@@ -100,7 +109,7 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
   print("Max applied change script version: %s" % max_published_version_display)
 
   # Find all scripts in the root folder (recursively) and sort them correctly
-  all_scripts = get_all_scripts_recursively(root_folder, verbose)
+  all_scripts = get_all_scripts_recursively(root_folder, config['verbose'])
   all_script_names = list(all_scripts.keys())
   # Sort scripts such that versioned scripts get applied first and then the repeatable ones.
   all_script_names_sorted =   sorted_alphanumeric([script for script in all_script_names if script[0] == 'V']) \
@@ -114,37 +123,35 @@ def schemachange(root_folder, snowflake_account, snowflake_user, snowflake_role,
     # Apply a versioned-change script only if the version is newer than the most recent change in the database
     # Apply any other scripts, i.e. repeatable scripts, irrespective of the most recent change in the database
     if script_name[0] == 'V' and get_alphanum_key(script['script_version']) <= get_alphanum_key(max_published_version):
-      if verbose:
+      if config['verbose']:
         print("Skipping change script %s because it's older than the most recently applied change (%s)" % (script['script_name'], max_published_version))
       scripts_skipped += 1
       continue
     
     # Apply only R scripts where the checksum changed compared to the last execution of snowchange
     if script_name[0] == 'R':
-      # get checksum of current R script
-      with open(script['script_full_path'],'r') as content_file:
-        content = content_file.read().strip()
-        content = content[:-1] if content.endswith(';') else content        
-        # Replace any variables used in the script content
-        content = replace_variables_references(content, vars, verbose)
-        checksum_current = hashlib.sha224(content.encode('utf-8')).hexdigest()
+      # First get the script content, with variables replaced
+      content = get_script_contents_with_variable_replacement(script['script_full_path'], config['vars'], config['verbose'])
 
-        # check if R file was already executed
-        if script_name in list(r_scripts_checksum['script_name']):
-          checksum_last = list(r_scripts_checksum.loc[r_scripts_checksum['script_name'] == script_name, 'checksum'])[0]
-        else:
-          checksum_last = ''
+      # Compute the checksum for the script
+      checksum_current = hashlib.sha224(content.encode('utf-8')).hexdigest()
 
-        # check if there is a change of the checksum in the script
-        if checksum_current == checksum_last:
-          if verbose:
-            print(f"Skipping change script {script_name} because there is no change since the last execution")
-          scripts_skipped += 1
-          continue
+      # check if R file was already executed
+      if script_name in list(r_scripts_checksum['script_name']):
+        checksum_last = list(r_scripts_checksum.loc[r_scripts_checksum['script_name'] == script_name, 'checksum'])[0]
+      else:
+        checksum_last = ''
+
+      # check if there is a change of the checksum in the script
+      if checksum_current == checksum_last:
+        if config['verbose']:
+          print(f"Skipping change script {script_name} because there is no change since the last execution")
+        scripts_skipped += 1
+        continue
 
     print("Applying change script %s" % script['script_name'])
-    if not dry_run:
-      apply_change_script(script, vars, snowflake_database, change_history_table, snowflake_session_parameters, autocommit, verbose)
+    if not config['dry-run']:
+      apply_change_script(script, config['vars'], config['snowflake-database'], change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
 
     scripts_applied += 1
 
@@ -163,6 +170,81 @@ def get_alphanum_key(key):
 def sorted_alphanumeric(data):
   return sorted(data, key=get_alphanum_key)
 
+def get_schemachange_config(config_file_path, root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run):
+  config = dict()
+
+  # First read in the yaml config file, if present
+  if os.path.isfile(config_file_path):
+    with open(config_file_path) as config_file:
+      # The FullLoader parameter handles the conversion from YAML scalar values to Python the dictionary format
+      config = yaml.load(config_file, Loader=yaml.FullLoader)
+    print("Using config file: %s" % config_file_path)
+
+  # Now override the configuration with values from the command line, if present, and set defaults
+  # First the required ones
+  if root_folder:
+    config['root-folder'] = root_folder
+  if 'root-folder' not in config:
+    config['root-folder'] = '.'
+
+  if snowflake_account:
+    config['snowflake-account'] = snowflake_account
+  if 'snowflake-account' not in config:
+    config['snowflake-account'] = None
+
+  if snowflake_user:
+    config['snowflake-user'] = snowflake_user
+  if 'snowflake-user' not in config:
+    config['snowflake-user'] = None
+
+  if snowflake_role:
+    config['snowflake-role'] = snowflake_role
+  if 'snowflake-role' not in config:
+    config['snowflake-role'] = None
+
+  if snowflake_warehouse:
+    config['snowflake-warehouse'] = snowflake_warehouse
+  if 'snowflake-warehouse' not in config:
+    config['snowflake-warehouse'] = None
+
+  # Then the optional ones
+  if snowflake_database:
+    config['snowflake-database'] = snowflake_database
+  if 'snowflake-database' not in config:
+    config['snowflake-database'] = None
+
+  if change_history_table_override:
+    config['change-history-table'] = change_history_table_override
+  if 'change-history-table' not in config:
+    config['change-history-table'] = None
+
+  if vars:
+    config['vars'] = vars
+  if 'vars' not in config:
+    config['vars'] = None
+
+  if create_change_history_table:
+    config['create-change-history-table'] = create_change_history_table
+  if 'create-change-history-table' not in config:
+    config['create-change-history-table'] = False
+
+  if autocommit:
+    config['autocommit'] = autocommit
+  if 'autocommit' not in config:
+    config['autocommit'] = False
+
+  if verbose:
+    config['verbose'] = verbose
+  if 'verbose' not in config:
+    config['verbose'] = False
+
+  if dry_run:
+    config['dry-run'] = dry_run
+  if 'dry-run' not in config:
+    config['dry-run'] = False
+
+  return config
+
 def get_all_scripts_recursively(root_directory, verbose):
   all_files = dict()
   all_versions = list()
@@ -179,15 +261,15 @@ def get_all_scripts_recursively(root_directory, verbose):
       if script_name_parts is not None:
         script_type = 'V'
         if verbose:
-          print("Versioned file " + file_full_path)
+          print("Found Versioned file " + file_full_path)
       elif repeatable_script_name_parts is not None:
         script_type = 'R'
         if verbose:
-          print("Repeatable file " + file_full_path)
+          print("Found Repeatable file " + file_full_path)
       elif always_script_name_parts is not None:
         script_type = 'A'
         if verbose:
-          print("Always file " + file_full_path)
+          print("Found Always file " + file_full_path)
       else:
         if verbose:
           print("Ignoring non-change file " + file_full_path)
@@ -384,14 +466,20 @@ def fetch_change_history(change_history_table, snowflake_session_parameters, aut
 
   return change_history
 
-def apply_change_script(script, vars, default_database, change_history_table, snowflake_session_parameters, autocommit, verbose):
+def get_script_contents_with_variable_replacement(script_path, vars, verbose):
   # First read the contents of the script
-  with open(script['script_full_path'],'r') as content_file:
+  with open(script_path,'r') as content_file:
     content = content_file.read().strip()
     content = content[:-1] if content.endswith(';') else content
 
-  # Replace any variables used in the script content
+  # Then replace any variables used in the script content
   content = replace_variables_references(content, vars, verbose)
+
+  return content
+
+def apply_change_script(script, vars, default_database, change_history_table, snowflake_session_parameters, autocommit, verbose):
+  # First get the script content, with variables replaced
+  content = get_script_contents_with_variable_replacement(script['script_full_path'], vars, verbose)
 
   # Define a few other change related variables
   checksum = hashlib.sha224(content.encode('utf-8')).hexdigest()
@@ -421,11 +509,12 @@ def replace_variables_references(content, vars, verbose):
 
 def main():
   parser = argparse.ArgumentParser(prog = 'schemachange', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/Snowflake-Labs/schemachange', formatter_class = argparse.RawTextHelpFormatter)
-  parser.add_argument('-f','--root-folder', type = str, default = ".", help = 'The root folder for the database change scripts', required = False)
-  parser.add_argument('-a', '--snowflake-account', type = str, help = 'The name of the snowflake account (e.g. xy12345.east-us-2.azure)', required = True)
-  parser.add_argument('-u', '--snowflake-user', type = str, help = 'The name of the snowflake user', required = True)
-  parser.add_argument('-r', '--snowflake-role', type = str, help = 'The name of the default role to use', required = True)
-  parser.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the default warehouse to use. Can be overridden in the change scripts.', required = True)
+  parser.add_argument('--config-folder', type = str, default = ".", help = 'The folder to look in for the schemachange-config.yml file (the default is the current working directory', required = False)
+  parser.add_argument('-f','--root-folder', type = str, help = 'The root folder for the database change scripts', required = False)
+  parser.add_argument('-a', '--snowflake-account', type = str, help = 'The name of the snowflake account (e.g. xy12345.east-us-2.azure)', required = False)
+  parser.add_argument('-u', '--snowflake-user', type = str, help = 'The name of the snowflake user', required = False)
+  parser.add_argument('-r', '--snowflake-role', type = str, help = 'The name of the default role to use', required = False)
+  parser.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the default warehouse to use. Can be overridden in the change scripts.', required = False)
   parser.add_argument('-d', '--snowflake-database', type = str, help = 'The name of the default database to use. Can be overridden in the change scripts.', required = False)
   parser.add_argument('-c', '--change-history-table', type = str, help = 'Used to override the default name of the change history table (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)', required = False)
   parser.add_argument('--vars', type = json.loads, help = 'Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})', required = False)
@@ -435,7 +524,7 @@ def main():
   parser.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
   args = parser.parse_args()
 
-  schemachange(args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run)
+  schemachange(args.config_folder, args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run)
 
 if __name__ == "__main__":
     main()

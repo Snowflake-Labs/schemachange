@@ -3,12 +3,25 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [3.1.0] - 2021-09-14
+
+### Added
+- Added support for configuring schemachange through a `schemachange-config.yml` YAML file!
+  - You can now invoke schemachange without supplying any command line arguments if you use the config file
+  - The filename for the config file is expected to be `schemachange-config.yml`
+  - Command line arguments override values in the config files
+  - This also makes it easier to pass variables to your scripts
+  - For more details please see the [README](README.md) for more details.
+- Added a new optional parameter `--config-folder` to specify where your config file resides
+
 ## [3.0.0] - 2021-09-09
+
+### Added
+- Add Always script type (scripts that begin with the letter 'A'). Always scripts are executed with every run of schemachange
 
 ### Changed
 - Fix repeatable scripts to only execute if there is a change in the script. Repeatable scripts will not be executed with every run anymore!!!
-  - **IMPORTANT:** If you were relying on the existing behavior, please rename those scripts to start with the letter 'A' (see the next change)
-- Add Always script type. Always scripts are executed with every run of schemachange
+  - **IMPORTANT:** If you were relying on the existing behavior, please rename those scripts to start with the letter 'A' (see above)
 - Updated versioned script filename parsing logic to use lazy regex matching for splitting version tags
   - This addresses a bug with having double underscores (__) in the description
 
