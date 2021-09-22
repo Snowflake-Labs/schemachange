@@ -405,7 +405,7 @@ def get_change_history_table_details(change_history_table_override):
 
 def fetch_change_history_metadata(change_history_table, snowflake_session_parameters, autocommit, verbose):
   # This should only ever return 0 or 1 rows
-  query = "SELECT CREATED, LAST_ALTERED FROM {0}.INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA ILIKE '{1}' AND TABLE_NAME ILIKE '{2}'".format(change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name'])
+  query = "SELECT CREATED, LAST_ALTERED FROM \"{0}\".INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA ILIKE '{1}' AND TABLE_NAME ILIKE '{2}'".format(change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name'])
   results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
 
   # Collect all the results into a list
@@ -419,7 +419,7 @@ def fetch_change_history_metadata(change_history_table, snowflake_session_parame
 
 def create_change_history_table_if_missing(change_history_table, snowflake_session_parameters, autocommit, verbose):
   # Check if schema exists
-  query = "SELECT COUNT(1) FROM {0}.INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME ILIKE '{1}'".format(change_history_table['database_name'], change_history_table['schema_name'])
+  query = "SELECT COUNT(1) FROM \"{0}\".INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME ILIKE '{1}'".format(change_history_table['database_name'], change_history_table['schema_name'])
   results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
   schema_exists = False
   for cursor in results:
@@ -428,16 +428,16 @@ def create_change_history_table_if_missing(change_history_table, snowflake_sessi
 
   # Create the schema if it doesn't exist
   if not schema_exists:
-    query = "CREATE SCHEMA {0}".format(change_history_table['schema_name'])
+    query = "CREATE SCHEMA \"{0}\"".format(change_history_table['schema_name'])
     execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
 
   # Finally, create the change history table if it doesn't exist
-  query = "CREATE TABLE IF NOT EXISTS {0}.{1} (VERSION VARCHAR, DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR, EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)".format(change_history_table['schema_name'], change_history_table['table_name'])
+  query = "CREATE TABLE IF NOT EXISTS \"{0}\".\"{1}\" (VERSION VARCHAR, DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR, EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)".format(change_history_table['schema_name'], change_history_table['table_name'])
   execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
 
 def fetch_r_scripts_checksum(change_history_table, snowflake_session_parameters, autocommit, verbose):
   query = f"SELECT DISTINCT SCRIPT, FIRST_VALUE(CHECKSUM) OVER (PARTITION BY SCRIPT ORDER BY INSTALLED_ON DESC) \
-          FROM {change_history_table['schema_name']}.{change_history_table['table_name']} \
+          FROM \"{change_history_table['schema_name']}\".\"{change_history_table['table_name']}\" \
           WHERE SCRIPT_TYPE = 'R' AND STATUS = 'Success'"
   results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
 
@@ -455,7 +455,7 @@ def fetch_r_scripts_checksum(change_history_table, snowflake_session_parameters,
   return d_script_checksum
 
 def fetch_change_history(change_history_table, snowflake_session_parameters, autocommit, verbose):
-  query = "SELECT VERSION FROM {0}.{1} WHERE SCRIPT_TYPE = 'V' ORDER BY INSTALLED_ON DESC LIMIT 1".format(change_history_table['schema_name'], change_history_table['table_name'])
+  query = "SELECT VERSION FROM \"{0}\".\"{1}\" WHERE SCRIPT_TYPE = 'V' ORDER BY INSTALLED_ON DESC LIMIT 1".format(change_history_table['schema_name'], change_history_table['table_name'])
   results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
 
   # Collect all the results into a list
@@ -496,7 +496,7 @@ def apply_change_script(script, vars, default_database, change_history_table, sn
     execution_time = round(end - start)
 
   # Finally record this change in the change history table
-  query = "INSERT INTO {0}.{1} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{2}','{3}','{4}','{5}','{6}',{7},'{8}','{9}',CURRENT_TIMESTAMP);".format(change_history_table['schema_name'], change_history_table['table_name'], script['script_version'], script['script_description'], script['script_name'], script['script_type'], checksum, execution_time, status, os.environ["SNOWFLAKE_USER"])
+  query = "INSERT INTO \"{0}\".\"{1}\" (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{2}','{3}','{4}','{5}','{6}',{7},'{8}','{9}',CURRENT_TIMESTAMP);".format(change_history_table['schema_name'], change_history_table['table_name'], script['script_version'], script['script_description'], script['script_name'], script['script_type'], checksum, execution_time, status, os.environ["SNOWFLAKE_USER"])
   execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
 
 # This method will throw an error if there are any leftover variables in the change script
