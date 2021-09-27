@@ -166,7 +166,7 @@ def deploy_command(config):
         continue
 
     if config['explain-first']:
-      explain_change_script(script, config['vars'], config['snowflake-database'], snowflake_session_parameters, config['autocommit'], config['verbose'])
+      explain_change_script(script, config['vars'], config['snowflake-database'], snowflake_session_parameters, config['verbose'])
 
     print("Applying change script %s" % script['script_name'])
     if not config['dry-run']:
