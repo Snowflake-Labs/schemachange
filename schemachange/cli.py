@@ -138,7 +138,7 @@ def schemachange(config_folder, root_folder, snowflake_account, snowflake_user, 
       checksum_current = hashlib.sha224(content.encode('utf-8')).hexdigest()
 
       # check if R file was already executed
-      if r_scripts_checksum and script_name in list(r_scripts_checksum['script_name']):
+      if (r_scripts_checksum is not None) and script_name in list(r_scripts_checksum['script_name']):
         checksum_last = list(r_scripts_checksum.loc[r_scripts_checksum['script_name'] == script_name, 'checksum'])[0]
       else:
         checksum_last = ''
