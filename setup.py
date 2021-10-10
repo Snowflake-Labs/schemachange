@@ -34,4 +34,11 @@ setup(
     ],
     dependency_links=[],
     include_package_data=True,
+    extras_require={
+        'dev': [
+            'pytest',
+            'pytest-pep8',
+            'pytest-cov'
+        ]
+    }
 )
