@@ -288,6 +288,10 @@ def get_all_scripts_recursively(root_directory, verbose):
       else:
         script['script_description'] = script_name_parts.group(3).replace('_', ' ').capitalize()
       
+      # Throw an error if the script_name already exists
+      if file_name in all_files:
+        raise ValueError("The script name %s exists more than once (first_instance %s, second instance %s)" % (file_name, all_files[file_name]['script_full_path'], script['script_full_path']))
+
       all_files[file_name] = script
 
       # Throw an error if the same version exists more than once
