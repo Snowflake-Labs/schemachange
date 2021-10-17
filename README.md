@@ -77,7 +77,7 @@ With the following rules for each part of the filename:
 * **Version**: A unique version number with dots or underscores separating as many number parts as you like
 * **Separator**: __ (two underscores)
 * **Description**: An arbitrary description with words separated by underscores or spaces (can not include two underscores)
-* **Suffix**: .sql
+* **Suffix**: .sql or .sql.jinja
 
 For example, a script name that follows this convention is: `V1.1.1__first_change.sql`. As with Flyway, the unique version string is very flexible. You just need to be consistent and always use the same convention, like 3 sets of numbers separated by periods. Here are a few valid version strings:
 
@@ -124,15 +124,17 @@ This type of change script is useful for an environment set up after cloning. Al
 schemachange is designed to be very lightweight and not impose to many limitations. Each change script can have any number of SQL statements within it and must supply the necessary context, like database and schema names. The context can be supplied by using an explicit `USE <DATABASE>` command or by naming all objects with a three-part name (`<database name>.<schema name>.<object name>`). schemachange will simply run the contents of each script against the target Snowflake account, in the correct order.
 
 ### Using Variables in Scripts
-
-schemachange supports a light weight variable replacement strategy. One important use of variables is to support multiple environments (dev, test, prod) in a single Snowflake account by dynamically changing the database name during deployment.
-
-To use a variable in a change script, use this syntax anywhere in the script: `{{ variable1 }}`. So the pattern is two left curly braces, followed by a space, followed by the variable name, followed by a space, and finally followed by two right curly braces. And the spaces are important. The format for including variables in change scripts mimics [Jinja expressions](https://jinja.palletsprojects.com/en/2.11.x/templates/#expressions). Please note that at this point schemachange hasn't been integrated with Jinja, but by using the same syntax for variables and expressions a future migration will be seamless.
+schemachange supports the jinja engine for a variable replacement strategy. One important use of variables is to support multiple environments (dev, test, prod) in a single Snowflake account by dynamically changing the database name during deployment. To use a variable in a change script, use this syntax anywhere in the script: `{{ variable1 }}`. 
 
 To pass variables to schemachange, use the `--vars` command line parameter like this: `--vars '{"variable1": "value", "variable2": "value2"}'`. This parameter accepts a flat JSON object formatted as a string. Nested objects and arrays don't make sense at this point and aren't supported.
 
 schemachange will replace any variable placeholders before running your change script code and will throw an error if it finds any variable placeholders that haven't been replaced.
 
+### Jinja templating engine
+schemachange uses the Jinja templating engine internally and supports: [expressions](https://jinja.palletsprojects.com/en/3.0.x/templates/#expressions), [macros](https://jinja.palletsprojects.com/en/3.0.x/templates/#macros), [includes](https://jinja.palletsprojects.com/en/3.0.x/templates/#include) and [template inheritance](https://jinja.palletsprojects.com/en/3.0.x/templates/#template-inheritance).
+
+These files can be stored in the root-folder but schemachange also provides a separate modules folder `--modules-folder`. This allows common logic to be stored outside of the main changes scripts. The [demo/citibike_jinja](demo/citibike_jinja) has a simple example that demonstrates this.
+ 
 
 ## Change History Table
 
@@ -212,6 +214,9 @@ config-version: 1
 # The root folder for the database change scripts
 root-folder: '/path/to/folder'
 
+# The modules folder for jinja macros and templates to be used across multiple scripts.
+modules-folder: null
+
 # The name of the snowflake account (e.g. xy12345.east-us-2.azure)
 snowflake-account: 'xy12345.east-us-2.azure'
 
@@ -246,17 +251,24 @@ verbose: false
 
 # Run schemachange in dry run mode (the default is False)
 dry-run: false
+
 ```
 
 ### Command Line Arguments
 
-Here is the list of supported command line arguments to the script:
+Schemachange supports a number of subcommands, it the subcommand is not provided it is defaulted to deploy. This behaviour keeps compatibility with versions prior to 3.2.
+
+#### deploy
+This is the main command that runs the deployment process.
+
+`usage: schemachange deploy [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run]`
 
 Parameter | Description
 --- | ---
 -h, --help | Show the help message and exit
 --config-folder CONFIG_FOLDER | The folder to look in for the schemachange-config.yml file (the default is the current working directory)
 -f ROOT_FOLDER, --root-folder ROOT_FOLDER | The root folder for the database change scripts. The default is the current directory.
+-m MODULES_FOLDER, --modules-folder MODULES_FOLDER | The modules folder for jinja macros and templates to be used across mutliple scripts
 -a SNOWFLAKE_ACCOUNT, --snowflake-account SNOWFLAKE_ACCOUNT | The name of the snowflake account (e.g. xy12345.east-us-2.azure).
 -u SNOWFLAKE_USER, --snowflake-user SNOWFLAKE_USER | The name of the snowflake user
 -r SNOWFLAKE_ROLE, --snowflake-role SNOWFLAKE_ROLE | The name of the role to use
@@ -267,7 +279,21 @@ Parameter | Description
 --create-change-history-table | Create the change history table if it does not exist. The default is 'False'.
 -ac, --autocommit | Enable autocommit feature for DML commands. The default is 'False'.
 -v, --verbose | Display verbose debugging details during execution. The default is 'False'.
---dry-run | Run schemachange in dry run mode. the default is 'False'.
+--dry-run | Run schemachange in dry run mode. The default is 'False'.
+
+#### render
+This subcommand is used to render a single script to the console. It is intended to suport the development and troubleshooting of script that use features from the jinja template engine.
+
+`usage: schemachange render [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [--vars VARS] [-v] script`
+
+Parameter | Description
+--- | ---
+--config-folder CONFIG_FOLDER | The folder to look in for the schemachange-config.yml file (the default is the current working directory)
+-f ROOT_FOLDER, --root-folder ROOT_FOLDER | The root folder for the database change scripts
+-m MODULES_FOLDER, --modules-folder MODULES_FOLDER | The modules folder for jinja macros and templates to be used across multiple scripts
+--vars VARS | Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})
+-v, --verbose | Display verbose debugging details during execution (the default is False)
+
 
 ## Running schemachange
 
@@ -359,3 +385,14 @@ This is a community-developed tool, not an official Snowflake offering. It comes
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this tool except in compliance with the License. You may obtain a copy of the License at: [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0)
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+
+## Third party packages
+The current functionality in schemachange would not be possible without the following third party packages and all those that maintain and have contributed.
+ 
+ Name | License | Author | URL  
+ ---|---|---|---                                            
+ Jinja2 | BSD License | Armin Ronacher | https://palletsprojects.com/p/jinja/             
+ PyYAML | MIT License | Kirill Simonov | https://pyyaml.org/                              
+ pandas | BSD License | The Pandas Development Team | https://pandas.pydata.org                        
+ pytest | MIT License | Holger Krekel, Bruno Oliveira, Ronny Pfannschmidt, Floris Bruynooghe, Brianna Laugher, Florian Bruhin and others | https://docs.pytest.org/en/latest/
+ snowflake-connector-python | Apache Software License | Snowflake, Inc | https://www.snowflake.com/                       
