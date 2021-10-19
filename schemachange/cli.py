@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '3.1.0'
+_schemachange_version = '3.1.1'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
@@ -97,6 +97,7 @@ def schemachange(config_folder, root_folder, snowflake_account, snowflake_user, 
   max_published_version = ''
 
   change_history = None
+  r_scripts_checksum = None
   if (config['dry-run'] and change_history_metadata) or not config['dry-run']:
     change_history = fetch_change_history(change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
     r_scripts_checksum = fetch_r_scripts_checksum(change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
@@ -137,7 +138,7 @@ def schemachange(config_folder, root_folder, snowflake_account, snowflake_user, 
       checksum_current = hashlib.sha224(content.encode('utf-8')).hexdigest()
 
       # check if R file was already executed
-      if script_name in list(r_scripts_checksum['script_name']):
+      if (r_scripts_checksum is not None) and script_name in list(r_scripts_checksum['script_name']):
         checksum_last = list(r_scripts_checksum.loc[r_scripts_checksum['script_name'] == script_name, 'checksum'])[0]
       else:
         checksum_last = ''
