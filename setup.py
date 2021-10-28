@@ -13,7 +13,7 @@ test_requires = parse_requirements("requirements.txt", session="schemachange")
 
 setup(
     name="schemachange",
-    version="3.1.1",
+    version="3.2.0",
     author="jamesweakley/jeremiahhansen",
     description="A Database Change Management tool for Snowflake",
     long_description=long_description,
@@ -34,4 +34,9 @@ setup(
     ],
     dependency_links=[],
     include_package_data=True,
+    extras_require={
+        'dev': [
+            'pytest',
+        ]
+    }
 )

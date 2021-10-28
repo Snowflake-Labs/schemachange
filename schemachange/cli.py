@@ -2,12 +2,16 @@ import os
 import string
 import re
 import argparse
+import jinja2
 import json
 import time
 import hashlib
+from jinja2.loaders import BaseLoader
 import snowflake.connector
+import sys
 import warnings
 import yaml
+from typing import Dict, Any
 from pandas import DataFrame
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -15,34 +19,52 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '3.1.1'
+_schemachange_version = '3.2.0'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
 _snowflake_application_name = 'schemachange'
 
-# Define the Jinja expression template class
-# schemachange uses Jinja style variable references of the form "{{ variablename }}"
-# See https://jinja.palletsprojects.com/en/2.11.x/templates/
-# Variable names follow Python variable naming conventions
-class JinjaExpressionTemplate(string.Template):
-    delimiter = '{{ '
-    pattern = r'''
-    \{\{[ ](?:
-    (?P<escaped>\{\{)|
-    (?P<named>[_A-Za-z][_A-Za-z0-9]*)[ ]\}\}|
-    (?P<braced>[_A-Za-z][_A-Za-z0-9]*)[ ]\}\}|
-    (?P<invalid>)
-    )
-    '''
+class JinjaTemplateProcessor:
+    def __init__(self, project_root: str, modules_folder: str = None): 
+        loader: BaseLoader      
+        if modules_folder:          
+          loader =  jinja2.ChoiceLoader(
+            [
+                jinja2.FileSystemLoader(project_root),
+                jinja2.PrefixLoader({"modules": jinja2.FileSystemLoader(modules_folder)}),
+            ]
+        )
+        else:          
+          loader = jinja2.FileSystemLoader(project_root)
 
-def schemachange(config_folder, root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run):
-  print("schemachange version: %s" % _schemachange_version)
+        self.__environment = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined)
+        self.__project_root = project_root
+
+    def override_loader(self, loader: jinja2.BaseLoader):
+      # to make unit testing easier
+      self.__environment = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined)
+    
+    def render(self, script: str, vars: Dict[str, Any], verbose: bool) -> str:   
+      if not vars:
+        vars = {}
+
+      template = self.__environment.get_template(script)     
+      content=  template.render(**vars).strip()        
+      content = content[:-1] if content.endswith(';') else content
+
+      return content
+
+    def relpath(self, file_path: str):
+      return os.path.relpath(file_path, self.__project_root )
+
+
+def schemachange(config_folder, root_folder, modules_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run):  
 
   # First get the config values
   config_file_path = os.path.join(config_folder, _config_file_name)
-  config = get_schemachange_config(config_file_path, root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run)
+  config = get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run)
   if not config['snowflake-account'] or not config['snowflake-user'] or not config['snowflake-role'] or not config['snowflake-warehouse']:
     raise ValueError("Missing config values. The following config values are required: snowflake-account, snowflake-user, snowflake-role, snowflake-warehouse")
 
@@ -58,7 +80,14 @@ def schemachange(config_folder, root_folder, snowflake_account, snowflake_user, 
   if not os.path.isdir(root_folder):
     raise ValueError("Invalid root folder: %s" % root_folder)
 
+  if config['modules-folder']:
+    modules_folder = os.path.abspath(config['modules-folder'])
+    if not os.path.isdir(modules_folder):
+      raise ValueError("Invalid modules folder: %s" % modules_folder)
+
   print("Using root folder %s" % root_folder)
+  if modules_folder: 
+    print("Using modules folder %s" % modules_folder)
   print("Using variables %s" % config['vars'])
   print("Using Snowflake account %s" % config['snowflake-account'])
   print("Using default role %s" % config['snowflake-role'])
@@ -117,6 +146,9 @@ def schemachange(config_folder, root_folder, snowflake_account, snowflake_user, 
                             + sorted_alphanumeric([script for script in all_script_names if script[0] == 'R']) \
                             + sorted_alphanumeric([script for script in all_script_names if script[0] == 'A'])
 
+  # setup jina processor once and reuse through out the script.
+  jinja_processor = JinjaTemplateProcessor(project_root=root_folder, modules_folder=modules_folder)  
+
   # Loop through each script in order and apply any required changes
   for script_name in all_script_names_sorted:
     script = all_scripts[script_name]
@@ -129,11 +161,11 @@ def schemachange(config_folder, root_folder, snowflake_account, snowflake_user, 
       scripts_skipped += 1
       continue
     
+    # generate the script contents using jinja engine
+    content = jinja_processor.render(jinja_processor.relpath(script['script_full_path']), config['vars'], config['verbose'])            
+
     # Apply only R scripts where the checksum changed compared to the last execution of snowchange
     if script_name[0] == 'R':
-      # First get the script content, with variables replaced
-      content = get_script_contents_with_variable_replacement(script['script_full_path'], config['vars'], config['verbose'])
-
       # Compute the checksum for the script
       checksum_current = hashlib.sha224(content.encode('utf-8')).hexdigest()
 
@@ -152,7 +184,7 @@ def schemachange(config_folder, root_folder, snowflake_account, snowflake_user, 
 
     print("Applying change script %s" % script['script_name'])
     if not config['dry-run']:
-      apply_change_script(script, config['vars'], config['snowflake-database'], change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
+      apply_change_script(script, content, config['vars'], config['snowflake-database'], change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
 
     scripts_applied += 1
 
@@ -171,7 +203,7 @@ def get_alphanum_key(key):
 def sorted_alphanumeric(data):
   return sorted(data, key=get_alphanum_key)
 
-def get_schemachange_config(config_file_path, root_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run):
+def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run):
   config = dict()
 
   # First read in the yaml config file, if present
@@ -187,6 +219,11 @@ def get_schemachange_config(config_file_path, root_folder, snowflake_account, sn
     config['root-folder'] = root_folder
   if 'root-folder' not in config:
     config['root-folder'] = '.'
+
+  if modules_folder:
+    config['modules-folder'] = modules_folder
+  if 'modules-folder' not in config:
+    config['modules-folder'] = None
 
   if snowflake_account:
     config['snowflake-account'] = snowflake_account
@@ -222,7 +259,7 @@ def get_schemachange_config(config_file_path, root_folder, snowflake_account, sn
   if vars:
     config['vars'] = vars
   if 'vars' not in config:
-    config['vars'] = None
+    config['vars'] = {}
 
   if create_change_history_table:
     config['create-change-history-table'] = create_change_history_table
@@ -244,6 +281,15 @@ def get_schemachange_config(config_file_path, root_folder, snowflake_account, sn
   if 'dry-run' not in config:
     config['dry-run'] = False
 
+  if config['vars']:
+    # if vars is configured wrong in the config file it will come through as a string
+    if type(config['vars']) is not dict:
+      raise ValueError("vars did not parse correctly, please check its configuration")
+
+    # the variable schema change has been reserved
+    if "schemachange" in config['vars']:    
+      raise ValueError("The variable schemachange has been reserved for use by schemachange, please use a different name")
+
   return config
 
 def get_all_scripts_recursively(root_directory, verbose):
@@ -254,9 +300,9 @@ def get_all_scripts_recursively(root_directory, verbose):
     for file_name in file_names:
       
       file_full_path = os.path.join(directory_path, file_name)
-      script_name_parts = re.search(r'^([V])(.+?)__(.+)\.(?:sql|SQL)$', file_name.strip())
-      repeatable_script_name_parts = re.search(r'^([R])__(.+)\.(?:sql|SQL)$', file_name.strip())
-      always_script_name_parts = re.search(r'^([A])__(.+)\.(?:sql|SQL)$', file_name.strip())
+      script_name_parts = re.search(r'^([V])(.+?)__(.+?)\.(?:sql|sql.jinja)$', file_name.strip(), re.IGNORECASE)
+      repeatable_script_name_parts = re.search(r'^([R])__(.+?)\.(?:sql|sql.jinja)$', file_name.strip(), re.IGNORECASE)
+      always_script_name_parts = re.search(r'^([A])__(.+?)\.(?:sql|sql.jinja)$', file_name.strip(), re.IGNORECASE)
 
       # Set script type depending on whether it matches the versioned file naming format
       if script_name_parts is not None:
@@ -276,9 +322,16 @@ def get_all_scripts_recursively(root_directory, verbose):
           print("Ignoring non-change file " + file_full_path)
         continue
 
+      # script name is the filename without any jinja extension
+      (file_part, extension_part) = os.path.splitext(file_name)
+      if extension_part.upper() == ".JINJA":
+        script_name = file_part
+      else:
+        script_name = file_name        
+
       # Add this script to our dictionary (as nested dictionary)
       script = dict()
-      script['script_name'] = file_name
+      script['script_name'] = script_name
       script['script_full_path'] = file_full_path
       script['script_type'] = script_type
       script['script_version'] = '' if script_type in ['R', 'A'] else script_name_parts.group(2)
@@ -289,7 +342,11 @@ def get_all_scripts_recursively(root_directory, verbose):
       else:
         script['script_description'] = script_name_parts.group(3).replace('_', ' ').capitalize()
       
-      all_files[file_name] = script
+      # Throw an error if the script_name already exists
+      if script_name in all_files:
+        raise ValueError("The script name %s exists more than once (first_instance %s, second instance %s)" % (script_name, all_files[script_name]['script_full_path'], script['script_full_path']))
+
+      all_files[script_name] = script
 
       # Throw an error if the same version exists more than once
       if script_type == 'V':
@@ -467,32 +524,18 @@ def fetch_change_history(change_history_table, snowflake_session_parameters, aut
 
   return change_history
 
-def get_script_contents_with_variable_replacement(script_path, vars, verbose):
-  # First read the contents of the script
-  with open(script_path,'r') as content_file:
-    content = content_file.read().strip()
-    content = content[:-1] if content.endswith(';') else content
-
-  # Then replace any variables used in the script content
-  content = replace_variables_references(content, vars, verbose)
-
-  return content
-
-def apply_change_script(script, vars, default_database, change_history_table, snowflake_session_parameters, autocommit, verbose):
-  # First get the script content, with variables replaced
-  content = get_script_contents_with_variable_replacement(script['script_full_path'], vars, verbose)
-
+def apply_change_script(script, script_content, vars, default_database, change_history_table, snowflake_session_parameters, autocommit, verbose):
   # Define a few other change related variables
-  checksum = hashlib.sha224(content.encode('utf-8')).hexdigest()
+  checksum = hashlib.sha224(script_content.encode('utf-8')).hexdigest()
   execution_time = 0
   status = 'Success'
 
   # Execute the contents of the script
-  if len(content) > 0:
+  if len(script_content) > 0:
     start = time.time()
     session_parameters = snowflake_session_parameters.copy()
     session_parameters["QUERY_TAG"] += ";%s" % script['script_name']
-    execute_snowflake_query(default_database, content, session_parameters, autocommit, verbose)
+    execute_snowflake_query(default_database, script_content, session_parameters, autocommit, verbose)
     end = time.time()
     execution_time = round(end - start)
 
@@ -500,32 +543,79 @@ def apply_change_script(script, vars, default_database, change_history_table, sn
   query = "INSERT INTO {0}.{1} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{2}','{3}','{4}','{5}','{6}',{7},'{8}','{9}',CURRENT_TIMESTAMP);".format(change_history_table['schema_name'], change_history_table['table_name'], script['script_version'], script['script_description'], script['script_name'], script['script_type'], checksum, execution_time, status, os.environ["SNOWFLAKE_USER"])
   execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
 
-# This method will throw an error if there are any leftover variables in the change script
-# Since a leftover variable in the script isn't valid SQL, and will fail when run it's
-# better to throw an error here and have the user fix the problem ahead of time.
-def replace_variables_references(content, vars, verbose):
-  t = JinjaExpressionTemplate(content)
-  return t.substitute(vars)
+def render_command(config_folder : str, root_folder:str , modules_folder:str , vars , verbose: bool, script_path: str):
+  # First get the config values
+  config_file_path = os.path.join(config_folder, _config_file_name)
+  config = get_schemachange_config(config_file_path, root_folder, modules_folder, None, None, None, None, None, None, vars, None, None, verbose, None)
 
+  root_folder = os.path.abspath(config['root-folder'])
+  if not os.path.isdir(root_folder):
+    raise ValueError("Invalid root folder: %s" % root_folder)
+
+  if modules_folder:
+    modules_folder = os.path.abspath(config['modules-folder'])
+    if not os.path.isdir(modules_folder):
+      raise ValueError("Invalid modules folder: %s" % modules_folder)
+
+  script_path = os.path.abspath(script_path)
+  if not os.path.isfile(script_path):
+    raise ValueError("Invalid script_path: %s" % script_path)
+
+  print("Using root folder %s" % root_folder)
+  print("Using modules folder %s" % modules_folder)
+  print("Using variables %s" % config['vars'])
+  print("Processing script %s" % script_path)
+
+  # always process with jinja engine
+  processor = JinjaTemplateProcessor(project_root=config['root-folder'], modules_folder=config['modules-folder'])    
+  content = processor.render(processor.relpath(script_path), vars, False)
+
+  checksum = hashlib.sha224(content.encode('utf-8')).hexdigest()
+  print("Checksum %s" % checksum)
+  print("")
+  print(content)
 
 def main():
   parser = argparse.ArgumentParser(prog = 'schemachange', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/Snowflake-Labs/schemachange', formatter_class = argparse.RawTextHelpFormatter)
-  parser.add_argument('--config-folder', type = str, default = ".", help = 'The folder to look in for the schemachange-config.yml file (the default is the current working directory)', required = False)
-  parser.add_argument('-f','--root-folder', type = str, help = 'The root folder for the database change scripts', required = False)
-  parser.add_argument('-a', '--snowflake-account', type = str, help = 'The name of the snowflake account (e.g. xy12345.east-us-2.azure)', required = False)
-  parser.add_argument('-u', '--snowflake-user', type = str, help = 'The name of the snowflake user', required = False)
-  parser.add_argument('-r', '--snowflake-role', type = str, help = 'The name of the default role to use', required = False)
-  parser.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the default warehouse to use. Can be overridden in the change scripts.', required = False)
-  parser.add_argument('-d', '--snowflake-database', type = str, help = 'The name of the default database to use. Can be overridden in the change scripts.', required = False)
-  parser.add_argument('-c', '--change-history-table', type = str, help = 'Used to override the default name of the change history table (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)', required = False)
-  parser.add_argument('--vars', type = json.loads, help = 'Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})', required = False)
-  parser.add_argument('--create-change-history-table', action='store_true', help = 'Create the change history schema and table, if they do not exist (the default is False)', required = False)
-  parser.add_argument('-ac', '--autocommit', action='store_true', help = 'Enable autocommit feature for DML commands (the default is False)', required = False)
-  parser.add_argument('-v','--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
-  parser.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
-  args = parser.parse_args()
+  subcommands = parser.add_subparsers(dest='subcommand')
+    
+  parser_deploy = subcommands.add_parser("deploy")
+  parser_deploy.add_argument('--config-folder', type = str, default = '.', help = 'The folder to look in for the schemachange-config.yml file (the default is the current working directory)', required = False)
+  parser_deploy.add_argument('-f', '--root-folder', type = str, help = 'The root folder for the database change scripts', required = False)
+  parser_deploy.add_argument('-m', '--modules-folder', type = str, help = 'The modules folder for jinja macros and templates to be used across multiple scripts', required = False)
+  parser_deploy.add_argument('-a', '--snowflake-account', type = str, help = 'The name of the snowflake account (e.g. xy12345.east-us-2.azure)', required = False)
+  parser_deploy.add_argument('-u', '--snowflake-user', type = str, help = 'The name of the snowflake user', required = False)
+  parser_deploy.add_argument('-r', '--snowflake-role', type = str, help = 'The name of the default role to use', required = False)
+  parser_deploy.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the default warehouse to use. Can be overridden in the change scripts.', required = False)
+  parser_deploy.add_argument('-d', '--snowflake-database', type = str, help = 'The name of the default database to use. Can be overridden in the change scripts.', required = False)
+  parser_deploy.add_argument('-c', '--change-history-table', type = str, help = 'Used to override the default name of the change history table (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)', required = False)
+  parser_deploy.add_argument('--vars', type = json.loads, help = 'Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})', required = False)
+  parser_deploy.add_argument('--create-change-history-table', action='store_true', help = 'Create the change history schema and table, if they do not exist (the default is False)', required = False)
+  parser_deploy.add_argument('-ac', '--autocommit', action='store_true', help = 'Enable autocommit feature for DML commands (the default is False)', required = False)
+  parser_deploy.add_argument('-v','--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
+  parser_deploy.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
+        
+  parser_render = subcommands.add_parser('render', description="Renders a script to the console, used to check and verify jinja output from scripts.")
+  parser_render.add_argument('--config-folder', type = str, default = '.', help = 'The folder to look in for the schemachange-config.yml file (the default is the current working directory)', required = False)
+  parser_render.add_argument('-f', '--root-folder', type = str, help = 'The root folder for the database change scripts', required = False)
+  parser_render.add_argument('-m', '--modules-folder', type = str, help = 'The modules folder for jinja macros and templates to be used across multiple scripts', required = False)
+  parser_render.add_argument('--vars', type = json.loads, help = 'Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})', required = False)
+  parser_render.add_argument('-v', '--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
+  parser_render.add_argument('script', type = str, help = 'The script to render')      
 
-  schemachange(args.config_folder, args.root_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run)
+  # the original parameters did not support subcommands. Check if a subcommand has been supplied 
+  # if not default to deploy to match original behaviour.
+  args = sys.argv[1:]
+  if len(args) == 0 or not any(subcommand in args[0].upper() for subcommand in ["DEPLOY", "RENDER"]):    
+    args = ["deploy"] + args
+
+  args = parser.parse_args(args)     
+
+  print("schemachange version: %s" % _schemachange_version)
+  if args.subcommand == 'render':
+    render_command(args.config_folder, args.root_folder, args.modules_folder, args.vars, args.verbose, args.script)
+  else:
+    schemachange(args.config_folder, args.root_folder, args.modules_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run)
 
 if __name__ == "__main__":
     main()
