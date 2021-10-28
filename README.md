@@ -39,6 +39,7 @@ For the complete list of changes made to schemachange check out the [CHANGELOG](
    1. [Sample DevOps Process Flow](#sample-devops-process-flow)
    1. [Using in a CI/CD Pipeline](#using-in-a-cicd-pipeline)
 1. [Maintainers](#maintainers)
+1. [Third Party Packages](#third-party-packages)
 1. [Legal](#legal)
 
 
@@ -126,7 +127,7 @@ schemachange is designed to be very lightweight and not impose to many limitatio
 ### Using Variables in Scripts
 schemachange supports the jinja engine for a variable replacement strategy. One important use of variables is to support multiple environments (dev, test, prod) in a single Snowflake account by dynamically changing the database name during deployment. To use a variable in a change script, use this syntax anywhere in the script: `{{ variable1 }}`. 
 
-To pass variables to schemachange, use the `--vars` command line parameter like this: `--vars '{"variable1": "value", "variable2": "value2"}'`. This parameter accepts a flat JSON object formatted as a string. Nested objects and arrays don't make sense at this point and aren't supported.
+To pass variables to schemachange, check out the [Configuration](#configuration) section below. You can either use the `--vars` command line parameter or the YAML config file `schemachange-config.yml`. For the command line version you can pass variables like this: `--vars '{"variable1": "value", "variable2": "value2"}'`. This parameter accepts a flat JSON object formatted as a string. Nested objects and arrays don't make sense at this point and aren't supported.
 
 schemachange will replace any variable placeholders before running your change script code and will throw an error if it finds any variable placeholders that haven't been replaced.
 
@@ -380,13 +381,7 @@ Either way, don't forget to set the `SNOWFLAKE_PASSWORD` environment variable if
 
 This is a community-developed tool, not an official Snowflake offering. It comes with no support or warranty. However, feel free to raise a github issue if you find a bug or would like a new feature.
 
-## Legal
-
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use this tool except in compliance with the License. You may obtain a copy of the License at: [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0)
-
-Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
-
-## Third party packages
+## Third Party Packages
 The current functionality in schemachange would not be possible without the following third party packages and all those that maintain and have contributed.
  
  Name | License | Author | URL  
@@ -396,3 +391,9 @@ The current functionality in schemachange would not be possible without the foll
  pandas | BSD License | The Pandas Development Team | https://pandas.pydata.org                        
  pytest | MIT License | Holger Krekel, Bruno Oliveira, Ronny Pfannschmidt, Floris Bruynooghe, Brianna Laugher, Florian Bruhin and others | https://docs.pytest.org/en/latest/
  snowflake-connector-python | Apache Software License | Snowflake, Inc | https://www.snowflake.com/                       
+
+## Legal
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not use this tool except in compliance with the License. You may obtain a copy of the License at: [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0)
+
+Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
