@@ -20,6 +20,7 @@ DEFAULT_CONFIG = {
     'autocommit': False,
     'verbose': False,
     'dry-run': False,
+    'explain-first': False
 }
 
 
@@ -50,6 +51,8 @@ DEFAULT_CONFIG = {
         {**DEFAULT_CONFIG, 'verbose': True}),
     (["schemachange", "deploy", "--dry-run"],
         {**DEFAULT_CONFIG, 'dry-run': True}),
+    (["schemachange", "deploy", "--explain-first"],
+        {**DEFAULT_CONFIG, 'explain-first': True}),
 ])
 def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call( args, expected):
     sys.argv = args
