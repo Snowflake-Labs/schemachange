@@ -1,5 +1,4 @@
 import os
-import sys
 import pytest
 import unittest.mock as mock
 import schemachange.cli
@@ -52,10 +51,9 @@ DEFAULT_CONFIG = {
         {**DEFAULT_CONFIG, 'dry-run': True}),
 ])
 def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call( args, expected):
-    sys.argv = args
 
     with mock.patch("schemachange.cli.deploy_command") as mock_deploy_command:
-        schemachange.cli.main()
+        schemachange.cli.main(args)
         mock_deploy_command.assert_called_once()
         [config,], _call_kwargs = mock_deploy_command.call_args
         assert config == expected
@@ -72,10 +70,9 @@ def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
         ({**DEFAULT_CONFIG, 'verbose': True}, "script.sql")),
 ])
 def test_main_render_subcommand_given_arguments_make_sure_arguments_set_on_call( args, expected):
-    sys.argv = args
 
     with mock.patch("schemachange.cli.render_command") as mock_render_command:
-        schemachange.cli.main()
+        schemachange.cli.main(args)
         mock_render_command.assert_called_once()
         call_args, _call_kwargs = mock_render_command.call_args
         assert call_args == expected
@@ -97,10 +94,9 @@ def test_main_deploy_config_folder(args, to_mock, expected_args):
             '''))
 
         args[args.index("DUMMY")] = d
-        sys.argv = args
 
         with mock.patch(to_mock) as mock_command:
-            schemachange.cli.main()
+            schemachange.cli.main(args)
             mock_command.assert_called_once()
             call_args, _call_kwargs = mock_command.call_args
             assert call_args == expected_args
@@ -119,10 +115,9 @@ def test_main_deploy_modules_folder(args, to_mock, expected_args):
 
         args[args.index("DUMMY")] = d
         expected_args[0]['modules-folder'] = d
-        sys.argv = args
 
         with mock.patch(to_mock) as mock_command:
-            schemachange.cli.main()
+            schemachange.cli.main(args)
             mock_command.assert_called_once()
             call_args, _call_kwargs = mock_command.call_args
             assert call_args == expected_args
