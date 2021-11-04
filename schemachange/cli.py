@@ -19,7 +19,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '3.2.0'
+_schemachange_version = '3.3.0'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
@@ -40,11 +40,16 @@ class JinjaTemplateProcessor:
       loader = jinja2.FileSystemLoader(project_root)
 
     self.__environment = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined)
+    self.add_filter("from_environ", from_environ)
     self.__project_root = project_root
 
   def override_loader(self, loader: jinja2.BaseLoader):
     # to make unit testing easier
     self.__environment = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined)
+    self.add_filter("from_environ", from_environ)
+
+  def add_filter(self, filter_name, filter_func):
+    self.__environment.filters[filter_name] = filter_func
 
   def render(self, script: str, vars: Dict[str, Any], verbose: bool) -> str:
     if not vars:
@@ -58,6 +63,11 @@ class JinjaTemplateProcessor:
 
   def relpath(self, file_path: str):
     return os.path.relpath(file_path, self.__project_root)
+
+
+def from_environ(value, variable):
+  """Tries to get environmental variable, reverts to specified value if not found."""
+  return os.getenv(variable, value)
 
 
 def deploy_command(config):

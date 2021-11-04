@@ -129,6 +129,8 @@ schemachange supports the jinja engine for a variable replacement strategy. One 
 
 To pass variables to schemachange, check out the [Configuration](#configuration) section below. You can either use the `--vars` command line parameter or the YAML config file `schemachange-config.yml`. For the command line version you can pass variables like this: `--vars '{"variable1": "value", "variable2": "value2"}'`. This parameter accepts a flat JSON object formatted as a string. Nested objects and arrays don't make sense at this point and aren't supported.
 
+Variables can also be extracted directly from the environment by using the `from_environ` Jinja custom filter. Environmental variables should be specified in the following form: `{{ variable | from_environ(<ENVIRONMENTAL_VARIABLE>) }}`. If `<ENVIRONMENTAL_VARIABLE>` is not found, the default `variable` is used. This default can either be provided as a string, or passed in used the `--vars` command line parameter. This approach is useful for adding secrets, such as access/secret keys for external stages.
+
 schemachange will replace any variable placeholders before running your change script code and will throw an error if it finds any variable placeholders that haven't been replaced.
 
 ### Jinja templating engine
