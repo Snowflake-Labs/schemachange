@@ -18,6 +18,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 import io
+from traceback import print_exc
 
 # Set a few global variables here
 _schemachange_version = '3.2.0'
@@ -566,9 +567,17 @@ def explain_change_script(script, vars, default_database, snowflake_session_para
 
   content_io = io.StringIO(content)
   statements = snowflake.connector.util_text.split_statements(content_io)
-  for s, _ in statements:
+  for n, (s, _) in enumerate(statements):
+      print(f'Explaining statement {n}...')
       explain = f"explain {s}"
-      execute_snowflake_query(default_database, explain, snowflake_session_parameters, False, verbose)
+      try:
+        execute_snowflake_query(default_database, explain, snowflake_session_parameters, False, verbose)
+      except:
+        if n == 0:
+          raise
+        else:
+          warnings.warn(f'Statement {n} failed, but allowing failures for n > 0.')
+          print_exc()
 
 
 def main():
