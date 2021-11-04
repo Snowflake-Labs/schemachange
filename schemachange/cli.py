@@ -167,7 +167,7 @@ def deploy_command(config):
         continue
 
     if config['explain-first']:
-      explain_change_script(script, config['vars'], config['snowflake-database'], snowflake_session_parameters, config['verbose'])
+      explain_change_script(script, content, config['vars'], config['snowflake-database'], snowflake_session_parameters, config['verbose'])
 
     print("Applying change script %s" % script['script_name'])
     if not config['dry-run']:
@@ -558,12 +558,11 @@ def apply_change_script(script, script_content, vars, default_database, change_h
   execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
 
 
-def explain_change_script(script, vars, default_database, snowflake_session_parameters, verbose):
+def explain_change_script(script, content, vars, default_database, snowflake_session_parameters, verbose):
   '''
   Run "explain <statement>" for every <statement> in a script of <statement>; <statement>; ...
   This will throw an error if the explain fails, which will catch many issues with the script without needing to directly execute it.
   '''
-  content = get_script_contents_with_variable_replacement(script['script_full_path'], vars, verbose)
 
   content_io = io.StringIO(content)
   statements = snowflake.connector.util_text.split_statements(content_io)
