@@ -2,7 +2,7 @@ import os
 import sys
 import pytest
 import unittest.mock as mock
-import schemachange.cli 
+import schemachange.cli
 import tempfile
 from textwrap import dedent
 
@@ -21,6 +21,7 @@ DEFAULT_CONFIG = {
     'verbose': False,
     'dry-run': False,
 }
+
 
 @pytest.mark.parametrize("args, expected", [
     (["schemachange"], DEFAULT_CONFIG),
@@ -50,15 +51,35 @@ DEFAULT_CONFIG = {
     (["schemachange", "deploy", "--dry-run"],
         {**DEFAULT_CONFIG, 'dry-run': True}),
 ])
-
 def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call( args, expected):
     sys.argv = args
-    
+
     with mock.patch("schemachange.cli.deploy_command") as mock_deploy_command:
         schemachange.cli.main()
         mock_deploy_command.assert_called_once()
         [config,], _call_kwargs = mock_deploy_command.call_args
         assert config == expected
+
+
+@pytest.mark.parametrize("args, expected", [
+    (["schemachange", "render", "script.sql"],
+        ({**DEFAULT_CONFIG}, "script.sql")),
+    (["schemachange", "render", "--root-folder", '.', "script.sql"],
+        ({**DEFAULT_CONFIG, 'root-folder': os.path.abspath('.')}, "script.sql")),
+    (["schemachange", "render", "--vars", '{"var1": "val"}', "script.sql"],
+        ({**DEFAULT_CONFIG, 'vars': {"var1": "val"}}, "script.sql")),
+    (["schemachange", "render", "--verbose", "script.sql"],
+        ({**DEFAULT_CONFIG, 'verbose': True}, "script.sql")),
+])
+def test_main_render_subcommand_given_arguments_make_sure_arguments_set_on_call( args, expected):
+    sys.argv = args
+
+    with mock.patch("schemachange.cli.render_command") as mock_render_command:
+        schemachange.cli.main()
+        mock_render_command.assert_called_once()
+        call_args, _call_kwargs = mock_render_command.call_args
+        assert call_args == expected
+
 
 @pytest.mark.parametrize("args, to_mock, expected_args", [
     (["schemachange", "deploy", "--config-folder", "DUMMY"],
@@ -105,25 +126,3 @@ def test_main_deploy_modules_folder(args, to_mock, expected_args):
             mock_command.assert_called_once()
             call_args, _call_kwargs = mock_command.call_args
             assert call_args == expected_args
-
-@pytest.mark.parametrize("args, expected", [
-    (["schemachange", "render", "script.sql"],
-        ({**DEFAULT_CONFIG}, "script.sql")),
-    # (["schemachange", "render", "--config-folder", "test", "script.sql"],
-    #     ("test", None, None, None, False, "script.sql")),
-    (["schemachange", "render", "--root-folder", '.', "script.sql"],
-        ({**DEFAULT_CONFIG, 'root-folder': os.path.abspath('.')}, "script.sql")),
-    #(["schemachange", "render", "--modules-folder", "modules-folder", "script.sql"], ('.', None, "modules-folder", None, False, "script.sql")),
-    (["schemachange", "render", "--vars", '{"var1": "val"}', "script.sql"],
-        ({**DEFAULT_CONFIG, 'vars': {"var1": "val"}}, "script.sql")),
-    (["schemachange", "render", "--verbose", "script.sql"],
-        ({**DEFAULT_CONFIG, 'verbose': True}, "script.sql")),
-])
-def test_main_render_subcommand_given_arguments_make_sure_arguments_set_on_call( args, expected):
-    sys.argv = args
-    
-    with mock.patch("schemachange.cli.render_command") as mock_render_command:
-        schemachange.cli.main()
-        mock_render_command.assert_called_once()
-        call_args, _call_kwargs = mock_render_command.call_args
-        assert call_args == expected
