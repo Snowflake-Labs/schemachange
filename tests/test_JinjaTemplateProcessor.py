@@ -1,4 +1,5 @@
 import json
+import pathlib
 import pytest
 from jinja2 import Environment, DictLoader
 from jinja2.exceptions import UndefinedError
@@ -40,5 +41,23 @@ def test_JinjaTemplateProcessor_render_simple_string_expecting_variable():
     vars = json.loads('{"myvar" : "world"}')
 
     context = processor.render("test.sql", vars, True)
+
+    assert context == "Hello world!"
+
+
+def test_JinjaTemplateProcessor_render_from_subfolder(tmp_path: pathlib.Path):
+
+    root_folder = tmp_path / "MORE2"
+    
+    root_folder.mkdir()
+    script_folder = root_folder/ "SQL"
+    script_folder.mkdir()
+    script_file = script_folder / "1.0.0_my_test.sql"
+    script_file.write_text("Hello world!")
+    
+    processor = JinjaTemplateProcessor(str(root_folder), None)
+    template_path = processor.relpath(str(script_file))
+
+    context = processor.render(template_path, {}, True)
 
     assert context == "Hello world!"

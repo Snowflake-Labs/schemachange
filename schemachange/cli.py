@@ -13,13 +13,14 @@ import warnings
 import yaml
 from typing import Dict, Any
 from pandas import DataFrame
+import pathlib
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '3.2.0'
+_schemachange_version = '3.2.1'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
@@ -42,6 +43,9 @@ class JinjaTemplateProcessor:
     self.__environment = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined)
     self.__project_root = project_root
 
+  def list(self):
+    return self.__environment.list_templates()
+
   def override_loader(self, loader: jinja2.BaseLoader):
     # to make unit testing easier
     self.__environment = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined)
@@ -49,8 +53,11 @@ class JinjaTemplateProcessor:
   def render(self, script: str, vars: Dict[str, Any], verbose: bool) -> str:
     if not vars:
       vars = {}
+    
+    #jinja needs posix path 
+    posix_path = pathlib.Path(script).as_posix()
 
-    template = self.__environment.get_template(script)
+    template = self.__environment.get_template(posix_path)
     content = template.render(**vars).strip()
     content = content[:-1] if content.endswith(';') else content
 
