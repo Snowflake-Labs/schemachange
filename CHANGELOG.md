@@ -14,14 +14,14 @@ All notable changes to this project will be documented in this file.
 - Jinja Template Engine was not recognising scripts in subfolders on windows machines. Jinja was expecting the paths to follow a unix style ie SQL/V2.0.0__ADHOC_SCRIPT.sql but on windows machines this was being passed through as SQL\V2.0.0__ADHOC_SCRIPT.sql.
 
 ### Removed
-- Removed fragile unit tests in test_main.py. 
+- Removed fragile unit tests in test_main.py.
 
 ## [3.2.0] - 2021-10-28
 ### Added
 - Added support for jinja templates. Any file ending .sql or .sql.jinja will be processed using the [Jinja engine](https://jinja.palletsprojects.com/)
   - Added a new optional parameter `--modules-folder` to specify where common jinja template, macro or include files reside
 - Added new subcommands render and deploy
-  - The render command can be used to display the final script to the command line. 
+  - The render command can be used to display the final script to the command line.
   - The existing functionality moved to a new deploy subcommand
   - Fall back behaviour to assume deploy sub command if none provided
 - Added reserved variable name `schemachange` and an error will now be raised if supplied by the user via --vars
