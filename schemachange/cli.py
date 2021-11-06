@@ -3,6 +3,7 @@ import string
 import re
 import argparse
 import jinja2
+import jinja2.ext
 import json
 import time
 import hashlib
@@ -11,7 +12,7 @@ import snowflake.connector
 import sys
 import warnings
 import yaml
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from pandas import DataFrame
 import pathlib
 from cryptography.hazmat.backends import default_backend
@@ -20,12 +21,38 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '3.2.1'
+_schemachange_version = '3.3.0'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
 _snowflake_application_name = 'schemachange'
+
+
+class JinjaEnvVar(jinja2.ext.Extension):   
+  """
+  Extends Jinja Templates with access to environmental variables
+  """ 
+  def __init__(self, environment: jinja2.Environment):
+    super().__init__(environment)
+ 
+    # add globals
+    environment.globals["env_var"] = JinjaEnvVar.env_var  
+ 
+  @staticmethod
+  def env_var(env_var: str, default: Optional[str] = None) -> str:
+    """
+    Returns the value of the environmental variable or the default.        
+    """
+    result = default
+    if env_var in os.environ:
+      result = os.environ[env_var]
+
+    if result is None:
+       raise ValueError("Could not find environmental variable %s and no default value was provided" % env_var)
+
+    return result
+ 
 
 class JinjaTemplateProcessor:
   def __init__(self, project_root: str, modules_folder: str = None):
@@ -207,15 +234,29 @@ def get_alphanum_key(key):
 def sorted_alphanumeric(data):
   return sorted(data, key=get_alphanum_key)
 
-def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run):
+
+def load_schemachange_config(config_file_path: str) -> Dict[str, Any]:
+  """
+  Loads the schemachange config file and processes with jinja templating engine
+  """
   config = dict()
 
   # First read in the yaml config file, if present
   if os.path.isfile(config_file_path):
     with open(config_file_path) as config_file:
+      # Run the config file through the jinja engine to give access to environmental variables
+      # The config file does not have the same access to the jinja functionality that a script
+      # has.
+      config_template = jinja2.Template(config_file.read(), undefined=jinja2.StrictUndefined, extensions=[JinjaEnvVar])     
+
       # The FullLoader parameter handles the conversion from YAML scalar values to Python the dictionary format
-      config = yaml.load(config_file, Loader=yaml.FullLoader)
+      config = yaml.load(config_template.render(), Loader=yaml.FullLoader)
     print("Using config file: %s" % config_file_path)
+  return config    
+
+
+def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run):
+  config = load_schemachange_config(config_file_path)
 
   # First the folder paths
   if root_folder:

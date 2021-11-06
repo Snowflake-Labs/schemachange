@@ -255,6 +255,22 @@ dry-run: false
 
 ```
 
+#### Yaml Jinja support
+The YAML config file supports the jinja templating language and has a custom function "env_var" to access environmental variables.
+
+##### env_var
+Provides access to environmental variables. The function can be used two different ways.
+
+Return the value of the environmental variable if it exists, otherwise return the default value.
+``` jinja
+{{ env_var('<environmental_variable>', 'default') }}
+```
+
+Return the value of the environmental variable if it exists, otherwise raise an error.
+``` jinja
+{{ env_var('<environmental_variable>') }}
+```
+
 ### Command Line Arguments
 
 Schemachange supports a number of subcommands, it the subcommand is not provided it is defaulted to deploy. This behaviour keeps compatibility with versions prior to 3.2.
