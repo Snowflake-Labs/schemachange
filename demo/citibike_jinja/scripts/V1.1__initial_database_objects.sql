@@ -24,9 +24,9 @@ CREATE OR REPLACE FILE FORMAT JSON
     IGNORE_UTF8_ERRORS = FALSE;
 
 -- Create the stages
-{{create_stage('TRIPS', 's3://snowflake-workshop-lab/citibike-trips')}}
+{{create_stage('TRIPS', secrets.trips_s3_bucket)}}
 
-{{create_stage('WEATHER', 's3://snowflake-workshop-lab/weather-nyc')}}
+{{create_stage('WEATHER', secrets.weather_s3_bucket)}}
 
 -- Create the tables
 CREATE OR REPLACE TABLE TRIPS

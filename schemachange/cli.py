@@ -11,8 +11,9 @@ from jinja2.loaders import BaseLoader
 import snowflake.connector
 import sys
 import warnings
+import textwrap
 import yaml
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Set, Type
 from pandas import DataFrame
 import pathlib
 from cryptography.hazmat.backends import default_backend
@@ -21,7 +22,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '3.3.3'
+_schemachange_version = '3.4.0'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
@@ -92,6 +93,51 @@ class JinjaTemplateProcessor:
 
   def relpath(self, file_path: str):
     return os.path.relpath(file_path, self.__project_root)
+
+class SecretManager:
+  """
+  Provides the ability to redact secrets
+  """
+  __singleton: 'SecretManager'
+
+  @staticmethod
+  def get_global_manager() -> 'SecretManager':
+    return SecretManager.__singleton
+
+  @staticmethod
+  def set_global_manager(global_manager: 'SecretManager'):
+    SecretManager.__singleton = global_manager
+
+  @staticmethod
+  def global_redact(context: str) -> str:
+    """
+    redacts any text that has been classified a secret using the global SecretManager instance.
+    """
+    return SecretManager.__singleton.redact(context)
+
+  def __init__(self):
+    self.__secrets = set()
+
+  def clear(self):
+    self.__secrets = set()
+
+  def add(self, secret: str):
+    if secret:
+      self.__secrets.add(secret)
+
+  def add_range(self, secrets: Set[str]):
+    if secrets:
+      self.__secrets = self.__secrets | secrets
+
+  def redact(self, context: str) -> str:
+    """
+    redacts any text that has been classified a secret
+    """
+    redacted = context
+    if redacted:
+      for secret in self.__secrets:
+        redacted = redacted.replace(secret, "*" * len(secret))
+    return redacted
 
 
 def deploy_command(config):
@@ -208,7 +254,12 @@ def deploy_command(config):
   print("Completed successfully")
 
 def render_command(config, script_path):
-  # Valide the script file path
+  """
+  Renders the provided script.
+
+  Note: does not apply secrets filtering.
+  """
+  # Validate the script file path
   script_path = os.path.abspath(script_path)
   if not os.path.isfile(script_path):
     raise ValueError("Invalid script_path: %s" % script_path)
@@ -474,7 +525,7 @@ def execute_snowflake_query(snowflake_database, query, snowflake_session_paramet
     con.autocommit(False)
 
   if verbose:
-      print("SQL query: %s" % query)
+      print(SecretManager.global_redact("SQL query: %s" % query))
 
   try:
     res = con.execute_string(query)
@@ -595,6 +646,36 @@ def apply_change_script(script, script_content, vars, default_database, change_h
   query = "INSERT INTO {0}.{1} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{2}','{3}','{4}','{5}','{6}',{7},'{8}','{9}',CURRENT_TIMESTAMP);".format(change_history_table['schema_name'], change_history_table['table_name'], script['script_version'], script['script_description'], script['script_name'], script['script_type'], checksum, execution_time, status, os.environ["SNOWFLAKE_USER"])
   execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
 
+def extract_config_secrets(config: Dict[str, Any]) -> Set[str]:
+  """
+  Extracts all secret values from the vars attributes in config
+  """
+
+  # defined as an inner/ nested function to provide encapsulation
+  def inner_extract_dictionary_secrets(dictionary: Dict[str, Any], child_of_secrets: bool = False) -> Set[str]:
+    """
+    Considers any key with the word secret in the name as a secret or
+    all values as secrets if a child of a key named secrets.
+    """
+    extracted_secrets: Set[str] = set()
+
+    if dictionary:
+      for (key, value) in dictionary.items():
+        if isinstance(value, dict):
+          if key == "secrets":
+            extracted_secrets = extracted_secrets | inner_extract_dictionary_secrets(value, True)
+          else :
+            extracted_secrets = extracted_secrets | inner_extract_dictionary_secrets(value, child_of_secrets)
+        elif child_of_secrets or "SECRET" in key.upper():
+          extracted_secrets.add(value.strip())
+    return extracted_secrets
+
+  extracted = set()
+
+  if config:
+    if "vars" in config:
+      extracted = inner_extract_dictionary_secrets(config["vars"])
+  return extracted
 
 def main(argv=sys.argv):
   parser = argparse.ArgumentParser(prog = 'schemachange', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/Snowflake-Labs/schemachange', formatter_class = argparse.RawTextHelpFormatter)
@@ -641,11 +722,23 @@ def main(argv=sys.argv):
   else:
     config = get_schemachange_config(config_file_path, args.root_folder, args.modules_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run)
 
+  # setup a secret manager and assign to global scope
+  sm = SecretManager()
+  SecretManager.set_global_manager(sm)
+  # Extract all secrets for --vars
+  sm.add_range(extract_config_secrets(config))
+
   # Then log some details
   print("Using root folder %s" % config['root-folder'])
   if config['modules-folder']:
     print("Using Jinja modules folder %s" % config['modules-folder'])
-  print("Using variables %s" % config['vars'])
+
+  # pretty print the variables in yaml style
+  if config['vars'] == {}:
+    print("Using variables: {}")
+  else:
+    print("Using variables:")
+    print(textwrap.indent(SecretManager.global_redact(yaml.dump(config['vars'], sort_keys=False, default_flow_style=False)), prefix = "  "))
 
   # Finally, execute the command
   if args.subcommand == 'render':

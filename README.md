@@ -24,12 +24,15 @@ For the complete list of changes made to schemachange check out the [CHANGELOG](
    1. [Always Script Naming](#always-script-naming)
    1. [Script Requirements](#script-requirements)
    1. [Using Variables in Scripts](#using-variables-in-scripts)
+      1. [Secrets filtering](#secrets-filtering)
+   1. [Jinja templating engine](#jinja-templating-engine)
 1. [Change History Table](#change-history-table)
 1. [Authentication](#authentication)
    1. [Password Authentication](#password-authentication)
    1. [Private Key Authentication](#private-key-authentication)
 1. [Configuration](#configuration)
    1. [YAML Config File](#yaml-config-file)
+      1. [Yaml Jinja support](#yaml-jinja-support)
    1. [Command Line Arguments](#command-line-arguments)
 1. [Running schemachange](#running-schemachange)
    1. [Prerequisites](#prerequisites)
@@ -95,7 +98,7 @@ Repeatable change scripts follow a similar naming convention to that used by [Fl
 
 <img src="images/flyway-repeatable-naming-convention.png" alt="Flyway naming conventions" title="Flyway naming conventions" width="300" />
 
-e.g: 
+e.g:
 
 * R__sp_add_sales.sql
 * R__fn_get_timezone.sql
@@ -109,7 +112,7 @@ Just like Flyway, within a single migration run, repeatable scripts are always a
 ### Always Script Naming
 
 Always change scripts are executed with every run of schemachange. This is an addition to the implementation of [Flyway Versioned Migrations](https://flywaydb.org/documentation/concepts/migrations.html#repeatable-migrations).
-The script name must following pattern: 
+The script name must following pattern:
 
 `A__Some_description.sql`
 
@@ -125,17 +128,43 @@ This type of change script is useful for an environment set up after cloning. Al
 schemachange is designed to be very lightweight and not impose to many limitations. Each change script can have any number of SQL statements within it and must supply the necessary context, like database and schema names. The context can be supplied by using an explicit `USE <DATABASE>` command or by naming all objects with a three-part name (`<database name>.<schema name>.<object name>`). schemachange will simply run the contents of each script against the target Snowflake account, in the correct order.
 
 ### Using Variables in Scripts
-schemachange supports the jinja engine for a variable replacement strategy. One important use of variables is to support multiple environments (dev, test, prod) in a single Snowflake account by dynamically changing the database name during deployment. To use a variable in a change script, use this syntax anywhere in the script: `{{ variable1 }}`. 
+schemachange supports the jinja engine for a variable replacement strategy. One important use of variables is to support multiple environments (dev, test, prod) in a single Snowflake account by dynamically changing the database name during deployment. To use a variable in a change script, use this syntax anywhere in the script: `{{ variable1 }}`.
 
 To pass variables to schemachange, check out the [Configuration](#configuration) section below. You can either use the `--vars` command line parameter or the YAML config file `schemachange-config.yml`. For the command line version you can pass variables like this: `--vars '{"variable1": "value", "variable2": "value2"}'`. This parameter accepts a flat JSON object formatted as a string. Nested objects and arrays don't make sense at this point and aren't supported.
 
 schemachange will replace any variable placeholders before running your change script code and will throw an error if it finds any variable placeholders that haven't been replaced.
 
+#### Secrets filtering
+While many CI/CD tools already have the capability to filter secrets, it is best that any tool also does not output secrets to the console or logs. Schemachange implements secrets filtering in a number of areas to ensure secrets are not writen to the console or logs. The only exception is the `render` command which will display secrets.
+
+A secret is just a standard variable that has been tagged as a secret. This is determined using a naming convention and either of the following will tag a variable as a secret:
+1. The variable name has the word secret in it.
+   ```yaml
+      config-version: 1
+      vars:
+         bucket_name: S3://......  # not a secret
+         secret_key: 567576D8E  # a secret
+   ```
+2. The variable is a child of a key named secrets.
+   ```yaml
+      config-version: 1
+      vars:
+      secrets:
+         my_key: 567576D8E # a secret
+      aws:
+         bucket_name: S3://......  # not a secret
+         secrets:
+            encryption_key: FGDSUUEHDHJK # a secret
+            us_east_1:
+               encryption_key: sdsdsd # a secret
+   ```
+
 ### Jinja templating engine
 schemachange uses the Jinja templating engine internally and supports: [expressions](https://jinja.palletsprojects.com/en/3.0.x/templates/#expressions), [macros](https://jinja.palletsprojects.com/en/3.0.x/templates/#macros), [includes](https://jinja.palletsprojects.com/en/3.0.x/templates/#include) and [template inheritance](https://jinja.palletsprojects.com/en/3.0.x/templates/#template-inheritance).
 
 These files can be stored in the root-folder but schemachange also provides a separate modules folder `--modules-folder`. This allows common logic to be stored outside of the main changes scripts. The [demo/citibike_jinja](demo/citibike_jinja) has a simple example that demonstrates this.
- 
+
+The Jinja autoescaping feature is disabled in schemachange, this feature in Jinja is currently designed for where the output language is HTML/XML. So if you are using schemachange with untrusted inputs you will need to handle this within your change scripts.
 
 ## Change History Table
 
@@ -177,7 +206,7 @@ CREATE TABLE IF NOT EXISTS SCHEMACHANGE.CHANGE_HISTORY
 ```
 
 ## Authentication
-schemachange supports both [password authentication](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-using-the-default-authenticator) and [private key authentication](https://docs.snowflake.com/en/user-guide/python-connector-example.html#using-key-pair-authentication). 
+schemachange supports both [password authentication](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-using-the-default-authenticator) and [private key authentication](https://docs.snowflake.com/en/user-guide/python-connector-example.html#using-key-pair-authentication).
 
 In the event both authentication criteria are provided, schemachange will prioritize password authentication.
 
@@ -240,6 +269,8 @@ change-history-table: null
 vars:
   var1: 'value1'
   var2: 'value2'
+  secrets:
+    var3: 'value3' # This is considered a secret and will not be displayed in any output
 
 # Create the change history schema and table, if they do not exist (the default is False)
 create-change-history-table: false
@@ -299,7 +330,7 @@ Parameter | Description
 --dry-run | Run schemachange in dry run mode. The default is 'False'.
 
 #### render
-This subcommand is used to render a single script to the console. It is intended to suport the development and troubleshooting of script that use features from the jinja template engine.
+This subcommand is used to render a single script to the console. It is intended to support the development and troubleshooting of script that use features from the jinja template engine.
 
 `usage: schemachange render [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [--vars VARS] [-v] script`
 
@@ -399,14 +430,14 @@ This is a community-developed tool, not an official Snowflake offering. It comes
 
 ## Third Party Packages
 The current functionality in schemachange would not be possible without the following third party packages and all those that maintain and have contributed.
- 
- Name | License | Author | URL  
- ---|---|---|---                                            
- Jinja2 | BSD License | Armin Ronacher | https://palletsprojects.com/p/jinja/             
- PyYAML | MIT License | Kirill Simonov | https://pyyaml.org/                              
- pandas | BSD License | The Pandas Development Team | https://pandas.pydata.org                        
+
+ Name | License | Author | URL
+ ---|---|---|---
+ Jinja2 | BSD License | Armin Ronacher | https://palletsprojects.com/p/jinja/
+ PyYAML | MIT License | Kirill Simonov | https://pyyaml.org/
+ pandas | BSD License | The Pandas Development Team | https://pandas.pydata.org
  pytest | MIT License | Holger Krekel, Bruno Oliveira, Ronny Pfannschmidt, Floris Bruynooghe, Brianna Laugher, Florian Bruhin and others | https://docs.pytest.org/en/latest/
- snowflake-connector-python | Apache Software License | Snowflake, Inc | https://www.snowflake.com/                       
+ snowflake-connector-python | Apache Software License | Snowflake, Inc | https://www.snowflake.com/
 
 ## Legal
 

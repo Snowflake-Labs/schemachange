@@ -3,6 +3,16 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [3.4.0] - TBD
+### Added
+- Added filtering of secrets when vars are displayed on the console.
+- Added filtering of secrets for deploy command when SQL statements are displayed as part of verbose output.
+
+### Changed
+- Changed vars to be pretty printed to the console.
+- Changed demo citibike_jinja to demonstrate secret filtering.
+- Updated the Jinja templating engine section of the README.md to document Jinja autoescaping status and added warning about untrusted input.
+- Updated the table of contents section of the README.md to included missing sections.
 
 ## [3.3.3] - 2021-11-09
 ### Changed
