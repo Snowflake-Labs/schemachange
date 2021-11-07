@@ -9,6 +9,11 @@ All notable changes to this project will be documented in this file.
 - Added Github CI workflow to run unit tests and a basic execution test.
 - `schemachange.cli.main` is now defined as `def main(argv: List[str]=sys.argv)`, to allow consumers to pass a list of arguments easily.
 
+## [3.3.0] - TBD
+### Added
+- Added processing of schemachange-config.yml with jinja templating engine.
+  - Included new Jinja function env_var for accessing environmental variables from the config file.
+
 ## [3.2.1] - 2021-11-04
 ### Fixed
 - Jinja Template Engine was not recognising scripts in subfolders on windows machines. Jinja was expecting the paths to follow a unix style ie SQL/V2.0.0__ADHOC_SCRIPT.sql but on windows machines this was being passed through as SQL\V2.0.0__ADHOC_SCRIPT.sql.

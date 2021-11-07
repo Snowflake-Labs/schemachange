@@ -3,4 +3,4 @@ config-version: 1
 root-folder: scripts
 modules-folder: modules
 vars: 
-  database_name: SCHEMACHANGE_DEMO_JINJA     
+  database_name: {{env_var('SF_DATABASE', 'SCHEMACHANGE_DEMO_JINJA')}}     
