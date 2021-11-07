@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '3.2.1'
+_schemachange_version = '3.2.2'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
@@ -555,7 +555,7 @@ def apply_change_script(script, script_content, vars, default_database, change_h
   execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
 
 
-def main():
+def main(argv=sys.argv):
   parser = argparse.ArgumentParser(prog = 'schemachange', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/Snowflake-Labs/schemachange', formatter_class = argparse.RawTextHelpFormatter)
   subcommands = parser.add_subparsers(dest='subcommand')
 
@@ -585,7 +585,7 @@ def main():
 
   # The original parameters did not support subcommands. Check if a subcommand has been supplied
   # if not default to deploy to match original behaviour.
-  args = sys.argv[1:]
+  args = argv[1:]
   if len(args) == 0 or not any(subcommand in args[0].upper() for subcommand in ["DEPLOY", "RENDER"]):
     args = ["deploy"] + args
 
