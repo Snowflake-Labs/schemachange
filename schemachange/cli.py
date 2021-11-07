@@ -29,20 +29,20 @@ _metadata_table_name = 'CHANGE_HISTORY'
 _snowflake_application_name = 'schemachange'
 
 
-class JinjaEnvVar(jinja2.ext.Extension):   
+class JinjaEnvVar(jinja2.ext.Extension):
   """
   Extends Jinja Templates with access to environmental variables
-  """ 
+  """
   def __init__(self, environment: jinja2.Environment):
     super().__init__(environment)
- 
+
     # add globals
-    environment.globals["env_var"] = JinjaEnvVar.env_var  
- 
+    environment.globals["env_var"] = JinjaEnvVar.env_var
+
   @staticmethod
   def env_var(env_var: str, default: Optional[str] = None) -> str:
     """
-    Returns the value of the environmental variable or the default.        
+    Returns the value of the environmental variable or the default.
     """
     result = default
     if env_var in os.environ:
@@ -52,7 +52,7 @@ class JinjaEnvVar(jinja2.ext.Extension):
        raise ValueError("Could not find environmental variable %s and no default value was provided" % env_var)
 
     return result
- 
+
 
 class JinjaTemplateProcessor:
   def __init__(self, project_root: str, modules_folder: str = None):
@@ -80,8 +80,8 @@ class JinjaTemplateProcessor:
   def render(self, script: str, vars: Dict[str, Any], verbose: bool) -> str:
     if not vars:
       vars = {}
-    
-    #jinja needs posix path 
+
+    #jinja needs posix path
     posix_path = pathlib.Path(script).as_posix()
 
     template = self.__environment.get_template(posix_path)
@@ -247,12 +247,12 @@ def load_schemachange_config(config_file_path: str) -> Dict[str, Any]:
       # Run the config file through the jinja engine to give access to environmental variables
       # The config file does not have the same access to the jinja functionality that a script
       # has.
-      config_template = jinja2.Template(config_file.read(), undefined=jinja2.StrictUndefined, extensions=[JinjaEnvVar])     
+      config_template = jinja2.Template(config_file.read(), undefined=jinja2.StrictUndefined, extensions=[JinjaEnvVar])
 
       # The FullLoader parameter handles the conversion from YAML scalar values to Python the dictionary format
       config = yaml.load(config_template.render(), Loader=yaml.FullLoader)
     print("Using config file: %s" % config_file_path)
-  return config    
+  return config
 
 
 def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run):
