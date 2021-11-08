@@ -1,4 +1,0 @@
-snowflake-connector-python~=2.6
-pandas~=1.3
-pyyaml~=5.4
-jinja2~=3.0
