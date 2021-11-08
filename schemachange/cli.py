@@ -67,7 +67,7 @@ class JinjaTemplateProcessor:
     else:
       loader = jinja2.FileSystemLoader(project_root)
 
-    self.__environment = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined)
+    self.__environment = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined, autoescape=True)
     self.__project_root = project_root
 
   def list(self):
@@ -75,7 +75,7 @@ class JinjaTemplateProcessor:
 
   def override_loader(self, loader: jinja2.BaseLoader):
     # to make unit testing easier
-    self.__environment = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined)
+    self.__environment = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined, autoescape=True)
 
   def render(self, script: str, vars: Dict[str, Any], verbose: bool) -> str:
     if not vars:
@@ -100,9 +100,9 @@ def deploy_command(config):
     raise ValueError("Missing config values. The following config values are required: snowflake-account, snowflake-user, snowflake-role, snowflake-warehouse")
 
   # Password authentication will take priority
-  if "SNOWFLAKE_PASSWORD" not in os.environ and "SNOWSQL_PWD" not in os.environ:  # We will accept SNOWSQL_PWD for now, but it is deprecated
-    if "SNOWFLAKE_PRIVATE_KEY_PATH" not in os.environ:
-      raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. SNOWFLAKE_PRIVATE_KEY_PATH and (optional) SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication.")
+  if "SNOWFLAKE_PASSWORD" not in os.environ and "SNOWSQL_PWD" not in os.environ and "SNOWFLAKE_PRIVATE_KEY_PATH" not in os.environ:
+  # We will accept SNOWSQL_PWD for now, but it is deprecated
+    raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. SNOWFLAKE_PRIVATE_KEY_PATH and (optional) SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication.")
 
   # Log some additional details
   if config['dry-run']:
