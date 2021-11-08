@@ -21,7 +21,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '3.3.1'
+_schemachange_version = '3.3.2'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
@@ -100,8 +100,8 @@ def deploy_command(config):
     raise ValueError("Missing config values. The following config values are required: snowflake-account, snowflake-user, snowflake-role, snowflake-warehouse")
 
   # Password authentication will take priority
-  if "SNOWFLAKE_PASSWORD" not in os.environ and "SNOWSQL_PWD" not in os.environ and "SNOWFLAKE_PRIVATE_KEY_PATH" not in os.environ:
   # We will accept SNOWSQL_PWD for now, but it is deprecated
+  if "SNOWFLAKE_PASSWORD" not in os.environ and "SNOWSQL_PWD" not in os.environ and "SNOWFLAKE_PRIVATE_KEY_PATH" not in os.environ:
     raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. SNOWFLAKE_PRIVATE_KEY_PATH and (optional) SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication.")
 
   # Log some additional details
