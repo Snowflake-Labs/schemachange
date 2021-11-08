@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Project is now configured with setup.cfg. There should be no change to package users.
 
-## [3.3.0] - 2021-11-07
+## [3.3.0] - 2021-11-06
 ### Added
 - Added processing of schemachange-config.yml with jinja templating engine.
   - Included new Jinja function env_var for accessing environmental variables from the config file.
