@@ -4,9 +4,10 @@ All notable changes to this project will be documented in this file.
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
 
-## [3.3.3] - TBD
+## [3.3.3] - 2021-11-09
 ### Changed
 - Added `env_var` Jinja function support to migration templates.
+- Backed out Jinja autoescape change from 3.3.2. The default is now to have it disabled (using autoescape=False).
 
 ## [3.3.2] - 2021-11-08
 ### Changed
