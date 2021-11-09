@@ -21,7 +21,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '3.3.2'
+_schemachange_version = '3.3.3'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
@@ -67,7 +67,7 @@ class JinjaTemplateProcessor:
     else:
       loader = jinja2.FileSystemLoader(project_root)
 
-    self.__environment = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined, autoescape=True)
+    self.__environment = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined, autoescape=True, extensions=[JinjaEnvVar])
     self.__project_root = project_root
 
   def list(self):
@@ -75,7 +75,7 @@ class JinjaTemplateProcessor:
 
   def override_loader(self, loader: jinja2.BaseLoader):
     # to make unit testing easier
-    self.__environment = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined, autoescape=True)
+    self.__environment = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined, autoescape=True, extensions=[JinjaEnvVar])
 
   def render(self, script: str, vars: Dict[str, Any], verbose: bool) -> str:
     if not vars:
