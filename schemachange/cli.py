@@ -111,6 +111,7 @@ def deploy_command(config):
   print("Using default role %s" % config['snowflake-role'])
   print("Using default warehouse %s" % config['snowflake-warehouse'])
   print("Using default database %s" % config['snowflake-database'])
+  print("Using default schema %s" % config['snowflake-schema'])
 
   # Set default Snowflake session parameters
   snowflake_session_parameters = {
@@ -128,7 +129,7 @@ def deploy_command(config):
   scripts_applied = 0
 
   # Deal with the change history table (create if specified)
-  change_history_table = get_change_history_table_details(config['change-history-table'])
+  change_history_table = get_change_history_table_details(config)
   change_history_metadata = fetch_change_history_metadata(change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
   if change_history_metadata:
     print("Using change history table %s.%s.%s (last altered %s)" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name'], change_history_metadata['last_altered']))
@@ -255,7 +256,7 @@ def load_schemachange_config(config_file_path: str) -> Dict[str, Any]:
   return config
 
 
-def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run):
+def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, snowflake_schema, change_history_table_override, vars, create_change_history_table, change_history_table_use_default_db_conn,  autocommit, verbose, dry_run):
   config = load_schemachange_config(config_file_path)
 
   # First the folder paths
@@ -303,6 +304,11 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
   if 'snowflake-database' not in config:
     config['snowflake-database'] = None
 
+  if snowflake_schema:
+    config['snowflake-schema'] = snowflake_schema
+  if 'snowflake-schema' not in config:
+    config['snowflake-schema'] = None
+
   if change_history_table_override:
     config['change-history-table'] = change_history_table_override
   if 'change-history-table' not in config:
@@ -317,6 +323,11 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
     config['create-change-history-table'] = create_change_history_table
   if 'create-change-history-table' not in config:
     config['create-change-history-table'] = False
+
+  if change_history_table_use_default_db_conn:
+    config['change-history-table-use-default-db-conn'] = change_history_table_use_default_db_conn
+  if 'change-history-table-use-default-db-conn' not in config:
+    config['change-history-table-use-default-db-conn'] = False
 
   if autocommit:
     config['autocommit'] = autocommit
@@ -488,12 +499,19 @@ def execute_snowflake_query(snowflake_database, query, snowflake_session_paramet
   finally:
     con.close()
 
-def get_change_history_table_details(change_history_table_override):
+def get_change_history_table_details(config):
+  change_history_table_override = config['change-history-table']
   # Start with the global defaults
   details = dict()
   details['database_name'] = _metadata_database_name.upper()
   details['schema_name'] = _metadata_schema_name.upper()
   details['table_name'] = _metadata_table_name.upper()
+
+  if config['change-history-table-use-default-db-conn']:
+    if config.get('snowflake-database'):
+      details['database_name'] = config['snowflake-database'].upper()
+    if config.get('snowflake-schema'):
+      details['schema_name'] = config['snowflake-schema'].upper()
 
   # Then override the defaults if requested. The name could be in one, two or three part notation.
   if change_history_table_override is not None:
@@ -609,9 +627,11 @@ def main(argv=sys.argv):
   parser_deploy.add_argument('-r', '--snowflake-role', type = str, help = 'The name of the default role to use', required = False)
   parser_deploy.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the default warehouse to use. Can be overridden in the change scripts.', required = False)
   parser_deploy.add_argument('-d', '--snowflake-database', type = str, help = 'The name of the default database to use. Can be overridden in the change scripts.', required = False)
+  parser_deploy.add_argument('-s', '--snowflake-schema', type = str, help = 'The name of the default schema to use. Can be overridden in the change scripts.', required = False)
   parser_deploy.add_argument('-c', '--change-history-table', type = str, help = 'Used to override the default name of the change history table (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)', required = False)
   parser_deploy.add_argument('--vars', type = json.loads, help = 'Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})', required = False)
   parser_deploy.add_argument('--create-change-history-table', action='store_true', help = 'Create the change history schema and table, if they do not exist (the default is False)', required = False)
+  parser_deploy.add_argument('--change-history-table-use-default-db-conn', action='store_true', help = 'Use default database and schema to create the change history table into', required = False)
   parser_deploy.add_argument('-ac', '--autocommit', action='store_true', help = 'Enable autocommit feature for DML commands (the default is False)', required = False)
   parser_deploy.add_argument('-v','--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
   parser_deploy.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
@@ -637,9 +657,43 @@ def main(argv=sys.argv):
   # First get the config values
   config_file_path = os.path.join(args.config_folder, _config_file_name)
   if args.subcommand == 'render':
-    config = get_schemachange_config(config_file_path, args.root_folder, args.modules_folder, None, None, None, None, None, None, args.vars, None, None, args.verbose, None)
+    config = get_schemachange_config(
+      config_file_path=config_file_path, 
+      root_folder=args.root_folder, 
+      modules_folder=args.modules_folder, 
+      snowflake_account=None, 
+      snowflake_user=None, 
+      snowflake_role=None, 
+      snowflake_warehouse=None, 
+      snowflake_database=None,
+      snowflake_schema=None,
+      change_history_table_override=None, 
+      vars=args.vars, 
+      create_change_history_table=None, 
+      change_history_table_use_default_db_conn=None,
+      autocommit=None, 
+      verbose=args.verbose,
+      dry_run=None
+    )
   else:
-    config = get_schemachange_config(config_file_path, args.root_folder, args.modules_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run)
+    config = get_schemachange_config(
+      config_file_path=config_file_path,
+      root_folder=args.root_folder,
+      modules_folder=args.modules_folder,
+      snowflake_account=args.snowflake_account,
+      snowflake_user=args.snowflake_user,
+      snowflake_role=args.snowflake_role,
+      snowflake_warehouse=args.snowflake_warehouse,
+      snowflake_database=args.snowflake_database,
+      snowflake_schema=args.snowflake_schema,
+      change_history_table_override=args.change_history_table,
+      vars=args.vars,
+      create_change_history_table=args.create_change_history_table,
+      change_history_table_use_default_db_conn=args.change_history_table_use_default_db_conn,
+      autocommit=args.autocommit,
+      verbose=args.verbose,
+      dry_run=args.dry_run
+    )
 
   # Then log some details
   print("Using root folder %s" % config['root-folder'])

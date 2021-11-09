@@ -141,6 +141,8 @@ These files can be stored in the root-folder but schemachange also provides a se
 
 schemachange records all applied changes scripts to the change history table. By default schemachange will attempt to log all activities to the `METADATA.SCHEMACHANGE.CHANGE_HISTORY` table. The name and location of the change history table can be overriden by using the `-c` (or `--change-history-table`) parameter. The value passed to the parameter can have a one, two, or three part name (e.g. "TABLE_NAME", or "SCHEMA_NAME.TABLE_NAME", or "DATABASE_NAME.SCHEMA_NAME.TABLE_NAME"). This can be used to support multiple environments (dev, test, prod) or multiple subject areas within the same Snowflake account. By default schemachange will not try to create the change history table, and will fail if the table does not exist.
 
+By adding the option `change-history-table-use-default-db-conn`, the default database and schema will be overridden with the connection parameter `snowflake-database` and `snowflake-schema`.
+
 Additionally, if the `--create-change-history-table` parameter is given, then schemachange will attempt to create the schema and table associated with the change history table. schemachange will not attempt to create the database for the change history table, so that must be created ahead of time, even when using the `--create-change-history-table` parameter.
 
 The structure of the `CHANGE_HISTORY` table is as follows:
@@ -233,6 +235,9 @@ snowflake-warehouse: 'warehouse'
 # The name of the default database to use. Can be overridden in the change scripts.
 snowflake-database: null
 
+# The name of the default database to use. Can be overridden in the change scripts.
+snowflake-schema: null
+
 # Used to override the default name of the change history table (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)
 change-history-table: null
 
@@ -243,6 +248,9 @@ vars:
 
 # Create the change history schema and table, if they do not exist (the default is False)
 create-change-history-table: false
+
+# Use default connection database and schema to create the change history table
+change-history-table-use-default-db-conn: false
 
 # Enable autocommit feature for DML commands (the default is False)
 autocommit: false
@@ -291,9 +299,11 @@ Parameter | Description
 -r SNOWFLAKE_ROLE, --snowflake-role SNOWFLAKE_ROLE | The name of the role to use
 -w SNOWFLAKE_WAREHOUSE, --snowflake-warehouse SNOWFLAKE_WAREHOUSE | The name of the default warehouse to use. Can be overridden in the change scripts.
 -d SNOWFLAKE_DATABASE, --snowflake-database SNOWFLAKE_DATABASE | The name of the default database to use. Can be overridden in the change scripts.
+-s SNOWFLAKE_SCHEMA, --snowflake-schema SNOWFLAKE_SCHEMA The name of the default schema to use. Can be overridden in the change scripts.
 -c CHANGE_HISTORY_TABLE, --change-history-table CHANGE_HISTORY_TABLE | Used to override the default name of the change history table (which is METADATA.SCHEMACHANGE.CHANGE_HISTORY)
 --vars VARS | Define values for the variables to replaced in change scripts, given in JSON format (e.g. '{"variable1": "value1", "variable2": "value2"}')
 --create-change-history-table | Create the change history table if it does not exist. The default is 'False'.
+--change-history-table-use-default-db-conn | Use default database and schema to create the change history table into.
 -ac, --autocommit | Enable autocommit feature for DML commands. The default is 'False'.
 -v, --verbose | Display verbose debugging details during execution. The default is 'False'.
 --dry-run | Run schemachange in dry run mode. The default is 'False'.
