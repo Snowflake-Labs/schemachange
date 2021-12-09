@@ -22,7 +22,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '3.4.0'
+_schemachange_version = '3.4.1'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
@@ -158,10 +158,12 @@ def deploy_command(config):
   print("Using default warehouse %s" % config['snowflake-warehouse'])
   print("Using default database %s" % config['snowflake-database'])
 
-  # Set default Snowflake session parameters
+  # Set default and optional Snowflake session parameters
   snowflake_session_parameters = {
     "QUERY_TAG": "schemachange %s" % _schemachange_version
   }
+  if config['query-tag']:
+    snowflake_session_parameters["QUERY_TAG"] += ";%s" % config['query-tag']
 
   # TODO: Is there a better way to do this without setting environment variables?
   os.environ["SNOWFLAKE_ACCOUNT"] = config['snowflake-account']
@@ -306,7 +308,7 @@ def load_schemachange_config(config_file_path: str) -> Dict[str, Any]:
   return config
 
 
-def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run):
+def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run, query_tag):
   config = load_schemachange_config(config_file_path)
 
   # First the folder paths
@@ -392,6 +394,11 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
     # the variable schema change has been reserved
     if "schemachange" in config['vars']:
       raise ValueError("The variable schemachange has been reserved for use by schemachange, please use a different name")
+
+  if query_tag:
+    config['query-tag'] = query_tag
+  if 'query-tag' not in config:
+    config['query-tag'] = None
 
   return config
 
@@ -696,6 +703,7 @@ def main(argv=sys.argv):
   parser_deploy.add_argument('-ac', '--autocommit', action='store_true', help = 'Enable autocommit feature for DML commands (the default is False)', required = False)
   parser_deploy.add_argument('-v','--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
   parser_deploy.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
+  parser_deploy.add_argument('--query-tag', type = str, help = 'The string to add to the Snowflake QUERY_TAG session value for each query executed', required = False)
 
   parser_render = subcommands.add_parser('render', description="Renders a script to the console, used to check and verify jinja output from scripts.")
   parser_render.add_argument('--config-folder', type = str, default = '.', help = 'The folder to look in for the schemachange-config.yml file (the default is the current working directory)', required = False)
@@ -718,9 +726,9 @@ def main(argv=sys.argv):
   # First get the config values
   config_file_path = os.path.join(args.config_folder, _config_file_name)
   if args.subcommand == 'render':
-    config = get_schemachange_config(config_file_path, args.root_folder, args.modules_folder, None, None, None, None, None, None, args.vars, None, None, args.verbose, None)
+    config = get_schemachange_config(config_file_path, args.root_folder, args.modules_folder, None, None, None, None, None, None, args.vars, None, None, args.verbose, None, None)
   else:
-    config = get_schemachange_config(config_file_path, args.root_folder, args.modules_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run)
+    config = get_schemachange_config(config_file_path, args.root_folder, args.modules_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run, args.query_tag)
 
   # setup a secret manager and assign to global scope
   sm = SecretManager()
