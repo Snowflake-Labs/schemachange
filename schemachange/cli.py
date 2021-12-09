@@ -386,6 +386,11 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
   if 'dry-run' not in config:
     config['dry-run'] = False
 
+  if query_tag:
+    config['query-tag'] = query_tag
+  if 'query-tag' not in config:
+    config['query-tag'] = None
+
   if config['vars']:
     # if vars is configured wrong in the config file it will come through as a string
     if type(config['vars']) is not dict:
@@ -394,11 +399,6 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
     # the variable schema change has been reserved
     if "schemachange" in config['vars']:
       raise ValueError("The variable schemachange has been reserved for use by schemachange, please use a different name")
-
-  if query_tag:
-    config['query-tag'] = query_tag
-  if 'query-tag' not in config:
-    config['query-tag'] = None
 
   return config
 
