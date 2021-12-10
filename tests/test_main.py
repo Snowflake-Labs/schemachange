@@ -19,6 +19,7 @@ DEFAULT_CONFIG = {
     'autocommit': False,
     'verbose': False,
     'dry-run': False,
+    'query-tag': None,
 }
 
 
@@ -49,6 +50,8 @@ DEFAULT_CONFIG = {
         {**DEFAULT_CONFIG, 'verbose': True}),
     (["schemachange", "deploy", "--dry-run"],
         {**DEFAULT_CONFIG, 'dry-run': True}),
+    (["schemachange", "deploy", "--query-tag", "querytag"],
+        {**DEFAULT_CONFIG, 'query-tag': 'querytag'}),
 ])
 def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call( args, expected):
 
