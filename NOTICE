@@ -1,0 +1,10 @@
+This software includes the following python packages: 
+ 
+ Name                        License                  Author                                                              URL                                              
+ Jinja2                      BSD License              Armin Ronacher                                                      https://palletsprojects.com/p/jinja/             
+ PyYAML                      MIT License              Kirill Simonov                                                      https://pyyaml.org/                              
+ pandas                      BSD License              The Pandas Development Team                                         https://pandas.pydata.org                        
+ pytest                      MIT License              Holger Krekel, Bruno Oliveira, Ronny Pfannschmidt,                  https://docs.pytest.org/en/latest/
+                                                      Floris Bruynooghe, Brianna Laugher, Florian Bruhin and others  
+ snowflake-connector-python  Apache Software License  Snowflake, Inc                                                      https://www.snowflake.com/                       
+ 
