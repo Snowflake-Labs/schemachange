@@ -22,7 +22,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '3.4.1'
+_schemachange_version = '3.4.2'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
@@ -614,9 +614,11 @@ def fetch_r_scripts_checksum(change_history_table, snowflake_session_parameters,
   script_names = []
   checksums = []
   for cursor in results:
-    for row in cursor:
-      script_names.append(row[0])
-      checksums.append(row[1])
+    batches = cursor.get_result_batches()
+    for batch in batches:
+      for row in batch:
+        script_names.append(row[0])
+        checksums.append(row[1])
 
   d_script_checksum['script_name'] = script_names
   d_script_checksum['checksum'] = checksums
