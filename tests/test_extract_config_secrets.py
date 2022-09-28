@@ -1,5 +1,7 @@
 import pytest
+
 from schemachange.cli import extract_config_secrets
+
 
 def test_extract_config_secrets_given_empty_config_should_not_error():
     config = {}

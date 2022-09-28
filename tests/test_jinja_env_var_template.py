@@ -3,6 +3,7 @@ import os
 
 import pytest
 from jinja2 import DictLoader
+
 from schemachange.cli import JinjaTemplateProcessor
 
 

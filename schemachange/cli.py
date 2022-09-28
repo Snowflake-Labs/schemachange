@@ -1,25 +1,25 @@
-import os
-import string
-import re
 import argparse
+import hashlib
+import json
+import os
+import pathlib
+import re
+import string
+import sys
+import textwrap
+import time
+import warnings
+from typing import Any, Dict, Optional, Set, Type
+
 import jinja2
 import jinja2.ext
-import json
-import time
-import hashlib
-from jinja2.loaders import BaseLoader
 import snowflake.connector
-import sys
-import warnings
-import textwrap
 import yaml
-from typing import Dict, Any, Optional, Set, Type
-from pandas import DataFrame
-import pathlib
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import dsa, rsa
+from jinja2.loaders import BaseLoader
+from pandas import DataFrame
 
 # Set a few global variables here
 _schemachange_version = '3.4.1'

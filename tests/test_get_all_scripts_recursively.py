@@ -1,6 +1,8 @@
 import os
-import pytest
 import unittest.mock as mock
+
+import pytest
+
 from schemachange.cli import get_all_scripts_recursively
 
 #######################
