@@ -153,6 +153,8 @@ def deploy_command(config):
   # Log some additional details
   if config['dry-run']:
     print("Running in dry-run mode")
+  if config['out-of-order']:
+    print("Allowing migrations to run even if a later version has already been deployed (out of order mode)")
   print("Using Snowflake account %s" % config['snowflake-account'])
   print("Using default role %s" % config['snowflake-role'])
   print("Using default warehouse %s" % config['snowflake-warehouse'])
@@ -218,11 +220,20 @@ def deploy_command(config):
 
     # Apply a versioned-change script only if the version is newer than the most recent change in the database
     # Apply any other scripts, i.e. repeatable scripts, irrespective of the most recent change in the database
-    if script_name[0] == 'V' and get_alphanum_key(script['script_version']) <= get_alphanum_key(max_published_version):
-      if config['verbose']:
-        print("Skipping change script %s because it's older than the most recently applied change (%s)" % (script['script_name'], max_published_version))
-      scripts_skipped += 1
-      continue
+    if script_name[0] == 'V':
+
+      # in out of order mode, only skip this script if it's already been applied
+      if config['out-of-order'] and script['script_version'] in change_history:
+        if config['verbose']:
+          print("Skipping change script %s because it has already been applied (out of order mode)" % script['script_name'])
+        scripts_skipped +=1
+        continue
+
+      if get_alphanum_key(script['script_version']) <= get_alphanum_key(max_published_version) and not config['out-of-order']:
+        if config['verbose']:
+          print("Skipping change script %s because it's older than the most recently applied change (%s)" % (script['script_name'], max_published_version))
+        scripts_skipped += 1
+        continue
 
     # Always process with jinja engine
     jinja_processor = JinjaTemplateProcessor(project_root = config['root-folder'], modules_folder = config['modules-folder'])
@@ -308,7 +319,7 @@ def load_schemachange_config(config_file_path: str) -> Dict[str, Any]:
   return config
 
 
-def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run, query_tag):
+def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run, query_tag, out_of_order):
   config = load_schemachange_config(config_file_path)
 
   # First the folder paths
@@ -390,6 +401,11 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
     config['query-tag'] = query_tag
   if 'query-tag' not in config:
     config['query-tag'] = None
+
+  if out_of_order:
+    config['out-of-order'] = out_of_order
+  if 'out-of-order' not in config:
+    config['out-of-order'] = None
 
   if config['vars']:
     # if vars is configured wrong in the config file it will come through as a string
@@ -623,7 +639,7 @@ def fetch_r_scripts_checksum(change_history_table, snowflake_session_parameters,
   return d_script_checksum
 
 def fetch_change_history(change_history_table, snowflake_session_parameters, autocommit, verbose):
-  query = "SELECT VERSION FROM {0}.{1} WHERE SCRIPT_TYPE = 'V' ORDER BY INSTALLED_ON DESC LIMIT 1".format(change_history_table['schema_name'], change_history_table['table_name'])
+  query = "SELECT VERSION FROM {0}.{1} WHERE SCRIPT_TYPE = 'V' ORDER BY INSTALLED_ON DESC".format(change_history_table['schema_name'], change_history_table['table_name'])
   results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
 
   # Collect all the results into a list
@@ -704,6 +720,7 @@ def main(argv=sys.argv):
   parser_deploy.add_argument('-v','--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
   parser_deploy.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
   parser_deploy.add_argument('--query-tag', type = str, help = 'The string to add to the Snowflake QUERY_TAG session value for each query executed', required = False)
+  parser_deploy.add_argument('--out-of-order', action = 'store_true', help = 'Allow migrations to run even if a later version has already been deployed (the default is False)', required = False)
 
   parser_render = subcommands.add_parser('render', description="Renders a script to the console, used to check and verify jinja output from scripts.")
   parser_render.add_argument('--config-folder', type = str, default = '.', help = 'The folder to look in for the schemachange-config.yml file (the default is the current working directory)', required = False)
@@ -728,7 +745,7 @@ def main(argv=sys.argv):
   if args.subcommand == 'render':
     config = get_schemachange_config(config_file_path, args.root_folder, args.modules_folder, None, None, None, None, None, None, args.vars, None, None, args.verbose, None, None)
   else:
-    config = get_schemachange_config(config_file_path, args.root_folder, args.modules_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run, args.query_tag)
+    config = get_schemachange_config(config_file_path, args.root_folder, args.modules_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run, args.query_tag, args.out_of_order)
 
   # setup a secret manager and assign to global scope
   sm = SecretManager()
