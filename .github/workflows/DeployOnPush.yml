@@ -1,0 +1,67 @@
+# # This is a basic workflow to help you get started with Actions
+# name: zeus-DepolyOnPush
+# # Controls when the workflow will run
+# on:
+#   # Triggers the workflow on push
+#   push:
+#     branches: 
+#       - master
+#     paths:
+#       - 'sc-zeus/**'
+
+#   # Allows you to run this workflow manually from the Actions tab
+#   workflow_dispatch:
+
+# # A workflow run is made up of one or more jobs that can run sequentially or in parallel
+# jobs:
+
+#   # Job Desc- Run schemachange on pr-init
+#   Schemachange-Deploy:
+
+#     ##self-hosted runner >> 
+#     runs-on: self-hosted
+    
+#     # Steps represent a sequence of tasks that will be executed as part of the job
+#     steps:
+#       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+#       - name: Checkout repository
+#         uses: actions/checkout@v3
+      
+#       # Check IP 
+#       - name: Check IP
+#         run: curl https://api.ipify.org
+
+#       - name: Create venv
+#         id: venv
+#         run: |
+#             pwd
+#             python3.7 -m venv venv
+#             source venv/bin/activate 
+#             pip install --upgrade pip 
+#             pip install schemachange
+
+#       - name: Deploy on ZEUSDUMMY
+#         id: ZEUSDUMMY
+#         env:
+#           SNOWFLAKE_PASSWORD: ${{ secrets.SF_ZEUS_PASSWORD}}
+#           VARS: '{"SF_DATABASE":"ZEUSDUMMY"}'
+#         if: steps.venv.outcome == 'success'  
+#         run: |
+#             pwd
+#             source venv/bin/activate
+#             pip --version 
+#             schemachange -f ./sc-zeus -a ${{ secrets.SF_ACCOUNT}} -u ${{ secrets.SF_ZEUS_USER}} -r ${{ secrets.SF_ZEUS_ROLE}} -w ${{ secrets.SF_DBA_WH}} -d SC_ZEUSDEFAULT --vars $VARS -c ZEUS.SCHEMACHANGE.CHANGE_HISTORY_ZEUSDUMMY --create-change-history-table
+
+#       - name: Run schemachange
+#         id: ProdRun
+#         env:
+#           SNOWFLAKE_PASSWORD: ${{ secrets.SF_ZEUS_PASSWORD}}
+#           VARS: '{"SF_DATABASE":"ZEUS"}'
+#         if: steps.ZEUSDUMMY.outcome == 'success'
+#         run: |
+#             pwd
+#             source venv/bin/activate
+#             pip --version 
+#             schemachange -f ./sc-zeus -a ${{ secrets.SF_ACCOUNT}} -u ${{ secrets.SF_ZEUS_USER}} -r ${{ secrets.SF_ZEUS_ROLE}} -w ${{ secrets.SF_DBA_WH}} -d SC_ZEUSDEFAULT --vars $VARS -c ZEUS.SCHEMACHANGE.CHANGE_HISTORY --create-change-history-table
+
+
