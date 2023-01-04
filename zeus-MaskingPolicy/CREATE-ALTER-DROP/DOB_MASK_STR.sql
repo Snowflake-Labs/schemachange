@@ -2,7 +2,7 @@
 -- PII_ADMIN ** Create/Alter Masking Policy ** 
 --=============================================================================
 USE ROLE PII_ADMIN;
-USE DATABASE ODIN;
+USE DATABASE ZEUS;
 
 ALTER MASKING POLICY ETL.DOB_MASK_STR SET BODY ->
 CASE WHEN VAL IS NULL THEN NULL
