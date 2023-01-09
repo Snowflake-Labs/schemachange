@@ -30,6 +30,8 @@ For the complete list of changes made to schemachange check out the [CHANGELOG](
 1. [Authentication](#authentication)
    1. [Password Authentication](#password-authentication)
    1. [Private Key Authentication](#private-key-authentication)
+   1. [Oauth Authentication] (#oauth-authentication)
+   1. [External Browser Authentication] (#external-browser-authentication)
 1. [Configuration](#configuration)
    1. [YAML Config File](#yaml-config-file)
       1. [Yaml Jinja support](#yaml-jinja-support)
@@ -218,6 +220,23 @@ _**DEPRECATION NOTICE**: The `SNOWSQL_PWD` environment variable is deprecated bu
 ### Private Key Authentication
 The Snowflake user encrypted private key for `SNOWFLAKE_USER` is required to be in a file with the file path set in the environment variable `SNOWFLAKE_PRIVATE_KEY_PATH`. Additionally, the password for the encrypted private key file is required to be set in the environment variable `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE`. If the variable is not set, schemachange will assume the private key is not encrypted. These two environment variables must be set prior to calling the script. Schemachange will fail if the `SNOWFLAKE_PRIVATE_KEY_PATH` is not set.
 
+### Oauth Authentication
+A Oauth Configuration can be made in the [YAML Config File](#yaml-config-file) and invoked by setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value `oauth` prior to calling schemachange.  Since different Oauth providers may require different information the Oauth configuration uses four named variables that are fed into a POST request to obtain a token.
+* token-provider-url
+The URL of the authenticator resource that will be receive the POST request.
+* token-response-name
+The Expected name of the JSON element containing the Token in the return response from the authenticator resource.
+* token-request-payload
+The Set of variables passed as a dictionary to the `data` element of the request. 
+* token-request-headers
+The Set of variables passed as a dictionary to the `headers` element of the request. 
+
+It is recomended to pass oauth secrets into the configuration using the templating engine.  
+
+
+### External Browser Authentication
+External browser authentication can be used for local development by setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value `externalbrowser` prior to calling schemachange. 
+
 ## Configuration
 
 Parameters to schemachange can be supplied in two different ways:
@@ -290,7 +309,7 @@ query-tag: 'QUERY_TAG'
 # Information for Oauth token requests 
 oauthconfig:
   # url Where token request are posted to
-  token-provider-url: 'https://login.microsoftonline.com/{{ }}/oauth2/v2.0/token'
+  token-provider-url: 'https://login.microsoftonline.com/{{ env_var('AZURE_ORG_GUID', 'default') }}/oauth2/v2.0/token'
   # name of Json entity returned by request
   token-response-name: 'access_token'
   # Headers needed for successful post or other security markings ( multiple labeled items permitted
@@ -303,7 +322,6 @@ oauthconfig:
     password: '{{ env_var('AZURE_USER_PASSWORD', 'default') }}'
     grant_type: 'password'
     scope: '{{ env_var('AZURE_SESSION_SCOPE', 'default') }}'
-
 ```
 
 #### Yaml Jinja support

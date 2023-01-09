@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [3.5.0] - 2022-10-24
+### Changed
+- Inverted Program Call sequence and refactored all snowflake interactions into a Class. Class now persists connection accross all interactions and updates the snowflake query tag session variable as scripts are executed.
+### Added
+- Added support for Oauth and external browser authentication methods.  
+
 ## [3.4.2] - 2022-10-24
 ### Changed
 - Updated `snowflake-connector-python` dependency to version 2.8. This should address errors with result batching in the `fetch_r_script_checksum` method when users have a lot of scripts in their project.
