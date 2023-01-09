@@ -287,6 +287,23 @@ dry-run: false
 # A string to include in the QUERY_TAG that is attached to every SQL statement executed
 query-tag: 'QUERY_TAG'
 
+# Information for Oauth token requests 
+oauthconfig:
+  # url Where token request are posted to
+  token-provider-url: 'https://login.microsoftonline.com/{{ }}/oauth2/v2.0/token'
+  # name of Json entity returned by request
+  token-response-name: 'access_token'
+  # Headers needed for successful post or other security markings ( multiple labeled items permitted
+  token-request-headers: 
+    Content-Type: "application/x-www-form-urlencoded"
+  # Request Payload for Token (it is recommended pass
+  token-request-payload:
+    client_id: '{{ env_var('AZURE_CLIENT_ID', 'default') }}'
+    username: '{{ env_var('AZURE_USER_ID', 'default') }}'
+    password: '{{ env_var('AZURE_USER_PASSWORD', 'default') }}'
+    grant_type: 'password'
+    scope: '{{ env_var('AZURE_SESSION_SCOPE', 'default') }}'
+
 ```
 
 #### Yaml Jinja support
