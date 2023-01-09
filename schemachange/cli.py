@@ -1,4 +1,5 @@
 import os
+from pyexpat.errors import codes
 import string
 import re
 import argparse
@@ -8,6 +9,7 @@ import json
 import time
 import hashlib
 from jinja2.loaders import BaseLoader
+import requests
 import snowflake.connector
 import sys
 import warnings
@@ -139,6 +141,213 @@ class SecretManager:
         redacted = redacted.replace(secret, "*" * len(secret))
     return redacted
 
+class SnowflakeSchemachangeSession:
+  def __init__(self,config):
+    snowflake_session_parameters = {
+      "QUERY_TAG": "schemachange %s" % _schemachange_version
+    }
+    if config['query-tag']:
+      snowflake_session_parameters["QUERY_TAG"] += ";%s" % config['query-tag']
+      
+    ##config
+    self.connectionParameters = {}
+    self.connectionParameters['user'] =  config['snowflake-user']
+    self.connectionParameters['account'] =  config['snowflake-account']
+    self.connectionParameters['role'] =  config['snowflake-role']
+    self.connectionParameters['warehouse'] =  config['snowflake-warehouse']
+    self.connectionParameters['database'] =  config['snowflake-database']
+    self.connectionParameters['application'] = _snowflake_application_name
+    self.connectionParameters['session_parameters'] = snowflake_session_parameters
+    self.oauthinfo = config['oauthconfig']
+ 
+    self.autocommit = config['autocommit']
+    self.verbose = config['verbose']
+    self.con = self.authenticate()
+    if not self.autocommit:
+      self.con.autocommit(False)
+  
+  def __del__(self):
+    #self.con.close()
+    pass
+  
+  def get_oauth_token(self):
+    req_info =dict()
+    req_info['url'] = self.oauthinfo['token-provider-url']
+    req_info['headers'] = self.oauthinfo['token-request-headers']
+    req_info['data'] = self.oauthinfo['token-request-payload']
+    token_name = self.oauthinfo['token-response-name']
+
+    response = requests.post(**req_info)
+    return json.loads(response.text)[token_name]
+
+
+  def authenticate(self):
+    # Password authentication is the default
+    snowflake_password = None
+    if os.getenv("SNOWFLAKE_PASSWORD") is not None and os.getenv("SNOWFLAKE_PASSWORD"):
+      snowflake_password = os.getenv("SNOWFLAKE_PASSWORD")
+    elif os.getenv("SNOWSQL_PWD") is not None and os.getenv("SNOWSQL_PWD"):  # Check legacy/deprecated env variable
+      snowflake_password = os.getenv("SNOWSQL_PWD")
+      warnings.warn("The SNOWSQL_PWD environment variable is deprecated and will be removed in a later version of schemachange. Please use SNOWFLAKE_PASSWORD instead.", DeprecationWarning)
+
+    if snowflake_password:
+      if self.verbose:
+        print("Proceeding with password authentication")
+      self.connectionParameters['password'] = snowflake_password
+      self.connectionParameters['authenticator'] = 'snowflake'
+ 
+    # If no password, try private key authentication
+    elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH", ''):
+      if self.verbose:
+        print("Proceeding with private key authentication")
+
+      private_key_password = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE", '')
+      if private_key_password:
+        private_key_password = private_key_password.encode()
+      else:
+        private_key_password = None
+        if self.verbose:
+          print("No private key passphrase provided. Assuming the key is not encrypted.")
+      with open(os.environ["SNOWFLAKE_PRIVATE_KEY_PATH"], "rb") as key:
+        p_key= serialization.load_pem_private_key(
+            key.read(),
+            password = private_key_password,
+            backend = default_backend()
+        )
+
+      pkb = p_key.private_bytes(
+          encoding = serialization.Encoding.DER,
+          format = serialization.PrivateFormat.PKCS8,
+          encryption_algorithm = serialization.NoEncryption())
+
+      self.connectionParameters['private_key'] = pkb 
+      self.connectionParameters['authenticator'] = 'snowflake' 
+    
+    elif os.getenv("SNOWFLAKE_AUTHENTICATOR") == 'oauth' and os.getenv("SNOWFLAKE_AUTHENTICATOR"):      
+      oauth_token = self.get_oauth_token()
+      
+      if self.verbose:
+        print("Proceeding with Oauth Access Token")
+        print(f"Using Token value:{oauth_token}")
+      self.connectionParameters['token'] = oauth_token
+      self.connectionParameters['authenticator'] = 'oauth'
+    
+    elif os.getenv("SNOWFLAKE_AUTHENTICATOR") == 'externalbrowser' and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
+      self.connectionParameters['authenticator'] = 'externalbrowser'
+      if self.verbose:
+        print("Proceeding with External Browser Authentication")
+       
+
+    else:
+      raise ValueError("Unable to find connection credentials for private key,  password, Oauth or Browser authentication")
+    print(self.connectionParameters)
+    return snowflake.connector.connect(**self.connectionParameters)
+
+
+  def execute_snowflake_query(self, query):
+    if self.verbose:
+      print(SecretManager.global_redact("SQL query: %s" % query))
+    try:
+      res = self.con.execute_string(query)
+      if not self.autocommit:
+        self.con.commit()
+      return res
+    except Exception as e:
+      if not self.autocommit:
+        self.con.rollback()
+      raise e
+
+  def fetch_change_history_metadata(self,change_history_table):
+      # This should only ever return 0 or 1 rows
+      query = "SELECT CREATED, LAST_ALTERED FROM {0}.INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA ILIKE '{1}' AND TABLE_NAME ILIKE '{2}'".format(change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name'])
+      results = self.execute_snowflake_query(query)
+
+      # Collect all the results into a list
+      change_history_metadata = dict()
+      for cursor in results:
+        for row in cursor:
+          change_history_metadata['created'] = row[0]
+          change_history_metadata['last_altered'] = row[1]
+
+      return change_history_metadata
+
+  def create_change_history_table_if_missing(self, change_history_table):
+    # Check if schema exists
+    query = "SELECT COUNT(1) FROM {0}.INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME ILIKE '{1}'".format(change_history_table['database_name'], change_history_table['schema_name'])
+    results = self.execute_snowflake_query(query)
+    schema_exists = False
+    for cursor in results:
+      for row in cursor:
+        schema_exists = (row[0] > 0)
+
+    # Create the schema if it doesn't exist
+    if not schema_exists:
+      query = "CREATE SCHEMA {0}".format(change_history_table['schema_name'])
+      self.execute_snowflake_query(query)
+
+    # Finally, create the change history table if it doesn't exist
+    query = "CREATE TABLE IF NOT EXISTS {0}.{1} (VERSION VARCHAR, DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR, EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)".format(change_history_table['schema_name'], change_history_table['table_name'])
+    self.execute_snowflake_query(query)
+
+  def fetch_r_scripts_checksum(self,change_history_table):
+    query = f"SELECT DISTINCT SCRIPT, FIRST_VALUE(CHECKSUM) OVER (PARTITION BY SCRIPT ORDER BY INSTALLED_ON DESC) \
+            FROM {change_history_table['schema_name']}.{change_history_table['table_name']} \
+            WHERE SCRIPT_TYPE = 'R' AND STATUS = 'Success'"
+    results = self.execute_snowflake_query(query)
+
+    # Collect all the results into a dict
+    d_script_checksum = DataFrame(columns=['script_name', 'checksum'])
+    script_names = []
+    checksums = []
+    for cursor in results:
+      for row in cursor:
+        script_names.append(row[0])
+        checksums.append(row[1])
+
+    d_script_checksum['script_name'] = script_names
+    d_script_checksum['checksum'] = checksums
+    return d_script_checksum
+
+  def fetch_change_history(self, change_history_table):
+    query = "SELECT VERSION FROM {0}.{1} WHERE SCRIPT_TYPE = 'V' ORDER BY INSTALLED_ON DESC LIMIT 1".format(change_history_table['schema_name'], change_history_table['table_name'])
+    results = self.execute_snowflake_query(query)
+
+    # Collect all the results into a list
+    change_history = list()
+    for cursor in results:
+      for row in cursor:
+        change_history.append(row[0])
+
+    return change_history
+  def append_string_to_query_tag(self,tag_string):
+    query_tag =self.connectionParameters['session_parameters']["QUERY_TAG"] + ';' + tag_string 
+    self.con.cursor().execute(f"ALTER SESSION SET QUERY_TAG = '{query_tag}'")
+    # TODO Validate the use of "cursor().execute" vs passing through executre string
+
+  def reset_query_tag(self):
+    query_tag =self.connectionParameters['session_parameters']["QUERY_TAG"] 
+    self.con.cursor().execute(f"ALTER SESSION SET QUERY_TAG = '{query_tag}'")
+
+  def apply_change_script(self, script, script_content, change_history_table):
+    # Define a few other change related variables
+    checksum = hashlib.sha224(script_content.encode('utf-8')).hexdigest()
+    execution_time = 0
+    status = 'Success'
+
+    # Execute the contents of the script
+    if len(script_content) > 0:
+      start = time.time()
+      self.append_string_to_query_tag( script['script_name'])
+      self.execute_snowflake_query(script_content)
+      self.reset_query_tag()
+      end = time.time()
+      execution_time = round(end - start)
+
+
+    # Finally record this change in the change history table
+    query = "INSERT INTO {0}.{1} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{2}','{3}','{4}','{5}','{6}',{7},'{8}','{9}',CURRENT_TIMESTAMP);".format(change_history_table['schema_name'], change_history_table['table_name'], script['script_version'], script['script_description'], script['script_name'], script['script_type'], checksum, execution_time, status, os.environ["SNOWFLAKE_USER"])
+    self.execute_snowflake_query( query)
+  
 
 def deploy_command(config):
   # Make sure we have the required configs
@@ -147,8 +356,11 @@ def deploy_command(config):
 
   # Password authentication will take priority
   # We will accept SNOWSQL_PWD for now, but it is deprecated
-  if "SNOWFLAKE_PASSWORD" not in os.environ and "SNOWSQL_PWD" not in os.environ and "SNOWFLAKE_PRIVATE_KEY_PATH" not in os.environ:
-    raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. SNOWFLAKE_PRIVATE_KEY_PATH and (optional) SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication.")
+  if "SNOWFLAKE_PASSWORD" not in os.environ \
+    and "SNOWSQL_PWD" not in os.environ \
+    and "SNOWFLAKE_PRIVATE_KEY_PATH" not in os.environ \
+    and "SNOWFLAKE_AUTHENTICATOR" not in os.environ:
+    raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. SNOWFLAKE_PRIVATE_KEY_PATH and (optional) SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication. SNOWFLAKE_AUTHENTICATOR must be defined is using Oauth or external Browser Authentication.")
 
   # Log some additional details
   if config['dry-run']:
@@ -158,32 +370,21 @@ def deploy_command(config):
   print("Using default warehouse %s" % config['snowflake-warehouse'])
   print("Using default database %s" % config['snowflake-database'])
 
-  # Set default and optional Snowflake session parameters
-  snowflake_session_parameters = {
-    "QUERY_TAG": "schemachange %s" % _schemachange_version
-  }
-  if config['query-tag']:
-    snowflake_session_parameters["QUERY_TAG"] += ";%s" % config['query-tag']
-
-  # TODO: Is there a better way to do this without setting environment variables?
-  os.environ["SNOWFLAKE_ACCOUNT"] = config['snowflake-account']
-  os.environ["SNOWFLAKE_USER"] = config['snowflake-user']
-  os.environ["SNOWFLAKE_ROLE"] = config['snowflake-role']
-  os.environ["SNOWFLAKE_WAREHOUSE"] = config['snowflake-warehouse']
-  os.environ["SNOWFLAKE_AUTHENTICATOR"] = 'snowflake'
+  session = SnowflakeSchemachangeSession(config)
+  session.authenticate()
 
   scripts_skipped = 0
   scripts_applied = 0
 
   # Deal with the change history table (create if specified)
   change_history_table = get_change_history_table_details(config['change-history-table'])
-  change_history_metadata = fetch_change_history_metadata(change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
+  change_history_metadata = session.fetch_change_history_metadata(change_history_table)
   if change_history_metadata:
     print("Using change history table %s.%s.%s (last altered %s)" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name'], change_history_metadata['last_altered']))
   elif config['create-change-history-table']:
     # Create the change history table (and containing objects) if it don't exist.
     if not config['dry-run']:
-      create_change_history_table_if_missing(change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
+      session.create_change_history_table_if_missing(change_history_table)
     print("Created change history table %s.%s.%s" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name']))
   else:
     raise ValueError("Unable to find change history table %s.%s.%s" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name']))
@@ -194,8 +395,8 @@ def deploy_command(config):
   change_history = None
   r_scripts_checksum = None
   if (config['dry-run'] and change_history_metadata) or not config['dry-run']:
-    change_history = fetch_change_history(change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
-    r_scripts_checksum = fetch_r_scripts_checksum(change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
+    change_history = session.fetch_change_history(change_history_table)
+    r_scripts_checksum = session.fetch_r_scripts_checksum(change_history_table)
 
   if change_history:
     max_published_version = change_history[0]
@@ -248,7 +449,7 @@ def deploy_command(config):
 
     print("Applying change script %s" % script['script_name'])
     if not config['dry-run']:
-      apply_change_script(script, content, config['vars'], config['snowflake-database'], change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
+      session.apply_change_script(script, content)
 
     scripts_applied += 1
 
@@ -465,87 +666,7 @@ def get_all_scripts_recursively(root_directory, verbose):
         all_versions.append(script['script_version'])
 
   return all_files
-
-def execute_snowflake_query(snowflake_database, query, snowflake_session_parameters, autocommit, verbose):
-  # Password authentication is the default
-  snowflake_password = None
-  if os.getenv("SNOWFLAKE_PASSWORD") is not None and os.getenv("SNOWFLAKE_PASSWORD"):
-    snowflake_password = os.getenv("SNOWFLAKE_PASSWORD")
-  elif os.getenv("SNOWSQL_PWD") is not None and os.getenv("SNOWSQL_PWD"):  # Check legacy/deprecated env variable
-    snowflake_password = os.getenv("SNOWSQL_PWD")
-    warnings.warn("The SNOWSQL_PWD environment variable is deprecated and will be removed in a later version of schemachange. Please use SNOWFLAKE_PASSWORD instead.", DeprecationWarning)
-
-  if snowflake_password is not None:
-    if verbose:
-      print("Proceeding with password authentication")
-
-    con = snowflake.connector.connect(
-      user = os.environ["SNOWFLAKE_USER"],
-      account = os.environ["SNOWFLAKE_ACCOUNT"],
-      role = os.environ["SNOWFLAKE_ROLE"],
-      warehouse = os.environ["SNOWFLAKE_WAREHOUSE"],
-      database = snowflake_database,
-      authenticator = os.environ["SNOWFLAKE_AUTHENTICATOR"],
-      password = snowflake_password,
-      application = _snowflake_application_name,
-      session_parameters = snowflake_session_parameters
-    )
-  # If no password, try private key authentication
-  elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH", ''):
-    if verbose:
-      print("Proceeding with private key authentication")
-
-    private_key_password = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE", '')
-    if private_key_password:
-      private_key_password = private_key_password.encode()
-    else:
-      private_key_password = None
-      if verbose:
-        print("No private key passphrase provided. Assuming the key is not encrypted.")
-    with open(os.environ["SNOWFLAKE_PRIVATE_KEY_PATH"], "rb") as key:
-      p_key= serialization.load_pem_private_key(
-          key.read(),
-          password = private_key_password,
-          backend = default_backend()
-      )
-
-    pkb = p_key.private_bytes(
-        encoding = serialization.Encoding.DER,
-        format = serialization.PrivateFormat.PKCS8,
-        encryption_algorithm = serialization.NoEncryption())
-
-    con = snowflake.connector.connect(
-      user = os.environ["SNOWFLAKE_USER"],
-      account = os.environ["SNOWFLAKE_ACCOUNT"],
-      role = os.environ["SNOWFLAKE_ROLE"],
-      warehouse = os.environ["SNOWFLAKE_WAREHOUSE"],
-      database = snowflake_database,
-      authenticator = os.environ["SNOWFLAKE_AUTHENTICATOR"],
-      application = _snowflake_application_name,
-      private_key = pkb,
-      session_parameters = snowflake_session_parameters
-    )
-  else:
-    raise ValueError("Unable to find connection credentials for private key or password authentication")
-
-  if not autocommit:
-    con.autocommit(False)
-
-  if verbose:
-      print(SecretManager.global_redact("SQL query: %s" % query))
-
-  try:
-    res = con.execute_string(query)
-    if not autocommit:
-      con.commit()
-    return res
-  except Exception as e:
-    if not autocommit:
-      con.rollback()
-    raise e
-  finally:
-    con.close()
-
+ 
 def get_change_history_table_details(change_history_table_override):
   # Start with the global defaults
   details = dict()
@@ -571,88 +692,7 @@ def get_change_history_table_details(change_history_table_override):
 
   return details
 
-def fetch_change_history_metadata(change_history_table, snowflake_session_parameters, autocommit, verbose):
-  # This should only ever return 0 or 1 rows
-  query = "SELECT CREATED, LAST_ALTERED FROM {0}.INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA ILIKE '{1}' AND TABLE_NAME ILIKE '{2}'".format(change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name'])
-  results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
-
-  # Collect all the results into a list
-  change_history_metadata = dict()
-  for cursor in results:
-    for row in cursor:
-      change_history_metadata['created'] = row[0]
-      change_history_metadata['last_altered'] = row[1]
-
-  return change_history_metadata
-
-def create_change_history_table_if_missing(change_history_table, snowflake_session_parameters, autocommit, verbose):
-  # Check if schema exists
-  query = "SELECT COUNT(1) FROM {0}.INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME ILIKE '{1}'".format(change_history_table['database_name'], change_history_table['schema_name'])
-  results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
-  schema_exists = False
-  for cursor in results:
-    for row in cursor:
-      schema_exists = (row[0] > 0)
-
-  # Create the schema if it doesn't exist
-  if not schema_exists:
-    query = "CREATE SCHEMA {0}".format(change_history_table['schema_name'])
-    execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
-
-  # Finally, create the change history table if it doesn't exist
-  query = "CREATE TABLE IF NOT EXISTS {0}.{1} (VERSION VARCHAR, DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR, EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)".format(change_history_table['schema_name'], change_history_table['table_name'])
-  execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
-
-def fetch_r_scripts_checksum(change_history_table, snowflake_session_parameters, autocommit, verbose):
-  query = f"SELECT DISTINCT SCRIPT, FIRST_VALUE(CHECKSUM) OVER (PARTITION BY SCRIPT ORDER BY INSTALLED_ON DESC) \
-          FROM {change_history_table['schema_name']}.{change_history_table['table_name']} \
-          WHERE SCRIPT_TYPE = 'R' AND STATUS = 'Success'"
-  results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
-
-  # Collect all the results into a dict
-  d_script_checksum = DataFrame(columns=['script_name', 'checksum'])
-  script_names = []
-  checksums = []
-  for cursor in results:
-    for row in cursor:
-      script_names.append(row[0])
-      checksums.append(row[1])
-
-  d_script_checksum['script_name'] = script_names
-  d_script_checksum['checksum'] = checksums
-  return d_script_checksum
-
-def fetch_change_history(change_history_table, snowflake_session_parameters, autocommit, verbose):
-  query = "SELECT VERSION FROM {0}.{1} WHERE SCRIPT_TYPE = 'V' ORDER BY INSTALLED_ON DESC LIMIT 1".format(change_history_table['schema_name'], change_history_table['table_name'])
-  results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
-
-  # Collect all the results into a list
-  change_history = list()
-  for cursor in results:
-    for row in cursor:
-      change_history.append(row[0])
-
-  return change_history
-
-def apply_change_script(script, script_content, vars, default_database, change_history_table, snowflake_session_parameters, autocommit, verbose):
-  # Define a few other change related variables
-  checksum = hashlib.sha224(script_content.encode('utf-8')).hexdigest()
-  execution_time = 0
-  status = 'Success'
-
-  # Execute the contents of the script
-  if len(script_content) > 0:
-    start = time.time()
-    session_parameters = snowflake_session_parameters.copy()
-    session_parameters["QUERY_TAG"] += ";%s" % script['script_name']
-    execute_snowflake_query(default_database, script_content, session_parameters, autocommit, verbose)
-    end = time.time()
-    execution_time = round(end - start)
-
-  # Finally record this change in the change history table
-  query = "INSERT INTO {0}.{1} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{2}','{3}','{4}','{5}','{6}',{7},'{8}','{9}',CURRENT_TIMESTAMP);".format(change_history_table['schema_name'], change_history_table['table_name'], script['script_version'], script['script_description'], script['script_name'], script['script_type'], checksum, execution_time, status, os.environ["SNOWFLAKE_USER"])
-  execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
-
+ 
 def extract_config_secrets(config: Dict[str, Any]) -> Set[str]:
   """
   Extracts all secret values from the vars attributes in config
