@@ -1,5 +1,4 @@
-import os
-from pyexpat.errors import codes
+import os 
 import string
 import re
 import argparse
@@ -24,7 +23,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '3.4.2'
+_schemachange_version = '3.5.0'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
@@ -55,7 +54,6 @@ class JinjaEnvVar(jinja2.ext.Extension):
        raise ValueError("Could not find environmental variable %s and no default value was provided" % env_var)
 
     return result
-
 
 class JinjaTemplateProcessor:
   def __init__(self, project_root: str, modules_folder: str = None):
@@ -176,7 +174,6 @@ class SnowflakeSchemachangeSession:
     req_info['headers'] = self.oauthinfo['token-request-headers']
     req_info['data'] = self.oauthinfo['token-request-payload']
     token_name = self.oauthinfo['token-response-name']
-
     response = requests.post(**req_info)
     return json.loads(response.text)[token_name]
 
@@ -228,7 +225,7 @@ class SnowflakeSchemachangeSession:
       
       if self.verbose:
         print("Proceeding with Oauth Access Token")
-        print(f"Using Token value:{oauth_token}")
+        #print(f"Using Token value:{oauth_token}")
       self.connectionParameters['token'] = oauth_token
       self.connectionParameters['authenticator'] = 'oauth'
     
@@ -345,7 +342,17 @@ class SnowflakeSchemachangeSession:
 
 
     # Finally record this change in the change history table
-    query = "INSERT INTO {0}.{1} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{2}','{3}','{4}','{5}','{6}',{7},'{8}','{9}',CURRENT_TIMESTAMP);".format(change_history_table['schema_name'], change_history_table['table_name'], script['script_version'], script['script_description'], script['script_name'], script['script_type'], checksum, execution_time, status, os.environ["SNOWFLAKE_USER"])
+    query = "INSERT INTO {0}.{1} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{2}','{3}','{4}','{5}','{6}',{7},'{8}','{9}',CURRENT_TIMESTAMP);". \
+      format(change_history_table['schema_name'], \
+      change_history_table['table_name'], \
+      script['script_version'], \
+      script['script_description'], \
+      script['script_name'], \
+      script['script_type'], \
+      checksum, \
+      execution_time, \
+      status, \
+      self.connectionParameters['user'])
     self.execute_snowflake_query( query)
   
 
@@ -371,7 +378,6 @@ def deploy_command(config):
   print("Using default database %s" % config['snowflake-database'])
 
   session = SnowflakeSchemachangeSession(config)
-  session.authenticate()
 
   scripts_skipped = 0
   scripts_applied = 0
@@ -449,7 +455,7 @@ def deploy_command(config):
 
     print("Applying change script %s" % script['script_name'])
     if not config['dry-run']:
-      session.apply_change_script(script, content)
+      session.apply_change_script(script, content, change_history_table)
 
     scripts_applied += 1
 
