@@ -1,3 +1,5 @@
+This application is not part of the Snowflake Service and is provided under the Apache 2.0 license, unless expressly agreed to in writing.  You use this application at your own risk, and Snowflake has no obligation to support your use of this application.
+
 # schemachange
 <img src="images/schemachange-logo-title.png" alt="schemachange" title="schemachange logo" width="600" />
 
@@ -30,6 +32,8 @@ For the complete list of changes made to schemachange check out the [CHANGELOG](
 1. [Authentication](#authentication)
    1. [Password Authentication](#password-authentication)
    1. [Private Key Authentication](#private-key-authentication)
+   1. [Browser based SSO](#browser-based-sso)
+   1. [Programmatic SSO](#programmatic-sso-okta-only)
 1. [Configuration](#configuration)
    1. [YAML Config File](#yaml-config-file)
       1. [Yaml Jinja support](#yaml-jinja-support)
@@ -206,9 +210,14 @@ CREATE TABLE IF NOT EXISTS SCHEMACHANGE.CHANGE_HISTORY
 ```
 
 ## Authentication
-schemachange supports both [password authentication](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-using-the-default-authenticator) and [private key authentication](https://docs.snowflake.com/en/user-guide/python-connector-example.html#using-key-pair-authentication).
+Schemachange supports snowflake's default authenticator, Browswer based SSO and Programmatic SSO options supported by the [Snowflake Python Connector](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-to-snowflake). Set the environment variable `SNOWFLAKE_AUTHENTICATOR` or the config parameter `-auth` or `--snowflake-authenticator` to one of the following
+Authentication Option | Expected Value
+--- | ---
+Default [Password](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-using-the-default-authenticator) Authenticator or [Key Pair](https://docs.snowflake.com/en/user-guide/python-connector-example.html#using-key-pair-authentication) Authenticator| `snowflake`
+[Browser based SSO](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#setting-up-browser-based-sso) | `externalbrowser`
+[Programmatic SSO](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#native-sso-okta-only) (Okta Only) | Okta URL endpoing for your Okta account typically in the form `https://<okta_account_name>.okta.com` OR `https://<okta_account_name>.oktapreview.com`
 
-In the event both authentication criteria are provided, schemachange will prioritize password authentication.
+In the event both authentication criteria for the default authenticator are provided, schemachange will prioritize password authentication over key pair authentication. 
 
 ### Password Authentication
 The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWFLAKE_PASSWORD` prior to calling the script. schemachange will fail if the `SNOWFLAKE_PASSWORD` environment variable is not set.
@@ -217,6 +226,14 @@ _**DEPRECATION NOTICE**: The `SNOWSQL_PWD` environment variable is deprecated bu
 
 ### Private Key Authentication
 The Snowflake user encrypted private key for `SNOWFLAKE_USER` is required to be in a file with the file path set in the environment variable `SNOWFLAKE_PRIVATE_KEY_PATH`. Additionally, the password for the encrypted private key file is required to be set in the environment variable `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE`. If the variable is not set, schemachange will assume the private key is not encrypted. These two environment variables must be set prior to calling the script. Schemachange will fail if the `SNOWFLAKE_PRIVATE_KEY_PATH` is not set.
+
+### Browser based SSO
+The client will be prompted to authenticate in a browser that pops up. Refer to the [documentation](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#setting-up-browser-based-sso) to cache the token to minimize the number of times the browser pops up to authenticate the user.
+
+### Programmatic SSO (Okta Only)
+For clients that do not have a browser, can use the popular SaaS Idp option to connect via Okta. This will require the Okta URL that you utilize for SSO. 
+
+_** NOTE**: Please disable Okta MFA for the user who uses Native SSO authentication with client drivers. Please consult your Okta administrator for more information._
 
 ## Configuration
 
@@ -287,6 +304,9 @@ dry-run: false
 # A string to include in the QUERY_TAG that is attached to every SQL statement executed
 query-tag: 'QUERY_TAG'
 
+# The type of authenticator to be used to connect to snowflake. OAuth is currently not supported. Values are 'snowflake', 'externalbrowser', 'https://<your Okta URL>.
+snowflake-authenticator: 'snowflake'
+
 ```
 
 #### Yaml Jinja support
@@ -312,7 +332,7 @@ Schemachange supports a number of subcommands, it the subcommand is not provided
 #### deploy
 This is the main command that runs the deployment process.
 
-`usage: schemachange deploy [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG]`
+`usage: schemachange deploy [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [-auth SNOWFLAKE_AUTHENTICATOR]`
 
 Parameter | Description
 --- | ---
@@ -332,6 +352,7 @@ Parameter | Description
 -v, --verbose | Display verbose debugging details during execution. The default is 'False'.
 --dry-run | Run schemachange in dry run mode. The default is 'False'.
 --query-tag | A string to include in the QUERY_TAG that is attached to every SQL statement executed.
+-auth SNOWFLAKE_AUTHENTICATOR, --snowflake-authenticator SNOWFLAKE_AUTHENTICATOR | The type of authentication used to connect to Snowflake. Defaults to 'snowflake'.
 
 #### render
 This subcommand is used to render a single script to the console. It is intended to support the development and troubleshooting of script that use features from the jinja template engine.
@@ -366,13 +387,13 @@ In order to run schemachange you must have the following:
 schemachange is a single python script located at [schemachange/cli.py](schemachange/cli.py). It can be executed as follows:
 
 ```
-python schemachange/cli.py [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG]
+python schemachange/cli.py [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [-auth SNOWFLAKE_AUTHENTICATOR]
 ```
 
 Or if installed via `pip`, it can be executed as follows:
 
 ```
-schemachange [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG]
+schemachange [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [-auth SNOWFLAKE_AUTHENTICATOR]
 ```
 
 ## Getting Started with schemachange
@@ -405,7 +426,7 @@ Here is a sample DevOps development lifecycle with schemachange:
 If your build agent has a recent version of python 3 installed, the script can be ran like so:
 ```
 pip install schemachange --upgrade
-schemachange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v]
+schemachange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -auth SNOWFLAKE_AUTHENTICATOR -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v]
 ```
 
 Or if you prefer docker, set the environment variables and run like so:
@@ -416,11 +437,12 @@ docker run -it --rm \
   -w /usr/src/schemachange \
   -e ROOT_FOLDER \
   -e SNOWFLAKE_ACCOUNT \
+  -e SNOWFLAKE_AUTHENTICATOR \
   -e SNOWFLAKE_USER \
   -e SNOWFLAKE_ROLE \
   -e SNOWFLAKE_WAREHOUSE \
   -e SNOWFLAKE_PASSWORD \
-  python:3 /bin/bash -c "pip install schemachange --upgrade && schemachange -f $ROOT_FOLDER -a $SNOWFLAKE_ACCOUNT -u $SNOWFLAKE_USER -r $SNOWFLAKE_ROLE -w $SNOWFLAKE_WAREHOUSE"
+  python:3 /bin/bash -c "pip install schemachange --upgrade && schemachange -f $ROOT_FOLDER -a $SNOWFLAKE_ACCOUNT -auth $SNOWFLAKE_AUTHENTICATOR -u $SNOWFLAKE_USER -r $SNOWFLAKE_ROLE -w $SNOWFLAKE_WAREHOUSE"
 ```
 
 Either way, don't forget to set the `SNOWFLAKE_PASSWORD` environment variable if using password authentication!
