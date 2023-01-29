@@ -129,3 +129,6 @@ dmypy.json
 .pyre/
 
 .idea
+
+# Mac files
+**/.DS_Store

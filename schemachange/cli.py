@@ -22,7 +22,7 @@ from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
 
 # Set a few global variables here
-_schemachange_version = '3.4.2'
+_schemachange_version = '3.4.3'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
@@ -170,7 +170,7 @@ def deploy_command(config):
   os.environ["SNOWFLAKE_USER"] = config['snowflake-user']
   os.environ["SNOWFLAKE_ROLE"] = config['snowflake-role']
   os.environ["SNOWFLAKE_WAREHOUSE"] = config['snowflake-warehouse']
-  os.environ["SNOWFLAKE_AUTHENTICATOR"] = 'snowflake'
+  os.environ["SNOWFLAKE_AUTHENTICATOR"] = config['snowflake-authenticator']
 
   scripts_skipped = 0
   scripts_applied = 0
@@ -308,7 +308,7 @@ def load_schemachange_config(config_file_path: str) -> Dict[str, Any]:
   return config
 
 
-def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run, query_tag):
+def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run, query_tag, snowflake_authenticator):
   config = load_schemachange_config(config_file_path)
 
   # First the folder paths
@@ -335,6 +335,11 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
     config['snowflake-account'] = snowflake_account
   if 'snowflake-account' not in config:
     config['snowflake-account'] = None
+
+  if snowflake_authenticator:
+    config['snowflake-authenticator'] = snowflake_authenticator
+  if 'snowflake-authenticator' not in config:
+    config['snowflake-authenticator'] = 'snowflake'
 
   if snowflake_user:
     config['snowflake-user'] = snowflake_user
@@ -466,7 +471,8 @@ def get_all_scripts_recursively(root_directory, verbose):
 
   return all_files
 
-def execute_snowflake_query(snowflake_database, query, snowflake_session_parameters, autocommit, verbose):
+def connect_snowflake(snowflake_database, snowflake_session_parameters, autocommit, verbose):
+    
   # Password authentication is the default
   snowflake_password = None
   if os.getenv("SNOWFLAKE_PASSWORD") is not None and os.getenv("SNOWFLAKE_PASSWORD"):
@@ -475,9 +481,23 @@ def execute_snowflake_query(snowflake_database, query, snowflake_session_paramet
     snowflake_password = os.getenv("SNOWSQL_PWD")
     warnings.warn("The SNOWSQL_PWD environment variable is deprecated and will be removed in a later version of schemachange. Please use SNOWFLAKE_PASSWORD instead.", DeprecationWarning)
 
-  if snowflake_password is not None:
+  authenticator = os.getenv("SNOWFLAKE_AUTHENTICATOR")
+  if authenticator == 'oauth':
+    raise ValueError('"%s" is not a supported authenticator at this time', authenticator)    
+    
+  elif snowflake_password is not None:
+    authenticator_message = None
+    if authenticator == 'externalbrowser':
+      authenticator_message = 'browser based SSO'
+    elif authenticator[0:8] == 'https://':
+      authenticator_message = 'programmatic SSO'
+    elif authenticator == 'snowflake':
+      authenticator_message == 'password'
+    else:
+      raise ValueError('"%s" is an invalid authenticator value for password authentication', authenticator)
+
     if verbose:
-      print("Proceeding with password authentication")
+      print("Proceeding with %s authentication", authenticator_message)
 
     con = snowflake.connector.connect(
       user = os.environ["SNOWFLAKE_USER"],
@@ -526,10 +546,18 @@ def execute_snowflake_query(snowflake_database, query, snowflake_session_paramet
       session_parameters = snowflake_session_parameters
     )
   else:
-    raise ValueError("Unable to find connection credentials for private key or password authentication")
+    raise ValueError("Unable to find connection credentials for private key or any supported password authentication methods")
+  
 
   if not autocommit:
     con.autocommit(False)
+
+  return con
+
+
+def execute_snowflake_query(snowflake_database, query, snowflake_session_parameters, autocommit, verbose):
+  
+  con = connect_snowflake(snowflake_database, snowflake_session_parameters, autocommit, verbose)
 
   if verbose:
       print(SecretManager.global_redact("SQL query: %s" % query))
@@ -704,6 +732,7 @@ def main(argv=sys.argv):
   parser_deploy.add_argument('-v','--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
   parser_deploy.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
   parser_deploy.add_argument('--query-tag', type = str, help = 'The string to add to the Snowflake QUERY_TAG session value for each query executed', required = False)
+  parser_deploy.add_argument('-auth', '--snowflake-authenticator', type = str, help = 'The type of authentication used to connect to Snowflake. Defaults to "snowflake".', required = False)
 
   parser_render = subcommands.add_parser('render', description="Renders a script to the console, used to check and verify jinja output from scripts.")
   parser_render.add_argument('--config-folder', type = str, default = '.', help = 'The folder to look in for the schemachange-config.yml file (the default is the current working directory)', required = False)
@@ -726,9 +755,9 @@ def main(argv=sys.argv):
   # First get the config values
   config_file_path = os.path.join(args.config_folder, _config_file_name)
   if args.subcommand == 'render':
-    config = get_schemachange_config(config_file_path, args.root_folder, args.modules_folder, None, None, None, None, None, None, args.vars, None, None, args.verbose, None, None)
+    config = get_schemachange_config(config_file_path, args.root_folder, args.modules_folder, None, None, None, None, None, None, args.vars, None, None, args.verbose, None, None, None)
   else:
-    config = get_schemachange_config(config_file_path, args.root_folder, args.modules_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run, args.query_tag)
+    config = get_schemachange_config(config_file_path, args.root_folder, args.modules_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run, args.query_tag, args.snowflake_authenticator)
 
   # setup a secret manager and assign to global scope
   sm = SecretManager()
