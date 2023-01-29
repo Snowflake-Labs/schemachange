@@ -32,6 +32,7 @@ For the complete list of changes made to schemachange check out the [CHANGELOG](
    1. [Private Key Authentication](#private-key-authentication)
    1. [Oauth Authentication] (#oauth-authentication)
    1. [External Browser Authentication] (#external-browser-authentication)
+   1. [Okta Authentication] (#okta-authentication)
 1. [Configuration](#configuration)
    1. [YAML Config File](#yaml-config-file)
       1. [Yaml Jinja support](#yaml-jinja-support)
@@ -221,7 +222,7 @@ _**DEPRECATION NOTICE**: The `SNOWSQL_PWD` environment variable is deprecated bu
 The Snowflake user encrypted private key for `SNOWFLAKE_USER` is required to be in a file with the file path set in the environment variable `SNOWFLAKE_PRIVATE_KEY_PATH`. Additionally, the password for the encrypted private key file is required to be set in the environment variable `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE`. If the variable is not set, schemachange will assume the private key is not encrypted. These two environment variables must be set prior to calling the script. Schemachange will fail if the `SNOWFLAKE_PRIVATE_KEY_PATH` is not set.
 
 ### Oauth Authentication
-A Oauth Configuration can be made in the [YAML Config File](#yaml-config-file) and invoked by setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value `oauth` prior to calling schemachange.  Since different Oauth providers may require different information the Oauth configuration uses four named variables that are fed into a POST request to obtain a token.
+A Oauth Configuration can be made in the [YAML Config File](#yaml-config-file) or passing an equivalent json dictionary to the switch `--oauth-config`. Invoke this method by setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value `oauth` prior to calling schemachange.  Since different Oauth providers may require different information the Oauth configuration uses four named variables that are fed into a POST request to obtain a token. Azure is shown in the example YAML but other providers should use a similar pattern and request payload contents.
 * token-provider-url
 The URL of the authenticator resource that will be receive the POST request.
 * token-response-name
@@ -231,11 +232,14 @@ The Set of variables passed as a dictionary to the `data` element of the request
 * token-request-headers
 The Set of variables passed as a dictionary to the `headers` element of the request. 
 
-It is recomended to pass oauth secrets into the configuration using the templating engine.  
+It is recomended to use the YAML file and pass oauth secrets into the configuration using the templating engine instead of the command line option.  
 
 
 ### External Browser Authentication
 External browser authentication can be used for local development by setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value `externalbrowser` prior to calling schemachange. 
+
+### Okta Authentication
+Okta authentication can be used setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value of your okta endpoint ending with `.okta.com` or `.oktapreview.com` prior to calling schemachange. 
 
 ## Configuration
 
@@ -315,13 +319,14 @@ oauthconfig:
   # Headers needed for successful post or other security markings ( multiple labeled items permitted
   token-request-headers: 
     Content-Type: "application/x-www-form-urlencoded"
+    User-Agent: "python/schemachange"
   # Request Payload for Token (it is recommended pass
   token-request-payload:
-    client_id: '{{ env_var('AZURE_CLIENT_ID', 'default') }}'
-    username: '{{ env_var('AZURE_USER_ID', 'default') }}'
-    password: '{{ env_var('AZURE_USER_PASSWORD', 'default') }}'
+    client_id: '{{ env_var('CLIENT_ID', 'default') }}'
+    username: '{{ env_var('USER_ID', 'default') }}'
+    password: '{{ env_var('USER_PASSWORD', 'default') }}'
     grant_type: 'password'
-    scope: '{{ env_var('AZURE_SESSION_SCOPE', 'default') }}'
+    scope: '{{ env_var('SESSION_SCOPE', 'default') }}'
 ```
 
 #### Yaml Jinja support
@@ -367,6 +372,7 @@ Parameter | Description
 -v, --verbose | Display verbose debugging details during execution. The default is 'False'.
 --dry-run | Run schemachange in dry run mode. The default is 'False'.
 --query-tag | A string to include in the QUERY_TAG that is attached to every SQL statement executed.
+--oauth-config | Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })'
 
 #### render
 This subcommand is used to render a single script to the console. It is intended to support the development and troubleshooting of script that use features from the jinja template engine.
@@ -401,13 +407,13 @@ In order to run schemachange you must have the following:
 schemachange is a single python script located at [schemachange/cli.py](schemachange/cli.py). It can be executed as follows:
 
 ```
-python schemachange/cli.py [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG]
+python schemachange/cli.py [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--oauth-config OUATH_CONFIG]
 ```
 
 Or if installed via `pip`, it can be executed as follows:
 
 ```
-schemachange [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG]
+schemachange [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--oauth-config OUATH_CONFIG]
 ```
 
 ## Getting Started with schemachange
@@ -440,7 +446,7 @@ Here is a sample DevOps development lifecycle with schemachange:
 If your build agent has a recent version of python 3 installed, the script can be ran like so:
 ```
 pip install schemachange --upgrade
-schemachange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v]
+schemachange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--oauth-config OUATH_CONFIG]
 ```
 
 Or if you prefer docker, set the environment variables and run like so:
