@@ -247,6 +247,8 @@ Parameters to schemachange can be supplied in two different ways:
 1. Through a YAML config file
 2. Via command line arguments
 
+If supplied by both the command line and the YAML file, The command line overides the YAML values.
+
 Additionally, regardless of the approach taken, the following paramaters are required to run schemachange:
 * snowflake-account
 * snowflake-user
@@ -330,7 +332,7 @@ oauthconfig:
 ```
 
 #### Yaml Jinja support
-The YAML config file supports the jinja templating language and has a custom function "env_var" to access environmental variables.
+The YAML config file supports the jinja templating language and has a custom function "env_var" to access environmental variables.  Jinja variables are unavailible and not yet loaded since they are supplied by the YAML file. Customisation of the YAML file can only happen through values passed via environment variables.
 
 ##### env_var
 Provides access to environmental variables. The function can be used two different ways.
