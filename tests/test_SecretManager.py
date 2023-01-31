@@ -1,5 +1,6 @@
 from schemachange.cli import SecretManager
 
+
 ##### test Class #####
 def test_SecretManager_given_no_secrets_when_redact_then_return_original_value():
     sm = SecretManager()

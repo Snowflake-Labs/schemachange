@@ -1,7 +1,7 @@
 import os
+import unittest.mock as mock
 import jinja2
 import pytest
-import unittest.mock as mock
 
 from schemachange.cli import JinjaEnvVar
 

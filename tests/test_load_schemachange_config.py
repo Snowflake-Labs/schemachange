@@ -1,7 +1,8 @@
 import os
 import pathlib
-import pytest
 import unittest.mock as mock
+
+import pytest
 
 from schemachange.cli import load_schemachange_config
 

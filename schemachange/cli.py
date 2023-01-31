@@ -1,26 +1,23 @@
-import os
-import string
-import re
 import argparse
+import hashlib
+import json
+import os
+import pathlib
+import re
+import sys
+import textwrap
+import time
+import warnings
+from typing import Dict, Any, Optional, Set
 import jinja2
 import jinja2.ext
-import json
-import time
-import hashlib
-from jinja2.loaders import BaseLoader
 import requests
 import snowflake.connector
-import sys
-import warnings
-import textwrap
 import yaml
-from typing import Dict, Any, Optional, Set, Type
-from pandas import DataFrame
-import pathlib
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
+from jinja2.loaders import BaseLoader
+from pandas import DataFrame
 
 #region Global Variables 
 # metadata
@@ -316,8 +313,7 @@ class SnowflakeSchemachangeSession:
       if self.verbose:
         print(_log_auth_type %  'External Browser')
         
-    elif (os.getenv("SNOWFLAKE_AUTHENTICATOR").lower()[-9:] == '.okta.com' \
-      or os.getenv("SNOWFLAKE_AUTHENTICATOR").lower()[-16:] == '.oktapreview.com'  ) \
+    elif os.getenv("SNOWFLAKE_AUTHENTICATOR").lower()[:8]=='https://' \
       and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
       okta = os.getenv("SNOWFLAKE_AUTHENTICATOR")
       self.conArgs['authenticator'] = okta

@@ -209,9 +209,15 @@ CREATE TABLE IF NOT EXISTS SCHEMACHANGE.CHANGE_HISTORY
 ```
 
 ## Authentication
-schemachange supports both [password authentication](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-using-the-default-authenticator) and [private key authentication](https://docs.snowflake.com/en/user-guide/python-connector-example.html#using-key-pair-authentication).
+Schemachange supports snowflake's default authenticator, External Oauth, Browswer based SSO and Programmatic SSO options supported by the [Snowflake Python Connector](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-to-snowflake). Set the environment variable `SNOWFLAKE_AUTHENTICATOR` to one of the following
+Authentication Option | Expected Value
+--- | ---
+Default [Password](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-using-the-default-authenticator) Authenticator or [Key Pair](https://docs.snowflake.com/en/user-guide/python-connector-example.html#using-key-pair-authentication) Authenticator| `snowflake`
+[External Oauth](https://docs.snowflake.com/en/user-guide/oauth-external.html) `oauth`
+[Browser based SSO](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#setting-up-browser-based-sso) | `externalbrowser`
+[Programmatic SSO](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#native-sso-okta-only) (Okta Only) | Okta URL endpoing for your Okta account typically in the form `https://<okta_account_name>.okta.com` OR `https://<okta_account_name>.oktapreview.com`
 
-In the event both authentication criteria are provided, schemachange will prioritize password authentication.
+In the event both authentication criteria for the default authenticator are provided, schemachange will prioritize password authentication over key pair authentication. 
 
 ### Password Authentication
 The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWFLAKE_PASSWORD` prior to calling the script. schemachange will fail if the `SNOWFLAKE_PASSWORD` environment variable is not set.
@@ -237,9 +243,13 @@ It is recomended to use the YAML file and pass oauth secrets into the configurat
 
 ### External Browser Authentication
 External browser authentication can be used for local development by setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value `externalbrowser` prior to calling schemachange. 
+The client will be prompted to authenticate in a browser that pops up. Refer to the [documentation](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#setting-up-browser-based-sso) to cache the token to minimize the number of times the browser pops up to authenticate the user.
 
 ### Okta Authentication
-Okta authentication can be used setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value of your okta endpoint ending with `.okta.com` or `.oktapreview.com` prior to calling schemachange. 
+For clients that do not have a browser, can use the popular SaaS Idp option to connect via Okta. This will require the Okta URL that you utilize for SSO. 
+Okta authentication can be used setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value of your okta endpoint as a fully formed URL ( E.g. `https://<org_name>.okta.com`) prior to calling schemachange. 
+
+_** NOTE**: Please disable Okta MFA for the user who uses Native SSO authentication with client drivers. Please consult your Okta administrator for more information._
 
 ## Configuration
 

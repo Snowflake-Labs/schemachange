@@ -1,9 +1,11 @@
 import os
-import pytest
-import unittest.mock as mock
-import schemachange.cli
 import tempfile
+import unittest.mock as mock
 from textwrap import dedent
+
+import pytest
+
+import schemachange.cli
 
 DEFAULT_CONFIG = {
     'root-folder': os.path.abspath('.'),
