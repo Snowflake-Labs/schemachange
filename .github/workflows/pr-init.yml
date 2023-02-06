@@ -54,7 +54,7 @@ jobs:
         id: DryRun
         env:
           SNOWFLAKE_PASSWORD: ${{ secrets.SF_TEST_PASSWORD}}
-          VARS: '{"SF_DATABASE":"TEST_PR_${{ steps.findPr.outputs.pr }}"}'
+          VARS: '{"SF_DATABASE":"TEST_PR_${{ steps.findPr.outputs.pr }}","SF_STORAGE_INTEGRATION":"${{ secrets.SF_TEST_STORAGE_INTEGRATION}}","SF_S3_ETLDATA_URL":"${{ secrets.SF_TEST_S3_ETLDATA_URL}}"}'
           PR_NUM: ${{ steps.findPr.outputs.pr }}
         if: steps.venv.outcome == 'success'
         run: |
@@ -67,7 +67,7 @@ jobs:
         id: TestRun
         env:
           SNOWFLAKE_PASSWORD: ${{ secrets.SF_TEST_PASSWORD}}
-          VARS: '{"SF_DATABASE":"TEST_PR_${{ steps.findPr.outputs.pr }}"}'
+          VARS: '{"SF_DATABASE":"TEST_PR_${{ steps.findPr.outputs.pr }}","SF_STORAGE_INTEGRATION":"${{ secrets.SF_TEST_STORAGE_INTEGRATION}}","SF_S3_ETLDATA_URL":"${{ secrets.SF_TEST_S3_ETLDATA_URL}}"}'
           PR_NUM: ${{ steps.findPr.outputs.pr }}
         if: steps.DryRun.outcome == 'success'
         run: |

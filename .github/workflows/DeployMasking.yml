@@ -1,5 +1,5 @@
 # This is a basic workflow to help you get started with Actions
-name: zeus-DepolyOnPush
+name: zeus-DepolyMasking
 # Controls when the workflow will run
 on:
   # Triggers the workflow on push
@@ -7,7 +7,7 @@ on:
     branches: 
       - master
     paths:
-      - 'sc-zeus/**'
+      - 'zeus-MaskingPolicy/**'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -50,7 +50,7 @@ jobs:
             pwd
             source venv/bin/activate
             pip --version 
-            schemachange -f ./sc-zeus -a ${{ secrets.SF_ACCOUNT}} -u ${{ secrets.SF_ZEUS_USER}} -r ${{ secrets.SF_ZEUS_ROLE}} -w ${{ secrets.SF_DBA_WH}} -d SC_ZEUSDEFAULT --vars $VARS -c ZEUS.SCHEMACHANGE.CHANGE_HISTORY_ZEUSDUMMY --create-change-history-table
+            schemachange -f ./zeus-MaskingPolicy -a ${{ secrets.SF_ACCOUNT}} -u ${{ secrets.SF_ZEUS_USER}} -r ${{ secrets.SF_ZEUS_ROLE}} -w ${{ secrets.SF_DBA_WH}} -d SC_ZEUSDEFAULT --vars $VARS -c ZEUS.SCHEMACHANGE.CHANGE_HISTORY_ZEUSDUMMY --create-change-history-table
 
       - name: Run schemachange
         id: ProdRun
@@ -62,6 +62,6 @@ jobs:
             pwd
             source venv/bin/activate
             pip --version 
-            schemachange -f ./sc-zeus -a ${{ secrets.SF_ACCOUNT}} -u ${{ secrets.SF_ZEUS_USER}} -r ${{ secrets.SF_ZEUS_ROLE}} -w ${{ secrets.SF_DBA_WH}} -d SC_ZEUSDEFAULT --vars $VARS -c ZEUS.SCHEMACHANGE.CHANGE_HISTORY --create-change-history-table
+            schemachange -f ./zeus-MaskingPolicy -a ${{ secrets.SF_ACCOUNT}} -u ${{ secrets.SF_ZEUS_USER}} -r ${{ secrets.SF_ZEUS_ROLE}} -w ${{ secrets.SF_DBA_WH}} -d SC_ZEUSDEFAULT --vars $VARS -c ZEUS.SCHEMACHANGE.CHANGE_HISTORY --create-change-history-table
 
 
