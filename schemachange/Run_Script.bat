@@ -12,13 +12,15 @@ SET SNOWFLAKE_DATABASE=ARES_DB
 ECHO ===================================================================================================
 SET /p SC_CHANGE_HISTORY=Enter Database Name where CHANGE_HISTORY table resides? 
 SET /p USER_DATABASE=Enter Database Name would you like to run SchemaChange against? 
+SET /p SF_TEST_STORAGE_INTEGRATION=Enter Test SI now:
+SET /p SF_TEST_S3_ETLDATA_URL=Enter Test S3 URL:
 @REM SET /P FR_STORY=Enter FreshRelase Story Number : 
 
 PAUSE
 ECHO ===================================================================================================
 
 
-SET VARS="{""SF_DATABASE"":""%USER_DATABASE%""}"
+SET VARS="{""SF_DATABASE"":""%USER_DATABASE%"",""SF_STORAGE_INTEGRATION"":""%SF_TEST_STORAGE_INTEGRATION%"",""SF_S3_ETLDATA_URL"":""%SF_TEST_S3_ETLDATA_URL%""}"
 
 :: ECHO all SNOWFLAKE variables
 ECHO ===================================================================================================
@@ -45,6 +47,6 @@ SET CWD_ZEUS=%CWD:schemachange\schemachange=schemachange\sc-zeus%
 
 cd %CWD%
 @REM python cli.py -f %CWD_ZEUS% -a %SNOWFLAKE_ACCOUNT% -u %SNOWFLAKE_USER% -r %SNOWFLAKE_ROLE% -w %SNOWFLAKE_WAREHOUSE% -d %SNOWFLAKE_DATABASE% --vars %VARS% --create-change-history-table --query-tag SMC-%FR_STORY%
-python .\schemachange\cli.py -f .\sc-zeus -a %SNOWFLAKE_ACCOUNT% -u %SNOWFLAKE_USER% -r %SNOWFLAKE_ROLE% -w %SNOWFLAKE_WAREHOUSE% -d %SNOWFLAKE_DATABASE% --vars %VARS% -c %SC_CHANGE_HISTORY%.SCHEMACHANGE.CHANGE_HISTORY_%FR_STORY% --create-change-history-table --query-tag SMC-%FR_STORY%
+python .\schemachange\cli.py -f .\sc-zeus -a %SNOWFLAKE_ACCOUNT% -u %SNOWFLAKE_USER% -r %SNOWFLAKE_ROLE% -w %SNOWFLAKE_WAREHOUSE% -d %SNOWFLAKE_DATABASE% --vars %VARS% -c %SC_CHANGE_HISTORY%.SCHEMACHANGE.CHANGE_HISTORY --create-change-history-table --query-tag SMC-%FR_STORY%
 ECHO ===================================================================================================
 PAUSE
