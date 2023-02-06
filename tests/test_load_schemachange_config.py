@@ -5,7 +5,7 @@ import unittest.mock as mock
 import pytest
 
 from schemachange.cli import load_schemachange_config
-
+# Note Paramters in config file are kebab case  and are re-rendered as snake case after 'load_schemachange_config' is called
 
 def test__load_schemachange_config__simple_config_file(tmp_path: pathlib.Path):
 
