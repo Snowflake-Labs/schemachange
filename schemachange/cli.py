@@ -1,34 +1,78 @@
-import os
-import string
-import re
 import argparse
+import hashlib
+import json
+import os
+import pathlib
+import re
+import sys
+import textwrap
+import time
+import warnings
+from typing import Dict, Any, Optional, Set
 import jinja2
 import jinja2.ext
-import json
-import time
-import hashlib
-from jinja2.loaders import BaseLoader
+import requests
 import snowflake.connector
-import sys
-import warnings
-import textwrap
 import yaml
-from typing import Dict, Any, Optional, Set, Type
-from pandas import DataFrame
-import pathlib
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.asymmetric import dsa
 from cryptography.hazmat.primitives import serialization
+from jinja2.loaders import BaseLoader
+from pandas import DataFrame
 
-# Set a few global variables here
-_schemachange_version = '3.4.2'
+#region Global Variables 
+# metadata
+_schemachange_version = '3.5.0'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
 _metadata_table_name = 'CHANGE_HISTORY'
 _snowflake_application_name = 'schemachange'
 
+# messages
+_err_jinja_env_var = "Could not find environmental variable %s and no default" \
+  + " value was provided"
+_err_oauth_tk_nm = 'Response Json contains keys: {keys} \n but not {key}'
+_err_oauth_tk_err = '\n error description: {desc}'
+_err_no_auth_mthd = "Unable to find connection credentials for private key,  " \
+  + "password, Oauth or Browser authentication"
+_warn_password = "The SNOWSQL_PWD environment variable is deprecated and will" \
+  + " be removed in a later version of schemachange. Please use SNOWFLAKE_PASSWORD instead."
+_warn_password_dup = "Environment variables SNOWFLAKE_PASSWORD and SNOWSQL_PWD are " \
+  + " both present, using SNOWFLAKE_PASSWORD"
+_err_args_missing ="Missing config values. The following config values are required: %s "
+_err_env_missing ="Missing environment variable(s). \nSNOWFLAKE_PASSWORD must be defined for " \
+  + "password authentication. \nSNOWFLAKE_PRIVATE_KEY_PATH and (optional) " \
+  + "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication. " \
+  + "\nSNOWFLAKE_AUTHENTICATOR must be defined is using Oauth, OKTA or external Browser Authentication."
+_log_config_details = "Using Snowflake account {snowflake_account}\nUsing default role " \
+  + "{snowflake_role}\nUsing default warehouse {snowflake_warehouse}\nUsing default " \
+  + "database {snowflake_database}"
+_log_ch_use = "Using change history table {database_name}.{schema_name}.{table_name} " \
+  + "(last altered {last_altered})" 
+_log_ch_create = "Created change history table {database_name}.{schema_name}.{table_name}"
+_err_ch_missing = "Unable to find change history table {database_name}.{schema_name}.{table_name}"
+_log_ch_max_version = "Max applied change script version: {max_published_version_display}"
+_log_skip_v = "Skipping change script {script_name} because it's older than the most recently " \
+  + "applied change ({max_published_version})"
+_log_skip_r ="Skipping change script {script_name} because there is no change since the last " \
+  + "execution"
+_log_apply =  "Applying change script {script_name}"  
+_log_apply_set_complete  =  "Successfully applied {scripts_applied} change scripts (skipping " \
+  + "{scripts_skipped}) \nCompleted successfully" 
+_err_vars_config = "vars did not parse correctly, please check its configuration"
+_err_vars_reserved = "The variable schemachange has been reserved for use by schemachange, " \
+  + "please use a different name"
+_err_invalid_folder  = "Invalid {folder_type} folder: {path}"
+_err_dup_scripts = "The script name {script_name} exists more than once (first_instance " \
+  + "{first_path}, second instance {script_full_path})" 
+_err_dup_scripts_version = "The script version {script_version} exists more than once " \
+  + "(second instance {script_full_path})"  
+_err_invalid_cht  = 'Invalid change history table name: %s'
+_log_auth_type ="Proceeding with %s authentication"
+_log_pk_enc ="No private key passphrase provided. Assuming the key is not encrypted."
+_log_okta_ep ="Okta Endpoint: %s" 
+
+#endregion Global Variables
 
 class JinjaEnvVar(jinja2.ext.Extension):
   """
@@ -50,16 +94,17 @@ class JinjaEnvVar(jinja2.ext.Extension):
       result = os.environ[env_var]
 
     if result is None:
-       raise ValueError("Could not find environmental variable %s and no default value was provided" % env_var)
+      raise ValueError(_err_jinja_env_var % env_var)
 
     return result
 
 
 class JinjaTemplateProcessor:
+  _env_args= {"undefined":jinja2.StrictUndefined,"autoescape":False, "extensions":[JinjaEnvVar]}
   def __init__(self, project_root: str, modules_folder: str = None):
     loader: BaseLoader
     if modules_folder:
-      loader =  jinja2.ChoiceLoader(
+      loader = jinja2.ChoiceLoader(
         [
           jinja2.FileSystemLoader(project_root),
           jinja2.PrefixLoader({"modules": jinja2.FileSystemLoader(modules_folder)}),
@@ -67,8 +112,7 @@ class JinjaTemplateProcessor:
       )
     else:
       loader = jinja2.FileSystemLoader(project_root)
-
-    self.__environment = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined, autoescape=False, extensions=[JinjaEnvVar])
+    self.__environment = jinja2.Environment(loader=loader, **self._env_args)
     self.__project_root = project_root
 
   def list(self):
@@ -76,23 +120,21 @@ class JinjaTemplateProcessor:
 
   def override_loader(self, loader: jinja2.BaseLoader):
     # to make unit testing easier
-    self.__environment = jinja2.Environment(loader=loader, undefined=jinja2.StrictUndefined, autoescape=False, extensions=[JinjaEnvVar])
+    self.__environment = jinja2.Environment(loader=loader, **self._env_args)
 
   def render(self, script: str, vars: Dict[str, Any], verbose: bool) -> str:
     if not vars:
       vars = {}
-
-    #jinja needs posix path
+    # jinja needs posix path
     posix_path = pathlib.Path(script).as_posix()
-
     template = self.__environment.get_template(posix_path)
     content = template.render(**vars).strip()
     content = content[:-1] if content.endswith(';') else content
-
     return content
 
   def relpath(self, file_path: str):
     return os.path.relpath(file_path, self.__project_root)
+
 
 class SecretManager:
   """
@@ -111,7 +153,8 @@ class SecretManager:
   @staticmethod
   def global_redact(context: str) -> str:
     """
-    redacts any text that has been classified a secret using the global SecretManager instance.
+    redacts any text that has been classified a secret
+    using the global SecretManager instance.
     """
     return SecretManager.__singleton.redact(context)
 
@@ -140,72 +183,312 @@ class SecretManager:
     return redacted
 
 
-def deploy_command(config):
-  # Make sure we have the required configs
-  if not config['snowflake-account'] or not config['snowflake-user'] or not config['snowflake-role'] or not config['snowflake-warehouse']:
-    raise ValueError("Missing config values. The following config values are required: snowflake-account, snowflake-user, snowflake-role, snowflake-warehouse")
+class SnowflakeSchemachangeSession:
+  """
+  Manages Snowflake Interactions and authentication
+  """
+  #region Query Templates
+  _q_ch_metadata =  "SELECT CREATED, LAST_ALTERED FROM {database_name}.INFORMATION_SCHEMA.TABLES" \
+    + " WHERE TABLE_SCHEMA = REPLACE('{schema_name}','\"','') AND TABLE_NAME = replace('{table_name}','\"','')"
+  _q_ch_schema_present = "SELECT COUNT(1) FROM {database_name}.INFORMATION_SCHEMA.SCHEMATA" \
+    + " WHERE SCHEMA_NAME = REPLACE('{schema_name}','\"','')"
+  _q_ch_ddl_schema = "CREATE SCHEMA {schema_name}"
+  _q_ch_ddl_table = "CREATE TABLE IF NOT EXISTS {schema_name}.{table_name} (VERSION VARCHAR, " \
+    + "DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR," \
+    + " EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)"
+  _q_ch_r_checksum = "SELECT DISTINCT SCRIPT, FIRST_VALUE(CHECKSUM) OVER (PARTITION BY SCRIPT " \
+    + "ORDER BY INSTALLED_ON DESC) FROM {schema_name}.{table_name} WHERE SCRIPT_TYPE = 'R' AND " \
+    + "STATUS = 'Success'"
+  _q_ch_fetch ="SELECT VERSION FROM {schema_name}.{table_name} WHERE SCRIPT_TYPE = 'V' ORDER" \
+    + " BY INSTALLED_ON DESC LIMIT 1"
+  _q_sess_tag = "ALTER SESSION SET QUERY_TAG = '{query_tag}'"
+  _q_ch_log = "INSERT INTO {schema_name}.{table_name} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, " \
+    + "CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{script_version}'," \
+    + "'{script_description}','{script_name}','{script_type}','{checksum}',{execution_time}," \
+    + "'{status}','{user}',CURRENT_TIMESTAMP);"
+   #endregion Query Templates 
 
-  # Password authentication will take priority
-  # We will accept SNOWSQL_PWD for now, but it is deprecated
-  if "SNOWFLAKE_PASSWORD" not in os.environ and "SNOWSQL_PWD" not in os.environ and "SNOWFLAKE_PRIVATE_KEY_PATH" not in os.environ:
-    raise ValueError("Missing environment variable(s). SNOWFLAKE_PASSWORD must be defined for password authentication. SNOWFLAKE_PRIVATE_KEY_PATH and (optional) SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication.")
+
+  def __init__(self, config):
+    session_parameters = {
+        "QUERY_TAG": "schemachange %s" % _schemachange_version
+        }
+    if config['query_tag']:
+      session_parameters["QUERY_TAG"] += ";%s" % config['query_tag']
+
+    # Retreive Connection info from config dictionary
+    self.conArgs = {"user": config['snowflake_user'],"account": config['snowflake_account'] \
+      ,"role": config['snowflake_role'],"warehouse": config['snowflake_warehouse'] \
+      ,"database": config['snowflake_database'],"application": _snowflake_application_name \
+      ,"session_parameters":session_parameters}
+
+    self.oauth_config = config['oauth_config']
+    self.autocommit = config['autocommit']
+    self.verbose = config['verbose']
+    self.con = self.authenticate()
+    if not self.autocommit:
+      self.con.autocommit(False)
+
+  def __del__(self):
+    if hasattr(self, 'con'):
+      self.con.close()
+
+  def get_oauth_token(self):
+    req_info = { \
+      "url":self.oauth_config['token-provider-url'], \
+      "headers":self.oauth_config['token-request-headers'], \
+      "data":self.oauth_config['token-request-payload'] \
+    }
+    token_name = self.oauth_config['token-response-name']
+    response = requests.post(**req_info)
+    resJsonDict =json.loads(response.text) 
+    try: return resJsonDict[token_name]
+    except KeyError:
+      errormessage = _err_oauth_tk_nm.format ( 
+        keys = ', '.join(resJsonDict.keys() ), 
+        key = token_name 
+      )
+      # if there is an error passed with the reponse include that
+      if 'error_description' in resJsonDict.keys():
+        errormessage += _err_oauth_tk_err.format( desc = resJsonDict['error_description']) 
+      raise KeyError( errormessage )
+
+  def authenticate(self):
+    # Password authentication is the default
+    snowflake_password = None
+    if os.getenv("SNOWFLAKE_PASSWORD") is not None and os.getenv("SNOWFLAKE_PASSWORD"):
+      snowflake_password = os.getenv("SNOWFLAKE_PASSWORD")
+    
+    # Check legacy/deprecated env variable
+    if os.getenv("SNOWSQL_PWD") is not None and os.getenv("SNOWSQL_PWD"):  
+      if snowflake_password:
+        warnings.warn(_warn_password_dup, DeprecationWarning)
+      else:
+        warnings.warn(_warn_password, DeprecationWarning)
+        snowflake_password = os.getenv("SNOWSQL_PWD")
+
+    if snowflake_password:
+      if self.verbose:
+        print(_log_auth_type %  'password' )
+      self.conArgs['password'] = snowflake_password
+      self.conArgs['authenticator'] = 'snowflake'
+
+    # If no password, try private key authentication 
+    elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH", ''):
+      if self.verbose:
+        print( _log_auth_type %  'private key')
+
+      private_key_password = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE", '')
+      if private_key_password:
+        private_key_password = private_key_password.encode()
+      else:
+        private_key_password = None
+        if self.verbose:
+          print(_log_pk_enc)
+      with open(os.environ["SNOWFLAKE_PRIVATE_KEY_PATH"], "rb") as key:
+        p_key= serialization.load_pem_private_key(
+            key.read(),
+            password = private_key_password,
+            backend = default_backend()
+        )
+
+      pkb = p_key.private_bytes(
+          encoding = serialization.Encoding.DER,
+          format = serialization.PrivateFormat.PKCS8,
+          encryption_algorithm = serialization.NoEncryption())
+
+      self.conArgs['private_key'] = pkb 
+      self.conArgs['authenticator'] = 'snowflake'
+    
+    elif os.getenv("SNOWFLAKE_AUTHENTICATOR") == 'oauth' and os.getenv("SNOWFLAKE_AUTHENTICATOR"):      
+      oauth_token = self.get_oauth_token()
+      
+      if self.verbose:
+        print( _log_auth_type %  'Oauth Access Token')
+      self.conArgs['token'] = oauth_token
+      self.conArgs['authenticator'] = 'oauth'
+    
+    elif os.getenv("SNOWFLAKE_AUTHENTICATOR") == 'externalbrowser' and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
+      self.conArgs['authenticator'] = 'externalbrowser'
+      if self.verbose:
+        print(_log_auth_type %  'External Browser')
+        
+    elif os.getenv("SNOWFLAKE_AUTHENTICATOR").lower()[:8]=='https://' \
+      and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
+      okta = os.getenv("SNOWFLAKE_AUTHENTICATOR")
+      self.conArgs['authenticator'] = okta
+      if self.verbose:
+        print( _log_auth_type %  'Okta')
+        print( _log_okta_ep % okta)
+    else:
+      raise NameError(_err_no_auth_mthd)
+    return snowflake.connector.connect(**self.conArgs)
+
+  def execute_snowflake_query(self, query):
+    if self.verbose:
+      print(SecretManager.global_redact("SQL query: %s" % query))
+    try:
+      res = self.con.execute_string(query)
+      if not self.autocommit:
+        self.con.commit()
+      return res
+    except Exception as e:
+      if not self.autocommit:
+        self.con.rollback()
+      raise e
+
+  def fetch_change_history_metadata(self,change_history_table):
+    # This should only ever return 0 or 1 rows
+    query = self._q_ch_metadata.format(**change_history_table)
+    results = self.execute_snowflake_query(query)
+
+    # Collect all the results into a list
+    change_history_metadata = dict()
+    for cursor in results:
+      for row in cursor:
+        change_history_metadata['created'] = row[0]
+        change_history_metadata['last_altered'] = row[1]
+
+    return change_history_metadata
+
+  def create_change_history_table_if_missing(self, change_history_table):
+    # Check if schema exists
+    query = self._q_ch_schema_present.format(**change_history_table)
+    results = self.execute_snowflake_query(query)
+    schema_exists = False
+    for cursor in results:
+      for row in cursor:
+        schema_exists = (row[0] > 0)
+
+    # Create the schema if it doesn't exist
+    if not schema_exists:
+      query = self._q_ch_ddl_schema.format(**change_history_table)
+      self.execute_snowflake_query(query)
+
+    # Finally, create the change history table if it doesn't exist
+    query = self._q_ch_ddl_table.format(**change_history_table)
+    self.execute_snowflake_query(query)
+
+  def fetch_r_scripts_checksum(self,change_history_table):
+    query = self._q_ch_r_checksum.format(**change_history_table)
+    results = self.execute_snowflake_query(query)
+
+    # Collect all the results into a dict
+    d_script_checksum = DataFrame(columns=['script_name', 'checksum'])
+    script_names = []
+    checksums = []
+    for cursor in results:
+      for row in cursor:
+        script_names.append(row[0])
+        checksums.append(row[1])
+
+    d_script_checksum['script_name'] = script_names
+    d_script_checksum['checksum'] = checksums
+    return d_script_checksum
+
+  def fetch_change_history(self, change_history_table):
+    query = self._q_ch_fetch.format(**change_history_table)
+    results = self.execute_snowflake_query(query)
+
+    # Collect all the results into a list
+    change_history = list()
+    for cursor in results:
+      for row in cursor:
+        change_history.append(row[0])
+
+    return change_history
+  
+  def append_string_to_query_tag(self,tag_string):
+    query_tag =self.conArgs['session_parameters']["QUERY_TAG"] + ';' + tag_string 
+    self.con.cursor().execute(self._q_sess_tag.format(query_tag=query_tag))
+
+  def reset_query_tag(self):
+    query_tag =self.conArgs['session_parameters']["QUERY_TAG"] 
+    self.con.cursor().execute(self._q_sess_tag.format(query_tag=query_tag))
+
+  def apply_change_script(self, script, script_content, change_history_table):
+    # Define a few other change related variables
+    checksum = hashlib.sha224(script_content.encode('utf-8')).hexdigest()
+    execution_time = 0
+    status = 'Success'
+
+    # Execute the contents of the script
+    if len(script_content) > 0:
+      start = time.time()
+      self.append_string_to_query_tag( script['script_name'])
+      self.execute_snowflake_query(script_content)
+      self.reset_query_tag()
+      end = time.time()
+      execution_time = round(end - start)
+
+
+    # Finally record this change in the change history table by gathering data
+    frmt_args = script.copy()
+    frmt_args.update(change_history_table)
+    frmt_args['checksum'] =checksum
+    frmt_args['execution_time'] =execution_time
+    frmt_args['status'] =status
+    frmt_args['user'] =self.conArgs['user']
+    # Compose and execute the insert statement to the log file
+    query = self._q_ch_log.format(**frmt_args)
+    self.execute_snowflake_query( query)
+  
+
+def deploy_command(config):
+  # Make sure we have the required connection info, all of the below needs to be present.
+  req_args = set(['snowflake_account','snowflake_user','snowflake_role','snowflake_warehouse'])
+  provided_args = {k:v for (k,v) in config.items() if v}
+  missing_args = req_args -provided_args.keys()   
+  if len(missing_args)>0: 
+    raise ValueError(_err_args_missing % ', '.join({s.replace('_', ' ') for s in missing_args}))
+
+  #ensure an authentication method is specified / present. one of the below needs to be present.
+  req_env_var = set(['SNOWFLAKE_PASSWORD', 'SNOWSQL_PWD','SNOWFLAKE_PRIVATE_KEY_PATH','SNOWFLAKE_AUTHENTICATOR'])
+  if len((req_env_var - dict(os.environ).keys()))==len(req_env_var):
+    raise ValueError(_err_env_missing)
 
   # Log some additional details
-  if config['dry-run']:
+  if config['dry_run']:
     print("Running in dry-run mode")
-  print("Using Snowflake account %s" % config['snowflake-account'])
-  print("Using default role %s" % config['snowflake-role'])
-  print("Using default warehouse %s" % config['snowflake-warehouse'])
-  print("Using default database %s" % config['snowflake-database'])
+  print(_log_config_details.format(**config))
 
-  # Set default and optional Snowflake session parameters
-  snowflake_session_parameters = {
-    "QUERY_TAG": "schemachange %s" % _schemachange_version
-  }
-  if config['query-tag']:
-    snowflake_session_parameters["QUERY_TAG"] += ";%s" % config['query-tag']
-
-  # TODO: Is there a better way to do this without setting environment variables?
-  os.environ["SNOWFLAKE_ACCOUNT"] = config['snowflake-account']
-  os.environ["SNOWFLAKE_USER"] = config['snowflake-user']
-  os.environ["SNOWFLAKE_ROLE"] = config['snowflake-role']
-  os.environ["SNOWFLAKE_WAREHOUSE"] = config['snowflake-warehouse']
-  os.environ["SNOWFLAKE_AUTHENTICATOR"] = 'snowflake'
+  #connect to snowflake and maintain connection
+  session = SnowflakeSchemachangeSession(config)
 
   scripts_skipped = 0
   scripts_applied = 0
 
   # Deal with the change history table (create if specified)
-  change_history_table = get_change_history_table_details(config['change-history-table'])
-  change_history_metadata = fetch_change_history_metadata(change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
+  change_history_table = get_change_history_table_details(config['change_history_table'])
+  change_history_metadata = session.fetch_change_history_metadata(change_history_table)  
   if change_history_metadata:
-    print("Using change history table %s.%s.%s (last altered %s)" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name'], change_history_metadata['last_altered']))
-  elif config['create-change-history-table']:
+    print(_log_ch_use.format(last_altered = change_history_metadata['last_altered'], **change_history_table))
+  elif config['create_change_history_table']:
     # Create the change history table (and containing objects) if it don't exist.
-    if not config['dry-run']:
-      create_change_history_table_if_missing(change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
-    print("Created change history table %s.%s.%s" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name']))
+    if not config['dry_run']:
+      session.create_change_history_table_if_missing(change_history_table)
+    print(_log_ch_create.format(change_history_table))
   else:
-    raise ValueError("Unable to find change history table %s.%s.%s" % (change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name']))
+    raise ValueError(_err_ch_missing.format(change_history_metadata))
 
   # Find the max published version
   max_published_version = ''
 
   change_history = None
   r_scripts_checksum = None
-  if (config['dry-run'] and change_history_metadata) or not config['dry-run']:
-    change_history = fetch_change_history(change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
-    r_scripts_checksum = fetch_r_scripts_checksum(change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
+  if (config['dry_run'] and change_history_metadata) or not config['dry_run']:
+    change_history = session.fetch_change_history(change_history_table)
+    r_scripts_checksum = session.fetch_r_scripts_checksum(change_history_table)
 
   if change_history:
     max_published_version = change_history[0]
   max_published_version_display = max_published_version
   if max_published_version_display == '':
     max_published_version_display = 'None'
-  print("Max applied change script version: %s" % max_published_version_display)
+  print(_log_ch_max_version.format(max_published_version_display=max_published_version_display))
 
   # Find all scripts in the root folder (recursively) and sort them correctly
-  all_scripts = get_all_scripts_recursively(config['root-folder'], config['verbose'])
+  all_scripts = get_all_scripts_recursively(config['root_folder'], config['verbose'])
   all_script_names = list(all_scripts.keys())
   # Sort scripts such that versioned scripts get applied first and then the repeatable ones.
   all_script_names_sorted =   sorted_alphanumeric([script for script in all_script_names if script[0] == 'V']) \
@@ -220,12 +503,12 @@ def deploy_command(config):
     # Apply any other scripts, i.e. repeatable scripts, irrespective of the most recent change in the database
     if script_name[0] == 'V' and get_alphanum_key(script['script_version']) <= get_alphanum_key(max_published_version):
       if config['verbose']:
-        print("Skipping change script %s because it's older than the most recently applied change (%s)" % (script['script_name'], max_published_version))
+        print(_log_skip_v.format( max_published_version =max_published_version, **script) )
       scripts_skipped += 1
       continue
 
     # Always process with jinja engine
-    jinja_processor = JinjaTemplateProcessor(project_root = config['root-folder'], modules_folder = config['modules-folder'])
+    jinja_processor = JinjaTemplateProcessor(project_root = config['root_folder'], modules_folder = config['modules_folder'])
     content = jinja_processor.render(jinja_processor.relpath(script['script_full_path']), config['vars'], config['verbose'])
 
     # Apply only R scripts where the checksum changed compared to the last execution of snowchange
@@ -242,18 +525,17 @@ def deploy_command(config):
       # check if there is a change of the checksum in the script
       if checksum_current == checksum_last:
         if config['verbose']:
-          print(f"Skipping change script {script_name} because there is no change since the last execution")
+          print(_log_skip_r.format(script=script))
         scripts_skipped += 1
         continue
 
-    print("Applying change script %s" % script['script_name'])
-    if not config['dry-run']:
-      apply_change_script(script, content, config['vars'], config['snowflake-database'], change_history_table, snowflake_session_parameters, config['autocommit'], config['verbose'])
+    print(_log_apply.format(**script))
+    if not config['dry_run']:
+      session.apply_change_script(script, content, change_history_table)
 
     scripts_applied += 1
 
-  print("Successfully applied %d change scripts (skipping %d)" % (scripts_applied, scripts_skipped))
-  print("Completed successfully")
+  print(_log_apply_set_complete.format(scripts_applied=scripts_applied, scripts_skipped =scripts_skipped))
 
 def render_command(config, script_path):
   """
@@ -264,11 +546,12 @@ def render_command(config, script_path):
   # Validate the script file path
   script_path = os.path.abspath(script_path)
   if not os.path.isfile(script_path):
-    raise ValueError("Invalid script_path: %s" % script_path)
-
+    raise ValueError(_err_invalid_folder.format(folder_type='script_path', path = script_path ) )   
   # Always process with jinja engine
-  jinja_processor = JinjaTemplateProcessor(project_root = config['root-folder'], modules_folder = config['modules-folder'])
-  content = jinja_processor.render(jinja_processor.relpath(script_path), config['vars'], config['verbose'])
+  jinja_processor = JinjaTemplateProcessor(project_root = config['root_folder'], \
+     modules_folder = config['modules_folder'])
+  content = jinja_processor.render(jinja_processor.relpath(script_path), \
+    config['vars'], config['verbose'])
 
   checksum = hashlib.sha224(content.encode('utf-8')).hexdigest()
   print("Checksum %s" % checksum)
@@ -286,7 +569,6 @@ def get_alphanum_key(key):
 
 def sorted_alphanumeric(data):
   return sorted(data, key=get_alphanum_key)
-
 
 def load_schemachange_config(config_file_path: str) -> Dict[str, Any]:
   """
@@ -307,98 +589,56 @@ def load_schemachange_config(config_file_path: str) -> Dict[str, Any]:
     print("Using config file: %s" % config_file_path)
   return config
 
+def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, \
+  snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, \
+  change_history_table, vars, create_change_history_table, autocommit, verbose, \
+  dry_run, query_tag, oauth_config,**kwargs):
 
-def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, change_history_table_override, vars, create_change_history_table, autocommit, verbose, dry_run, query_tag):
-  config = load_schemachange_config(config_file_path)
+  # create cli override dictionary
+  # Could refactor to just pass Args as a dictionary?
+  # **kwargs inlcuded to avoid complaints about unexpect arguments from arg parser eg:subcommand
+  cli_inputs = {"config_file_path":config_file_path, "root_folder":root_folder, \
+    "modules_folder":modules_folder, "snowflake_account":snowflake_account, \
+    "snowflake_user":snowflake_user, "snowflake_role":snowflake_role, \
+    "snowflake_warehouse":snowflake_warehouse, "snowflake_database":snowflake_database, \
+    "change_history_table":change_history_table, "vars":vars, \
+    "create_change_history_table":create_change_history_table, \
+    "autocommit":autocommit, "verbose":verbose, "dry_run":dry_run,\
+    "query_tag":query_tag, "oauth_config":oauth_config}
+  cli_inputs = {k:v for (k,v) in cli_inputs.items() if v is not None}
 
-  # First the folder paths
-  if root_folder:
-    config['root-folder'] = root_folder
-  if 'root-folder' in config:
-    config['root-folder'] = os.path.abspath(config['root-folder'])
-  else:
-    config['root-folder'] = os.path.abspath('.')
-  if not os.path.isdir(config['root-folder']):
-    raise ValueError("Invalid root folder: %s" % config['root-folder'])
+  # load YAML inputs and convert kebabs to snakes
+  config = {k.replace('-','_'):v for (k,v) in load_schemachange_config(config_file_path).items() }
+  # set values passed into the cli Overriding values in config file
+  config.update(cli_inputs)
 
-  if modules_folder:
-    config['modules-folder'] = modules_folder
-  if 'modules-folder' not in config:
-    config['modules-folder'] = None
-  if config['modules-folder']:
-    config['modules-folder'] = os.path.abspath(config['modules-folder'])
-    if not os.path.isdir(config['modules-folder']):
-      raise ValueError("Invalid modules folder: %s" % config['modules-folder'])
+  # create Default values dictionary
+  config_defaults =  {"root_folder":os.path.abspath('.'), "modules_folder":None,  \
+    "snowflake_account":None,  "snowflake_user":None, "snowflake_role":None,   \
+    "snowflake_warehouse":None,  "snowflake_database":None,  "change_history_table":None,  \
+    "vars":{}, "create_change_history_table":False, "autocommit":False, "verbose":False,  \
+    "dry_run":False , "query_tag":None , "oauth_config":None }
+  #insert defualt values for items not populated
+  config.update({ k:v for (k,v) in config_defaults.items() if not k in config.keys()})
 
-  # Then the remaining configs
-  if snowflake_account:
-    config['snowflake-account'] = snowflake_account
-  if 'snowflake-account' not in config:
-    config['snowflake-account'] = None
-
-  if snowflake_user:
-    config['snowflake-user'] = snowflake_user
-  if 'snowflake-user' not in config:
-    config['snowflake-user'] = None
-
-  if snowflake_role:
-    config['snowflake-role'] = snowflake_role
-  if 'snowflake-role' not in config:
-    config['snowflake-role'] = None
-
-  if snowflake_warehouse:
-    config['snowflake-warehouse'] = snowflake_warehouse
-  if 'snowflake-warehouse' not in config:
-    config['snowflake-warehouse'] = None
-
-  if snowflake_database:
-    config['snowflake-database'] = snowflake_database
-  if 'snowflake-database' not in config:
-    config['snowflake-database'] = None
-
-  if change_history_table_override:
-    config['change-history-table'] = change_history_table_override
-  if 'change-history-table' not in config:
-    config['change-history-table'] = None
-
-  if vars:
-    config['vars'] = vars
-  if 'vars' not in config:
-    config['vars'] = {}
-
-  if create_change_history_table:
-    config['create-change-history-table'] = create_change_history_table
-  if 'create-change-history-table' not in config:
-    config['create-change-history-table'] = False
-
-  if autocommit:
-    config['autocommit'] = autocommit
-  if 'autocommit' not in config:
-    config['autocommit'] = False
-
-  if verbose:
-    config['verbose'] = verbose
-  if 'verbose' not in config:
-    config['verbose'] = False
-
-  if dry_run:
-    config['dry-run'] = dry_run
-  if 'dry-run' not in config:
-    config['dry-run'] = False
-
-  if query_tag:
-    config['query-tag'] = query_tag
-  if 'query-tag' not in config:
-    config['query-tag'] = None
-
+  # Validate folder paths
+  if 'root_folder' in config:
+    config['root_folder'] = os.path.abspath(config['root_folder'])   
+  if not os.path.isdir(config['root_folder']):
+    raise ValueError(_err_invalid_folder.format(folder_type ='root', path = config['root_folder']))
+ 
+  if config['modules_folder']:
+    config['modules_folder'] = os.path.abspath(config['modules_folder'])
+    if not os.path.isdir(config['modules_folder']):
+      raise ValueError(_err_invalid_folder.format(folder_type ='modules', path = config['modules_folder']))
   if config['vars']:
     # if vars is configured wrong in the config file it will come through as a string
     if type(config['vars']) is not dict:
-      raise ValueError("vars did not parse correctly, please check its configuration")
+      raise ValueError(_err_vars_config)
 
     # the variable schema change has been reserved
     if "schemachange" in config['vars']:
-      raise ValueError("The variable schemachange has been reserved for use by schemachange, please use a different name")
+      raise ValueError(_err_vars_reserved)
 
   return config
 
@@ -410,9 +650,12 @@ def get_all_scripts_recursively(root_directory, verbose):
     for file_name in file_names:
 
       file_full_path = os.path.join(directory_path, file_name)
-      script_name_parts = re.search(r'^([V])(.+?)__(.+?)\.(?:sql|sql.jinja)$', file_name.strip(), re.IGNORECASE)
-      repeatable_script_name_parts = re.search(r'^([R])__(.+?)\.(?:sql|sql.jinja)$', file_name.strip(), re.IGNORECASE)
-      always_script_name_parts = re.search(r'^([A])__(.+?)\.(?:sql|sql.jinja)$', file_name.strip(), re.IGNORECASE)
+      script_name_parts = re.search(r'^([V])(.+?)__(.+?)\.(?:sql|sql.jinja)$', \
+        file_name.strip(), re.IGNORECASE)
+      repeatable_script_name_parts = re.search(r'^([R])__(.+?)\.(?:sql|sql.jinja)$', \
+        file_name.strip(), re.IGNORECASE)
+      always_script_name_parts = re.search(r'^([A])__(.+?)\.(?:sql|sql.jinja)$', \
+        file_name.strip(), re.IGNORECASE)
 
       # Set script type depending on whether it matches the versioned file naming format
       if script_name_parts is not None:
@@ -454,204 +697,41 @@ def get_all_scripts_recursively(root_directory, verbose):
 
       # Throw an error if the script_name already exists
       if script_name in all_files:
-        raise ValueError("The script name %s exists more than once (first_instance %s, second instance %s)" % (script_name, all_files[script_name]['script_full_path'], script['script_full_path']))
+        raise ValueError( _err_dup_scripts.format(first_path= all_files[script_name]['script_full_path'],**script))
 
       all_files[script_name] = script
 
       # Throw an error if the same version exists more than once
       if script_type == 'V':
         if script['script_version'] in all_versions:
-          raise ValueError("The script version %s exists more than once (second instance %s)" % (script['script_version'], script['script_full_path']))
+          raise ValueError(_err_dup_scripts_version.format(script))
         all_versions.append(script['script_version'])
 
   return all_files
 
-def execute_snowflake_query(snowflake_database, query, snowflake_session_parameters, autocommit, verbose):
-  # Password authentication is the default
-  snowflake_password = None
-  if os.getenv("SNOWFLAKE_PASSWORD") is not None and os.getenv("SNOWFLAKE_PASSWORD"):
-    snowflake_password = os.getenv("SNOWFLAKE_PASSWORD")
-  elif os.getenv("SNOWSQL_PWD") is not None and os.getenv("SNOWSQL_PWD"):  # Check legacy/deprecated env variable
-    snowflake_password = os.getenv("SNOWSQL_PWD")
-    warnings.warn("The SNOWSQL_PWD environment variable is deprecated and will be removed in a later version of schemachange. Please use SNOWFLAKE_PASSWORD instead.", DeprecationWarning)
-
-  if snowflake_password is not None:
-    if verbose:
-      print("Proceeding with password authentication")
-
-    con = snowflake.connector.connect(
-      user = os.environ["SNOWFLAKE_USER"],
-      account = os.environ["SNOWFLAKE_ACCOUNT"],
-      role = os.environ["SNOWFLAKE_ROLE"],
-      warehouse = os.environ["SNOWFLAKE_WAREHOUSE"],
-      database = snowflake_database,
-      authenticator = os.environ["SNOWFLAKE_AUTHENTICATOR"],
-      password = snowflake_password,
-      application = _snowflake_application_name,
-      session_parameters = snowflake_session_parameters
-    )
-  # If no password, try private key authentication
-  elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH", ''):
-    if verbose:
-      print("Proceeding with private key authentication")
-
-    private_key_password = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE", '')
-    if private_key_password:
-      private_key_password = private_key_password.encode()
-    else:
-      private_key_password = None
-      if verbose:
-        print("No private key passphrase provided. Assuming the key is not encrypted.")
-    with open(os.environ["SNOWFLAKE_PRIVATE_KEY_PATH"], "rb") as key:
-      p_key= serialization.load_pem_private_key(
-          key.read(),
-          password = private_key_password,
-          backend = default_backend()
-      )
-
-    pkb = p_key.private_bytes(
-        encoding = serialization.Encoding.DER,
-        format = serialization.PrivateFormat.PKCS8,
-        encryption_algorithm = serialization.NoEncryption())
-
-    con = snowflake.connector.connect(
-      user = os.environ["SNOWFLAKE_USER"],
-      account = os.environ["SNOWFLAKE_ACCOUNT"],
-      role = os.environ["SNOWFLAKE_ROLE"],
-      warehouse = os.environ["SNOWFLAKE_WAREHOUSE"],
-      database = snowflake_database,
-      authenticator = os.environ["SNOWFLAKE_AUTHENTICATOR"],
-      application = _snowflake_application_name,
-      private_key = pkb,
-      session_parameters = snowflake_session_parameters
-    )
-  else:
-    raise ValueError("Unable to find connection credentials for private key or password authentication")
-
-  if not autocommit:
-    con.autocommit(False)
-
-  if verbose:
-      print(SecretManager.global_redact("SQL query: %s" % query))
-
-  try:
-    res = con.execute_string(query)
-    if not autocommit:
-      con.commit()
-    return res
-  except Exception as e:
-    if not autocommit:
-      con.rollback()
-    raise e
-  finally:
-    con.close()
-
-def get_change_history_table_details(change_history_table_override):
+def get_change_history_table_details(change_history_table):
   # Start with the global defaults
   details = dict()
-  details['database_name'] = _metadata_database_name.upper()
-  details['schema_name'] = _metadata_schema_name.upper()
-  details['table_name'] = _metadata_table_name.upper()
+  details['database_name'] = _metadata_database_name 
+  details['schema_name'] = _metadata_schema_name 
+  details['table_name'] = _metadata_table_name 
 
   # Then override the defaults if requested. The name could be in one, two or three part notation.
-  if change_history_table_override is not None:
-    table_name_parts = change_history_table_override.strip().split('.')
-
-    if len(table_name_parts) == 1:
-      details['table_name'] = table_name_parts[0].upper()
+  if change_history_table is not None:
+    table_name_parts = change_history_table.strip().split('.')
+    if len(table_name_parts) == 1: 
+      details['table_name'] = table_name_parts[0] 
     elif len(table_name_parts) == 2:
-      details['table_name'] = table_name_parts[1].upper()
-      details['schema_name'] = table_name_parts[0].upper()
+      details['table_name'] = table_name_parts[1] 
+      details['schema_name'] = table_name_parts[0] 
     elif len(table_name_parts) == 3:
-      details['table_name'] = table_name_parts[2].upper()
-      details['schema_name'] = table_name_parts[1].upper()
-      details['database_name'] = table_name_parts[0].upper()
+      details['table_name'] = table_name_parts[2] 
+      details['schema_name'] = table_name_parts[1] 
+      details['database_name'] = table_name_parts[0] 
     else:
-      raise ValueError("Invalid change history table name: %s" % change_history_table_override)
-
-  return details
-
-def fetch_change_history_metadata(change_history_table, snowflake_session_parameters, autocommit, verbose):
-  # This should only ever return 0 or 1 rows
-  query = "SELECT CREATED, LAST_ALTERED FROM {0}.INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA ILIKE '{1}' AND TABLE_NAME ILIKE '{2}'".format(change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name'])
-  results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
-
-  # Collect all the results into a list
-  change_history_metadata = dict()
-  for cursor in results:
-    for row in cursor:
-      change_history_metadata['created'] = row[0]
-      change_history_metadata['last_altered'] = row[1]
-
-  return change_history_metadata
-
-def create_change_history_table_if_missing(change_history_table, snowflake_session_parameters, autocommit, verbose):
-  # Check if schema exists
-  query = "SELECT COUNT(1) FROM {0}.INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME ILIKE '{1}'".format(change_history_table['database_name'], change_history_table['schema_name'])
-  results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
-  schema_exists = False
-  for cursor in results:
-    for row in cursor:
-      schema_exists = (row[0] > 0)
-
-  # Create the schema if it doesn't exist
-  if not schema_exists:
-    query = "CREATE SCHEMA {0}".format(change_history_table['schema_name'])
-    execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
-
-  # Finally, create the change history table if it doesn't exist
-  query = "CREATE TABLE IF NOT EXISTS {0}.{1} (VERSION VARCHAR, DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR, EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)".format(change_history_table['schema_name'], change_history_table['table_name'])
-  execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
-
-def fetch_r_scripts_checksum(change_history_table, snowflake_session_parameters, autocommit, verbose):
-  query = f"SELECT DISTINCT SCRIPT, FIRST_VALUE(CHECKSUM) OVER (PARTITION BY SCRIPT ORDER BY INSTALLED_ON DESC) \
-          FROM {change_history_table['schema_name']}.{change_history_table['table_name']} \
-          WHERE SCRIPT_TYPE = 'R' AND STATUS = 'Success'"
-  results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
-
-  # Collect all the results into a dict
-  d_script_checksum = DataFrame(columns=['script_name', 'checksum'])
-  script_names = []
-  checksums = []
-  for cursor in results:
-    for row in cursor:
-      script_names.append(row[0])
-      checksums.append(row[1])
-
-  d_script_checksum['script_name'] = script_names
-  d_script_checksum['checksum'] = checksums
-  return d_script_checksum
-
-def fetch_change_history(change_history_table, snowflake_session_parameters, autocommit, verbose):
-  query = "SELECT VERSION FROM {0}.{1} WHERE SCRIPT_TYPE = 'V' ORDER BY INSTALLED_ON DESC LIMIT 1".format(change_history_table['schema_name'], change_history_table['table_name'])
-  results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
-
-  # Collect all the results into a list
-  change_history = list()
-  for cursor in results:
-    for row in cursor:
-      change_history.append(row[0])
-
-  return change_history
-
-def apply_change_script(script, script_content, vars, default_database, change_history_table, snowflake_session_parameters, autocommit, verbose):
-  # Define a few other change related variables
-  checksum = hashlib.sha224(script_content.encode('utf-8')).hexdigest()
-  execution_time = 0
-  status = 'Success'
-
-  # Execute the contents of the script
-  if len(script_content) > 0:
-    start = time.time()
-    session_parameters = snowflake_session_parameters.copy()
-    session_parameters["QUERY_TAG"] += ";%s" % script['script_name']
-    execute_snowflake_query(default_database, script_content, session_parameters, autocommit, verbose)
-    end = time.time()
-    execution_time = round(end - start)
-
-  # Finally record this change in the change history table
-  query = "INSERT INTO {0}.{1} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{2}','{3}','{4}','{5}','{6}',{7},'{8}','{9}',CURRENT_TIMESTAMP);".format(change_history_table['schema_name'], change_history_table['table_name'], script['script_version'], script['script_description'], script['script_name'], script['script_type'], checksum, execution_time, status, os.environ["SNOWFLAKE_USER"])
-  execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters, autocommit, verbose)
+      raise ValueError(_err_invalid_cht % change_history_table)
+  #if the object name does not include '"' raise to upper case on return
+  return {k:v if '"' in v else v.upper() for (k,v) in details.items()}
 
 def extract_config_secrets(config: Dict[str, Any]) -> Set[str]:
   """
@@ -704,6 +784,8 @@ def main(argv=sys.argv):
   parser_deploy.add_argument('-v','--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
   parser_deploy.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
   parser_deploy.add_argument('--query-tag', type = str, help = 'The string to add to the Snowflake QUERY_TAG session value for each query executed', required = False)
+  parser_deploy.add_argument('--oauth-config', type = json.loads, help = 'Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })', required = False)
+   # TODO test CLI passing of args
 
   parser_render = subcommands.add_parser('render', description="Renders a script to the console, used to check and verify jinja output from scripts.")
   parser_render.add_argument('--config-folder', type = str, default = '.', help = 'The folder to look in for the schemachange-config.yml file (the default is the current working directory)', required = False)
@@ -725,10 +807,18 @@ def main(argv=sys.argv):
 
   # First get the config values
   config_file_path = os.path.join(args.config_folder, _config_file_name)
+
+  # Retreive argparser attributes as dictionary
+  get_schemachange_config_args = args.__dict__
+  get_schemachange_config_args['config_file_path'] = config_file_path
+
+  #nullify expected null values for render.
   if args.subcommand == 'render':
-    config = get_schemachange_config(config_file_path, args.root_folder, args.modules_folder, None, None, None, None, None, None, args.vars, None, None, args.verbose, None, None)
-  else:
-    config = get_schemachange_config(config_file_path, args.root_folder, args.modules_folder, args.snowflake_account, args.snowflake_user, args.snowflake_role, args.snowflake_warehouse, args.snowflake_database, args.change_history_table, args.vars, args.create_change_history_table, args.autocommit, args.verbose, args.dry_run, args.query_tag)
+    renderoveride = {"snowflake_account":None,"snowflake_user":None,"snowflake_role":None, \
+      "snowflake_warehouse":None,"snowflake_database":None,"change_history_table":None, \
+        "create_change_history_table":None,"autocommit":None,"dry_run":None,"query_tag":None,"oauth_config":None }
+    get_schemachange_config_args.update(renderoveride)
+  config = get_schemachange_config(**get_schemachange_config_args)
 
   # setup a secret manager and assign to global scope
   sm = SecretManager()
@@ -737,22 +827,26 @@ def main(argv=sys.argv):
   sm.add_range(extract_config_secrets(config))
 
   # Then log some details
-  print("Using root folder %s" % config['root-folder'])
-  if config['modules-folder']:
-    print("Using Jinja modules folder %s" % config['modules-folder'])
+  print("Using root folder %s" % config['root_folder'])
+  if config['modules_folder']:
+    print("Using Jinja modules folder %s" % config['modules_folder'])
 
   # pretty print the variables in yaml style
   if config['vars'] == {}:
     print("Using variables: {}")
   else:
     print("Using variables:")
-    print(textwrap.indent(SecretManager.global_redact(yaml.dump(config['vars'], sort_keys=False, default_flow_style=False)), prefix = "  "))
+    print(textwrap.indent( \
+      SecretManager.global_redact(yaml.dump( \
+        config['vars'], \
+        sort_keys=False, \
+        default_flow_style=False)), prefix = "  "))
 
   # Finally, execute the command
   if args.subcommand == 'render':
     render_command(config, args.script)
   else:
-    deploy_command(config)
+    deploy_command(config) 
 
 if __name__ == "__main__":
-    main()
+  main()

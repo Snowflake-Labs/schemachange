@@ -1,7 +1,8 @@
 import json
 import pathlib
+
 import pytest
-from jinja2 import Environment, DictLoader
+from jinja2 import  DictLoader
 from jinja2.exceptions import UndefinedError
 from schemachange.cli import JinjaTemplateProcessor
 

@@ -30,6 +30,9 @@ For the complete list of changes made to schemachange check out the [CHANGELOG](
 1. [Authentication](#authentication)
    1. [Password Authentication](#password-authentication)
    1. [Private Key Authentication](#private-key-authentication)
+   1. [Oauth Authentication](#oauth-authentication)
+   1. [External Browser Authentication](#external-browser-authentication)
+   1. [Okta Authentication](#okta-authentication)
 1. [Configuration](#configuration)
    1. [YAML Config File](#yaml-config-file)
       1. [Yaml Jinja support](#yaml-jinja-support)
@@ -206,9 +209,15 @@ CREATE TABLE IF NOT EXISTS SCHEMACHANGE.CHANGE_HISTORY
 ```
 
 ## Authentication
-schemachange supports both [password authentication](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-using-the-default-authenticator) and [private key authentication](https://docs.snowflake.com/en/user-guide/python-connector-example.html#using-key-pair-authentication).
+Schemachange supports snowflake's default authenticator, External Oauth, Browswer based SSO and Programmatic SSO options supported by the [Snowflake Python Connector](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-to-snowflake). Set the environment variable `SNOWFLAKE_AUTHENTICATOR` to one of the following
+Authentication Option | Expected Value
+--- | ---
+Default [Password](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-using-the-default-authenticator) Authenticator or [Key Pair](https://docs.snowflake.com/en/user-guide/python-connector-example.html#using-key-pair-authentication) Authenticator| `snowflake`
+[External Oauth](https://docs.snowflake.com/en/user-guide/oauth-external.html) `oauth`
+[Browser based SSO](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#setting-up-browser-based-sso) | `externalbrowser`
+[Programmatic SSO](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#native-sso-okta-only) (Okta Only) | Okta URL endpoing for your Okta account typically in the form `https://<okta_account_name>.okta.com` OR `https://<okta_account_name>.oktapreview.com`
 
-In the event both authentication criteria are provided, schemachange will prioritize password authentication.
+In the event both authentication criteria for the default authenticator are provided, schemachange will prioritize password authentication over key pair authentication. 
 
 ### Password Authentication
 The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWFLAKE_PASSWORD` prior to calling the script. schemachange will fail if the `SNOWFLAKE_PASSWORD` environment variable is not set.
@@ -218,11 +227,37 @@ _**DEPRECATION NOTICE**: The `SNOWSQL_PWD` environment variable is deprecated bu
 ### Private Key Authentication
 The Snowflake user encrypted private key for `SNOWFLAKE_USER` is required to be in a file with the file path set in the environment variable `SNOWFLAKE_PRIVATE_KEY_PATH`. Additionally, the password for the encrypted private key file is required to be set in the environment variable `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE`. If the variable is not set, schemachange will assume the private key is not encrypted. These two environment variables must be set prior to calling the script. Schemachange will fail if the `SNOWFLAKE_PRIVATE_KEY_PATH` is not set.
 
+### Oauth Authentication
+A Oauth Configuration can be made in the [YAML Config File](#yaml-config-file) or passing an equivalent json dictionary to the switch `--oauth-config`. Invoke this method by setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value `oauth` prior to calling schemachange.  Since different Oauth providers may require different information the Oauth configuration uses four named variables that are fed into a POST request to obtain a token. Azure is shown in the example YAML but other providers should use a similar pattern and request payload contents.
+* token-provider-url
+The URL of the authenticator resource that will be receive the POST request.
+* token-response-name
+The Expected name of the JSON element containing the Token in the return response from the authenticator resource.
+* token-request-payload
+The Set of variables passed as a dictionary to the `data` element of the request. 
+* token-request-headers
+The Set of variables passed as a dictionary to the `headers` element of the request. 
+
+It is recomended to use the YAML file and pass oauth secrets into the configuration using the templating engine instead of the command line option.  
+
+
+### External Browser Authentication
+External browser authentication can be used for local development by setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value `externalbrowser` prior to calling schemachange. 
+The client will be prompted to authenticate in a browser that pops up. Refer to the [documentation](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#setting-up-browser-based-sso) to cache the token to minimize the number of times the browser pops up to authenticate the user.
+
+### Okta Authentication
+For clients that do not have a browser, can use the popular SaaS Idp option to connect via Okta. This will require the Okta URL that you utilize for SSO. 
+Okta authentication can be used setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value of your okta endpoint as a fully formed URL ( E.g. `https://<org_name>.okta.com`) prior to calling schemachange. 
+
+_** NOTE**: Please disable Okta MFA for the user who uses Native SSO authentication with client drivers. Please consult your Okta administrator for more information._
+
 ## Configuration
 
 Parameters to schemachange can be supplied in two different ways:
 1. Through a YAML config file
 2. Via command line arguments
+
+If supplied by both the command line and the YAML file, The command line overides the YAML values.
 
 Additionally, regardless of the approach taken, the following paramaters are required to run schemachange:
 * snowflake-account
@@ -287,10 +322,27 @@ dry-run: false
 # A string to include in the QUERY_TAG that is attached to every SQL statement executed
 query-tag: 'QUERY_TAG'
 
+# Information for Oauth token requests 
+oauthconfig:
+  # url Where token request are posted to
+  token-provider-url: 'https://login.microsoftonline.com/{{ env_var('AZURE_ORG_GUID', 'default') }}/oauth2/v2.0/token'
+  # name of Json entity returned by request
+  token-response-name: 'access_token'
+  # Headers needed for successful post or other security markings ( multiple labeled items permitted
+  token-request-headers: 
+    Content-Type: "application/x-www-form-urlencoded"
+    User-Agent: "python/schemachange"
+  # Request Payload for Token (it is recommended pass
+  token-request-payload:
+    client_id: '{{ env_var('CLIENT_ID', 'default') }}'
+    username: '{{ env_var('USER_ID', 'default') }}'
+    password: '{{ env_var('USER_PASSWORD', 'default') }}'
+    grant_type: 'password'
+    scope: '{{ env_var('SESSION_SCOPE', 'default') }}'
 ```
 
 #### Yaml Jinja support
-The YAML config file supports the jinja templating language and has a custom function "env_var" to access environmental variables.
+The YAML config file supports the jinja templating language and has a custom function "env_var" to access environmental variables.  Jinja variables are unavailible and not yet loaded since they are supplied by the YAML file. Customisation of the YAML file can only happen through values passed via environment variables.
 
 ##### env_var
 Provides access to environmental variables. The function can be used two different ways.
@@ -332,6 +384,7 @@ Parameter | Description
 -v, --verbose | Display verbose debugging details during execution. The default is 'False'.
 --dry-run | Run schemachange in dry run mode. The default is 'False'.
 --query-tag | A string to include in the QUERY_TAG that is attached to every SQL statement executed.
+--oauth-config | Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })'
 
 #### render
 This subcommand is used to render a single script to the console. It is intended to support the development and troubleshooting of script that use features from the jinja template engine.
@@ -366,13 +419,13 @@ In order to run schemachange you must have the following:
 schemachange is a single python script located at [schemachange/cli.py](schemachange/cli.py). It can be executed as follows:
 
 ```
-python schemachange/cli.py [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG]
+python schemachange/cli.py [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--oauth-config OUATH_CONFIG]
 ```
 
 Or if installed via `pip`, it can be executed as follows:
 
 ```
-schemachange [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG]
+schemachange [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--oauth-config OUATH_CONFIG]
 ```
 
 ## Getting Started with schemachange
@@ -405,7 +458,7 @@ Here is a sample DevOps development lifecycle with schemachange:
 If your build agent has a recent version of python 3 installed, the script can be ran like so:
 ```
 pip install schemachange --upgrade
-schemachange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v]
+schemachange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--oauth-config OUATH_CONFIG]
 ```
 
 Or if you prefer docker, set the environment variables and run like so:
