@@ -23,7 +23,7 @@ DEFAULT_CONFIG = {
     'verbose': False,
     'dry_run': False,
     'query_tag': None,
-    'oauth_config':{},
+    'oauth_config':None,
 }
 
 
@@ -90,7 +90,7 @@ def test_main_render_subcommand_given_arguments_make_sure_arguments_set_on_call(
 @pytest.mark.parametrize("args, to_mock, expected_args", [
     (["schemachange", "deploy", "--config-folder", "DUMMY"],
         "schemachange.cli.deploy_command",
-        ({**DEFAULT_CONFIG, 'snowflake-account': 'account'},)),
+        ({**DEFAULT_CONFIG, 'snowflake_account': 'account'},)),
     (["schemachange", "render", "script.sql", "--config-folder", "DUMMY"],
         "schemachange.cli.render_command",
         ({**DEFAULT_CONFIG, 'snowflake_account': 'account'}, "script.sql"))
