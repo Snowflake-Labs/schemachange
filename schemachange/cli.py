@@ -706,7 +706,7 @@ def get_all_scripts_recursively(root_directory, verbose):
       # Throw an error if the same version exists more than once
       if script_type == 'V':
         if script['script_version'] in all_versions:
-          raise ValueError(_err_dup_scripts_version.format(script))
+          raise ValueError(_err_dup_scripts_version.format(**script)) 
         all_versions.append(script['script_version'])
 
   return all_files
