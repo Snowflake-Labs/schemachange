@@ -599,7 +599,7 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
   # create cli override dictionary
   # Could refactor to just pass Args as a dictionary?
   # **kwargs inlcuded to avoid complaints about unexpect arguments from arg parser eg:subcommand
-  cli_inputs = {"config_file_path":config_file_path, "root_folder":root_folder, \
+  cli_inputs = { "root_folder":root_folder, \
     "modules_folder":modules_folder, "snowflake_account":snowflake_account, \
     "snowflake_user":snowflake_user, "snowflake_role":snowflake_role, \
     "snowflake_warehouse":snowflake_warehouse, "snowflake_database":snowflake_database, \
