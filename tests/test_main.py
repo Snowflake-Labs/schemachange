@@ -57,7 +57,7 @@ DEFAULT_CONFIG = {
     (["schemachange", "deploy", "--query-tag", "querytag"],
         {**DEFAULT_CONFIG, 'query_tag': 'querytag'}),
     (["schemachange", "deploy", "--oauth-config", '{"token-provider-url": "https//..."}'],
-        {**DEFAULT_CONFIG, 'oauth_config': {"token-provider-url": "https//..."}),
+        {**DEFAULT_CONFIG, 'oauth_config': {"token-provider-url": "https//..."},}),
 ])
 def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call( args, expected):
 
