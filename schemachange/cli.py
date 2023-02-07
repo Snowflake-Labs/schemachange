@@ -202,7 +202,7 @@ class SnowflakeSchemachangeSession:
   _q_ch_fetch ="SELECT VERSION FROM {schema_name}.{table_name} WHERE SCRIPT_TYPE = 'V' ORDER" \
     + " BY INSTALLED_ON DESC LIMIT 1"
   _q_sess_tag = "ALTER SESSION SET QUERY_TAG = '{query_tag}'"
-  _q_ch_log = "INSERT INTO {schema_name}.{table_name} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, " \
+  _q_ch_log = "INSERT INTO {database_name}.{schema_name}.{table_name} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, " \
     + "CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{script_version}'," \
     + "'{script_description}','{script_name}','{script_type}','{checksum}',{execution_time}," \
     + "'{status}','{user}',CURRENT_TIMESTAMP);"
