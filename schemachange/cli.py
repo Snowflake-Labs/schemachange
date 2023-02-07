@@ -206,6 +206,7 @@ class SnowflakeSchemachangeSession:
     + "CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{script_version}'," \
     + "'{script_description}','{script_name}','{script_type}','{checksum}',{execution_time}," \
     + "'{status}','{user}',CURRENT_TIMESTAMP);"
+  _q_set_sess = 'USE ROLE {role}; USE DATABASE {database}; USE WAREHOUSE {warehouse};'
    #endregion Query Templates 
 
 
@@ -398,9 +399,10 @@ class SnowflakeSchemachangeSession:
 
     return change_history
   
-  def append_string_to_query_tag(self,tag_string):
+  def reset_session_and_tag(self,tag_string):
     query_tag =self.conArgs['session_parameters']["QUERY_TAG"] + ';' + tag_string 
     self.con.cursor().execute(self._q_sess_tag.format(query_tag=query_tag))
+    self.execute_snowflake_query(self._q_set_sess.format(self.conArgs)) 
 
   def reset_query_tag(self):
     query_tag =self.conArgs['session_parameters']["QUERY_TAG"] 
@@ -415,7 +417,7 @@ class SnowflakeSchemachangeSession:
     # Execute the contents of the script
     if len(script_content) > 0:
       start = time.time()
-      self.append_string_to_query_tag( script['script_name'])
+      self.reset_session_and_tag( script['script_name'])
       self.execute_snowflake_query(script_content)
       self.reset_query_tag()
       end = time.time()
