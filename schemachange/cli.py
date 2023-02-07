@@ -66,11 +66,11 @@ _err_invalid_folder  = "Invalid {folder_type} folder: {path}"
 _err_dup_scripts = "The script name {script_name} exists more than once (first_instance " \
   + "{first_path}, second instance {script_full_path})" 
 _err_dup_scripts_version = "The script version {script_version} exists more than once " \
-  + "(second instance {script_full_path})"  
+  + "(second instance {script_full_path})" 
 _err_invalid_cht  = 'Invalid change history table name: %s'
 _log_auth_type ="Proceeding with %s authentication"
 _log_pk_enc ="No private key passphrase provided. Assuming the key is not encrypted."
-_log_okta_ep ="Okta Endpoint: %s" 
+_log_okta_ep ="Okta Endpoint: %s"
 
 #endregion Global Variables
 
