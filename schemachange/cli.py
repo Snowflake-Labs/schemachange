@@ -66,11 +66,11 @@ _err_invalid_folder  = "Invalid {folder_type} folder: {path}"
 _err_dup_scripts = "The script name {script_name} exists more than once (first_instance " \
   + "{first_path}, second instance {script_full_path})" 
 _err_dup_scripts_version = "The script version {script_version} exists more than once " \
-  + "(second instance {script_full_path})"  
+  + "(second instance {script_full_path})" 
 _err_invalid_cht  = 'Invalid change history table name: %s'
 _log_auth_type ="Proceeding with %s authentication"
 _log_pk_enc ="No private key passphrase provided. Assuming the key is not encrypted."
-_log_okta_ep ="Okta Endpoint: %s" 
+_log_okta_ep ="Okta Endpoint: %s"
 
 #endregion Global Variables
 
@@ -202,10 +202,11 @@ class SnowflakeSchemachangeSession:
   _q_ch_fetch ="SELECT VERSION FROM {schema_name}.{table_name} WHERE SCRIPT_TYPE = 'V' ORDER" \
     + " BY INSTALLED_ON DESC LIMIT 1"
   _q_sess_tag = "ALTER SESSION SET QUERY_TAG = '{query_tag}'"
-  _q_ch_log = "INSERT INTO {schema_name}.{table_name} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, " \
+  _q_ch_log = "INSERT INTO {database_name}.{schema_name}.{table_name} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, " \
     + "CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{script_version}'," \
     + "'{script_description}','{script_name}','{script_type}','{checksum}',{execution_time}," \
     + "'{status}','{user}',CURRENT_TIMESTAMP);"
+  _q_set_sess = 'USE ROLE {role}; USE DATABASE {database}; USE WAREHOUSE {warehouse};'
    #endregion Query Templates 
 
 
@@ -398,9 +399,10 @@ class SnowflakeSchemachangeSession:
 
     return change_history
   
-  def append_string_to_query_tag(self,tag_string):
+  def reset_session_and_tag(self,tag_string):
     query_tag =self.conArgs['session_parameters']["QUERY_TAG"] + ';' + tag_string 
     self.con.cursor().execute(self._q_sess_tag.format(query_tag=query_tag))
+    self.execute_snowflake_query(self._q_set_sess.format(self.conArgs)) 
 
   def reset_query_tag(self):
     query_tag =self.conArgs['session_parameters']["QUERY_TAG"] 
@@ -415,7 +417,7 @@ class SnowflakeSchemachangeSession:
     # Execute the contents of the script
     if len(script_content) > 0:
       start = time.time()
-      self.append_string_to_query_tag( script['script_name'])
+      self.reset_session_and_tag( script['script_name'])
       self.execute_snowflake_query(script_content)
       self.reset_query_tag()
       end = time.time()
@@ -597,7 +599,7 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
   # create cli override dictionary
   # Could refactor to just pass Args as a dictionary?
   # **kwargs inlcuded to avoid complaints about unexpect arguments from arg parser eg:subcommand
-  cli_inputs = {"config_file_path":config_file_path, "root_folder":root_folder, \
+  cli_inputs = { "root_folder":root_folder, \
     "modules_folder":modules_folder, "snowflake_account":snowflake_account, \
     "snowflake_user":snowflake_user, "snowflake_role":snowflake_role, \
     "snowflake_warehouse":snowflake_warehouse, "snowflake_database":snowflake_database, \
@@ -704,7 +706,7 @@ def get_all_scripts_recursively(root_directory, verbose):
       # Throw an error if the same version exists more than once
       if script_type == 'V':
         if script['script_version'] in all_versions:
-          raise ValueError(_err_dup_scripts_version.format(script))
+          raise ValueError(_err_dup_scripts_version.format(**script)) 
         all_versions.append(script['script_version'])
 
   return all_files
