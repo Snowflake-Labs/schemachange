@@ -649,12 +649,8 @@ def get_all_scripts_recursively(root_directory, verbose, change_file_list=None):
   # walk directory where file not found in change_file_list
   for (directory_path, directory_names, file_names) in os.walk(root_directory):
     for file_name in file_names:
-      file_full_path = os.path.join(directory_path, file_name)
-      
-      # check if file is in change_file_list, optional.
-      if change_file_list is not None and file_full_path not in change_file_list:
-        continue
 
+      file_full_path = os.path.join(directory_path, file_name)
       script_name_parts = re.search(r'^([V])(.+?)__(.+?)\.(?:sql|sql.jinja)$', \
         file_name.strip(), re.IGNORECASE)
       repeatable_script_name_parts = re.search(r'^([R])__(.+?)\.(?:sql|sql.jinja)$', \
@@ -678,6 +674,10 @@ def get_all_scripts_recursively(root_directory, verbose, change_file_list=None):
       else:
         if verbose:
           print("Ignoring non-change file " + file_full_path)
+        continue
+
+      # check if file is in change_file_list, optional.
+      if change_file_list is not None and script_type != 'A' and file_full_path not in change_file_list:
         continue
 
       # script name is the filename without any jinja extension
