@@ -488,7 +488,7 @@ def deploy_command(config):
   print(_log_ch_max_version.format(max_published_version_display=max_published_version_display))
 
   # Find all scripts in the root folder (recursively) and sort them correctly
-  all_scripts = get_all_scripts_recursively(config['root_folder'], config['verbose'])
+  all_scripts = get_all_scripts_recursively(config['root_folder'], config['verbose'], config['change_file_list'])
   all_script_names = list(all_scripts.keys())
   # Sort scripts such that versioned scripts get applied first and then the repeatable ones.
   all_script_names_sorted =   sorted_alphanumeric([script for script in all_script_names if script[0] == 'V']) \
@@ -592,7 +592,7 @@ def load_schemachange_config(config_file_path: str) -> Dict[str, Any]:
 def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, \
   snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, \
   change_history_table, vars, create_change_history_table, autocommit, verbose, \
-  dry_run, query_tag, oauth_config,**kwargs):
+  dry_run, query_tag, oauth_config, change_file_list, **kwargs):
 
   # create cli override dictionary
   # Could refactor to just pass Args as a dictionary?
@@ -604,7 +604,8 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
     "change_history_table":change_history_table, "vars":vars, \
     "create_change_history_table":create_change_history_table, \
     "autocommit":autocommit, "verbose":verbose, "dry_run":dry_run,\
-    "query_tag":query_tag, "oauth_config":oauth_config}
+    "query_tag":query_tag, "oauth_config":oauth_config, 
+    "change_file_list": change_file_list.split(',') if change_file_list else None}
   cli_inputs = {k:v for (k,v) in cli_inputs.items() if v is not None}
 
   # load YAML inputs and convert kebabs to snakes
@@ -642,14 +643,18 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
 
   return config
 
-def get_all_scripts_recursively(root_directory, verbose):
+def get_all_scripts_recursively(root_directory, verbose, change_file_list=None):
   all_files = dict()
   all_versions = list()
-  # Walk the entire directory structure recursively
+  # walk directory where file not found in change_file_list
   for (directory_path, directory_names, file_names) in os.walk(root_directory):
     for file_name in file_names:
-
       file_full_path = os.path.join(directory_path, file_name)
+      
+      # check if file is in change_file_list, optional.
+      if change_file_list is not None and file_full_path not in change_file_list:
+        continue
+
       script_name_parts = re.search(r'^([V])(.+?)__(.+?)\.(?:sql|sql.jinja)$', \
         file_name.strip(), re.IGNORECASE)
       repeatable_script_name_parts = re.search(r'^([R])__(.+?)\.(?:sql|sql.jinja)$', \
@@ -785,6 +790,7 @@ def main(argv=sys.argv):
   parser_deploy.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
   parser_deploy.add_argument('--query-tag', type = str, help = 'The string to add to the Snowflake QUERY_TAG session value for each query executed', required = False)
   parser_deploy.add_argument('--oauth-config', type = json.loads, help = 'Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })', required = False)
+  parser_deploy.add_argument('-cfl', '--change-file-list', type = str, help = 'Comma delimited list of files that should be included in the deploy check.', required = False)
    # TODO test CLI passing of args
 
   parser_render = subcommands.add_parser('render', description="Renders a script to the console, used to check and verify jinja output from scripts.")
