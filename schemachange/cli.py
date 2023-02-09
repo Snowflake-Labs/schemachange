@@ -100,7 +100,8 @@ class JinjaEnvVar(jinja2.ext.Extension):
 
 
 class JinjaTemplateProcessor:
-  _env_args= {"undefined":jinja2.StrictUndefined,"autoescape":False, "extensions":[JinjaEnvVar]}
+  _env_args = {"undefined":jinja2.StrictUndefined,"autoescape":False, "extensions":[JinjaEnvVar]}
+
   def __init__(self, project_root: str, modules_folder: str = None):
     loader: BaseLoader
     if modules_folder:
@@ -193,21 +194,23 @@ class SnowflakeSchemachangeSession:
   _q_ch_schema_present = "SELECT COUNT(1) FROM {database_name}.INFORMATION_SCHEMA.SCHEMATA" \
     + " WHERE SCHEMA_NAME = REPLACE('{schema_name}','\"','')"
   _q_ch_ddl_schema = "CREATE SCHEMA {schema_name}"
-  _q_ch_ddl_table = "CREATE TABLE IF NOT EXISTS {schema_name}.{table_name} (VERSION VARCHAR, " \
+  _q_ch_ddl_table = "CREATE TABLE IF NOT EXISTS {database_name}.{schema_name}.{table_name} (VERSION VARCHAR, " \
     + "DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR," \
     + " EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)"
   _q_ch_r_checksum = "SELECT DISTINCT SCRIPT, FIRST_VALUE(CHECKSUM) OVER (PARTITION BY SCRIPT " \
-    + "ORDER BY INSTALLED_ON DESC) FROM {schema_name}.{table_name} WHERE SCRIPT_TYPE = 'R' AND " \
+    + "ORDER BY INSTALLED_ON DESC) FROM {database_name}.{schema_name}.{table_name} WHERE SCRIPT_TYPE = 'R' AND " \
     + "STATUS = 'Success'"
-  _q_ch_fetch ="SELECT VERSION FROM {schema_name}.{table_name} WHERE SCRIPT_TYPE = 'V' ORDER" \
+  _q_ch_fetch ="SELECT VERSION FROM {database_name}.{schema_name}.{table_name} WHERE SCRIPT_TYPE = 'V' ORDER" \
     + " BY INSTALLED_ON DESC LIMIT 1"
   _q_sess_tag = "ALTER SESSION SET QUERY_TAG = '{query_tag}'"
   _q_ch_log = "INSERT INTO {database_name}.{schema_name}.{table_name} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, " \
     + "CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{script_version}'," \
     + "'{script_description}','{script_name}','{script_type}','{checksum}',{execution_time}," \
     + "'{status}','{user}',CURRENT_TIMESTAMP);"
-  _q_set_sess = 'USE ROLE {role}; USE DATABASE {database}; USE WAREHOUSE {warehouse};'
-   #endregion Query Templates 
+  _q_set_sess_role = 'USE ROLE {role};'
+  _q_set_sess_database = 'USE DATABASE {database};'
+  _q_set_sess_warehouse = 'USE WAREHOUSE {warehouse};'
+   #endregion Query Templates
 
 
   def __init__(self, config):
@@ -242,16 +245,16 @@ class SnowflakeSchemachangeSession:
     }
     token_name = self.oauth_config['token-response-name']
     response = requests.post(**req_info)
-    resJsonDict =json.loads(response.text) 
+    resJsonDict =json.loads(response.text)
     try: return resJsonDict[token_name]
     except KeyError:
-      errormessage = _err_oauth_tk_nm.format ( 
-        keys = ', '.join(resJsonDict.keys() ), 
-        key = token_name 
+      errormessage = _err_oauth_tk_nm.format (
+        keys = ', '.join(resJsonDict.keys() ),
+        key = token_name
       )
       # if there is an error passed with the reponse include that
       if 'error_description' in resJsonDict.keys():
-        errormessage += _err_oauth_tk_err.format( desc = resJsonDict['error_description']) 
+        errormessage += _err_oauth_tk_err.format( desc = resJsonDict['error_description'])
       raise KeyError( errormessage )
 
   def authenticate(self):
@@ -261,7 +264,7 @@ class SnowflakeSchemachangeSession:
       snowflake_password = os.getenv("SNOWFLAKE_PASSWORD")
     
     # Check legacy/deprecated env variable
-    if os.getenv("SNOWSQL_PWD") is not None and os.getenv("SNOWSQL_PWD"):  
+    if os.getenv("SNOWSQL_PWD") is not None and os.getenv("SNOWSQL_PWD"):
       if snowflake_password:
         warnings.warn(_warn_password_dup, DeprecationWarning)
       else:
@@ -274,7 +277,7 @@ class SnowflakeSchemachangeSession:
       self.conArgs['password'] = snowflake_password
       self.conArgs['authenticator'] = 'snowflake'
 
-    # If no password, try private key authentication 
+    # If no password, try private key authentication
     elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH", ''):
       if self.verbose:
         print( _log_auth_type %  'private key')
@@ -298,7 +301,7 @@ class SnowflakeSchemachangeSession:
           format = serialization.PrivateFormat.PKCS8,
           encryption_algorithm = serialization.NoEncryption())
 
-      self.conArgs['private_key'] = pkb 
+      self.conArgs['private_key'] = pkb
       self.conArgs['authenticator'] = 'snowflake'
     
     elif os.getenv("SNOWFLAKE_AUTHENTICATOR") == 'oauth' and os.getenv("SNOWFLAKE_AUTHENTICATOR"):      
@@ -319,8 +322,8 @@ class SnowflakeSchemachangeSession:
       okta = os.getenv("SNOWFLAKE_AUTHENTICATOR")
       self.conArgs['authenticator'] = okta
       if self.verbose:
-        print( _log_auth_type %  'Okta')
-        print( _log_okta_ep % okta)
+        print(_log_auth_type %  'Okta')
+        print(_log_okta_ep % okta)
     else:
       raise NameError(_err_no_auth_mthd)
     return snowflake.connector.connect(**self.conArgs)
@@ -398,15 +401,25 @@ class SnowflakeSchemachangeSession:
         change_history.append(row[0])
 
     return change_history
-  
-  def reset_session_and_tag(self,tag_string):
-    query_tag =self.conArgs['session_parameters']["QUERY_TAG"] + ';' + tag_string 
-    self.con.cursor().execute(self._q_sess_tag.format(query_tag=query_tag))
-    self.execute_snowflake_query(self._q_set_sess.format(self.conArgs)) 
 
-  def reset_query_tag(self):
-    query_tag =self.conArgs['session_parameters']["QUERY_TAG"] 
-    self.con.cursor().execute(self._q_sess_tag.format(query_tag=query_tag))
+  def reset_session(self):
+    # These items are optional, so we can only reset the ones with values
+    reset_query = ""
+    if self.conArgs['role']:
+      reset_query += self._q_set_sess_role.format(**self.conArgs) + " "
+    if self.conArgs['warehouse']:
+      reset_query += self._q_set_sess_warehouse.format(**self.conArgs) + " "
+    if self.conArgs['database']:
+      reset_query += self._q_set_sess_database.format(**self.conArgs) + " "
+
+    self.execute_snowflake_query(reset_query)
+
+  def reset_query_tag(self, extra_tag = None):
+    query_tag = self.conArgs["session_parameters"]["QUERY_TAG"]
+    if extra_tag:
+      query_tag += f";{extra_tag}"
+
+    self.execute_snowflake_query(self._q_sess_tag.format(query_tag=query_tag))
 
   def apply_change_script(self, script, script_content, change_history_table):
     # Define a few other change related variables
@@ -417,7 +430,8 @@ class SnowflakeSchemachangeSession:
     # Execute the contents of the script
     if len(script_content) > 0:
       start = time.time()
-      self.reset_session_and_tag( script['script_name'])
+      self.reset_session()
+      self.reset_query_tag(script['script_name'])
       self.execute_snowflake_query(script_content)
       self.reset_query_tag()
       end = time.time()
@@ -433,7 +447,7 @@ class SnowflakeSchemachangeSession:
     frmt_args['user'] =self.conArgs['user']
     # Compose and execute the insert statement to the log file
     query = self._q_ch_log.format(**frmt_args)
-    self.execute_snowflake_query( query)
+    self.execute_snowflake_query(query)
   
 
 def deploy_command(config):
