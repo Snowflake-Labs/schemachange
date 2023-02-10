@@ -15,38 +15,43 @@ For the complete list of changes made to schemachange check out the [CHANGELOG](
 
 ## Table of Contents
 
-1. [Overview](#overview)
-1. [Project Structure](#project-structure)
-   1. [Folder Structure](#folder-structure)
-1. [Change Scripts](#change-scripts)
-   1. [Versioned Script Naming](#versioned-script-naming)
-   1. [Repeatable Script Naming](#repeatable-script-naming)
-   1. [Always Script Naming](#always-script-naming)
-   1. [Script Requirements](#script-requirements)
-   1. [Using Variables in Scripts](#using-variables-in-scripts)
-      1. [Secrets filtering](#secrets-filtering)
-   1. [Jinja templating engine](#jinja-templating-engine)
-1. [Change History Table](#change-history-table)
-1. [Authentication](#authentication)
-   1. [Password Authentication](#password-authentication)
-   1. [Private Key Authentication](#private-key-authentication)
-   1. [Oauth Authentication](#oauth-authentication)
-   1. [External Browser Authentication](#external-browser-authentication)
-   1. [Okta Authentication](#okta-authentication)
-1. [Configuration](#configuration)
-   1. [YAML Config File](#yaml-config-file)
-      1. [Yaml Jinja support](#yaml-jinja-support)
-   1. [Command Line Arguments](#command-line-arguments)
-1. [Running schemachange](#running-schemachange)
-   1. [Prerequisites](#prerequisites)
-   1. [Running The Script](#running-the-script)
-1. [Getting Started with schemachange](#getting-started-with-schemachange)
-1. [Integrating With DevOps](#integrating-with-devops)
-   1. [Sample DevOps Process Flow](#sample-devops-process-flow)
-   1. [Using in a CI/CD Pipeline](#using-in-a-cicd-pipeline)
-1. [Maintainers](#maintainers)
-1. [Third Party Packages](#third-party-packages)
-1. [Legal](#legal)
+- [schemachange](#schemachange)
+  - [Overview](#overview)
+  - [Table of Contents](#table-of-contents)
+  - [Project Structure](#project-structure)
+    - [Folder Structure](#folder-structure)
+  - [Change Scripts](#change-scripts)
+    - [Versioned Script Naming](#versioned-script-naming)
+    - [Repeatable Script Naming](#repeatable-script-naming)
+    - [Always Script Naming](#always-script-naming)
+    - [Script Requirements](#script-requirements)
+    - [Using Variables in Scripts](#using-variables-in-scripts)
+      - [Secrets filtering](#secrets-filtering)
+    - [Jinja templating engine](#jinja-templating-engine)
+  - [Change History Table](#change-history-table)
+  - [Authentication](#authentication)
+    - [Password Authentication](#password-authentication)
+    - [Private Key Authentication](#private-key-authentication)
+    - [Oauth Authentication](#oauth-authentication)
+    - [External Browser Authentication](#external-browser-authentication)
+    - [Okta Authentication](#okta-authentication)
+  - [Configuration](#configuration)
+    - [YAML Config File](#yaml-config-file)
+      - [Yaml Jinja support](#yaml-jinja-support)
+        - [env\_var](#env_var)
+    - [Command Line Arguments](#command-line-arguments)
+      - [deploy](#deploy)
+      - [render](#render)
+  - [Running schemachange](#running-schemachange)
+    - [Prerequisites](#prerequisites)
+    - [Running the Script](#running-the-script)
+  - [Getting Started with schemachange](#getting-started-with-schemachange)
+  - [Integrating With DevOps](#integrating-with-devops)
+    - [Sample DevOps Process Flow](#sample-devops-process-flow)
+    - [Using in a CI/CD Pipeline](#using-in-a-cicd-pipeline)
+  - [Maintainers](#maintainers)
+  - [Third Party Packages](#third-party-packages)
+  - [Legal](#legal)
 
 
 ## Project Structure
@@ -364,7 +369,7 @@ Schemachange supports a number of subcommands, it the subcommand is not provided
 #### deploy
 This is the main command that runs the deployment process.
 
-`usage: schemachange deploy [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG]`
+`usage: schemachange deploy [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [-cfl CHANGE_FILE_LIST]`
 
 Parameter | Description
 --- | ---
@@ -385,6 +390,7 @@ Parameter | Description
 --dry-run | Run schemachange in dry run mode. The default is 'False'.
 --query-tag | A string to include in the QUERY_TAG that is attached to every SQL statement executed.
 --oauth-config | Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })'
+-cfl --change-file-list | Comma delimited list of files, full path, that schemachange will filter to when deploying V and R scripts.
 
 #### render
 This subcommand is used to render a single script to the console. It is intended to support the development and troubleshooting of script that use features from the jinja template engine.
@@ -419,13 +425,13 @@ In order to run schemachange you must have the following:
 schemachange is a single python script located at [schemachange/cli.py](schemachange/cli.py). It can be executed as follows:
 
 ```
-python schemachange/cli.py [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--oauth-config OUATH_CONFIG]
+python schemachange/cli.py [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--oauth-config OUATH_CONFIG] [-cfl CHANGE_FILE_LIST]
 ```
 
 Or if installed via `pip`, it can be executed as follows:
 
 ```
-schemachange [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--oauth-config OUATH_CONFIG]
+schemachange [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--oauth-config OUATH_CONFIG] [-cfl CHANGE_FILE_LIST]
 ```
 
 ## Getting Started with schemachange
