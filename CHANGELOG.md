@@ -3,10 +3,14 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
-## [3.5.1] - 2023-02-10
+## [3.5.2] - 2023-02-12
 ### Added
 - Added filtering white list logic for V and R scripts during deploy.
 - Added optional `--change-file-list` that accepts a list of files for the filtering logic.
+
+## [3.5.1] - 2023-02-11
+### Changed
+- Fixed a bug when handling default values from the command line with arguments defined as `action='store_true'` (create-change-history-table, auto-commit, verbose, and dry-run).
 
 ## [3.5.0] - 2023-01-29
 ### Added

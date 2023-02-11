@@ -21,7 +21,7 @@ from pandas import DataFrame
 
 #region Global Variables 
 # metadata
-_schemachange_version = '3.5.0'
+_schemachange_version = '3.5.2'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
@@ -248,13 +248,13 @@ class SnowflakeSchemachangeSession:
     resJsonDict =json.loads(response.text)
     try: return resJsonDict[token_name]
     except KeyError:
-      errormessage = _err_oauth_tk_nm.format (
-        keys = ', '.join(resJsonDict.keys() ),
+      errormessage = _err_oauth_tk_nm.format(
+        keys = ', '.join(resJsonDict.keys()),
         key = token_name
       )
       # if there is an error passed with the reponse include that
       if 'error_description' in resJsonDict.keys():
-        errormessage += _err_oauth_tk_err.format( desc = resJsonDict['error_description'])
+        errormessage += _err_oauth_tk_err.format(desc=resJsonDict['error_description'])
       raise KeyError( errormessage )
 
   def authenticate(self):
@@ -308,21 +308,21 @@ class SnowflakeSchemachangeSession:
       oauth_token = self.get_oauth_token()
       
       if self.verbose:
-        print( _log_auth_type %  'Oauth Access Token')
+        print( _log_auth_type % 'Oauth Access Token')
       self.conArgs['token'] = oauth_token
       self.conArgs['authenticator'] = 'oauth'
     
     elif os.getenv("SNOWFLAKE_AUTHENTICATOR") == 'externalbrowser' and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
       self.conArgs['authenticator'] = 'externalbrowser'
       if self.verbose:
-        print(_log_auth_type %  'External Browser')
+        print(_log_auth_type % 'External Browser')
         
     elif os.getenv("SNOWFLAKE_AUTHENTICATOR").lower()[:8]=='https://' \
       and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
       okta = os.getenv("SNOWFLAKE_AUTHENTICATOR")
       self.conArgs['authenticator'] = okta
       if self.verbose:
-        print(_log_auth_type %  'Okta')
+        print(_log_auth_type % 'Okta')
         print(_log_okta_ep % okta)
     else:
       raise NameError(_err_no_auth_mthd)
@@ -476,16 +476,16 @@ def deploy_command(config):
 
   # Deal with the change history table (create if specified)
   change_history_table = get_change_history_table_details(config['change_history_table'])
-  change_history_metadata = session.fetch_change_history_metadata(change_history_table)  
+  change_history_metadata = session.fetch_change_history_metadata(change_history_table)
   if change_history_metadata:
-    print(_log_ch_use.format(last_altered = change_history_metadata['last_altered'], **change_history_table))
+    print(_log_ch_use.format(last_altered=change_history_metadata['last_altered'], **change_history_table))
   elif config['create_change_history_table']:
     # Create the change history table (and containing objects) if it don't exist.
     if not config['dry_run']:
       session.create_change_history_table_if_missing(change_history_table)
-    print(_log_ch_create.format(change_history_table))
+    print(_log_ch_create.format(**change_history_table))
   else:
-    raise ValueError(_err_ch_missing.format(change_history_metadata))
+    raise ValueError(_err_ch_missing.format(**change_history_table))
 
   # Find the max published version
   max_published_version = ''
@@ -519,7 +519,7 @@ def deploy_command(config):
     # Apply any other scripts, i.e. repeatable scripts, irrespective of the most recent change in the database
     if script_name[0] == 'V' and get_alphanum_key(script['script_version']) <= get_alphanum_key(max_published_version):
       if config['verbose']:
-        print(_log_skip_v.format( max_published_version =max_published_version, **script) )
+        print(_log_skip_v.format(max_published_version=max_published_version, **script) )
       scripts_skipped += 1
       continue
 
@@ -551,7 +551,7 @@ def deploy_command(config):
 
     scripts_applied += 1
 
-  print(_log_apply_set_complete.format(scripts_applied=scripts_applied, scripts_skipped =scripts_skipped))
+  print(_log_apply_set_complete.format(scripts_applied=scripts_applied, scripts_skipped=scripts_skipped))
 
 def render_command(config, script_path):
   """
@@ -562,7 +562,7 @@ def render_command(config, script_path):
   # Validate the script file path
   script_path = os.path.abspath(script_path)
   if not os.path.isfile(script_path):
-    raise ValueError(_err_invalid_folder.format(folder_type='script_path', path = script_path ) )   
+    raise ValueError(_err_invalid_folder.format(folder_type='script_path', path=script_path))   
   # Always process with jinja engine
   jinja_processor = JinjaTemplateProcessor(project_root = config['root_folder'], \
      modules_folder = config['modules_folder'])
@@ -620,12 +620,12 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
     "change_history_table":change_history_table, "vars":vars, \
     "create_change_history_table":create_change_history_table, \
     "autocommit":autocommit, "verbose":verbose, "dry_run":dry_run,\
-    "query_tag":query_tag, "oauth_config":oauth_config, 
+    "query_tag":query_tag, "oauth_config":oauth_config, \
     "change_file_list": change_file_list.split(',') if change_file_list else None}
-  cli_inputs = {k:v for (k,v) in cli_inputs.items() if v is not None}
+  cli_inputs = {k:v for (k,v) in cli_inputs.items() if v}
 
   # load YAML inputs and convert kebabs to snakes
-  config = {k.replace('-','_'):v for (k,v) in load_schemachange_config(config_file_path).items() }
+  config = {k.replace('-','_'):v for (k,v) in load_schemachange_config(config_file_path).items()}
   # set values passed into the cli Overriding values in config file
   config.update(cli_inputs)
 
@@ -642,12 +642,12 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
   if 'root_folder' in config:
     config['root_folder'] = os.path.abspath(config['root_folder'])   
   if not os.path.isdir(config['root_folder']):
-    raise ValueError(_err_invalid_folder.format(folder_type ='root', path = config['root_folder']))
+    raise ValueError(_err_invalid_folder.format(folder_type='root', path=config['root_folder']))
  
   if config['modules_folder']:
     config['modules_folder'] = os.path.abspath(config['modules_folder'])
     if not os.path.isdir(config['modules_folder']):
-      raise ValueError(_err_invalid_folder.format(folder_type ='modules', path = config['modules_folder']))
+      raise ValueError(_err_invalid_folder.format(folder_type='modules', path=config['modules_folder']))
   if config['vars']:
     # if vars is configured wrong in the config file it will come through as a string
     if type(config['vars']) is not dict:
@@ -718,7 +718,7 @@ def get_all_scripts_recursively(root_directory, verbose, change_file_list=None):
 
       # Throw an error if the script_name already exists
       if script_name in all_files:
-        raise ValueError( _err_dup_scripts.format(first_path= all_files[script_name]['script_full_path'],**script))
+        raise ValueError( _err_dup_scripts.format(first_path=all_files[script_name]['script_full_path'], **script))
 
       all_files[script_name] = script
 
@@ -831,16 +831,16 @@ def main(argv=sys.argv):
   config_file_path = os.path.join(args.config_folder, _config_file_name)
 
   # Retreive argparser attributes as dictionary
-  get_schemachange_config_args = args.__dict__
-  get_schemachange_config_args['config_file_path'] = config_file_path
+  schemachange_args = args.__dict__
+  schemachange_args['config_file_path'] = config_file_path
 
   #nullify expected null values for render.
   if args.subcommand == 'render':
     renderoveride = {"snowflake_account":None,"snowflake_user":None,"snowflake_role":None, \
       "snowflake_warehouse":None,"snowflake_database":None,"change_history_table":None, \
         "create_change_history_table":None,"autocommit":None,"dry_run":None,"query_tag":None,"oauth_config":None }
-    get_schemachange_config_args.update(renderoveride)
-  config = get_schemachange_config(**get_schemachange_config_args)
+    schemachange_args.update(renderoveride)
+  config = get_schemachange_config(**schemachange_args)
 
   # setup a secret manager and assign to global scope
   sm = SecretManager()
