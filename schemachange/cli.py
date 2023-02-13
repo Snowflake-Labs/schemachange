@@ -541,7 +541,7 @@ def deploy_command(config):
       # check if there is a change of the checksum in the script
       if checksum_current == checksum_last:
         if config['verbose']:
-          print(_log_skip_r.format(script=script))
+          print(_log_skip_r.format(**script))
         scripts_skipped += 1
         continue
 
