@@ -171,7 +171,7 @@ The Jinja autoescaping feature is disabled in schemachange, this feature in Jinj
 
 ## Change History Table
 
-schemachange records all applied changes scripts to the change history table. By default schemachange will attempt to log all activities to the `METADATA.SCHEMACHANGE.CHANGE_HISTORY` table. The name and location of the change history table can be overriden by using the `-c` (or `--change-history-table`) parameter. The value passed to the parameter can have a one, two, or three part name (e.g. "TABLE_NAME", or "SCHEMA_NAME.TABLE_NAME", or "DATABASE_NAME.SCHEMA_NAME.TABLE_NAME"). This can be used to support multiple environments (dev, test, prod) or multiple subject areas within the same Snowflake account. By default schemachange will not try to create the change history table, and will fail if the table does not exist.
+schemachange records all applied changes scripts to the change history table. By default schemachange will attempt to log all activities to the `METADATA.SCHEMACHANGE.CHANGE_HISTORY` table. The name and location of the change history table can be overriden by using the `-c` (or `--change-history-table`) parameter. The value passed to the parameter can have a one, two, or three part name (e.g. "TABLE_NAME", or "SCHEMA_NAME.TABLE_NAME", or "DATABASE_NAME.SCHEMA_NAME.TABLE_NAME"). This can be used to support multiple environments (dev, test, prod) or multiple subject areas within the same Snowflake account. If you use the two part name then it will attempt to create the change history table to the 'METADATA' table, and not the database set in the ```SNOWFLAKE_DATABASE``` variable. By default schemachange will not try to create the change history table, and will fail if the table does not exist.
 
 Additionally, if the `--create-change-history-table` parameter is given, then schemachange will attempt to create the schema and table associated with the change history table. schemachange will not attempt to create the database for the change history table, so that must be created ahead of time, even when using the `--create-change-history-table` parameter.
 
@@ -342,7 +342,7 @@ oauthconfig:
 ```
 
 #### Yaml Jinja support
-The YAML config file supports the jinja templating language and has a custom function "env_var" to access environmental variables.  Jinja variables are unavailible and not yet loaded since they are supplied by the YAML file. Customisation of the YAML file can only happen through values passed via environment variables.
+The YAML config file supports the jinja templating language and has a custom function "env_var" to access environmental variables.  Jinja variables are unavailable and not yet loaded since they are supplied by the YAML file. Customisation of the YAML file can only happen through values passed via environment variables.
 
 ##### env_var
 Provides access to environmental variables. The function can be used two different ways.
