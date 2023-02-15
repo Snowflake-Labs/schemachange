@@ -21,7 +21,7 @@ from pandas import DataFrame
 
 #region Global Variables 
 # metadata
-_schemachange_version = '3.5.1'
+_schemachange_version = '3.5.2'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
@@ -541,7 +541,7 @@ def deploy_command(config):
       # check if there is a change of the checksum in the script
       if checksum_current == checksum_last:
         if config['verbose']:
-          print(_log_skip_r.format(script=script))
+          print(_log_skip_r.format(**script))
         scripts_skipped += 1
         continue
 
