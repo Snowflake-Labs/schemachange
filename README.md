@@ -213,7 +213,7 @@ Schemachange supports snowflake's default authenticator, External Oauth, Browswe
 Authentication Option | Expected Value
 --- | ---
 Default [Password](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-using-the-default-authenticator) Authenticator or [Key Pair](https://docs.snowflake.com/en/user-guide/python-connector-example.html#using-key-pair-authentication) Authenticator| `snowflake`
-[External Oauth](https://docs.snowflake.com/en/user-guide/oauth-external.html) `oauth`
+[External Oauth](https://docs.snowflake.com/en/user-guide/oauth-external.html) | `oauth`
 [Browser based SSO](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#setting-up-browser-based-sso) | `externalbrowser`
 [Programmatic SSO](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#native-sso-okta-only) (Okta Only) | Okta URL endpoing for your Okta account typically in the form `https://<okta_account_name>.okta.com` OR `https://<okta_account_name>.oktapreview.com`
 
