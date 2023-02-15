@@ -385,7 +385,7 @@ Parameter | Description
 --dry-run | Run schemachange in dry run mode. The default is 'False'.
 --query-tag | A string to include in the QUERY_TAG that is attached to every SQL statement executed.
 --oauth-config | Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })'
--cfl --change-file-list | Comma delimited list of files, full path, that schemachange will filter to when deploying V and R scripts.
+-cfl --change-file-list | Comma delimited white list of files, full path. V and R scripts will only be deployed if found in the list.
 
 #### render
 This subcommand is used to render a single script to the console. It is intended to support the development and troubleshooting of script that use features from the jinja template engine.

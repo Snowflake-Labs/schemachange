@@ -806,7 +806,7 @@ def main(argv=sys.argv):
   parser_deploy.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
   parser_deploy.add_argument('--query-tag', type = str, help = 'The string to add to the Snowflake QUERY_TAG session value for each query executed', required = False)
   parser_deploy.add_argument('--oauth-config', type = json.loads, help = 'Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })', required = False)
-  parser_deploy.add_argument('-cfl', '--change-file-list', type = str, help = 'Comma delimited list of files that should be included in the deploy check.', required = False)
+  parser_deploy.add_argument('-cfl', '--change-file-list', type = str, help = 'Comma delimited list of files that should be included in the deploy check. A scripts will process as normal.', required = False)
    # TODO test CLI passing of args
 
   parser_render = subcommands.add_parser('render', description="Renders a script to the console, used to check and verify jinja output from scripts.")
