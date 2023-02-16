@@ -23,6 +23,7 @@ DEFAULT_CONFIG = {
     'dry_run': False,
     'query_tag': None,
     'oauth_config':None,
+    'step':None,
 }
 
 
@@ -66,6 +67,47 @@ def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
         [config,], _call_kwargs = mock_deploy_command.call_args
         assert config == expected
 
+DEFAULT_UNDO_CONFIG = {**DEFAULT_CONFIG, 'step': 1}
+
+@pytest.mark.parametrize("args, expected", [
+    (["schemachange", "undo"], DEFAULT_UNDO_CONFIG),
+    (["schemachange", "undo", "-f", '.'],
+        {**DEFAULT_UNDO_CONFIG, 'root_folder':os.path.abspath('.')}),
+    (["schemachange", "undo", "--snowflake-account", "account"],
+        {**DEFAULT_UNDO_CONFIG, 'snowflake_account': 'account'}),
+    (["schemachange", "undo", "--snowflake-user", "user"],
+        {**DEFAULT_UNDO_CONFIG, 'snowflake_user': 'user'}),
+    (["schemachange", "undo", "--step", "3"],
+        {**DEFAULT_UNDO_CONFIG, 'step': 3}),
+    (["schemachange", "undo", "--snowflake-role", "role"],
+        {**DEFAULT_UNDO_CONFIG, 'snowflake_role': 'role'}),
+    (["schemachange", "undo", "--snowflake-warehouse", "warehouse"],
+        {**DEFAULT_UNDO_CONFIG, 'snowflake_warehouse': 'warehouse'}),
+    (["schemachange", "undo", "--snowflake-database", "database"],
+        {**DEFAULT_UNDO_CONFIG, 'snowflake_database': 'database'}),
+    (["schemachange", "undo", "--change-history-table", "db.schema.table"],
+        {**DEFAULT_UNDO_CONFIG, 'change_history_table': 'db.schema.table'}),
+    (["schemachange", "undo", "--vars", '{"var1": "val"}'],
+        {**DEFAULT_UNDO_CONFIG, 'vars': {'var1' : 'val'},}),
+    (["schemachange", "undo", "--autocommit"],
+        {**DEFAULT_UNDO_CONFIG, 'autocommit': True}),
+    (["schemachange", "undo", "--verbose"],
+        {**DEFAULT_UNDO_CONFIG, 'verbose': True}),
+    (["schemachange", "undo", "--dry-run"],
+        {**DEFAULT_UNDO_CONFIG, 'dry_run': True}),
+    (["schemachange", "undo", "--query-tag", "querytag"],
+        {**DEFAULT_UNDO_CONFIG, 'query_tag': 'querytag'}),
+    (["schemachange", "undo", "--oauth-config", '{"token-provider-url": "https//..."}'],
+        {**DEFAULT_UNDO_CONFIG, 'oauth_config': {"token-provider-url": "https//..."},}),
+])
+def test_main_undo_subcommand_given_arguments_make_sure_arguments_set_on_call( args, expected):
+
+    with mock.patch("schemachange.cli.undo_command") as mock_undo_command:
+        schemachange.cli.main(args)
+        mock_undo_command.assert_called_once()
+        [config,], _call_kwargs = mock_undo_command.call_args
+        assert config == expected
+
 
 @pytest.mark.parametrize("args, expected", [
     (["schemachange", "render", "script.sql"],
@@ -90,6 +132,9 @@ def test_main_render_subcommand_given_arguments_make_sure_arguments_set_on_call(
     (["schemachange", "deploy", "--config-folder", "DUMMY"],
         "schemachange.cli.deploy_command",
         ({**DEFAULT_CONFIG, 'snowflake_account': 'account'},)),
+    (["schemachange", "undo", "--config-folder", "DUMMY"],
+        "schemachange.cli.undo_command",
+        ({**DEFAULT_UNDO_CONFIG, 'snowflake_account': 'account'},)),
     (["schemachange", "render", "script.sql", "--config-folder", "DUMMY"],
         "schemachange.cli.render_command",
         ({**DEFAULT_CONFIG, 'snowflake_account': 'account'}, "script.sql"))
@@ -114,6 +159,9 @@ def test_main_deploy_config_folder(args, to_mock, expected_args):
     (["schemachange", "deploy", "--modules-folder", "DUMMY"],
         "schemachange.cli.deploy_command",
         ({**DEFAULT_CONFIG, 'modules_folder': 'DUMMY'},)),
+    (["schemachange", "undo", "--modules-folder", "DUMMY"],
+        "schemachange.cli.undo_command",
+        ({**DEFAULT_UNDO_CONFIG, 'modules_folder': 'DUMMY'},)),
     (["schemachange", "render", "script.sql", "--modules-folder", "DUMMY"],
         "schemachange.cli.render_command",
         ({**DEFAULT_CONFIG, 'modules_folder': 'DUMMY'}, "script.sql"))

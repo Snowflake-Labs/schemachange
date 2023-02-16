@@ -20,6 +20,7 @@ For the complete list of changes made to schemachange check out the [CHANGELOG](
    1. [Folder Structure](#folder-structure)
 1. [Change Scripts](#change-scripts)
    1. [Versioned Script Naming](#versioned-script-naming)
+   1. [Undo Script Naming](#undo-script-naming)
    1. [Repeatable Script Naming](#repeatable-script-naming)
    1. [Always Script Naming](#always-script-naming)
    1. [Script Requirements](#script-requirements)
@@ -94,6 +95,31 @@ For example, a script name that follows this convention is: `V1.1.1__first_chang
 * 1_2_3
 
 Every script within a database folder must have a unique version number. schemachange will check for duplicate version numbers and throw an error if it finds any. This helps to ensure that developers who are working in parallel don't accidently (re-)use the same version number.
+
+### Undo Script Naming
+
+Undo scripts are the opposite of regular versioned scripts. An undo script is responsible for undoing the
+effects of the versioned one with the same name and version. Undo migrations are optional and not required to run regular
+versioned migrations.
+
+The requirement to apply undo migrations is for them to have the same version and name as versioned scripts, for
+example, having a versioned script `V1.1.1__first_change.sql`, there can be a `U1.1.1__first_change.sql` script, with a
+`U` prefix rather than a `V`.
+
+By default, the script will undo the last applied migration. To modify this behaviour, the `-s` (`--step`) option exists
+accepting a number as a parameter. For example, passing `--step 3` will undo the last 3 applied versioned script, or
+until it reaches one without a corresponding undo script.
+
+e.g:
+
+* U1.0.0__create_table.sql
+* V1.0.0__create_table.sql
+* V2.0.0__add_column.sql
+* U3.0.0__change_name.sql
+* V3.0.0__change_name.sql
+
+By running `schemachange undo --step 3` it will only apply the `U3.0.0__change_name.sql` undo script, because the
+`V2.0.0__add_column.sql` doesn't have a corresponding undo script.
 
 ### Repeatable Script Naming
 
@@ -380,6 +406,32 @@ Parameter | Description
 -c CHANGE_HISTORY_TABLE, --change-history-table CHANGE_HISTORY_TABLE | Used to override the default name of the change history table (which is METADATA.SCHEMACHANGE.CHANGE_HISTORY)
 --vars VARS | Define values for the variables to replaced in change scripts, given in JSON format (e.g. '{"variable1": "value1", "variable2": "value2"}')
 --create-change-history-table | Create the change history table if it does not exist. The default is 'False'.
+-ac, --autocommit | Enable autocommit feature for DML commands. The default is 'False'.
+-v, --verbose | Display verbose debugging details during execution. The default is 'False'.
+--dry-run | Run schemachange in dry run mode. The default is 'False'.
+--query-tag | A string to include in the QUERY_TAG that is attached to every SQL statement executed.
+--oauth-config | Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })'
+
+#### undo
+This subcommand is used to undo versioned scripts. It supports all parameters as `deploy` in addition to `--step` and
+with the exception of `--create-change-history-table`
+
+`usage: schemachange undo [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG]`
+
+Parameter | Description
+--- | ---
+-h, --help | Show the help message and exit
+-s, --step | Amount of versioned scripts to be undone
+--config-folder CONFIG_FOLDER | The folder to look in for the schemachange-config.yml file (the default is the current working directory)
+-f ROOT_FOLDER, --root-folder ROOT_FOLDER | The root folder for the database change scripts. The default is the current directory.
+-m MODULES_FOLDER, --modules-folder MODULES_FOLDER | The modules folder for jinja macros and templates to be used across mutliple scripts
+-a SNOWFLAKE_ACCOUNT, --snowflake-account SNOWFLAKE_ACCOUNT | The name of the snowflake account (e.g. xy12345.east-us-2.azure).
+-u SNOWFLAKE_USER, --snowflake-user SNOWFLAKE_USER | The name of the snowflake user
+-r SNOWFLAKE_ROLE, --snowflake-role SNOWFLAKE_ROLE | The name of the role to use
+-w SNOWFLAKE_WAREHOUSE, --snowflake-warehouse SNOWFLAKE_WAREHOUSE | The name of the default warehouse to use. Can be overridden in the change scripts.
+-d SNOWFLAKE_DATABASE, --snowflake-database SNOWFLAKE_DATABASE | The name of the default database to use. Can be overridden in the change scripts.
+-c CHANGE_HISTORY_TABLE, --change-history-table CHANGE_HISTORY_TABLE | Used to override the default name of the change history table (which is METADATA.SCHEMACHANGE.CHANGE_HISTORY)
+--vars VARS | Define values for the variables to replaced in change scripts, given in JSON format (e.g. '{"variable1": "value1", "variable2": "value2"}')
 -ac, --autocommit | Enable autocommit feature for DML commands. The default is 'False'.
 -v, --verbose | Display verbose debugging details during execution. The default is 'False'.
 --dry-run | Run schemachange in dry run mode. The default is 'False'.
