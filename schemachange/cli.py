@@ -436,6 +436,8 @@ class SnowflakeSchemachangeSession:
       self.reset_query_tag()
       end = time.time()
       execution_time = round(end - start)
+      # reset the session before logging
+      self.reset_session()
 
 
     # Finally record this change in the change history table by gathering data
