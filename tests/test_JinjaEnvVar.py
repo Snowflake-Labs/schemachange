@@ -11,7 +11,7 @@ def test_env_var_with_no_default_and_no_environmental_variables_should_raise_exc
     assert ("SF_DATABASE" in os.environ) is False
 
     with pytest.raises(ValueError) as e:
-        result = JinjaEnvVar.env_var("SF_DATABASE")
+        JinjaEnvVar.env_var("SF_DATABASE")
     assert (
         str(e.value)
         == "Could not find environmental variable SF_DATABASE and no default value was provided"

@@ -700,7 +700,8 @@ def render_command(config, script_path):
 # This will enable correct sorting in python when the lists are compared
 # e.g. get_alphanum_key('1.2.2') results in ['', 1, '.', 2, '.', 2, '']
 def get_alphanum_key(key):
-    convert = lambda text: int(text) if text.isdigit() else text.lower()
+    def convert(text):
+        return int(text) if text.isdigit() else text.lower()
     alphanum_key = [convert(c) for c in re.split("([0-9]+)", key)]
     return alphanum_key
 
@@ -802,7 +803,7 @@ def get_schemachange_config(
     }
     # insert defualt values for items not populated
     config.update(
-        {k: v for (k, v) in config_defaults.items() if not k in config.keys()}
+        {k: v for (k, v) in config_defaults.items() if k not in config.keys()}
     )
 
     # Validate folder paths

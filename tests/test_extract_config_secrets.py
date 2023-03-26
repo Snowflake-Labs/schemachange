@@ -4,11 +4,11 @@ from schemachange.cli import extract_config_secrets
 
 def test_extract_config_secrets_given_empty_config_should_not_error():
     config = {}
-    results = extract_config_secrets(config)
+    extract_config_secrets(config)
 
 
 def test_extract_config_secrets_given_None_should_not_error():
-    results = extract_config_secrets(None)
+    extract_config_secrets(None)
 
 
 @pytest.mark.parametrize(

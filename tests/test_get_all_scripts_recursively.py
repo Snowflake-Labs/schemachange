@@ -60,7 +60,7 @@ def test_get_all_scripts_recursively__given_same_Version_twice_should_raise_exce
         ]
 
         with pytest.raises(ValueError) as e:
-            result = get_all_scripts_recursively("scripts", False)
+            get_all_scripts_recursively("scripts", False)
         assert str(e.value).startswith(
             "The script version 1.1.1 exists more than once (second instance"
         )
@@ -109,7 +109,7 @@ def test_get_all_scripts_recursively__given_same_version_file_with_and_without_j
         ]
 
         with pytest.raises(ValueError) as e:
-            result = get_all_scripts_recursively("scripts", False)
+            get_all_scripts_recursively("scripts", False)
         assert str(e.value).startswith(
             "The script name V1.1.1__intial.sql exists more than once (first_instance"
         )
@@ -144,7 +144,7 @@ def test_get_all_scripts_recursively__given_same_Always_file_should_raise_except
         ]
 
         with pytest.raises(ValueError) as e:
-            result = get_all_scripts_recursively("scripts", False)
+            get_all_scripts_recursively("scripts", False)
         assert str(e.value).startswith(
             "The script name A__intial.sql exists more than once (first_instance "
         )
@@ -193,7 +193,7 @@ def test_get_all_scripts_recursively__given_same_Always_file_with_and_without_ji
         ]
 
         with pytest.raises(ValueError) as e:
-            result = get_all_scripts_recursively("scripts", False)
+            get_all_scripts_recursively("scripts", False)
         assert str(e.value).startswith(
             "The script name A__intial.sql exists more than once (first_instance "
         )
@@ -228,7 +228,7 @@ def test_get_all_scripts_recursively__given_same_Repeatable_file_should_raise_ex
         ]
 
         with pytest.raises(ValueError) as e:
-            result = get_all_scripts_recursively("scripts", False)
+            get_all_scripts_recursively("scripts", False)
         assert str(e.value).startswith(
             "The script name R__intial.sql exists more than once (first_instance "
         )
@@ -277,7 +277,7 @@ def test_get_all_scripts_recursively__given_same_Repeatable_file_with_and_withou
         ]
 
         with pytest.raises(ValueError) as e:
-            result = get_all_scripts_recursively("scripts", False)
+            get_all_scripts_recursively("scripts", False)
         assert str(e.value).startswith(
             "The script name R__intial.sql exists more than once (first_instance "
         )
