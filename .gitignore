@@ -132,3 +132,6 @@ dmypy.json
 
 # Mac files
 **/.DS_Store
+
+# Ruff Cache
+.ruff_cache
