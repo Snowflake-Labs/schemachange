@@ -393,3 +393,20 @@ def test_get_all_scripts_recursively__given_all_files_executed_in_proper_order()
     assert "V0.0.1__Initial_Release.sql" in result[1]
     assert "R__Initial_View.SQL" in result[2]
     assert "A__Permissions" in result[3]
+
+
+def test_get_all_scripts_recursively__given_all_files_executed_in_proper_order_no_Always_First():
+    with mock.patch("os.walk") as mockwalk:
+        mockwalk.return_value = [
+            ("", ("subfolder"), ("V0.0.1__Initial_Release.sql",)),
+            ("subfolder", ("subfolder2"), ("R__Initial_View.SQL",)),
+            (f"subfolder{os.sep}subfolder2", (""), ("AF__QA_Clone.sql",)),
+            (f"subfolder{os.sep}subfolder2", (""), ("A__Permissions.sql",)),
+        ]
+
+        result = get_all_scripts_recursively("scripts", False, False)
+
+    assert len(result) == 3
+    assert "V0.0.1__Initial_Release.sql" in result[0]
+    assert "R__Initial_View.SQL" in result[1]
+    assert "A__Permissions" in result[2]
