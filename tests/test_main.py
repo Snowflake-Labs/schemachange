@@ -20,6 +20,7 @@ DEFAULT_CONFIG = {
     'create_change_history_table': False,
     'autocommit': False,
     'verbose': False,
+    'always_first': False,
     'dry_run': False,
     'query_tag': None,
     'oauth_config':None,
@@ -51,6 +52,8 @@ DEFAULT_CONFIG = {
         {**DEFAULT_CONFIG, 'autocommit': True}),
     (["schemachange", "deploy", "--verbose"],
         {**DEFAULT_CONFIG, 'verbose': True}),
+    (["schemachange", "deploy", "--always-first"],
+        {**DEFAULT_CONFIG, 'always_first': True}),
     (["schemachange", "deploy", "--dry-run"],
         {**DEFAULT_CONFIG, 'dry_run': True}),
     (["schemachange", "deploy", "--query-tag", "querytag"],
@@ -76,6 +79,8 @@ def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
         ({**DEFAULT_CONFIG, 'vars': {"var1": "val"}}, "script.sql")),
     (["schemachange", "render", "--verbose", "script.sql"],
         ({**DEFAULT_CONFIG, 'verbose': True}, "script.sql")),
+    (["schemachange", "render", "--always-first", "script.sql"],
+        ({**DEFAULT_CONFIG, 'always_first': True}, "script.sql")),
 ])
 def test_main_render_subcommand_given_arguments_make_sure_arguments_set_on_call( args, expected):
 
