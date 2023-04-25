@@ -123,7 +123,7 @@ class JinjaTemplateProcessor:
     # to make unit testing easier
     self.__environment = jinja2.Environment(loader=loader, **self._env_args)
 
-  def render(self, script: str, vars: Dict[str, Any], verbose: bool) -> str:
+  def render(self, script: str, vars: Dict[str, Any], verbose: bool, always_first: bool) -> str:
     if not vars:
       vars = {}
     # jinja needs posix path
@@ -224,11 +224,12 @@ class SnowflakeSchemachangeSession:
     self.conArgs = {"user": config['snowflake_user'],"account": config['snowflake_account'] \
       ,"role": config['snowflake_role'],"warehouse": config['snowflake_warehouse'] \
       ,"database": config['snowflake_database'],"application": _snowflake_application_name \
-      ,"session_parameters":session_parameters}
+      ,"session_parameters": session_parameters}
 
     self.oauth_config = config['oauth_config']
     self.autocommit = config['autocommit']
     self.verbose = config['verbose']
+    self.always_first = config['always_first']
     self.con = self.authenticate()
     if not self.autocommit:
       self.con.autocommit(False)
@@ -504,16 +505,25 @@ def deploy_command(config):
   print(_log_ch_max_version.format(max_published_version_display=max_published_version_display))
 
   # Find all scripts in the root folder (recursively) and sort them correctly
-  all_scripts = get_all_scripts_recursively(config['root_folder'], config['verbose'])
+  all_scripts = get_all_scripts_recursively(config['root_folder'], config['verbose'], config['always_first'])
   all_script_names = list(all_scripts.keys())
-  # Sort scripts such that versioned scripts get applied first and then the repeatable ones.
-  all_script_names_sorted =   sorted_alphanumeric([script for script in all_script_names if script[0] == 'V']) \
+  # Sort scripts such that always first scripts get executed first, then versioned scripts, and then the repeatable ones.
+  all_script_names_sorted = sorted_alphanumeric([script for script in all_script_names if script[0] == 'AF']) \
+                            + sorted_alphanumeric([script for script in all_script_names if script[0] == 'V']) \
                             + sorted_alphanumeric([script for script in all_script_names if script[0] == 'R']) \
                             + sorted_alphanumeric([script for script in all_script_names if script[0] == 'A'])
 
   # Loop through each script in order and apply any required changes
   for script_name in all_script_names_sorted:
     script = all_scripts[script_name]
+
+    # Execute the Always First script(s) as long as the `always_first` configuration is True.
+    if script_name[0] == 'AF' and config['always_first']:
+        if config['verbose']:
+            print(_log_skip_r.format(**script))
+        print(_log_apply.format(**script))
+        if not config['dry_run']:
+            session.apply_change_script(script, content, change_history_table)
 
     # Apply a versioned-change script only if the version is newer than the most recent change in the database
     # Apply any other scripts, i.e. repeatable scripts, irrespective of the most recent change in the database
@@ -545,6 +555,7 @@ def deploy_command(config):
         scripts_skipped += 1
         continue
 
+    # The Always scripts are applied in this step
     print(_log_apply.format(**script))
     if not config['dry_run']:
       session.apply_change_script(script, content, change_history_table)
@@ -608,7 +619,7 @@ def load_schemachange_config(config_file_path: str) -> Dict[str, Any]:
 def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, \
   snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, \
   change_history_table, vars, create_change_history_table, autocommit, verbose, \
-  dry_run, query_tag, oauth_config, **kwargs):
+  dry_run, query_tag, oauth_config, always_first, **kwargs):
 
   # create cli override dictionary
   # Could refactor to just pass Args as a dictionary?
@@ -620,7 +631,7 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
     "change_history_table":change_history_table, "vars":vars, \
     "create_change_history_table":create_change_history_table, \
     "autocommit":autocommit, "verbose":verbose, "dry_run":dry_run,\
-    "query_tag":query_tag, "oauth_config":oauth_config}
+    "query_tag":query_tag, "oauth_config":oauth_config, "always_first":always_first}
   cli_inputs = {k:v for (k,v) in cli_inputs.items() if v}
 
   # load YAML inputs and convert kebabs to snakes
@@ -630,10 +641,10 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
 
   # create Default values dictionary
   config_defaults =  {"root_folder":os.path.abspath('.'), "modules_folder":None,  \
-    "snowflake_account":None,  "snowflake_user":None, "snowflake_role":None,   \
-    "snowflake_warehouse":None,  "snowflake_database":None,  "change_history_table":None,  \
+    "snowflake_account":None, "snowflake_user":None, "snowflake_role":None,   \
+    "snowflake_warehouse":None, "snowflake_database":None, "change_history_table":None,  \
     "vars":{}, "create_change_history_table":False, "autocommit":False, "verbose":False,  \
-    "dry_run":False , "query_tag":None , "oauth_config":None }
+    "dry_run":False, "query_tag":None, "oauth_config":None, "always_first":False}
   #insert defualt values for items not populated
   config.update({ k:v for (k,v) in config_defaults.items() if not k in config.keys()})
 
@@ -658,7 +669,7 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
 
   return config
 
-def get_all_scripts_recursively(root_directory, verbose):
+def get_all_scripts_recursively(root_directory, verbose, always_first):
   all_files = dict()
   all_versions = list()
   # Walk the entire directory structure recursively
@@ -671,6 +682,8 @@ def get_all_scripts_recursively(root_directory, verbose):
       repeatable_script_name_parts = re.search(r'^([R])__(.+?)\.(?:sql|sql.jinja)$', \
         file_name.strip(), re.IGNORECASE)
       always_script_name_parts = re.search(r'^([A])__(.+?)\.(?:sql|sql.jinja)$', \
+        file_name.strip(), re.IGNORECASE)
+      always_first_script_name_parts = re.search(r'^([AF])__(.+?)\.(?:sql|sql.jinja)$', \
         file_name.strip(), re.IGNORECASE)
 
       # Set script type depending on whether it matches the versioned file naming format
@@ -686,6 +699,10 @@ def get_all_scripts_recursively(root_directory, verbose):
         script_type = 'A'
         if verbose:
           print("Found Always file " + file_full_path)
+      elif always_first_script_name_parts is not None and always_first:
+        script_type = 'AF'
+        if verbose:
+            print("Found Always First file " + file_full_path)
       else:
         if verbose:
           print("Ignoring non-change file " + file_full_path)
@@ -703,11 +720,13 @@ def get_all_scripts_recursively(root_directory, verbose):
       script['script_name'] = script_name
       script['script_full_path'] = file_full_path
       script['script_type'] = script_type
-      script['script_version'] = '' if script_type in ['R', 'A'] else script_name_parts.group(2)
+      script['script_version'] = '' if script_type in ['R', 'A', 'AF'] else script_name_parts.group(2)
       if script_type == 'R':
         script['script_description'] = repeatable_script_name_parts.group(2).replace('_', ' ').capitalize()
       elif script_type == 'A':
         script['script_description'] = always_script_name_parts.group(2).replace('_', ' ').capitalize()
+      elif script_type == 'AF':
+        script['script_description'] = always_first_script_name_parts.group(2).replace('_', ' ').capitalize()
       else:
         script['script_description'] = script_name_parts.group(3).replace('_', ' ').capitalize()
 
@@ -801,6 +820,7 @@ def main(argv=sys.argv):
   parser_deploy.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
   parser_deploy.add_argument('--query-tag', type = str, help = 'The string to add to the Snowflake QUERY_TAG session value for each query executed', required = False)
   parser_deploy.add_argument('--oauth-config', type = json.loads, help = 'Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })', required = False)
+  parser_deploy.add_argument('-af', '--always-first', action='store_true', help = 'Set to `True` to execute AF_*.sql scripts. These will always be executed before all other scripts. Best used for cloning operations.', required = False)
    # TODO test CLI passing of args
 
   parser_render = subcommands.add_parser('render', description="Renders a script to the console, used to check and verify jinja output from scripts.")
@@ -809,6 +829,7 @@ def main(argv=sys.argv):
   parser_render.add_argument('-m', '--modules-folder', type = str, help = 'The modules folder for jinja macros and templates to be used across multiple scripts', required = False)
   parser_render.add_argument('--vars', type = json.loads, help = 'Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})', required = False)
   parser_render.add_argument('-v', '--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
+  parser_render.add_argument('-af', '--always-first', action='store_true', help = 'Set to `True` to execute AF_*.sql scripts. These will always be executed before all other scripts. Best used for cloning operations.', required = False)
   parser_render.add_argument('script', type = str, help = 'The script to render')
 
   # The original parameters did not support subcommands. Check if a subcommand has been supplied
