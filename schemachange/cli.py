@@ -820,7 +820,7 @@ def main(argv=sys.argv):
   parser_deploy.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
   parser_deploy.add_argument('--query-tag', type = str, help = 'The string to add to the Snowflake QUERY_TAG session value for each query executed', required = False)
   parser_deploy.add_argument('--oauth-config', type = json.loads, help = 'Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })', required = False)
-  parser_deploy.add_argument('-af', '--always-first', action='store_true', help = 'Set to `True` to execute AF_*.sql scripts. These will always be executed before all other scripts. Best used for cloning operations.', required = False)
+  parser_deploy.add_argument('-af', '--always-first', action='store_true', help = 'Enable to execute Always First scripts. These will be executed before all other script types.', required = False)
    # TODO test CLI passing of args
 
   parser_render = subcommands.add_parser('render', description="Renders a script to the console, used to check and verify jinja output from scripts.")
@@ -829,7 +829,7 @@ def main(argv=sys.argv):
   parser_render.add_argument('-m', '--modules-folder', type = str, help = 'The modules folder for jinja macros and templates to be used across multiple scripts', required = False)
   parser_render.add_argument('--vars', type = json.loads, help = 'Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})', required = False)
   parser_render.add_argument('-v', '--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
-  parser_render.add_argument('-af', '--always-first', action='store_true', help = 'Set to `True` to execute AF_*.sql scripts. These will always be executed before all other scripts. Best used for cloning operations.', required = False)
+  parser_render.add_argument('-af', '--always-first', action='store_true', help = 'Enable to execute Always First scripts. These will be executed before all other script types.', required = False)
   parser_render.add_argument('script', type = str, help = 'The script to render')
 
   # The original parameters did not support subcommands. Check if a subcommand has been supplied
