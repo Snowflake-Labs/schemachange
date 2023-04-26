@@ -145,7 +145,7 @@ def test_get_all_scripts_recursively__given_same_Always_file_should_raise_except
         with pytest.raises(ValueError) as e:
             result = get_all_scripts_recursively("scripts", False)
         assert str(e.value).startswith(
-            "The script name A__intial.sql exists more than once (first_instance "
+            "The script name A__intial.sql exists more than once (first_instance"
         )
 
 
@@ -194,7 +194,7 @@ def test_get_all_scripts_recursively__given_same_Always_file_with_and_without_ji
         with pytest.raises(ValueError) as e:
             result = get_all_scripts_recursively("scripts", False)
         assert str(e.value).startswith(
-            "The script name A__intial.sql exists more than once (first_instance "
+            "The script name A__intial.sql exists more than once (first_instance"
         )
 
 ###############################
@@ -228,7 +228,7 @@ def test_get_all_scripts_recursively__given_same_Repeatable_file_should_raise_ex
         with pytest.raises(ValueError) as e:
             result = get_all_scripts_recursively("scripts", False)
         assert str(e.value).startswith(
-            "The script name R__intial.sql exists more than once (first_instance "
+            "The script name R__intial.sql exists more than once (first_instance"
         )
 
 
@@ -277,5 +277,136 @@ def test_get_all_scripts_recursively__given_same_Repeatable_file_with_and_withou
         with pytest.raises(ValueError) as e:
             result = get_all_scripts_recursively("scripts", False)
         assert str(e.value).startswith(
-            "The script name R__intial.sql exists more than once (first_instance "
+            "The script name R__intial.sql exists more than once (first_instance"
         )
+
+#################################
+#### Always First file tests ####
+#################################
+
+
+def test_get_all_scripts_recursively__given_Always_First_files_should_return_Always_First_files():
+    with mock.patch("os.walk") as mockwalk:
+        mockwalk.return_value = [
+            ("", ("subfolder"), ("AF__QA_Clone.sql",)),
+            ("subfolder", ("subfolder2"), ("AF__STG_Clone.SQL",)),
+            (f"subfolder{os.sep}subfolder2", (""), ("AF__PermissionsGrants.sql",)),
+        ]
+
+        result = get_all_scripts_recursively("scripts", False, True)
+
+    assert len(result) == 3
+    assert "AF__QA_Clone.sql" in result
+    assert "AF__STG_Clone.SQL" in result
+    assert "AF__PermissionsGrants.sql" in result
+
+
+def test_get_all_scripts_recursively__given_Always_First_files_should_return_empty():
+    with mock.patch("os.walk") as mockwalk:
+        mockwalk.return_value = [
+            ("", ("subfolder"), ("AF__QA_Clone.sql",)),
+            ("subfolder", ("subfolder2"), ("AF__STG_Clone.SQL",)),
+            (f"subfolder{os.sep}subfolder2", (""), ("AF__PermissionsGrants.sql",)),
+        ]
+
+        result = get_all_scripts_recursively("scripts", False, False)
+
+    assert result == dict()
+
+
+def test_get_all_scripts_recursively__given_same_Always_First_file_should_raise_exception():
+    with mock.patch("os.walk") as mockwalk:
+        mockwalk.return_value = [
+            ("", ("subfolder"), ("AF__QA_Clone.sql",)),
+            ("subfolder", (), ("AF__QA_Clone.sql",)),
+        ]
+
+        with pytest.raises(ValueError) as e:
+            result = get_all_scripts_recursively("scripts", False, True)
+        assert str(e.value).startswith(
+            "The script name AF__QA_Clone.sql exists more than once (first_instance"
+        )
+
+
+def test_get_all_scripts_recursively__given_single_Always_First_file_should_extract_attributes():
+    with mock.patch("os.walk") as mockwalk:
+        mockwalk.return_value = [
+            ("subfolder", (), ("AF__THIS_is_my_test.sql",)),
+        ]
+        result = get_all_scripts_recursively("scripts", False, True)
+
+    assert len(result) == 1
+    file_attributes = result["AF__THIS_is_my_test.sql"]
+    assert file_attributes["script_name"] == "AF__THIS_is_my_test.sql"
+    assert file_attributes["script_full_path"] == os.path.join(
+        "subfolder", "AF__THIS_is_my_test.sql"
+    )
+    assert file_attributes["script_type"] == "AF"
+    assert file_attributes["script_version"] == ""
+    assert file_attributes["script_description"] == "This is my test"
+
+
+def test_get_all_scripts_recursively__given_single_Always_First_jinja_file_should_extract_attributes():
+    with mock.patch("os.walk") as mockwalk:
+        mockwalk.return_value = [
+            ("subfolder", (), ("AF__THIS_is_my_test.sql.jinja",)),
+        ]
+        result = get_all_scripts_recursively("scripts", False, True)
+
+    assert len(result) == 1
+    file_attributes = result["AF__THIS_is_my_test.sql"]
+    assert file_attributes["script_name"] == "AF__THIS_is_my_test.sql"
+    assert file_attributes["script_full_path"] == os.path.join(
+        "subfolder", "AF__THIS_is_my_test.sql.jinja"
+    )
+    assert file_attributes["script_type"] == "AF"
+    assert file_attributes["script_version"] == ""
+    assert file_attributes["script_description"] == "This is my test"
+
+
+def test_get_all_scripts_recursively__given_same_Always_First_file_with_and_without_jinja_extension_should_raise_exception():
+    with mock.patch("os.walk") as mockwalk:
+        mockwalk.return_value = [
+            ("", (""), ("AF__QA_Clone.sql", "AF__QA_Clone.sql.jinja")),
+        ]
+
+        with pytest.raises(ValueError) as e:
+            result = get_all_scripts_recursively("scripts", False, True)
+        assert str(e.value).startswith(
+            "The script name AF__QA_Clone.sql exists more than once (first_instance"
+        )
+
+
+def test_get_all_scripts_recursively__given_all_files_executed_in_proper_order():
+    with mock.patch("os.walk") as mockwalk:
+        mockwalk.return_value = [
+            ("", ("subfolder"), ("V0.0.1__Initial_Release.sql",)),
+            ("subfolder", ("subfolder2"), ("R__Initial_View.SQL",)),
+            (f"subfolder{os.sep}subfolder2", (""), ("AF__QA_Clone.sql",)),
+            (f"subfolder{os.sep}subfolder2", (""), ("A__Permissions.sql",)),
+        ]
+
+        result = get_all_scripts_recursively("scripts", False, True)
+
+    assert len(result) == 4
+    assert "AF__QA_Clone.sql" in result[0]
+    assert "V0.0.1__Initial_Release.sql" in result[1]
+    assert "R__Initial_View.SQL" in result[2]
+    assert "A__Permissions" in result[3]
+
+
+def test_get_all_scripts_recursively__given_all_files_executed_in_proper_order_no_Always_First():
+    with mock.patch("os.walk") as mockwalk:
+        mockwalk.return_value = [
+            ("", ("subfolder"), ("V0.0.1__Initial_Release.sql",)),
+            ("subfolder", ("subfolder2"), ("R__Initial_View.SQL",)),
+            (f"subfolder{os.sep}subfolder2", (""), ("AF__QA_Clone.sql",)),
+            (f"subfolder{os.sep}subfolder2", (""), ("A__Permissions.sql",)),
+        ]
+
+        result = get_all_scripts_recursively("scripts", False, False)
+
+    assert len(result) == 3
+    assert "V0.0.1__Initial_Release.sql" in result[0]
+    assert "R__Initial_View.SQL" in result[1]
+    assert "A__Permissions" in result[2]
