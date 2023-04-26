@@ -17,7 +17,7 @@ import yaml
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from jinja2.loaders import BaseLoader
-from pandas import DataFrame
+from pandas import DatFrame
 
 #region Global Variables 
 # metadata
@@ -379,7 +379,7 @@ class SnowflakeSchemachangeSession:
     results = self.execute_snowflake_query(query)
 
     # Collect all the results into a dict
-    d_script_checksum = DataFrame(columns=['script_name', 'checksum'])
+    d_script_checksum = DatFrame(columns=['script_name', 'checksum'])
     script_names = []
     checksums = []
     for cursor in results:
@@ -508,7 +508,7 @@ def deploy_command(config):
   all_scripts = get_all_scripts_recursively(config['root_folder'], config['verbose'], config['always_first'])
   all_script_names = list(all_scripts.keys())
   # Sort scripts such that always first scripts get executed first, then versioned scripts, and then the repeatable ones.
-  all_script_names_sorted = sorted_alphanumeric([script for script in all_script_names if script[0] == 'AF']) \
+  all_script_names_sorted = sorted_alphanumeric([script for script in all_script_names if script[0] == 'F']) \
                             + sorted_alphanumeric([script for script in all_script_names if script[0] == 'V']) \
                             + sorted_alphanumeric([script for script in all_script_names if script[0] == 'R']) \
                             + sorted_alphanumeric([script for script in all_script_names if script[0] == 'A'])
@@ -518,7 +518,7 @@ def deploy_command(config):
     script = all_scripts[script_name]
 
     # Execute the Always First script(s) as long as the `always_first` configuration is True.
-    if script_name[0] == 'AF' and config['always_first']:
+    if script_name[0] == 'F' and config['always_first']:
         if config['verbose']:
             print(_log_skip_r.format(**script))
         print(_log_apply.format(**script))
@@ -535,7 +535,8 @@ def deploy_command(config):
 
     # Always process with jinja engine
     jinja_processor = JinjaTemplateProcessor(project_root = config['root_folder'], modules_folder = config['modules_folder'])
-    content = jinja_processor.render(jinja_processor.relpath(script['script_full_path']), config['vars'], config['verbose'])
+    content = jinja_processor.render(jinja_processor.relpath(script['script_full_path']), config['vars'], \
+                                     config['verbose'], config['always_first'])
 
     # Apply only R scripts where the checksum changed compared to the last execution of snowchange
     if script_name[0] == 'R':
@@ -578,7 +579,7 @@ def render_command(config, script_path):
   jinja_processor = JinjaTemplateProcessor(project_root = config['root_folder'], \
      modules_folder = config['modules_folder'])
   content = jinja_processor.render(jinja_processor.relpath(script_path), \
-    config['vars'], config['verbose'])
+    config['vars'], config['verbose'], config['always_first'])
 
   checksum = hashlib.sha224(content.encode('utf-8')).hexdigest()
   print("Checksum %s" % checksum)
@@ -681,13 +682,17 @@ def get_all_scripts_recursively(root_directory, verbose, always_first):
         file_name.strip(), re.IGNORECASE)
       repeatable_script_name_parts = re.search(r'^([R])__(.+?)\.(?:sql|sql.jinja)$', \
         file_name.strip(), re.IGNORECASE)
-      always_script_name_parts = re.search(r'^([A])__(.+?)\.(?:sql|sql.jinja)$', \
+      always_first_script_name_parts = re.search(r'^([F])__(.+?)\.(?:sql|sql.jinja)$', \
         file_name.strip(), re.IGNORECASE)
-      always_first_script_name_parts = re.search(r'^([AF])__(.+?)\.(?:sql|sql.jinja)$', \
+      always_script_name_parts = re.search(r'^([A])__(.+?)\.(?:sql|sql.jinja)$', \
         file_name.strip(), re.IGNORECASE)
 
       # Set script type depending on whether it matches the versioned file naming format
-      if script_name_parts is not None:
+      if always_first_script_name_parts is not None and always_first:
+        script_type = 'F'
+        if verbose:
+          print("Found Always First file " + file_full_path)
+      elif script_name_parts is not None:
         script_type = 'V'
         if verbose:
           print("Found Versioned file " + file_full_path)
@@ -699,10 +704,6 @@ def get_all_scripts_recursively(root_directory, verbose, always_first):
         script_type = 'A'
         if verbose:
           print("Found Always file " + file_full_path)
-      elif always_first_script_name_parts is not None and always_first:
-        script_type = 'AF'
-        if verbose:
-            print("Found Always First file " + file_full_path)
       else:
         if verbose:
           print("Ignoring non-change file " + file_full_path)
@@ -720,12 +721,12 @@ def get_all_scripts_recursively(root_directory, verbose, always_first):
       script['script_name'] = script_name
       script['script_full_path'] = file_full_path
       script['script_type'] = script_type
-      script['script_version'] = '' if script_type in ['R', 'A', 'AF'] else script_name_parts.group(2)
+      script['script_version'] = '' if script_type in ['R', 'A', 'F'] else script_name_parts.group(2)
       if script_type == 'R':
         script['script_description'] = repeatable_script_name_parts.group(2).replace('_', ' ').capitalize()
       elif script_type == 'A':
         script['script_description'] = always_script_name_parts.group(2).replace('_', ' ').capitalize()
-      elif script_type == 'AF':
+      elif script_type == 'F':
         script['script_description'] = always_first_script_name_parts.group(2).replace('_', ' ').capitalize()
       else:
         script['script_description'] = script_name_parts.group(3).replace('_', ' ').capitalize()
