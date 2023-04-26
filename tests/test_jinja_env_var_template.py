@@ -14,7 +14,7 @@ def test_from_environ_not_set():
     processor.override_loader(DictLoader(templates))
 
     with pytest.raises(ValueError) as e:
-        context = processor.render("test.sql", None, True)
+        context = processor.render("test.sql", None, True, False)
 
     assert str(e.value) == "Could not find environmental variable MYVAR and no default value was provided"
 
@@ -29,7 +29,7 @@ def test_from_environ_set():
     templates = {"test.sql": "some text {{ env_var('MYVAR') }}"}
     processor.override_loader(DictLoader(templates))
 
-    context = processor.render("test.sql", None, True)
+    context = processor.render("test.sql", None, True, False)
 
     # unset MYVAR env variable
     del os.environ["MYVAR"]
@@ -44,6 +44,6 @@ def test_from_environ_not_set_default():
     templates = {"test.sql": "some text {{ env_var('MYVAR', 'myvar_default') }}"}
     processor.override_loader(DictLoader(templates))
 
-    context = processor.render("test.sql", None, True)
+    context = processor.render("test.sql", None, True, False)
 
     assert context == "some text myvar_default"
