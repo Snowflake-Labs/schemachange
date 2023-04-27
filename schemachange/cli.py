@@ -379,7 +379,7 @@ class SnowflakeSchemachangeSession:
     results = self.execute_snowflake_query(query)
 
     # Collect all the results into a dict
-    d_script_checksum = DatFrame(columns=['script_name', 'checksum'])
+    d_script_checksum = DataFrame(columns=['script_name', 'checksum'])
     script_names = []
     checksums = []
     for cursor in results:
