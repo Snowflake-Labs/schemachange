@@ -131,7 +131,7 @@ This type of change script is useful for an environment set up after cloning. Al
 
 ### Always First Script Naming
 
-Always First change scripts are executed with every run of schemachange as long as the configuration option is set to `True`; the default is `False`. This is an addition to the implementation of [Flyway Versioned Migrations](https://flywaydb.org/documentation/concepts/migrations.html#repeatable-migrations).
+Always First change scripts are executed with every run of schemachange if the configuration option is set to `True`; the default is `False`. This is an addition to the implementation of [Flyway Versioned Migrations](https://flywaydb.org/documentation/concepts/migrations.html#repeatable-migrations).
 The script name must following pattern:
 
 `F__Some_description.sql`
@@ -141,7 +141,7 @@ e.g.
 * F__QA_Clone.sql
 * F__STG_Clone.sql
 
-This type of change script is useful for cloning an environment at the start of the CI/CD process. When a release is created, the first step is to recreate the QA clone off production so the change scripts are applied to the most current version of the production environment. After QA approves the release, the cloning action is not needed, so the configuration option is set to `False` and the Always First scripts are skipped. Always First scripts are applied first when the configuration option is set to `True`.
+This type of change script is useful for cloning an environment at the start of the CI/CD process. When a release is created, the first step is to recreate the QA clone off production, so the change scripts are applied to the most current version of the production environment. After QA approves the release, the cloning action is not needed, so the configuration option is set to `False` and the Always First scripts are skipped. Always First scripts are applied first when the configuration option is set to `True`.
 
 ### Script Requirements
 
