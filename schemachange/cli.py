@@ -379,7 +379,7 @@ class SnowflakeSchemachangeSession:
     results = self.execute_snowflake_query(query)
 
     # Collect all the results into a dict
-    d_script_checksum = DatFrame(columns=['script_name', 'checksum'])
+    d_script_checksum = DataFrame(columns=['script_name', 'checksum'])
     script_names = []
     checksums = []
     for cursor in results:
@@ -517,6 +517,12 @@ def deploy_command(config):
   for script_name in all_script_names_sorted:
     script = all_scripts[script_name]
 
+    # Always process with jinja engine
+    jinja_processor = JinjaTemplateProcessor(project_root=config['root_folder'],
+                                             modules_folder=config['modules_folder'])
+    content = jinja_processor.render(jinja_processor.relpath(script['script_full_path']), config['vars'], \
+                                     config['verbose'], config['always_first'])
+
     # Execute the Always First script(s) as long as the `always_first` configuration is True.
     if script_name[0] == 'F' and config['always_first']:
         if config['verbose']:
@@ -532,11 +538,6 @@ def deploy_command(config):
         print(_log_skip_v.format(max_published_version=max_published_version, **script) )
       scripts_skipped += 1
       continue
-
-    # Always process with jinja engine
-    jinja_processor = JinjaTemplateProcessor(project_root = config['root_folder'], modules_folder = config['modules_folder'])
-    content = jinja_processor.render(jinja_processor.relpath(script['script_full_path']), config['vars'], \
-                                     config['verbose'], config['always_first'])
 
     # Apply only R scripts where the checksum changed compared to the last execution of snowchange
     if script_name[0] == 'R':
