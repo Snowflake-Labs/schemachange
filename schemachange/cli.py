@@ -528,8 +528,6 @@ def deploy_command(config):
         if config['verbose']:
             print(_log_skip_r.format(**script))
         print(_log_apply.format(**script))
-        if not config['dry_run']:
-            session.apply_change_script(script, content, change_history_table)
 
     # Apply a versioned-change script only if the version is newer than the most recent change in the database
     # Apply any other scripts, i.e. repeatable scripts, irrespective of the most recent change in the database
