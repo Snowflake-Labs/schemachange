@@ -1,4 +1,4 @@
 Jinja2==3.0.0
 pandas==1.3.0
 PyYAML==5.4
-snowflake-connector-python==2.8.0
+snowflake-connector-python==2.8.3
