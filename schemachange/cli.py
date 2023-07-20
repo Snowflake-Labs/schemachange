@@ -324,8 +324,22 @@ class SnowflakeSchemachangeSession:
       if self.verbose:
         print(_log_auth_type % 'Okta')
         print(_log_okta_ep % okta)
-    else:
-      raise NameError(_err_no_auth_mthd)
+      else:
+        raise NameError(_err_no_auth_mthd)
+
+    # if both password and okta authenticator are passed as args
+    elif snowflake_password \
+      and os.getenv("SNOWFLAKE_AUTHENTICATOR").lower()[:8]=='https://' \
+      and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
+      okta = os.getenv("SNOWFLAKE_AUTHENTICATOR")
+      self.conArgs['authenticator'] = okta
+      self.conArgs['password'] = snowflake_password
+      if self.verbose:
+        print(_log_auth_type % 'Password and Okta')
+        print(_log_okta_ep % okta)
+      else:
+        raise NameError(_err_no_auth_mthd)
+
     return snowflake.connector.connect(**self.conArgs)
 
   def execute_snowflake_query(self, query):
