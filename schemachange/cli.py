@@ -270,25 +270,25 @@ class SnowflakeSchemachangeSession:
       else:
         warnings.warn(_warn_password, DeprecationWarning)
         snowflake_password = os.getenv("SNOWSQL_PWD")
-        
+
     # if password and not okta authenticator, then default the authenticator
-    if snowflake_password and not os.getenv("SNOWFLAKE_AUTHENTICATOR").lower()[:8] == 'https://' \ 
-           and not os.getenv("SNOWFLAKE_AUTHENTICATOR"):
+    if snowflake_password and not os.getenv("SNOWFLAKE_AUTHENTICATOR").lower()[:8] == 'https://' \
+      and not os.getenv("SNOWFLAKE_AUTHENTICATOR"):
       if self.verbose:
         print(_log_auth_type %  'password' )
       self.conArgs['password'] = snowflake_password
       self.conArgs['authenticator'] = 'snowflake'
 
     # if password and okta authenticator
-    elif snowflake_password and os.getenv("SNOWFLAKE_AUTHENTICATOR").lower()[:8] == 'https://' \
-            and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
+    if snowflake_password and os.getenv("SNOWFLAKE_AUTHENTICATOR").lower()[:8] == 'https://' \
+      and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
       okta = os.getenv("SNOWFLAKE_AUTHENTICATOR")
       self.conArgs['password'] = snowflake_password
       self.conArgs['authenticator'] = okta
       if self.verbose:
-        print(_log_auth_type % 'password and okta')
+        print(_log_auth_type %  'Password and Okta' )
         print(_log_okta_ep % okta)
-        
+
     # If no password, try private key authentication
     elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH", ''):
       if self.verbose:
@@ -328,14 +328,14 @@ class SnowflakeSchemachangeSession:
       self.conArgs['authenticator'] = 'externalbrowser'
       if self.verbose:
         print(_log_auth_type % 'External Browser')
-
+        
     # If no password and okta authentication
     elif not snowflake_password and os.getenv("SNOWFLAKE_AUTHENTICATOR").lower()[:8]=='https://' \
       and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
       okta = os.getenv("SNOWFLAKE_AUTHENTICATOR")
       self.conArgs['authenticator'] = okta
       if self.verbose:
-        print(_log_auth_type % 'okta')
+        print(_log_auth_type % 'Okta')
         print(_log_okta_ep % okta)
     else:
       raise NameError(_err_no_auth_mthd)
