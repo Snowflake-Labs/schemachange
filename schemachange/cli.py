@@ -280,7 +280,7 @@ class SnowflakeSchemachangeSession:
       self.conArgs['authenticator'] = 'snowflake'
 
     # if password and okta authenticator
-    if snowflake_password and os.getenv("SNOWFLAKE_AUTHENTICATOR").lower()[:8] == 'https://' \
+    elif snowflake_password and os.getenv("SNOWFLAKE_AUTHENTICATOR").lower()[:8] == 'https://' \
       and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
       okta = os.getenv("SNOWFLAKE_AUTHENTICATOR")
       self.conArgs['password'] = snowflake_password
