@@ -271,7 +271,7 @@ class SnowflakeSchemachangeSession:
         warnings.warn(_warn_password, DeprecationWarning)
         snowflake_password = os.getenv("SNOWSQL_PWD")
 
-    if snowflake_password:
+    if snowflake_password and not os.getenv("SNOWFLAKE_AUTHENTICATOR"):
       if self.verbose:
         print(_log_auth_type %  'password' )
       self.conArgs['password'] = snowflake_password
