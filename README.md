@@ -69,7 +69,7 @@ schemachange expects a directory structure like the following to exist:
         |-- R__fn_sort_ascii.sql
 ```
 
-The schemachange folder structure is very flexible. The `project_root` folder is specified with the `-f` or `--root-folder` argument. Under the `project_root` folder you are free to arrange the change scripts any way you see fit. You can have as many subfolders (and nested subfolders) as you would like.
+The schemachange folder structure is very flexible. The `project_root` folder is specified with the `-f` or `--root-folder` argument. schemachange only pays attention to the filenames, not the paths. Therefore, under the `project_root` folder you are free to arrange the change scripts any way you see fit. You can have as many subfolders (and nested subfolders) as you would like.
 
 ## Change Scripts
 
@@ -111,7 +111,7 @@ e.g:
 All repeatable change scripts are applied each time the utility is run, if there is a change in the file.
 Repeatable scripts could be used for maintaining code that always needs to be applied in its entirety. e.g. stores procedures, functions and view definitions etc.
 
-Just like Flyway, within a single migration run, repeatable scripts are always applied after all pending versioned scripts have been executed. Repeatable scripts are applied in the order of their description.
+Just like Flyway, within a single migration run, repeatable scripts are always applied after all pending versioned scripts have been executed. Repeatable scripts are applied in alphabetical order of their description.
 
 ### Always Script Naming
 
