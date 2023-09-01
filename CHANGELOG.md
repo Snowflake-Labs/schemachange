@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Fixed authentication workflow to check for authenticator type first, then for Key pair and finally default to password authentication.
 - Fixed the `Dockerfile-src` configuration to build a docker image from source code.
+- Updated README file.
 
 ## [3.5.3] - 2023-07-18
 ### Changed

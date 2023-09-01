@@ -219,15 +219,16 @@ CREATE TABLE IF NOT EXISTS SCHEMACHANGE.CHANGE_HISTORY
 Schemachange supports snowflake's default authenticator, External Oauth, Browswer based SSO and Programmatic SSO options supported by the [Snowflake Python Connector](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-to-snowflake). Set the environment variable `SNOWFLAKE_AUTHENTICATOR` to one of the following
 Authentication Option | Expected Value
 --- | ---
-Default [Password](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-using-the-default-authenticator) Authenticator or [Key Pair](https://docs.snowflake.com/en/user-guide/python-connector-example.html#using-key-pair-authentication) Authenticator| `snowflake`
-[External Oauth](https://docs.snowflake.com/en/user-guide/oauth-external.html) `oauth`
+Default [Password](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-using-the-default-authenticator) Authenticator | `snowflake`
+[Key Pair](https://docs.snowflake.com/en/user-guide/python-connector-example.html#using-key-pair-authentication) Authenticator| `snowflake`
+[External Oauth](https://docs.snowflake.com/en/user-guide/oauth-external.html) | `oauth`
 [Browser based SSO](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#setting-up-browser-based-sso) | `externalbrowser`
 [Programmatic SSO](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#native-sso-okta-only) (Okta Only) | Okta URL endpoing for your Okta account typically in the form `https://<okta_account_name>.okta.com` OR `https://<okta_account_name>.oktapreview.com`
 
-In the event both authentication criteria for the default authenticator are provided, schemachange will prioritize password authentication over key pair authentication. 
+If an authenticator is unsupported, then schemachange will default to `snowflake`. If the authenticator is `snowflake`, and both password and key pair values are provided then schemachange will use the password over the key pair values.
 
 ### Password Authentication
-The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWFLAKE_PASSWORD` prior to calling the script. schemachange will fail if the `SNOWFLAKE_PASSWORD` environment variable is not set.
+The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWFLAKE_PASSWORD` prior to calling the script. schemachange will fail if the `SNOWFLAKE_PASSWORD` environment variable is not set. The environment variable `SNOWFLAKE_AUTHENTICATOR` will be set to `snowflake` if it not explicitly set. 
 
 _**DEPRECATION NOTICE**: The `SNOWSQL_PWD` environment variable is deprecated but currently still supported. Support for it will be removed in a later version of schemachange. Please use `SNOWFLAKE_PASSWORD` instead._
 

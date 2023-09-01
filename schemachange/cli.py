@@ -21,7 +21,7 @@ from pandas import DataFrame
 
 #region Global Variables 
 # metadata
-_schemachange_version = '3.5.3'
+_schemachange_version = '3.5.4'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
@@ -35,7 +35,7 @@ _err_oauth_tk_nm = 'Response Json contains keys: {keys} \n but not {key}'
 _err_oauth_tk_err = '\n error description: {desc}'
 _err_no_auth_mthd = "Unable to find connection credentials for Okta, private key,  " \
   + "password, Oauth or Browser authentication"
-_err_unsupported_auth_mthd = "'{snowflake_authenticator}' is not supported authenticator option. " \
+_err_unsupported_auth_mthd = "'{unsupported_authenticator}' is not supported authenticator option. " \
   + "Choose from externalbrowser, oauth, https://<subdomain>.okta.com. Using default value = 'snowflake'"
 _warn_password = "The SNOWSQL_PWD environment variable is deprecated and will" \
   + " be removed in a later version of schemachange. Please use SNOWFLAKE_PASSWORD instead."
@@ -231,9 +231,12 @@ class SnowflakeSchemachangeSession:
     self.oauth_config = config['oauth_config']
     self.autocommit = config['autocommit']
     self.verbose = config['verbose']
-    self.con = self.authenticate()
-    if not self.autocommit:
-      self.con.autocommit(False)
+    if self.set_connection_args():
+      self.con = snowflake.connector.connect(**self.conArgs) 
+      if not self.autocommit:
+        self.con.autocommit(False)
+    else:
+      print(_err_env_missing)
 
   def __del__(self):
     if hasattr(self, 'con'):
@@ -259,9 +262,10 @@ class SnowflakeSchemachangeSession:
         errormessage += _err_oauth_tk_err.format(desc=resJsonDict['error_description'])
       raise KeyError( errormessage )
 
-  def authenticate(self):
+  def set_connection_args(self):
     # Password authentication is the default
     snowflake_password = None
+    default_authenticator = 'snowflake'
     if os.getenv("SNOWFLAKE_PASSWORD") is not None and os.getenv("SNOWFLAKE_PASSWORD"):
       snowflake_password = os.getenv("SNOWFLAKE_PASSWORD")
     
@@ -274,6 +278,7 @@ class SnowflakeSchemachangeSession:
         snowflake_password = os.getenv("SNOWSQL_PWD")
     
     snowflake_authenticator = os.getenv("SNOWFLAKE_AUTHENTICATOR")
+
     if snowflake_authenticator:
       # Determine the type of Authenticator
       # OAuth based authentication
@@ -298,49 +303,53 @@ class SnowflakeSchemachangeSession:
 
         self.conArgs['password'] = snowflake_password
         self.conArgs['authenticator'] = snowflake_authenticator.lower()
-        
+      elif snowflake_authenticator.lower() == 'snowflake':
+        self.conArgs['authenticator'] = default_authenticator
       # if authenticator is not a supported method or the authenticator variable is defined but not specified
       else:
+        # defaulting to snowflake as authenticator
         if self.verbose:
-          print(_err_unsupported_auth_mthd % snowflake_authenticator )
-          print(_log_auth_type % 'snowflake')
-        self.conArgs['authenticator'] = 'snowflake'
-    # If no Authenticator specified, Check private key authentication
-    elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH", ''):
-      if self.verbose:
-        print( _log_auth_type %  'private key')
+          print(_err_unsupported_auth_mthd.format(unsupported_authenticator=snowflake_authenticator) )
+        self.conArgs['authenticator'] = default_authenticator
+    else: 
+        # default authenticator to snowflake
+        self.conArgs['authenticator'] = default_authenticator
 
-      private_key_password = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE", '')
-      if private_key_password:
-        private_key_password = private_key_password.encode()
-      else:
-        private_key_password = None
-        if self.verbose:
-          print(_log_pk_enc)
-      with open(os.environ["SNOWFLAKE_PRIVATE_KEY_PATH"], "rb") as key:
-        p_key= serialization.load_pem_private_key(
-            key.read(),
-            password = private_key_password,
-            backend = default_backend()
-        )
-
-      pkb = p_key.private_bytes(
-          encoding = serialization.Encoding.DER,
-          format = serialization.PrivateFormat.PKCS8,
-          encryption_algorithm = serialization.NoEncryption())
-
-      self.conArgs['private_key'] = pkb
-      self.conArgs['authenticator'] = 'snowflake'
-    
-    elif snowflake_password:
+    if self.conArgs['authenticator'].lower() == default_authenticator:
+      # Giving preference to password based authentication when both private key and password are specified.
+      if snowflake_password:
         if self.verbose:
           print(_log_auth_type %  'password' )
         self.conArgs['password'] = snowflake_password
-        self.conArgs['authenticator'] = 'snowflake'
-    else:
-      raise NameError(_err_no_auth_mthd)
+
+      elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH", ''):
+        if self.verbose:
+          print( _log_auth_type %  'private key')
+
+        private_key_password = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE", '')
+        if private_key_password:
+          private_key_password = private_key_password.encode()
+        else:
+          private_key_password = None
+          if self.verbose:
+            print(_log_pk_enc)
+        with open(os.environ["SNOWFLAKE_PRIVATE_KEY_PATH"], "rb") as key:
+          p_key= serialization.load_pem_private_key(
+              key.read(),
+              password = private_key_password,
+              backend = default_backend()
+          )
+
+        pkb = p_key.private_bytes(
+            encoding = serialization.Encoding.DER,
+            format = serialization.PrivateFormat.PKCS8,
+            encryption_algorithm = serialization.NoEncryption())
+
+        self.conArgs['private_key'] = pkb
+      else:
+        raise NameError(_err_no_auth_mthd)
     
-    return snowflake.connector.connect(**self.conArgs)
+    return True
 
   def execute_snowflake_query(self, query):
     if self.verbose:
