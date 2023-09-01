@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
+## [3.5.4] - 2023-09-01
+### Changed
+- Fixed authentication workflow to check for authenticator type first, then for Key pair and finally default to password authentication.
+- Fixed the `Dockerfile-src` configuration to build a docker image from source code.
+- Updated README file.
 
 ## [3.5.3] - 2023-07-18
 ### Changed
