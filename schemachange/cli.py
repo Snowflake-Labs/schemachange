@@ -33,8 +33,10 @@ _err_jinja_env_var = "Could not find environmental variable %s and no default" \
   + " value was provided"
 _err_oauth_tk_nm = 'Response Json contains keys: {keys} \n but not {key}'
 _err_oauth_tk_err = '\n error description: {desc}'
-_err_no_auth_mthd = "Unable to find connection credentials for private key,  " \
+_err_no_auth_mthd = "Unable to find connection credentials for Okta, private key,  " \
   + "password, Oauth or Browser authentication"
+_err_unsupported_auth_mthd = "'{snowflake_authenticator}' is not supported authenticator option. " \
+  + "Choose from externalbrowser, oauth, https://<subdomain>.okta.com. Using default value = 'snowflake'"
 _warn_password = "The SNOWSQL_PWD environment variable is deprecated and will" \
   + " be removed in a later version of schemachange. Please use SNOWFLAKE_PASSWORD instead."
 _warn_password_dup = "Environment variables SNOWFLAKE_PASSWORD and SNOWSQL_PWD are " \
@@ -270,14 +272,40 @@ class SnowflakeSchemachangeSession:
       else:
         warnings.warn(_warn_password, DeprecationWarning)
         snowflake_password = os.getenv("SNOWSQL_PWD")
+    
+    snowflake_authenticator = os.getenv("SNOWFLAKE_AUTHENTICATOR")
+    if snowflake_authenticator:
+      # Determine the type of Authenticator
+      # OAuth based authentication
+      if snowflake_authenticator.lower() == 'oauth':      
+        oauth_token = self.get_oauth_token()
+      
+        if self.verbose:
+          print( _log_auth_type % 'Oauth Access Token')
+        self.conArgs['token'] = oauth_token
+        self.conArgs['authenticator'] = 'oauth'
+      # External Browswer based SSO
+      elif snowflake_authenticator.lower() == 'externalbrowser':
+        self.conArgs['authenticator'] = 'externalbrowser'
+        if self.verbose:
+          print(_log_auth_type % 'External Browser')
+      # IDP based Authentication, limited to Okta
+      elif snowflake_authenticator.lower()[:8]=='https://':
+        
+        if self.verbose:
+          print(_log_auth_type % 'Okta')
+          print(_log_okta_ep % snowflake_authenticator)
 
-    if snowflake_password:
-      if self.verbose:
-        print(_log_auth_type %  'password' )
-      self.conArgs['password'] = snowflake_password
-      self.conArgs['authenticator'] = 'snowflake'
-
-    # If no password, try private key authentication
+        self.conArgs['password'] = snowflake_password
+        self.conArgs['authenticator'] = snowflake_authenticator.lower()
+        
+      # if authenticator is not a supported method or the authenticator variable is defined but not specified
+      else:
+        if self.verbose:
+          print(_err_unsupported_auth_mthd % snowflake_authenticator )
+          print(_log_auth_type % 'snowflake')
+        self.conArgs['authenticator'] = 'snowflake'
+    # If no Authenticator specified, Check private key authentication
     elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH", ''):
       if self.verbose:
         print( _log_auth_type %  'private key')
@@ -304,28 +332,14 @@ class SnowflakeSchemachangeSession:
       self.conArgs['private_key'] = pkb
       self.conArgs['authenticator'] = 'snowflake'
     
-    elif os.getenv("SNOWFLAKE_AUTHENTICATOR") == 'oauth' and os.getenv("SNOWFLAKE_AUTHENTICATOR"):      
-      oauth_token = self.get_oauth_token()
-      
-      if self.verbose:
-        print( _log_auth_type % 'Oauth Access Token')
-      self.conArgs['token'] = oauth_token
-      self.conArgs['authenticator'] = 'oauth'
-    
-    elif os.getenv("SNOWFLAKE_AUTHENTICATOR") == 'externalbrowser' and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
-      self.conArgs['authenticator'] = 'externalbrowser'
-      if self.verbose:
-        print(_log_auth_type % 'External Browser')
-        
-    elif os.getenv("SNOWFLAKE_AUTHENTICATOR").lower()[:8]=='https://' \
-      and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
-      okta = os.getenv("SNOWFLAKE_AUTHENTICATOR")
-      self.conArgs['authenticator'] = okta
-      if self.verbose:
-        print(_log_auth_type % 'Okta')
-        print(_log_okta_ep % okta)
+    elif snowflake_password:
+        if self.verbose:
+          print(_log_auth_type %  'password' )
+        self.conArgs['password'] = snowflake_password
+        self.conArgs['authenticator'] = 'snowflake'
     else:
       raise NameError(_err_no_auth_mthd)
+    
     return snowflake.connector.connect(**self.conArgs)
 
   def execute_snowflake_query(self, query):
