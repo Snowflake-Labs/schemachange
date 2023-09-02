@@ -228,7 +228,7 @@ Default [Password](https://docs.snowflake.com/en/user-guide/python-connector-exa
 If an authenticator is unsupported, then schemachange will default to `snowflake`. If the authenticator is `snowflake`, and both password and key pair values are provided then schemachange will use the password over the key pair values.
 
 ### Password Authentication
-The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWFLAKE_PASSWORD` prior to calling the script. schemachange will fail if the `SNOWFLAKE_PASSWORD` environment variable is not set. The environment variable `SNOWFLAKE_AUTHENTICATOR` will be set to `snowflake` if it not explicitly set. 
+The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWFLAKE_PASSWORD` prior to calling the script. schemachange will fail if the `SNOWFLAKE_PASSWORD` environment variable is not set. The environment variable `SNOWFLAKE_AUTHENTICATOR` will be set to `snowflake` if it not explicitly set.
 
 _**DEPRECATION NOTICE**: The `SNOWSQL_PWD` environment variable is deprecated but currently still supported. Support for it will be removed in a later version of schemachange. Please use `SNOWFLAKE_PASSWORD` instead._
 
@@ -242,20 +242,20 @@ The URL of the authenticator resource that will be receive the POST request.
 * token-response-name
 The Expected name of the JSON element containing the Token in the return response from the authenticator resource.
 * token-request-payload
-The Set of variables passed as a dictionary to the `data` element of the request. 
+The Set of variables passed as a dictionary to the `data` element of the request.
 * token-request-headers
-The Set of variables passed as a dictionary to the `headers` element of the request. 
+The Set of variables passed as a dictionary to the `headers` element of the request.
 
-It is recomended to use the YAML file and pass oauth secrets into the configuration using the templating engine instead of the command line option.  
+It is recomended to use the YAML file and pass oauth secrets into the configuration using the templating engine instead of the command line option.
 
 
 ### External Browser Authentication
-External browser authentication can be used for local development by setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value `externalbrowser` prior to calling schemachange. 
+External browser authentication can be used for local development by setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value `externalbrowser` prior to calling schemachange.
 The client will be prompted to authenticate in a browser that pops up. Refer to the [documentation](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#setting-up-browser-based-sso) to cache the token to minimize the number of times the browser pops up to authenticate the user.
 
 ### Okta Authentication
-For clients that do not have a browser, can use the popular SaaS Idp option to connect via Okta. This will require the Okta URL that you utilize for SSO. 
-Okta authentication can be used setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value of your okta endpoint as a fully formed URL ( E.g. `https://<org_name>.okta.com`) prior to calling schemachange. 
+For clients that do not have a browser, can use the popular SaaS Idp option to connect via Okta. This will require the Okta URL that you utilize for SSO.
+Okta authentication can be used setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value of your okta endpoint as a fully formed URL ( E.g. `https://<org_name>.okta.com`) prior to calling schemachange.
 
 _** NOTE**: Please disable Okta MFA for the user who uses Native SSO authentication with client drivers. Please consult your Okta administrator for more information._
 
@@ -330,14 +330,14 @@ dry-run: false
 # A string to include in the QUERY_TAG that is attached to every SQL statement executed
 query-tag: 'QUERY_TAG'
 
-# Information for Oauth token requests 
+# Information for Oauth token requests
 oauthconfig:
   # url Where token request are posted to
   token-provider-url: 'https://login.microsoftonline.com/{{ env_var('AZURE_ORG_GUID', 'default') }}/oauth2/v2.0/token'
   # name of Json entity returned by request
   token-response-name: 'access_token'
   # Headers needed for successful post or other security markings ( multiple labeled items permitted
-  token-request-headers: 
+  token-request-headers:
     Content-Type: "application/x-www-form-urlencoded"
     User-Agent: "python/schemachange"
   # Request Payload for Token (it is recommended pass
