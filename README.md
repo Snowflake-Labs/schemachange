@@ -3,6 +3,8 @@
 
 *Looking for snowchange? You've found the right spot. snowchange has been renamed to schemachange.*
 
+[![pytest](https://github.com/Snowflake-Labs/schemachange/actions/workflows/pytest.yml/badge.svg)](https://github.com/Snowflake-Labs/schemachange/actions/workflows/pytest.yml)
+[![PyPI](https://img.shields.io/pypi/v/schemachange.svg)](https://pypi.org/project/schemachange)
 ## Overview
 
 schemachange is a simple python based tool to manage all of your [Snowflake](https://www.snowflake.com/) objects. It follows an Imperative-style approach to Database Change Management (DCM) and was inspired by the [Flyway database migration tool](https://flywaydb.org). When combined with a version control system and a CI/CD tool, database changes can be approved and deployed through a pipeline using modern software delivery practices. As such schemachange plays a critical role in enabling Database (or Data) DevOps.
