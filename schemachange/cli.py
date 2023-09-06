@@ -21,7 +21,7 @@ from pandas import DataFrame
 
 #region Global Variables
 # metadata
-_schemachange_version = '3.5.4'
+_schemachange_version = '3.6.0'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
