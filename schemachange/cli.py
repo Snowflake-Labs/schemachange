@@ -457,9 +457,9 @@ class SnowflakeSchemachangeSession:
       self.reset_query_tag(script['script_name'])
       self.execute_snowflake_query(script_content)
       self.reset_query_tag()
+      self.reset_session()
       end = time.time()
       execution_time = round(end - start)
-
 
     # Finally record this change in the change history table by gathering data
     frmt_args = script.copy()
