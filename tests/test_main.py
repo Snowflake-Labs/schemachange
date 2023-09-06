@@ -8,7 +8,7 @@ import pytest
 import schemachange.cli
 
 DEFAULT_CONFIG = {
-    'root_folder': os.path.abspath('.'), 
+    'root_folder': os.path.abspath('.'),
     'modules_folder': None,
     'snowflake_account': None,
     'snowflake_user': None,

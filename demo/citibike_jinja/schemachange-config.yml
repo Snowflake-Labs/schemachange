@@ -8,4 +8,3 @@ vars:
     # not a good example of secrets, just here to demo the secret filtering
     trips_s3_bucket: s3://snowflake-workshop-lab/citibike-trips
     weather_s3_bucket: s3://snowflake-workshop-lab/weather-nyc
-

@@ -49,13 +49,13 @@ def test_JinjaTemplateProcessor_render_simple_string_expecting_variable():
 def test_JinjaTemplateProcessor_render_from_subfolder(tmp_path: pathlib.Path):
 
     root_folder = tmp_path / "MORE2"
-    
+
     root_folder.mkdir()
     script_folder = root_folder/ "SQL"
     script_folder.mkdir()
     script_file = script_folder / "1.0.0_my_test.sql"
     script_file.write_text("Hello world!")
-    
+
     processor = JinjaTemplateProcessor(str(root_folder), None)
     template_path = processor.relpath(str(script_file))
 
