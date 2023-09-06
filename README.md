@@ -3,6 +3,8 @@
 
 *Looking for snowchange? You've found the right spot. snowchange has been renamed to schemachange.*
 
+[![pytest](https://github.com/Snowflake-Labs/schemachange/actions/workflows/pytest.yml/badge.svg)](https://github.com/Snowflake-Labs/schemachange/actions/workflows/pytest.yml)
+[![PyPI](https://img.shields.io/pypi/v/schemachange.svg)](https://pypi.org/project/schemachange)
 ## Overview
 
 schemachange is a simple python based tool to manage all of your [Snowflake](https://www.snowflake.com/) objects. It follows an Imperative-style approach to Database Change Management (DCM) and was inspired by the [Flyway database migration tool](https://flywaydb.org). When combined with a version control system and a CI/CD tool, database changes can be approved and deployed through a pipeline using modern software delivery practices. As such schemachange plays a critical role in enabling Database (or Data) DevOps.
@@ -69,7 +71,7 @@ schemachange expects a directory structure like the following to exist:
         |-- R__fn_sort_ascii.sql
 ```
 
-The schemachange folder structure is very flexible. The `project_root` folder is specified with the `-f` or `--root-folder` argument. Under the `project_root` folder you are free to arrange the change scripts any way you see fit. You can have as many subfolders (and nested subfolders) as you would like.
+The schemachange folder structure is very flexible. The `project_root` folder is specified with the `-f` or `--root-folder` argument. schemachange only pays attention to the filenames, not the paths. Therefore, under the `project_root` folder you are free to arrange the change scripts any way you see fit. You can have as many subfolders (and nested subfolders) as you would like.
 
 ## Change Scripts
 
@@ -111,7 +113,7 @@ e.g:
 All repeatable change scripts are applied each time the utility is run, if there is a change in the file.
 Repeatable scripts could be used for maintaining code that always needs to be applied in its entirety. e.g. stores procedures, functions and view definitions etc.
 
-Just like Flyway, within a single migration run, repeatable scripts are always applied after all pending versioned scripts have been executed. Repeatable scripts are applied in the order of their description.
+Just like Flyway, within a single migration run, repeatable scripts are always applied after all pending versioned scripts have been executed. Repeatable scripts are applied in alphabetical order of their description.
 
 ### Always Script Naming
 
@@ -228,7 +230,7 @@ Default [Password](https://docs.snowflake.com/en/user-guide/python-connector-exa
 If an authenticator is unsupported, then schemachange will default to `snowflake`. If the authenticator is `snowflake`, and both password and key pair values are provided then schemachange will use the password over the key pair values.
 
 ### Password Authentication
-The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWFLAKE_PASSWORD` prior to calling the script. schemachange will fail if the `SNOWFLAKE_PASSWORD` environment variable is not set. The environment variable `SNOWFLAKE_AUTHENTICATOR` will be set to `snowflake` if it not explicitly set. 
+The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWFLAKE_PASSWORD` prior to calling the script. schemachange will fail if the `SNOWFLAKE_PASSWORD` environment variable is not set. The environment variable `SNOWFLAKE_AUTHENTICATOR` will be set to `snowflake` if it not explicitly set.
 
 _**DEPRECATION NOTICE**: The `SNOWSQL_PWD` environment variable is deprecated but currently still supported. Support for it will be removed in a later version of schemachange. Please use `SNOWFLAKE_PASSWORD` instead._
 
@@ -242,20 +244,20 @@ The URL of the authenticator resource that will be receive the POST request.
 * token-response-name
 The Expected name of the JSON element containing the Token in the return response from the authenticator resource.
 * token-request-payload
-The Set of variables passed as a dictionary to the `data` element of the request. 
+The Set of variables passed as a dictionary to the `data` element of the request.
 * token-request-headers
-The Set of variables passed as a dictionary to the `headers` element of the request. 
+The Set of variables passed as a dictionary to the `headers` element of the request.
 
-It is recomended to use the YAML file and pass oauth secrets into the configuration using the templating engine instead of the command line option.  
+It is recomended to use the YAML file and pass oauth secrets into the configuration using the templating engine instead of the command line option.
 
 
 ### External Browser Authentication
-External browser authentication can be used for local development by setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value `externalbrowser` prior to calling schemachange. 
+External browser authentication can be used for local development by setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value `externalbrowser` prior to calling schemachange.
 The client will be prompted to authenticate in a browser that pops up. Refer to the [documentation](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#setting-up-browser-based-sso) to cache the token to minimize the number of times the browser pops up to authenticate the user.
 
 ### Okta Authentication
-For clients that do not have a browser, can use the popular SaaS Idp option to connect via Okta. This will require the Okta URL that you utilize for SSO. 
-Okta authentication can be used setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value of your okta endpoint as a fully formed URL ( E.g. `https://<org_name>.okta.com`) prior to calling schemachange. 
+For clients that do not have a browser, can use the popular SaaS Idp option to connect via Okta. This will require the Okta URL that you utilize for SSO.
+Okta authentication can be used setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value of your okta endpoint as a fully formed URL ( E.g. `https://<org_name>.okta.com`) prior to calling schemachange.
 
 _** NOTE**: Please disable Okta MFA for the user who uses Native SSO authentication with client drivers. Please consult your Okta administrator for more information._
 
@@ -330,14 +332,14 @@ dry-run: false
 # A string to include in the QUERY_TAG that is attached to every SQL statement executed
 query-tag: 'QUERY_TAG'
 
-# Information for Oauth token requests 
+# Information for Oauth token requests
 oauthconfig:
   # url Where token request are posted to
   token-provider-url: 'https://login.microsoftonline.com/{{ env_var('AZURE_ORG_GUID', 'default') }}/oauth2/v2.0/token'
   # name of Json entity returned by request
   token-response-name: 'access_token'
   # Headers needed for successful post or other security markings ( multiple labeled items permitted
-  token-request-headers: 
+  token-request-headers:
     Content-Type: "application/x-www-form-urlencoded"
     User-Agent: "python/schemachange"
   # Request Payload for Token (it is recommended pass
