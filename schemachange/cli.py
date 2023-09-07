@@ -19,9 +19,9 @@ from cryptography.hazmat.primitives import serialization
 from jinja2.loaders import BaseLoader
 from pandas import DataFrame
 
-#region Global Variables 
+#region Global Variables
 # metadata
-_schemachange_version = '3.5.2'
+_schemachange_version = '3.6.0'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
@@ -33,8 +33,10 @@ _err_jinja_env_var = "Could not find environmental variable %s and no default" \
   + " value was provided"
 _err_oauth_tk_nm = 'Response Json contains keys: {keys} \n but not {key}'
 _err_oauth_tk_err = '\n error description: {desc}'
-_err_no_auth_mthd = "Unable to find connection credentials for private key,  " \
+_err_no_auth_mthd = "Unable to find connection credentials for Okta, private key,  " \
   + "password, Oauth or Browser authentication"
+_err_unsupported_auth_mthd = "'{unsupported_authenticator}' is not supported authenticator option. " \
+  + "Choose from externalbrowser, oauth, https://<subdomain>.okta.com. Using default value = 'snowflake'"
 _warn_password = "The SNOWSQL_PWD environment variable is deprecated and will" \
   + " be removed in a later version of schemachange. Please use SNOWFLAKE_PASSWORD instead."
 _warn_password_dup = "Environment variables SNOWFLAKE_PASSWORD and SNOWSQL_PWD are " \
@@ -48,7 +50,7 @@ _log_config_details = "Using Snowflake account {snowflake_account}\nUsing defaul
   + "{snowflake_role}\nUsing default warehouse {snowflake_warehouse}\nUsing default " \
   + "database {snowflake_database}"
 _log_ch_use = "Using change history table {database_name}.{schema_name}.{table_name} " \
-  + "(last altered {last_altered})" 
+  + "(last altered {last_altered})"
 _log_ch_create = "Created change history table {database_name}.{schema_name}.{table_name}"
 _err_ch_missing = "Unable to find change history table {database_name}.{schema_name}.{table_name}"
 _log_ch_max_version = "Max applied change script version: {max_published_version_display}"
@@ -56,17 +58,17 @@ _log_skip_v = "Skipping change script {script_name} because it's older than the 
   + "applied change ({max_published_version})"
 _log_skip_r ="Skipping change script {script_name} because there is no change since the last " \
   + "execution"
-_log_apply =  "Applying change script {script_name}"  
+_log_apply =  "Applying change script {script_name}"
 _log_apply_set_complete  =  "Successfully applied {scripts_applied} change scripts (skipping " \
-  + "{scripts_skipped}) \nCompleted successfully" 
+  + "{scripts_skipped}) \nCompleted successfully"
 _err_vars_config = "vars did not parse correctly, please check its configuration"
 _err_vars_reserved = "The variable schemachange has been reserved for use by schemachange, " \
   + "please use a different name"
 _err_invalid_folder  = "Invalid {folder_type} folder: {path}"
 _err_dup_scripts = "The script name {script_name} exists more than once (first_instance " \
-  + "{first_path}, second instance {script_full_path})" 
+  + "{first_path}, second instance {script_full_path})"
 _err_dup_scripts_version = "The script version {script_version} exists more than once " \
-  + "(second instance {script_full_path})" 
+  + "(second instance {script_full_path})"
 _err_invalid_cht  = 'Invalid change history table name: %s'
 _log_auth_type ="Proceeding with %s authentication"
 _log_pk_enc ="No private key passphrase provided. Assuming the key is not encrypted."
@@ -229,10 +231,15 @@ class SnowflakeSchemachangeSession:
     self.oauth_config = config['oauth_config']
     self.autocommit = config['autocommit']
     self.verbose = config['verbose']
-    self.always_first = config['always_first']
-    self.con = self.authenticate()
-    if not self.autocommit:
-      self.con.autocommit(False)
+
+    if self.set_connection_args():
+      self.always_first = config['always_first']
+      self.con = snowflake.connector.connect(**self.conArgs)
+      if not self.autocommit:
+        self.con.autocommit(False)
+    else:
+      print(_err_env_missing)
+
 
   def __del__(self):
     if hasattr(self, 'con'):
@@ -258,12 +265,13 @@ class SnowflakeSchemachangeSession:
         errormessage += _err_oauth_tk_err.format(desc=resJsonDict['error_description'])
       raise KeyError( errormessage )
 
-  def authenticate(self):
+  def set_connection_args(self):
     # Password authentication is the default
     snowflake_password = None
+    default_authenticator = 'snowflake'
     if os.getenv("SNOWFLAKE_PASSWORD") is not None and os.getenv("SNOWFLAKE_PASSWORD"):
       snowflake_password = os.getenv("SNOWFLAKE_PASSWORD")
-    
+
     # Check legacy/deprecated env variable
     if os.getenv("SNOWSQL_PWD") is not None and os.getenv("SNOWSQL_PWD"):
       if snowflake_password:
@@ -272,62 +280,79 @@ class SnowflakeSchemachangeSession:
         warnings.warn(_warn_password, DeprecationWarning)
         snowflake_password = os.getenv("SNOWSQL_PWD")
 
-    if snowflake_password:
-      if self.verbose:
-        print(_log_auth_type %  'password' )
-      self.conArgs['password'] = snowflake_password
-      self.conArgs['authenticator'] = 'snowflake'
+    snowflake_authenticator = os.getenv("SNOWFLAKE_AUTHENTICATOR")
 
-    # If no password, try private key authentication
-    elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH", ''):
-      if self.verbose:
-        print( _log_auth_type %  'private key')
+    if snowflake_authenticator:
+      # Determine the type of Authenticator
+      # OAuth based authentication
+      if snowflake_authenticator.lower() == 'oauth':
+        oauth_token = self.get_oauth_token()
 
-      private_key_password = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE", '')
-      if private_key_password:
-        private_key_password = private_key_password.encode()
-      else:
-        private_key_password = None
         if self.verbose:
-          print(_log_pk_enc)
-      with open(os.environ["SNOWFLAKE_PRIVATE_KEY_PATH"], "rb") as key:
-        p_key= serialization.load_pem_private_key(
-            key.read(),
-            password = private_key_password,
-            backend = default_backend()
-        )
+          print( _log_auth_type % 'Oauth Access Token')
+        self.conArgs['token'] = oauth_token
+        self.conArgs['authenticator'] = 'oauth'
+      # External Browswer based SSO
+      elif snowflake_authenticator.lower() == 'externalbrowser':
+        self.conArgs['authenticator'] = 'externalbrowser'
+        if self.verbose:
+          print(_log_auth_type % 'External Browser')
+      # IDP based Authentication, limited to Okta
+      elif snowflake_authenticator.lower()[:8]=='https://':
 
-      pkb = p_key.private_bytes(
-          encoding = serialization.Encoding.DER,
-          format = serialization.PrivateFormat.PKCS8,
-          encryption_algorithm = serialization.NoEncryption())
+        if self.verbose:
+          print(_log_auth_type % 'Okta')
+          print(_log_okta_ep % snowflake_authenticator)
 
-      self.conArgs['private_key'] = pkb
-      self.conArgs['authenticator'] = 'snowflake'
-    
-    elif os.getenv("SNOWFLAKE_AUTHENTICATOR") == 'oauth' and os.getenv("SNOWFLAKE_AUTHENTICATOR"):      
-      oauth_token = self.get_oauth_token()
-      
-      if self.verbose:
-        print( _log_auth_type % 'Oauth Access Token')
-      self.conArgs['token'] = oauth_token
-      self.conArgs['authenticator'] = 'oauth'
-    
-    elif os.getenv("SNOWFLAKE_AUTHENTICATOR") == 'externalbrowser' and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
-      self.conArgs['authenticator'] = 'externalbrowser'
-      if self.verbose:
-        print(_log_auth_type % 'External Browser')
-        
-    elif os.getenv("SNOWFLAKE_AUTHENTICATOR").lower()[:8]=='https://' \
-      and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
-      okta = os.getenv("SNOWFLAKE_AUTHENTICATOR")
-      self.conArgs['authenticator'] = okta
-      if self.verbose:
-        print(_log_auth_type % 'Okta')
-        print(_log_okta_ep % okta)
+        self.conArgs['password'] = snowflake_password
+        self.conArgs['authenticator'] = snowflake_authenticator.lower()
+      elif snowflake_authenticator.lower() == 'snowflake':
+        self.conArgs['authenticator'] = default_authenticator
+      # if authenticator is not a supported method or the authenticator variable is defined but not specified
+      else:
+        # defaulting to snowflake as authenticator
+        if self.verbose:
+          print(_err_unsupported_auth_mthd.format(unsupported_authenticator=snowflake_authenticator) )
+        self.conArgs['authenticator'] = default_authenticator
     else:
-      raise NameError(_err_no_auth_mthd)
-    return snowflake.connector.connect(**self.conArgs)
+        # default authenticator to snowflake
+        self.conArgs['authenticator'] = default_authenticator
+
+    if self.conArgs['authenticator'].lower() == default_authenticator:
+      # Giving preference to password based authentication when both private key and password are specified.
+      if snowflake_password:
+        if self.verbose:
+          print(_log_auth_type %  'password' )
+        self.conArgs['password'] = snowflake_password
+
+      elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH", ''):
+        if self.verbose:
+          print( _log_auth_type %  'private key')
+
+        private_key_password = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE", '')
+        if private_key_password:
+          private_key_password = private_key_password.encode()
+        else:
+          private_key_password = None
+          if self.verbose:
+            print(_log_pk_enc)
+        with open(os.environ["SNOWFLAKE_PRIVATE_KEY_PATH"], "rb") as key:
+          p_key= serialization.load_pem_private_key(
+              key.read(),
+              password = private_key_password,
+              backend = default_backend()
+          )
+
+        pkb = p_key.private_bytes(
+            encoding = serialization.Encoding.DER,
+            format = serialization.PrivateFormat.PKCS8,
+            encryption_algorithm = serialization.NoEncryption())
+
+        self.conArgs['private_key'] = pkb
+      else:
+        raise NameError(_err_no_auth_mthd)
+
+    return True
 
   def execute_snowflake_query(self, query):
     if self.verbose:
@@ -435,9 +460,9 @@ class SnowflakeSchemachangeSession:
       self.reset_query_tag(script['script_name'])
       self.execute_snowflake_query(script_content)
       self.reset_query_tag()
+      self.reset_session()
       end = time.time()
       execution_time = round(end - start)
-
 
     # Finally record this change in the change history table by gathering data
     frmt_args = script.copy()
@@ -449,14 +474,14 @@ class SnowflakeSchemachangeSession:
     # Compose and execute the insert statement to the log file
     query = self._q_ch_log.format(**frmt_args)
     self.execute_snowflake_query(query)
-  
+
 
 def deploy_command(config):
   # Make sure we have the required connection info, all of the below needs to be present.
   req_args = set(['snowflake_account','snowflake_user','snowflake_role','snowflake_warehouse'])
   provided_args = {k:v for (k,v) in config.items() if v}
-  missing_args = req_args -provided_args.keys()   
-  if len(missing_args)>0: 
+  missing_args = req_args -provided_args.keys()
+  if len(missing_args)>0:
     raise ValueError(_err_args_missing % ', '.join({s.replace('_', ' ') for s in missing_args}))
 
   #ensure an authentication method is specified / present. one of the below needs to be present.
@@ -573,7 +598,7 @@ def render_command(config, script_path):
   # Validate the script file path
   script_path = os.path.abspath(script_path)
   if not os.path.isfile(script_path):
-    raise ValueError(_err_invalid_folder.format(folder_type='script_path', path=script_path))   
+    raise ValueError(_err_invalid_folder.format(folder_type='script_path', path=script_path))
   # Always process with jinja engine
   jinja_processor = JinjaTemplateProcessor(project_root = config['root_folder'], \
      modules_folder = config['modules_folder'])
@@ -650,10 +675,10 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
 
   # Validate folder paths
   if 'root_folder' in config:
-    config['root_folder'] = os.path.abspath(config['root_folder'])   
+    config['root_folder'] = os.path.abspath(config['root_folder'])
   if not os.path.isdir(config['root_folder']):
     raise ValueError(_err_invalid_folder.format(folder_type='root', path=config['root_folder']))
- 
+
   if config['modules_folder']:
     config['modules_folder'] = os.path.abspath(config['modules_folder'])
     if not os.path.isdir(config['modules_folder']):
@@ -739,7 +764,7 @@ def get_all_scripts_recursively(root_directory, verbose, always_first):
       # Throw an error if the same version exists more than once
       if script_type == 'V':
         if script['script_version'] in all_versions:
-          raise ValueError(_err_dup_scripts_version.format(**script)) 
+          raise ValueError(_err_dup_scripts_version.format(**script))
         all_versions.append(script['script_version'])
 
   return all_files
@@ -747,22 +772,22 @@ def get_all_scripts_recursively(root_directory, verbose, always_first):
 def get_change_history_table_details(change_history_table):
   # Start with the global defaults
   details = dict()
-  details['database_name'] = _metadata_database_name 
-  details['schema_name'] = _metadata_schema_name 
-  details['table_name'] = _metadata_table_name 
+  details['database_name'] = _metadata_database_name
+  details['schema_name'] = _metadata_schema_name
+  details['table_name'] = _metadata_table_name
 
   # Then override the defaults if requested. The name could be in one, two or three part notation.
   if change_history_table is not None:
     table_name_parts = change_history_table.strip().split('.')
-    if len(table_name_parts) == 1: 
-      details['table_name'] = table_name_parts[0] 
+    if len(table_name_parts) == 1:
+      details['table_name'] = table_name_parts[0]
     elif len(table_name_parts) == 2:
-      details['table_name'] = table_name_parts[1] 
-      details['schema_name'] = table_name_parts[0] 
+      details['table_name'] = table_name_parts[1]
+      details['schema_name'] = table_name_parts[0]
     elif len(table_name_parts) == 3:
-      details['table_name'] = table_name_parts[2] 
-      details['schema_name'] = table_name_parts[1] 
-      details['database_name'] = table_name_parts[0] 
+      details['table_name'] = table_name_parts[2]
+      details['schema_name'] = table_name_parts[1]
+      details['database_name'] = table_name_parts[0]
     else:
       raise ValueError(_err_invalid_cht % change_history_table)
   #if the object name does not include '"' raise to upper case on return
@@ -883,7 +908,7 @@ def main(argv=sys.argv):
   if args.subcommand == 'render':
     render_command(config, args.script)
   else:
-    deploy_command(config) 
+    deploy_command(config)
 
 if __name__ == "__main__":
   main()

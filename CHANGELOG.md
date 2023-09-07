@@ -3,6 +3,28 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [3.6.0] - 2023-09-06
+### Changed
+- Fixed bug introduced in version 3.5.0 where the session state was not reset after a user script was run. This resulted in schemachange updates to the metadata table failing in some cases. schemachange will now reset the session back to the default settings after each user script is run
+- Updated the pytest GitHub Actions workflow
+- Cleaned up whitespace and formatting in files for consistency
+- Updated README file
+
+### Added
+- Added new dependency review GitHub Actions workflow
+- Added badges for pytest and PyPI
+
+
+## [3.5.4] - 2023-09-01
+### Changed
+- Fixed authentication workflow to check for authenticator type first, then for Key pair and finally default to password authentication.
+- Fixed the `Dockerfile-src` configuration to build a docker image from source code.
+- Updated README file.
+
+## [3.5.3] - 2023-07-18
+### Changed
+- Updated version dependencies for `snowflake-connector-python` and `pyyaml`.
+
 ## [3.5.2] - 2023-02-14
 ### Changed
 - Fixed bug (from the 3.5.0 release) that caused a crash when using verbose logging.
@@ -20,7 +42,7 @@ All notable changes to this project will be documented in this file.
 - Cleaned up argument passing and other repetitive code using dictionary and set comparisons for easy maintenance. (Converted variable names to a consistent snake_case from a mix of kebab-case and snake_case)
 - Fixed change history table processing to allow mixed case names when '"' are used in the name.
 - Moved most error, log and warning messages and query strings to global or class variables.
-- Updated readme to cover new authentication methods 
+- Updated readme to cover new authentication methods
 
 ## [3.4.2] - 2022-10-24
 ### Changed

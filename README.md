@@ -3,6 +3,8 @@
 
 *Looking for snowchange? You've found the right spot. snowchange has been renamed to schemachange.*
 
+[![pytest](https://github.com/Snowflake-Labs/schemachange/actions/workflows/pytest.yml/badge.svg)](https://github.com/Snowflake-Labs/schemachange/actions/workflows/pytest.yml)
+[![PyPI](https://img.shields.io/pypi/v/schemachange.svg)](https://pypi.org/project/schemachange)
 ## Overview
 
 schemachange is a simple python based tool to manage all of your [Snowflake](https://www.snowflake.com/) objects. It follows an Imperative-style approach to Database Change Management (DCM) and was inspired by the [Flyway database migration tool](https://flywaydb.org). When combined with a version control system and a CI/CD tool, database changes can be approved and deployed through a pipeline using modern software delivery practices. As such schemachange plays a critical role in enabling Database (or Data) DevOps.
@@ -27,6 +29,7 @@ For the complete list of changes made to schemachange check out the [CHANGELOG](
    1. [Using Variables in Scripts](#using-variables-in-scripts)
       1. [Secrets filtering](#secrets-filtering)
    1. [Jinja templating engine](#jinja-templating-engine)
+   1. [Gotchas](#gotchas)
 1. [Change History Table](#change-history-table)
 1. [Authentication](#authentication)
    1. [Password Authentication](#password-authentication)
@@ -71,7 +74,7 @@ schemachange expects a directory structure like the following to exist:
         |-- A__permissions.sql
 ```
 
-The schemachange folder structure is very flexible. The `project_root` folder is specified with the `-f` or `--root-folder` argument. Under the `project_root` folder you are free to arrange the change scripts any way you see fit. You can have as many subfolders (and nested subfolders) as you would like.
+The schemachange folder structure is very flexible. The `project_root` folder is specified with the `-f` or `--root-folder` argument. schemachange only pays attention to the filenames, not the paths. Therefore, under the `project_root` folder you are free to arrange the change scripts any way you see fit. You can have as many subfolders (and nested subfolders) as you would like.
 
 ## Change Scripts
 
@@ -113,7 +116,7 @@ e.g:
 All repeatable change scripts are applied each time the utility is run, if there is a change in the file.
 Repeatable scripts could be used for maintaining code that always needs to be applied in its entirety. e.g. stores procedures, functions and view definitions etc.
 
-Just like Flyway, within a single migration run, repeatable scripts are always applied after all pending versioned scripts have been executed. Repeatable scripts are applied in the order of their description.
+Just like Flyway, within a single migration run, repeatable scripts are always applied after all pending versioned scripts have been executed. Repeatable scripts are applied in alphabetical order of their description.
 
 ### Always Script Naming
 
@@ -186,6 +189,12 @@ These files can be stored in the root-folder but schemachange also provides a se
 
 The Jinja autoescaping feature is disabled in schemachange, this feature in Jinja is currently designed for where the output language is HTML/XML. So if you are using schemachange with untrusted inputs you will need to handle this within your change scripts.
 
+### Gotchas
+
+Within change scripts:
+- [Snowflake Scripting blocks need delimiters](https://docs.snowflake.com/en/developer-guide/snowflake-scripting/running-examples#introduction)
+- [The last line can't be a comment](https://github.com/Snowflake-Labs/schemachange/issues/130)
+
 ## Change History Table
 
 schemachange records all applied changes scripts to the change history table. By default schemachange will attempt to log all activities to the `METADATA.SCHEMACHANGE.CHANGE_HISTORY` table. The name and location of the change history table can be overriden by using the `-c` (or `--change-history-table`) parameter. The value passed to the parameter can have a one, two, or three part name (e.g. "TABLE_NAME", or "SCHEMA_NAME.TABLE_NAME", or "DATABASE_NAME.SCHEMA_NAME.TABLE_NAME"). This can be used to support multiple environments (dev, test, prod) or multiple subject areas within the same Snowflake account. By default schemachange will not try to create the change history table, and will fail if the table does not exist.
@@ -229,15 +238,16 @@ CREATE TABLE IF NOT EXISTS SCHEMACHANGE.CHANGE_HISTORY
 Schemachange supports snowflake's default authenticator, External Oauth, Browswer based SSO and Programmatic SSO options supported by the [Snowflake Python Connector](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-to-snowflake). Set the environment variable `SNOWFLAKE_AUTHENTICATOR` to one of the following
 Authentication Option | Expected Value
 --- | ---
-Default [Password](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-using-the-default-authenticator) Authenticator or [Key Pair](https://docs.snowflake.com/en/user-guide/python-connector-example.html#using-key-pair-authentication) Authenticator| `snowflake`
-[External Oauth](https://docs.snowflake.com/en/user-guide/oauth-external.html) `oauth`
+Default [Password](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-using-the-default-authenticator) Authenticator | `snowflake`
+[Key Pair](https://docs.snowflake.com/en/user-guide/python-connector-example.html#using-key-pair-authentication) Authenticator| `snowflake`
+[External Oauth](https://docs.snowflake.com/en/user-guide/oauth-external.html) | `oauth`
 [Browser based SSO](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#setting-up-browser-based-sso) | `externalbrowser`
 [Programmatic SSO](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#native-sso-okta-only) (Okta Only) | Okta URL endpoing for your Okta account typically in the form `https://<okta_account_name>.okta.com` OR `https://<okta_account_name>.oktapreview.com`
 
-In the event both authentication criteria for the default authenticator are provided, schemachange will prioritize password authentication over key pair authentication. 
+If an authenticator is unsupported, then schemachange will default to `snowflake`. If the authenticator is `snowflake`, and both password and key pair values are provided then schemachange will use the password over the key pair values.
 
 ### Password Authentication
-The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWFLAKE_PASSWORD` prior to calling the script. schemachange will fail if the `SNOWFLAKE_PASSWORD` environment variable is not set.
+The Snowflake user password for `SNOWFLAKE_USER` is required to be set in the environment variable `SNOWFLAKE_PASSWORD` prior to calling the script. schemachange will fail if the `SNOWFLAKE_PASSWORD` environment variable is not set. The environment variable `SNOWFLAKE_AUTHENTICATOR` will be set to `snowflake` if it not explicitly set.
 
 _**DEPRECATION NOTICE**: The `SNOWSQL_PWD` environment variable is deprecated but currently still supported. Support for it will be removed in a later version of schemachange. Please use `SNOWFLAKE_PASSWORD` instead._
 
@@ -251,20 +261,20 @@ The URL of the authenticator resource that will be receive the POST request.
 * token-response-name
 The Expected name of the JSON element containing the Token in the return response from the authenticator resource.
 * token-request-payload
-The Set of variables passed as a dictionary to the `data` element of the request. 
+The Set of variables passed as a dictionary to the `data` element of the request.
 * token-request-headers
-The Set of variables passed as a dictionary to the `headers` element of the request. 
+The Set of variables passed as a dictionary to the `headers` element of the request.
 
-It is recomended to use the YAML file and pass oauth secrets into the configuration using the templating engine instead of the command line option.  
+It is recomended to use the YAML file and pass oauth secrets into the configuration using the templating engine instead of the command line option.
 
 
 ### External Browser Authentication
-External browser authentication can be used for local development by setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value `externalbrowser` prior to calling schemachange. 
+External browser authentication can be used for local development by setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value `externalbrowser` prior to calling schemachange.
 The client will be prompted to authenticate in a browser that pops up. Refer to the [documentation](https://docs.snowflake.com/en/user-guide/admin-security-fed-auth-use.html#setting-up-browser-based-sso) to cache the token to minimize the number of times the browser pops up to authenticate the user.
 
 ### Okta Authentication
-For clients that do not have a browser, can use the popular SaaS Idp option to connect via Okta. This will require the Okta URL that you utilize for SSO. 
-Okta authentication can be used setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value of your okta endpoint as a fully formed URL ( E.g. `https://<org_name>.okta.com`) prior to calling schemachange. 
+For clients that do not have a browser, can use the popular SaaS Idp option to connect via Okta. This will require the Okta URL that you utilize for SSO.
+Okta authentication can be used setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value of your okta endpoint as a fully formed URL ( E.g. `https://<org_name>.okta.com`) prior to calling schemachange.
 
 _** NOTE**: Please disable Okta MFA for the user who uses Native SSO authentication with client drivers. Please consult your Okta administrator for more information._
 
@@ -342,14 +352,14 @@ dry-run: false
 # A string to include in the QUERY_TAG that is attached to every SQL statement executed
 query-tag: 'QUERY_TAG'
 
-# Information for Oauth token requests 
+# Information for Oauth token requests
 oauthconfig:
   # url Where token request are posted to
   token-provider-url: 'https://login.microsoftonline.com/{{ env_var('AZURE_ORG_GUID', 'default') }}/oauth2/v2.0/token'
   # name of Json entity returned by request
   token-response-name: 'access_token'
   # Headers needed for successful post or other security markings ( multiple labeled items permitted
-  token-request-headers: 
+  token-request-headers:
     Content-Type: "application/x-www-form-urlencoded"
     User-Agent: "python/schemachange"
   # Request Payload for Token (it is recommended pass

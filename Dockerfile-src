@@ -3,11 +3,11 @@ FROM python:3.9
 WORKDIR /build
 
 COPY schemachange /build/schemachange
-COPY requirements.txt setup.py README.md /build/
+COPY requirements.txt setup.cfg README.md /build/
 
+RUN pip3 install --upgrade build
 RUN pip3 install --upgrade -r requirements.txt
-RUN pip3 install --upgrade setuptools wheel
-RUN python3 setup.py bdist_wheel
+RUN python3 -m build
 
 
 FROM python:3.9
