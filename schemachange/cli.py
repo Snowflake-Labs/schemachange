@@ -201,17 +201,18 @@ class SnowflakeSchemachangeSession:
     + " EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)"
   _q_ch_r_checksum = "SELECT DISTINCT SCRIPT, FIRST_VALUE(CHECKSUM) OVER (PARTITION BY SCRIPT " \
     + "ORDER BY INSTALLED_ON DESC) FROM {database_name}.{schema_name}.{table_name} WHERE SCRIPT_TYPE = 'R' AND " \
-    + "STATUS = 'Success'"
-  _q_ch_fetch ="SELECT VERSION FROM {database_name}.{schema_name}.{table_name} WHERE SCRIPT_TYPE = 'V' ORDER" \
+    + "STATUS = 'Success' AND SCHEMA = '{database_schema}'"
+  _q_ch_fetch ="SELECT VERSION FROM {database_name}.{schema_name}.{table_name} WHERE SCRIPT_TYPE = 'V' AND SCHEMA = '{database_schema}' ORDER" \
     + " BY INSTALLED_ON DESC LIMIT 1"
   _q_sess_tag = "ALTER SESSION SET QUERY_TAG = '{query_tag}'"
-  _q_ch_log = "INSERT INTO {database_name}.{schema_name}.{table_name} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, " \
-    + "CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{script_version}'," \
+  _q_ch_log = "INSERT INTO {database_name}.{schema_name}.{table_name} (VERSION, SCHEMA, DESCRIPTION, SCRIPT, SCRIPT_TYPE, " \
+    + "CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{script_version}','{database_schema}'," \
     + "'{script_description}','{script_name}','{script_type}','{checksum}',{execution_time}," \
     + "'{status}','{user}',CURRENT_TIMESTAMP);"
   _q_set_sess_role = 'USE ROLE {role};'
   _q_set_sess_database = 'USE DATABASE {database};'
   _q_set_sess_warehouse = 'USE WAREHOUSE {warehouse};'
+  _q_set_sess_schema = 'USE SCHEMA {schema};'
    #endregion Query Templates
 
 
@@ -222,10 +223,10 @@ class SnowflakeSchemachangeSession:
     if config['query_tag']:
       session_parameters["QUERY_TAG"] += ";%s" % config['query_tag']
 
-    # Retreive Connection info from config dictionary
+    # Retrieve Connection info from config dictionary
     self.conArgs = {"user": config['snowflake_user'],"account": config['snowflake_account'] \
       ,"role": config['snowflake_role'],"warehouse": config['snowflake_warehouse'] \
-      ,"database": config['snowflake_database'],"application": _snowflake_application_name \
+      ,"database": config['snowflake_database'], "schema": config['snowflake_schema'],"application": _snowflake_application_name \
       ,"session_parameters":session_parameters}
 
     self.oauth_config = config['oauth_config']
@@ -434,6 +435,8 @@ class SnowflakeSchemachangeSession:
       reset_query += self._q_set_sess_warehouse.format(**self.conArgs) + " "
     if self.conArgs['database']:
       reset_query += self._q_set_sess_database.format(**self.conArgs) + " "
+    if self.conArgs['schema']:
+      reset_query += self._q_set_sess_schema.format(**self.conArgs) + " "
 
     self.execute_snowflake_query(reset_query)
 
@@ -499,6 +502,9 @@ def deploy_command(config):
 
   # Deal with the change history table (create if specified)
   change_history_table = get_change_history_table_details(config['change_history_table'])
+  change_history_table["database_schema"] = (
+        config.get("snowflake_schema", "NONE")
+    )
   change_history_metadata = session.fetch_change_history_metadata(change_history_table)
   if change_history_metadata:
     print(_log_ch_use.format(last_altered=change_history_metadata['last_altered'], **change_history_table))
@@ -629,7 +635,7 @@ def load_schemachange_config(config_file_path: str) -> Dict[str, Any]:
   return config
 
 def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, \
-  snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, \
+  snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, snowflake_schema, \
   change_history_table, vars, create_change_history_table, autocommit, verbose, \
   dry_run, query_tag, oauth_config, **kwargs):
 
@@ -640,7 +646,7 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
     "modules_folder":modules_folder, "snowflake_account":snowflake_account, \
     "snowflake_user":snowflake_user, "snowflake_role":snowflake_role, \
     "snowflake_warehouse":snowflake_warehouse, "snowflake_database":snowflake_database, \
-    "change_history_table":change_history_table, "vars":vars, \
+    "snowflake_schema": snowflake_schema, "change_history_table":change_history_table, "vars":vars, \
     "create_change_history_table":create_change_history_table, \
     "autocommit":autocommit, "verbose":verbose, "dry_run":dry_run,\
     "query_tag":query_tag, "oauth_config":oauth_config}
@@ -816,6 +822,7 @@ def main(argv=sys.argv):
   parser_deploy.add_argument('-r', '--snowflake-role', type = str, help = 'The name of the default role to use', required = False)
   parser_deploy.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the default warehouse to use. Can be overridden in the change scripts.', required = False)
   parser_deploy.add_argument('-d', '--snowflake-database', type = str, help = 'The name of the default database to use. Can be overridden in the change scripts.', required = False)
+  parser_deploy.add_argument('-s', '--snowflake-schema', type = str, help = 'The name of the default schema to use. Can be overridden in the change scripts.', required = False)
   parser_deploy.add_argument('-c', '--change-history-table', type = str, help = 'Used to override the default name of the change history table (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)', required = False)
   parser_deploy.add_argument('--vars', type = json.loads, help = 'Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})', required = False)
   parser_deploy.add_argument('--create-change-history-table', action='store_true', help = 'Create the change history schema and table, if they do not exist (the default is False)', required = False)
@@ -854,7 +861,7 @@ def main(argv=sys.argv):
   #nullify expected null values for render.
   if args.subcommand == 'render':
     renderoveride = {"snowflake_account":None,"snowflake_user":None,"snowflake_role":None, \
-      "snowflake_warehouse":None,"snowflake_database":None,"change_history_table":None, \
+      "snowflake_warehouse":None,"snowflake_database":None,"snowflake_schema": None,"change_history_table":None, \
         "create_change_history_table":None,"autocommit":None,"dry_run":None,"query_tag":None,"oauth_config":None }
     schemachange_args.update(renderoveride)
   config = get_schemachange_config(**schemachange_args)
