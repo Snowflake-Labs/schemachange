@@ -23,6 +23,7 @@ DEFAULT_CONFIG = {
     'dry_run': False,
     'query_tag': None,
     'oauth_config':None,
+    'with_futures': False,
 }
 
 
@@ -57,6 +58,8 @@ DEFAULT_CONFIG = {
         {**DEFAULT_CONFIG, 'query_tag': 'querytag'}),
     (["schemachange", "deploy", "--oauth-config", '{"token-provider-url": "https//..."}'],
         {**DEFAULT_CONFIG, 'oauth_config': {"token-provider-url": "https//..."},}),
+    (["schemachange", "deploy", "--with-futures"],
+        {**DEFAULT_CONFIG, 'with_futures': True}),
 ])
 def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call( args, expected):
 

@@ -8,6 +8,8 @@ import sys
 import textwrap
 import time
 import warnings
+from asyncio import ALL_COMPLETED
+from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Dict, Any, Optional, Set
 import jinja2
 import jinja2.ext
@@ -534,6 +536,8 @@ def deploy_command(config):
                             + sorted_alphanumeric([script for script in all_script_names if script[0] == 'R']) \
                             + sorted_alphanumeric([script for script in all_script_names if script[0] == 'A'])
 
+  # Variable to store parameters to run in futures
+  for_run_futures = []
   # Loop through each script in order and apply any required changes
   for script_name in all_script_names_sorted:
     script = all_scripts[script_name]
@@ -570,11 +574,32 @@ def deploy_command(config):
 
     print(_log_apply.format(**script))
     if not config['dry_run']:
-      session.apply_change_script(script, content, change_history_table)
+      if config["with_futures"]:
+        for_run_futures.append((script, content, change_history_table))
+      else:
+        session.apply_change_script(script, content, change_history_table)
 
     scripts_applied += 1
 
   print(_log_apply_set_complete.format(scripts_applied=scripts_applied, scripts_skipped=scripts_skipped))
+
+  if config["with_futures"] and for_run_futures:
+    executor = ThreadPoolExecutor(max_workers=len(for_run_futures))
+
+    future_to_process = [
+      executor.submit(session.apply_change_script, *params) for params in for_run_futures
+    ]
+
+    dones, _ = wait(future_to_process, return_when=ALL_COMPLETED, timeout=300)
+
+    for future in dones:
+      try:
+        future.result()
+      except Exception as e:
+        print('Error to execute query')
+        raise e
+    print("Query execution with future successfully")
+
 
 def render_command(config, script_path):
   """
@@ -631,7 +656,7 @@ def load_schemachange_config(config_file_path: str) -> Dict[str, Any]:
 def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, \
   snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, \
   change_history_table, vars, create_change_history_table, autocommit, verbose, \
-  dry_run, query_tag, oauth_config, **kwargs):
+  dry_run, query_tag, oauth_config, with_futures, **kwargs):
 
   # create cli override dictionary
   # Could refactor to just pass Args as a dictionary?
@@ -643,7 +668,7 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
     "change_history_table":change_history_table, "vars":vars, \
     "create_change_history_table":create_change_history_table, \
     "autocommit":autocommit, "verbose":verbose, "dry_run":dry_run,\
-    "query_tag":query_tag, "oauth_config":oauth_config}
+    "query_tag":query_tag, "oauth_config":oauth_config, "with_futures": with_futures}
   cli_inputs = {k:v for (k,v) in cli_inputs.items() if v}
 
   # load YAML inputs and convert kebabs to snakes
@@ -656,7 +681,7 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
     "snowflake_account":None,  "snowflake_user":None, "snowflake_role":None,   \
     "snowflake_warehouse":None,  "snowflake_database":None,  "change_history_table":None,  \
     "vars":{}, "create_change_history_table":False, "autocommit":False, "verbose":False,  \
-    "dry_run":False , "query_tag":None , "oauth_config":None }
+    "dry_run":False , "query_tag":None , "oauth_config":None, "with_futures":False }
   #insert defualt values for items not populated
   config.update({ k:v for (k,v) in config_defaults.items() if not k in config.keys()})
 
@@ -824,6 +849,7 @@ def main(argv=sys.argv):
   parser_deploy.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
   parser_deploy.add_argument('--query-tag', type = str, help = 'The string to add to the Snowflake QUERY_TAG session value for each query executed', required = False)
   parser_deploy.add_argument('--oauth-config', type = json.loads, help = 'Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })', required = False)
+  parser_deploy.add_argument('--with-futures', action='store_true', help='Used to execute queries using concurrent futures', required=False)
    # TODO test CLI passing of args
 
   parser_render = subcommands.add_parser('render', description="Renders a script to the console, used to check and verify jinja output from scripts.")
@@ -855,7 +881,8 @@ def main(argv=sys.argv):
   if args.subcommand == 'render':
     renderoveride = {"snowflake_account":None,"snowflake_user":None,"snowflake_role":None, \
       "snowflake_warehouse":None,"snowflake_database":None,"change_history_table":None, \
-        "create_change_history_table":None,"autocommit":None,"dry_run":None,"query_tag":None,"oauth_config":None }
+        "create_change_history_table":None,"autocommit":None,"dry_run":None,"query_tag":None,"oauth_config":None,
+        "with_futures":None}
     schemachange_args.update(renderoveride)
   config = get_schemachange_config(**schemachange_args)
 
