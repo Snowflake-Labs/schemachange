@@ -24,7 +24,7 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **Schemachange (please complete the following information):**
-- Version (3.5.3):
+- Version (e.g. 3.5.3): x.x.x
 
 **Additional context**
 Add any other context about the problem here.
