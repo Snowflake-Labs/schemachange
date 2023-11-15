@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [3.6.1] - 2023-11-15
+### Added
+- Allow passing snowflake schema as config or CLI parameter
+
 ## [3.6.0] - 2023-09-06
 ### Changed
 - Fixed bug introduced in version 3.5.0 where the session state was not reset after a user script was run. This resulted in schemachange updates to the metadata table failing in some cases. schemachange will now reset the session back to the default settings after each user script is run
