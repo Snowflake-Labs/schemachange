@@ -21,7 +21,7 @@ from pandas import DataFrame
 
 #region Global Variables
 # metadata
-_schemachange_version = '3.6.0'
+_schemachange_version = '3.6.1'
 _config_file_name = 'schemachange-config.yml'
 _metadata_database_name = 'METADATA'
 _metadata_schema_name = 'SCHEMACHANGE'
@@ -48,7 +48,8 @@ _err_env_missing ="Missing environment variable(s). \nSNOWFLAKE_PASSWORD must be
   + "\nSNOWFLAKE_AUTHENTICATOR must be defined is using Oauth, OKTA or external Browser Authentication."
 _log_config_details = "Using Snowflake account {snowflake_account}\nUsing default role " \
   + "{snowflake_role}\nUsing default warehouse {snowflake_warehouse}\nUsing default " \
-  + "database {snowflake_database}"
+  + "database {snowflake_database}" \
+  + "schema {snowflake_schema}"
 _log_ch_use = "Using change history table {database_name}.{schema_name}.{table_name} " \
   + "(last altered {last_altered})"
 _log_ch_create = "Created change history table {database_name}.{schema_name}.{table_name}"
@@ -211,6 +212,7 @@ class SnowflakeSchemachangeSession:
     + "'{status}','{user}',CURRENT_TIMESTAMP);"
   _q_set_sess_role = 'USE ROLE {role};'
   _q_set_sess_database = 'USE DATABASE {database};'
+  _q_set_sess_schema = 'USE SCHEMA {schema};'
   _q_set_sess_warehouse = 'USE WAREHOUSE {warehouse};'
   _q_set_sess_schema = 'USE SCHEMA {schema};'
    #endregion Query Templates
@@ -226,7 +228,7 @@ class SnowflakeSchemachangeSession:
     # Retrieve Connection info from config dictionary
     self.conArgs = {"user": config['snowflake_user'],"account": config['snowflake_account'] \
       ,"role": config['snowflake_role'],"warehouse": config['snowflake_warehouse'] \
-      ,"database": config['snowflake_database'], "schema": config['snowflake_schema'],"application": _snowflake_application_name \
+      ,"database": config['snowflake_database'],"schema": config['snowflake_schema'], "application": _snowflake_application_name \
       ,"session_parameters":session_parameters}
 
     self.oauth_config = config['oauth_config']
@@ -660,7 +662,8 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
   # create Default values dictionary
   config_defaults =  {"root_folder":os.path.abspath('.'), "modules_folder":None,  \
     "snowflake_account":None,  "snowflake_user":None, "snowflake_role":None,   \
-    "snowflake_warehouse":None,  "snowflake_database":None,  "change_history_table":None,  \
+    "snowflake_warehouse":None,  "snowflake_database":None, "snowflake_schema":None, \
+    "change_history_table":None,  \
     "vars":{}, "create_change_history_table":False, "autocommit":False, "verbose":False,  \
     "dry_run":False , "query_tag":None , "oauth_config":None }
   #insert defualt values for items not populated
