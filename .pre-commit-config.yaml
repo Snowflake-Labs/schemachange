@@ -10,3 +10,12 @@ repos:
     rev: v2.4.0
     hooks:
     -   id: setup-cfg-fmt
+- repo: https://github.com/python-poetry/poetry
+  rev: '1.5.1'
+  hooks:
+    - id: poetry-check
+    - id: poetry-lock
+    - id: poetry-export
+      args: [ "-f", "requirements.txt", "-o", "requirements.txt", '--without-hashes' ]
+    - id: poetry-export
+      args: [ "-f", "requirements.txt", "-o", "requirements-dev.txt", "--with", "dev", "--without-hashes" ]

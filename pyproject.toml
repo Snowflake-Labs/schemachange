@@ -1,6 +1,42 @@
-[build-system]
-requires = [
-  "setuptools >= 40.9.0",
-  "wheel",
+[tool.poetry]
+name = "schemachange"
+version = "3.6.1"
+description = "A Database Change Management tool for Snowflake"
+authors = [
+    "jamesweakley <https://github.com/jamesweakley>",
+    "jeremiahhansen <https://github.com/jeremiahhansen>"
 ]
-build-backend = "setuptools.build_meta"
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/Snowflake-Labs/schemachange"
+packages = [{ include = "schemachange" }]
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+]
+
+[metadata]
+license-file = "LICENSE"
+
+[tool.poetry.scripts]
+schemachange = 'schemachange.cli:main'
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+jinja2 = ">=3.0,<4.0"
+pandas = ">=1.3,<2.0"
+pyyaml = ">=6.0,<7.0"
+snowflake-connector-python = ">=2.8,<4.0"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.12.1"
+pytest = "^7.4.4"
+flake8 = "5.0.4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
