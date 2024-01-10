@@ -13,7 +13,6 @@ Choose the appropriate issue template to contribute to the repository.
 
 Thanks for your interest in contributing code to schemachange!
 
-+ If this is your first time contributing to a project on GitHub, please read through our [guide to contributing to schemachange](guide-to-contributing-to-schemachange).
 + There are many online tutorials to help you [learn git](https://try.github.io/). For discussions of specific git workflows, see these discussions on [linux git workflow](https://www.mail-archive.com/dri-devel@lists.sourceforge.net/msg39091.html), and [ipython git workflow](https://mail.python.org/pipermail/ipython-dev/2010-October/005632.html).
 
 ### Guide to contributing to schemachange
