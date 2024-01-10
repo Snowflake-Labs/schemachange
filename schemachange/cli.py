@@ -169,7 +169,7 @@ class JinjaTemplateProcessor:
         # to make unit testing easier
         self.__environment = jinja2.Environment(loader=loader, **self._env_args)
 
-    def render(self, script: str, vars: Dict[str, Any] | None, verbose: bool) -> str:
+    def render(self, script: str, vars: Optional[Dict[str, Any]], verbose: bool) -> str:
         if not vars:
             vars = {}
         # jinja needs posix path
@@ -216,11 +216,11 @@ class SecretManager:
         if secret:
             self.__secrets.add(secret)
 
-    def add_range(self, secrets: Set[str] | None):
+    def add_range(self, secrets: Optional[Set[str]]):
         if secrets:
             self.__secrets = self.__secrets | secrets
 
-    def redact(self, context: str | None) -> str:
+    def redact(self, context: Optional[str]) -> str:
         """
         redacts any text that has been classified a secret
         """
@@ -979,7 +979,7 @@ def get_change_history_table_details(change_history_table):
     return {k: v if '"' in v else v.upper() for (k, v) in details.items()}
 
 
-def extract_config_secrets(config: Dict[str, Any] | None) -> Set[str]:
+def extract_config_secrets(config: Optional[Dict[str, Any]]) -> Set[str]:
     """
     Extracts all secret values from the vars attributes in config
     """
