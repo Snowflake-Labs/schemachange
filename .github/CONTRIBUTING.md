@@ -50,7 +50,7 @@ Thanks for your interest in contributing code to schemachange!
 
     ```
 
-3. Develop your contribution
+2. Develop your contribution
     + Create a branch for the features you want to work on. Since the branch name will appear in the merge message, use a sensible name such as 'update-build-library-dependencies':
 
     ```shell
@@ -58,7 +58,7 @@ Thanks for your interest in contributing code to schemachange!
     ```
 
     + Commit locally as you progress ( [git add](https://github.com/git-guides/git-add) and [git commit](https://github.com/git-guides/git-commit) ). Use a properly formatted commit message. Be sure to document any changed behavior.
-4. To submit your contribution
+3. To submit your contribution
     + [Push](https://github.com/git-guides/git-push) your changes back to your fork on GitHub
 
     ```shell
@@ -66,4 +66,4 @@ Thanks for your interest in contributing code to schemachange!
 
     ```
 
-    + Go to GitHub. The new branch will show up with a green [Pull Request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests#initiating-the-pull-request) button. Make sure the title and message are clear, concise and self explanatory. Then click the button to submit it.
+    + Go to GitHub. The new branch will show up with a green [Pull Request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests#initiating-the-pull-request) button. Make sure the title and message are clear, concise and self-explanatory. Then click the button to submit it.
