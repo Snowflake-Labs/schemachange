@@ -169,7 +169,7 @@ class JinjaTemplateProcessor:
         # to make unit testing easier
         self.__environment = jinja2.Environment(loader=loader, **self._env_args)
 
-    def render(self, script: str, vars: Dict[str, Any], verbose: bool) -> str:
+    def render(self, script: str, vars: Dict[str, Any] | None, verbose: bool) -> str:
         if not vars:
             vars = {}
         # jinja needs posix path
@@ -216,11 +216,11 @@ class SecretManager:
         if secret:
             self.__secrets.add(secret)
 
-    def add_range(self, secrets: Set[str]):
+    def add_range(self, secrets: Set[str] | None):
         if secrets:
             self.__secrets = self.__secrets | secrets
 
-    def redact(self, context: str) -> str:
+    def redact(self, context: str | None) -> str:
         """
         redacts any text that has been classified a secret
         """
@@ -547,9 +547,7 @@ class SnowflakeSchemachangeSession:
 
 def deploy_command(config):
     # Make sure we have the required connection info, all of the below needs to be present.
-    req_args = set(
-        ["snowflake_account", "snowflake_user", "snowflake_role", "snowflake_warehouse"]
-    )
+    req_args = {"snowflake_account", "snowflake_user", "snowflake_role", "snowflake_warehouse"}
     provided_args = {k: v for (k, v) in config.items() if v}
     missing_args = req_args - provided_args.keys()
     if len(missing_args) > 0:
@@ -558,14 +556,7 @@ def deploy_command(config):
         )
 
     # ensure an authentication method is specified / present. one of the below needs to be present.
-    req_env_var = set(
-        [
-            "SNOWFLAKE_PASSWORD",
-            "SNOWSQL_PWD",
-            "SNOWFLAKE_PRIVATE_KEY_PATH",
-            "SNOWFLAKE_AUTHENTICATOR",
-        ]
-    )
+    req_env_var = {"SNOWFLAKE_PASSWORD", "SNOWSQL_PWD", "SNOWFLAKE_PRIVATE_KEY_PATH", "SNOWFLAKE_AUTHENTICATOR"}
     if len((req_env_var - dict(os.environ).keys())) == len(req_env_var):
         raise ValueError(_err_env_missing)
 
@@ -595,7 +586,7 @@ def deploy_command(config):
             )
         )
     elif config["create_change_history_table"]:
-        # Create the change history table (and containing objects) if it don't exist.
+        # Create the change history table (and containing objects) if it doesn't exist.
         if not config["dry_run"]:
             session.create_change_history_table_if_missing(change_history_table)
         print(_log_ch_create.format(**change_history_table))
@@ -892,18 +883,18 @@ def get_all_scripts_recursively(root_directory, verbose):
             if script_name_parts is not None:
                 script_type = "V"
                 if verbose:
-                    print("Found Versioned file " + file_full_path)
+                    print(f"Found Versioned file {file_full_path}")
             elif repeatable_script_name_parts is not None:
                 script_type = "R"
                 if verbose:
-                    print("Found Repeatable file " + file_full_path)
+                    print(f"Found Repeatable file {file_full_path}")
             elif always_script_name_parts is not None:
                 script_type = "A"
                 if verbose:
-                    print("Found Always file " + file_full_path)
+                    print(f"Found Always file {file_full_path}")
             else:
                 if verbose:
-                    print("Ignoring non-change file " + file_full_path)
+                    print(f"Ignoring non-change file {file_full_path}")
                 continue
 
             # script name is the filename without any jinja extension
@@ -978,7 +969,7 @@ def get_change_history_table_details(change_history_table):
     return {k: v if '"' in v else v.upper() for (k, v) in details.items()}
 
 
-def extract_config_secrets(config: Dict[str, Any]) -> Set[str]:
+def extract_config_secrets(config: Dict[str, Any] | None) -> Set[str]:
     """
     Extracts all secret values from the vars attributes in config
     """
@@ -1021,7 +1012,8 @@ def extract_config_secrets(config: Dict[str, Any]) -> Set[str]:
 def main(argv=sys.argv):
     parser = argparse.ArgumentParser(
         prog="schemachange",
-        description="Apply schema changes to a Snowflake account. Full readme at https://github.com/Snowflake-Labs/schemachange",
+        description="Apply schema changes to a Snowflake account. Full readme at "
+                    "https://github.com/Snowflake-Labs/schemachange",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     subcommands = parser.add_subparsers(dest="subcommand")
@@ -1031,7 +1023,8 @@ def main(argv=sys.argv):
         "--config-folder",
         type=str,
         default=".",
-        help="The folder to look in for the schemachange-config.yml file (the default is the current working directory)",
+        help="The folder to look in for the schemachange-config.yml file "
+             "(the default is the current working directory)",
         required=False,
     )
     parser_deploy.add_argument(
@@ -1094,13 +1087,15 @@ def main(argv=sys.argv):
         "-c",
         "--change-history-table",
         type=str,
-        help="Used to override the default name of the change history table (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)",
+        help="Used to override the default name of the change history table (the default is "
+             "METADATA.SCHEMACHANGE.CHANGE_HISTORY)",
         required=False,
     )
     parser_deploy.add_argument(
         "--vars",
         type=json.loads,
-        help='Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})',
+        help='Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": '
+             '"value1", "variable2": "value2"})',
         required=False,
     )
     parser_deploy.add_argument(
@@ -1138,7 +1133,8 @@ def main(argv=sys.argv):
     parser_deploy.add_argument(
         "--oauth-config",
         type=json.loads,
-        help='Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })',
+        help='Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": '
+             '"https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })',
         required=False,
     )
     # TODO test CLI passing of args
@@ -1151,7 +1147,8 @@ def main(argv=sys.argv):
         "--config-folder",
         type=str,
         default=".",
-        help="The folder to look in for the schemachange-config.yml file (the default is the current working directory)",
+        help="The folder to look in for the schemachange-config.yml file "
+             "(the default is the current working directory)",
         required=False,
     )
     parser_render.add_argument(
@@ -1171,7 +1168,8 @@ def main(argv=sys.argv):
     parser_render.add_argument(
         "--vars",
         type=json.loads,
-        help='Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})',
+        help='Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": '
+             '"value1", "variable2": "value2"})',
         required=False,
     )
     parser_render.add_argument(
@@ -1221,7 +1219,7 @@ def main(argv=sys.argv):
         schemachange_args.update(renderoveride)
     config = get_schemachange_config(**schemachange_args)
 
-    # setup a secret manager and assign to global scope
+    # set up a secret manager and assign to global scope
     sm = SecretManager()
     SecretManager.set_global_manager(sm)
     # Extract all secrets for --vars
