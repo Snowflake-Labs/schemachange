@@ -547,7 +547,12 @@ class SnowflakeSchemachangeSession:
 
 def deploy_command(config):
     # Make sure we have the required connection info, all of the below needs to be present.
-    req_args = {"snowflake_account", "snowflake_user", "snowflake_role", "snowflake_warehouse"}
+    req_args = {
+        "snowflake_account",
+        "snowflake_user",
+        "snowflake_role",
+        "snowflake_warehouse",
+    }
     provided_args = {k: v for (k, v) in config.items() if v}
     missing_args = req_args - provided_args.keys()
     if len(missing_args) > 0:
@@ -556,7 +561,12 @@ def deploy_command(config):
         )
 
     # ensure an authentication method is specified / present. one of the below needs to be present.
-    req_env_var = {"SNOWFLAKE_PASSWORD", "SNOWSQL_PWD", "SNOWFLAKE_PRIVATE_KEY_PATH", "SNOWFLAKE_AUTHENTICATOR"}
+    req_env_var = {
+        "SNOWFLAKE_PASSWORD",
+        "SNOWSQL_PWD",
+        "SNOWFLAKE_PRIVATE_KEY_PATH",
+        "SNOWFLAKE_AUTHENTICATOR",
+    }
     if len((req_env_var - dict(os.environ).keys())) == len(req_env_var):
         raise ValueError(_err_env_missing)
 
@@ -1013,7 +1023,7 @@ def main(argv=sys.argv):
     parser = argparse.ArgumentParser(
         prog="schemachange",
         description="Apply schema changes to a Snowflake account. Full readme at "
-                    "https://github.com/Snowflake-Labs/schemachange",
+        "https://github.com/Snowflake-Labs/schemachange",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     subcommands = parser.add_subparsers(dest="subcommand")
@@ -1024,7 +1034,7 @@ def main(argv=sys.argv):
         type=str,
         default=".",
         help="The folder to look in for the schemachange-config.yml file "
-             "(the default is the current working directory)",
+        "(the default is the current working directory)",
         required=False,
     )
     parser_deploy.add_argument(
@@ -1088,14 +1098,14 @@ def main(argv=sys.argv):
         "--change-history-table",
         type=str,
         help="Used to override the default name of the change history table (the default is "
-             "METADATA.SCHEMACHANGE.CHANGE_HISTORY)",
+        "METADATA.SCHEMACHANGE.CHANGE_HISTORY)",
         required=False,
     )
     parser_deploy.add_argument(
         "--vars",
         type=json.loads,
         help='Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": '
-             '"value1", "variable2": "value2"})',
+        '"value1", "variable2": "value2"})',
         required=False,
     )
     parser_deploy.add_argument(
@@ -1134,7 +1144,7 @@ def main(argv=sys.argv):
         "--oauth-config",
         type=json.loads,
         help='Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": '
-             '"https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })',
+        '"https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })',
         required=False,
     )
     # TODO test CLI passing of args
@@ -1148,7 +1158,7 @@ def main(argv=sys.argv):
         type=str,
         default=".",
         help="The folder to look in for the schemachange-config.yml file "
-             "(the default is the current working directory)",
+        "(the default is the current working directory)",
         required=False,
     )
     parser_render.add_argument(
@@ -1169,7 +1179,7 @@ def main(argv=sys.argv):
         "--vars",
         type=json.loads,
         help='Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": '
-             '"value1", "variable2": "value2"})',
+        '"value1", "variable2": "value2"})',
         required=False,
     )
     parser_render.add_argument(
