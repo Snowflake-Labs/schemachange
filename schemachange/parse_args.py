@@ -9,10 +9,7 @@ def parse_args(args):
                     "https://github.com/Snowflake-Labs/schemachange",
         formatter_class=argparse.RawTextHelpFormatter,
     )
-    subcommands = parser.add_subparsers(dest="subcommand")
-
-    parser_deploy = subcommands.add_parser("deploy")
-    parser_deploy.add_argument(
+    parser.add_argument(
         "--config-folder",
         type=str,
         default=".",
@@ -20,20 +17,50 @@ def parse_args(args):
              "(the default is the current working directory)",
         required=False,
     )
-    parser_deploy.add_argument(
+    parser.add_argument(
         "-f",
         "--root-folder",
         type=str,
         help="The root folder for the database change scripts",
         required=False,
     )
-    parser_deploy.add_argument(
+    parser.add_argument(
         "-m",
         "--modules-folder",
         type=str,
         help="The modules folder for jinja macros and templates to be used across multiple scripts",
         required=False,
     )
+    parser.add_argument(
+        "--vars",
+        type=json.loads,
+        help='Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": '
+             '"value1", "variable2": "value2"})',
+        required=False,
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Display verbose debugging details during execution (the default is False)",
+        required=False,
+    )
+    parser.add_argument(
+        "--version_number_validation_regex",
+        type=str,
+        help="If supplied, version numbers will be validated with this regular expression.",
+        required=False,
+    )
+    parser.add_argument(
+        "--raise-exception-on-ignored-versioned-migration",
+        action="store_true",
+        help="Raise an exception if an un-applied versioned migration is ignored",
+        required=False,
+    )
+
+    subcommands = parser.add_subparsers(dest="subcommand")
+    parser_deploy = subcommands.add_parser("deploy")
+
     parser_deploy.add_argument(
         "-a",
         "--snowflake-account",
@@ -85,13 +112,6 @@ def parse_args(args):
         required=False,
     )
     parser_deploy.add_argument(
-        "--vars",
-        type=json.loads,
-        help='Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": '
-             '"value1", "variable2": "value2"})',
-        required=False,
-    )
-    parser_deploy.add_argument(
         "--create-change-history-table",
         action="store_true",
         help="Create the change history schema and table, if they do not exist (the default is False)",
@@ -102,13 +122,6 @@ def parse_args(args):
         "--autocommit",
         action="store_true",
         help="Enable autocommit feature for DML commands (the default is False)",
-        required=False,
-    )
-    parser_deploy.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Display verbose debugging details during execution (the default is False)",
         required=False,
     )
     parser_deploy.add_argument(
@@ -136,55 +149,7 @@ def parse_args(args):
         "render",
         description="Renders a script to the console, used to check and verify jinja output from scripts.",
     )
-    parser_render.add_argument(
-        "--config-folder",
-        type=str,
-        default=".",
-        help="The folder to look in for the schemachange-config.yml file "
-             "(the default is the current working directory)",
-        required=False,
-    )
-    parser_render.add_argument(
-        "-f",
-        "--root-folder",
-        type=str,
-        help="The root folder for the database change scripts",
-        required=False,
-    )
-    parser_render.add_argument(
-        "-m",
-        "--modules-folder",
-        type=str,
-        help="The modules folder for jinja macros and templates to be used across multiple scripts",
-        required=False,
-    )
-    parser_render.add_argument(
-        "--vars",
-        type=json.loads,
-        help='Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": '
-             '"value1", "variable2": "value2"})',
-        required=False,
-    )
-    parser_render.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Display verbose debugging details during execution (the default is False)",
-        required=False,
-    )
     parser_render.add_argument("script", type=str, help="The script to render")
-    parser_render.add_argument(
-        "--version_number_validation_regex",
-        type=str,
-        help="If supplied, version numbers will be validated with this regular expression.",
-        required=False,
-    )
-    parser_render.add_argument(
-        "--raise-exception-on-ignored-versioned-migration",
-        action="store_true",
-        help="Raise an exception if an un-applied versioned migration is ignored",
-        required=False,
-    )
 
     # The original parameters did not support subcommands. Check if a subcommand has been supplied
     # if not default to deploy to match original behaviour.
