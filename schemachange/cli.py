@@ -32,44 +32,44 @@ _snowflake_application_name = "schemachange"
 
 # messages
 _err_jinja_env_var = (
-        "Could not find environmental variable %s and no default" + " value was provided"
+    "Could not find environmental variable %s and no default" + " value was provided"
 )
 _err_oauth_tk_nm = "Response Json contains keys: {keys} \n but not {key}"
 _err_oauth_tk_err = "\n error description: {desc}"
 _err_no_auth_mthd = (
-        "Unable to find connection credentials for Okta, private key,  "
-        + "password, Oauth or Browser authentication"
+    "Unable to find connection credentials for Okta, private key,  "
+    + "password, Oauth or Browser authentication"
 )
 _err_unsupported_auth_mthd = (
-        "'{unsupported_authenticator}' is not supported authenticator option. "
-        + "Choose from externalbrowser, oauth, https://<subdomain>.okta.com. Using default value = 'snowflake'"
+    "'{unsupported_authenticator}' is not supported authenticator option. "
+    + "Choose from externalbrowser, oauth, https://<subdomain>.okta.com. Using default value = 'snowflake'"
 )
 _warn_password = (
-        "The SNOWSQL_PWD environment variable is deprecated and will"
-        + " be removed in a later version of schemachange. Please use SNOWFLAKE_PASSWORD instead."
+    "The SNOWSQL_PWD environment variable is deprecated and will"
+    + " be removed in a later version of schemachange. Please use SNOWFLAKE_PASSWORD instead."
 )
 _warn_password_dup = (
-        "Environment variables SNOWFLAKE_PASSWORD and SNOWSQL_PWD are "
-        + " both present, using SNOWFLAKE_PASSWORD"
+    "Environment variables SNOWFLAKE_PASSWORD and SNOWSQL_PWD are "
+    + " both present, using SNOWFLAKE_PASSWORD"
 )
 _err_args_missing = (
     "Missing config values. The following config values are required: %s "
 )
 _err_env_missing = (
-        "Missing environment variable(s). \nSNOWFLAKE_PASSWORD must be defined for "
-        + "password authentication. \nSNOWFLAKE_PRIVATE_KEY_PATH and (optional) "
-        + "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication. "
-        + "\nSNOWFLAKE_AUTHENTICATOR must be defined is using Oauth, OKTA or external Browser Authentication."
+    "Missing environment variable(s). \nSNOWFLAKE_PASSWORD must be defined for "
+    + "password authentication. \nSNOWFLAKE_PRIVATE_KEY_PATH and (optional) "
+    + "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE must be defined for private key authentication. "
+    + "\nSNOWFLAKE_AUTHENTICATOR must be defined is using Oauth, OKTA or external Browser Authentication."
 )
 _log_config_details = (
-        "Using Snowflake account {snowflake_account}\nUsing default role "
-        + "{snowflake_role}\nUsing default warehouse {snowflake_warehouse}\nUsing default "
-        + "database {snowflake_database}"
-        + "schema {snowflake_schema}"
+    "Using Snowflake account {snowflake_account}\nUsing default role "
+    + "{snowflake_role}\nUsing default warehouse {snowflake_warehouse}\nUsing default "
+    + "database {snowflake_database}"
+    + "schema {snowflake_schema}"
 )
 _log_ch_use = (
-        "Using change history table {database_name}.{schema_name}.{table_name} "
-        + "(last altered {last_altered})"
+    "Using change history table {database_name}.{schema_name}.{table_name} "
+    + "(last altered {last_altered})"
 )
 _log_ch_create = (
     "Created change history table {database_name}.{schema_name}.{table_name}"
@@ -81,31 +81,31 @@ _log_ch_max_version = (
     "Max applied change script version: {max_published_version_display}"
 )
 _log_skip_v = (
-        "Skipping change script {script_name} because it's older than the most recently "
-        + "applied change ({max_published_version})"
+    "Skipping change script {script_name} because it's older than the most recently "
+    + "applied change ({max_published_version})"
 )
 _log_skip_r = (
-        "Skipping change script {script_name} because there is no change since the last "
-        + "execution"
+    "Skipping change script {script_name} because there is no change since the last "
+    + "execution"
 )
 _log_apply = "Applying change script {script_name}"
 _log_apply_set_complete = (
-        "Successfully applied {scripts_applied} change scripts (skipping "
-        + "{scripts_skipped}) \nCompleted successfully"
+    "Successfully applied {scripts_applied} change scripts (skipping "
+    + "{scripts_skipped}) \nCompleted successfully"
 )
 _err_vars_config = "vars did not parse correctly, please check its configuration"
 _err_vars_reserved = (
-        "The variable schemachange has been reserved for use by schemachange, "
-        + "please use a different name"
+    "The variable schemachange has been reserved for use by schemachange, "
+    + "please use a different name"
 )
 _err_invalid_folder = "Invalid {folder_type} folder: {path}"
 _err_dup_scripts = (
-        "The script name {script_name} exists more than once (first_instance "
-        + "{first_path}, second instance {script_full_path})"
+    "The script name {script_name} exists more than once (first_instance "
+    + "{first_path}, second instance {script_full_path})"
 )
 _err_dup_scripts_version = (
-        "The script version {script_version} exists more than once "
-        + "(second instance {script_full_path})"
+    "The script version {script_version} exists more than once "
+    + "(second instance {script_full_path})"
 )
 _err_invalid_cht = "Invalid change history table name: %s"
 _log_auth_type = "Proceeding with %s authentication"
@@ -241,34 +241,34 @@ class SnowflakeSchemachangeSession:
 
     # region Query Templates
     _q_ch_metadata = (
-            "SELECT CREATED, LAST_ALTERED FROM {database_name}.INFORMATION_SCHEMA.TABLES"
-            + " WHERE TABLE_SCHEMA = REPLACE('{schema_name}','\"','') AND TABLE_NAME = REPLACE('{table_name}','\"','')"
+        "SELECT CREATED, LAST_ALTERED FROM {database_name}.INFORMATION_SCHEMA.TABLES"
+        + " WHERE TABLE_SCHEMA = REPLACE('{schema_name}','\"','') AND TABLE_NAME = REPLACE('{table_name}','\"','')"
     )
     _q_ch_schema_present = (
-            "SELECT COUNT(1) FROM {database_name}.INFORMATION_SCHEMA.SCHEMATA"
-            + " WHERE SCHEMA_NAME = REPLACE('{schema_name}','\"','')"
+        "SELECT COUNT(1) FROM {database_name}.INFORMATION_SCHEMA.SCHEMATA"
+        + " WHERE SCHEMA_NAME = REPLACE('{schema_name}','\"','')"
     )
     _q_ch_ddl_schema = "CREATE SCHEMA {schema_name}"
     _q_ch_ddl_table = (
-            "CREATE TABLE IF NOT EXISTS {database_name}.{schema_name}.{table_name} (VERSION VARCHAR, "
-            + "DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR,"
-            + " EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)"
+        "CREATE TABLE IF NOT EXISTS {database_name}.{schema_name}.{table_name} (VERSION VARCHAR, "
+        + "DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR,"
+        + " EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)"
     )
     _q_ch_r_checksum = (
-            "SELECT DISTINCT SCRIPT, FIRST_VALUE(CHECKSUM) OVER (PARTITION BY SCRIPT "
-            + "ORDER BY INSTALLED_ON DESC) FROM {database_name}.{schema_name}.{table_name} WHERE SCRIPT_TYPE = 'R' AND "
-            + "STATUS = 'Success'"
+        "SELECT DISTINCT SCRIPT, FIRST_VALUE(CHECKSUM) OVER (PARTITION BY SCRIPT "
+        + "ORDER BY INSTALLED_ON DESC) FROM {database_name}.{schema_name}.{table_name} WHERE SCRIPT_TYPE = 'R' AND "
+        + "STATUS = 'Success'"
     )
     _q_ch_fetch = (
-            "SELECT VERSION FROM {database_name}.{schema_name}.{table_name} WHERE SCRIPT_TYPE = 'V' ORDER"
-            + " BY INSTALLED_ON DESC LIMIT 1"
+        "SELECT VERSION FROM {database_name}.{schema_name}.{table_name} WHERE SCRIPT_TYPE = 'V' ORDER"
+        + " BY INSTALLED_ON DESC LIMIT 1"
     )
     _q_sess_tag = "ALTER SESSION SET QUERY_TAG = '{query_tag}'"
     _q_ch_log = (
-            "INSERT INTO {database_name}.{schema_name}.{table_name} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, "
-            + "CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) VALUES ('{script_version}',"
-            + "'{script_description}','{script_name}','{script_type}','{checksum}',{execution_time},"
-            + "'{status}','{user}',CURRENT_TIMESTAMP);"
+        "INSERT INTO {database_name}.{schema_name}.{table_name} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, "
+        + "CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) VALUES ('{script_version}',"
+        + "'{script_description}','{script_name}','{script_type}','{checksum}',{execution_time},"
+        + "'{status}','{user}',CURRENT_TIMESTAMP);"
     )
     _q_set_sess_role = "USE ROLE {role};"
     _q_set_sess_database = "USE DATABASE {database};"
@@ -335,7 +335,7 @@ class SnowflakeSchemachangeSession:
         snowflake_password = None
         default_authenticator = "snowflake"
         if os.getenv("SNOWFLAKE_PASSWORD") is not None and os.getenv(
-                "SNOWFLAKE_PASSWORD"
+            "SNOWFLAKE_PASSWORD"
         ):
             snowflake_password = os.getenv("SNOWFLAKE_PASSWORD")
 
@@ -632,13 +632,13 @@ def deploy_command(config):
     all_script_names = list(all_scripts.keys())
     # Sort scripts such that versioned scripts get applied first and then the repeatable ones.
     all_script_names_sorted = (
-            sorted_alphanumeric([script for script in all_script_names if script[0] == "V"])
-            + sorted_alphanumeric(
-        [script for script in all_script_names if script[0] == "R"]
-    )
-            + sorted_alphanumeric(
-        [script for script in all_script_names if script[0] == "A"]
-    )
+        sorted_alphanumeric([script for script in all_script_names if script[0] == "V"])
+        + sorted_alphanumeric(
+            [script for script in all_script_names if script[0] == "R"]
+        )
+        + sorted_alphanumeric(
+            [script for script in all_script_names if script[0] == "A"]
+        )
     )
 
     # Loop through each script in order and apply any required changes
@@ -648,7 +648,7 @@ def deploy_command(config):
         # Apply a versioned-change script only if the version is newer than the most recent change in the database
         # Apply any other scripts, i.e. repeatable scripts, irrespective of the most recent change in the database
         if script_name[0] == "V" and get_alphanum_key(
-                script["script_version"]
+            script["script_version"]
         ) <= get_alphanum_key(max_published_version):
             if config["verbose"]:
                 print(
@@ -676,7 +676,7 @@ def deploy_command(config):
 
             # check if R file was already executed
             if (r_scripts_checksum is not None) and script_name in list(
-                    r_scripts_checksum["script_name"]
+                r_scripts_checksum["script_name"]
             ):
                 checksum_last = list(
                     r_scripts_checksum.loc[
@@ -772,24 +772,24 @@ def load_schemachange_config(config_file_path: str) -> Dict[str, Any]:
 
 
 def get_schemachange_config(
-        config_file_path,
-        root_folder,
-        modules_folder,
-        snowflake_account,
-        snowflake_user,
-        snowflake_role,
-        snowflake_warehouse,
-        snowflake_database,
-        snowflake_schema,
-        change_history_table,
-        vars,
-        create_change_history_table,
-        autocommit,
-        verbose,
-        dry_run,
-        query_tag,
-        oauth_config,
-        **kwargs,
+    config_file_path,
+    root_folder,
+    modules_folder,
+    snowflake_account,
+    snowflake_user,
+    snowflake_role,
+    snowflake_warehouse,
+    snowflake_database,
+    snowflake_schema,
+    change_history_table,
+    vars,
+    create_change_history_table,
+    autocommit,
+    verbose,
+    dry_run,
+    query_tag,
+    oauth_config,
+    **kwargs,
 ):
     # create cli override dictionary
     # Could refactor to just pass Args as a dictionary?
@@ -990,7 +990,7 @@ def extract_config_secrets(config: Optional[Dict[str, Any]]) -> Set[str]:
 
     # defined as an inner/ nested function to provide encapsulation
     def inner_extract_dictionary_secrets(
-            dictionary: Dict[str, Any], child_of_secrets: bool = False
+        dictionary: Dict[str, Any], child_of_secrets: bool = False
     ) -> Set[str]:
         """
         Considers any key with the word secret in the name as a secret or
@@ -1003,13 +1003,13 @@ def extract_config_secrets(config: Optional[Dict[str, Any]]) -> Set[str]:
                 if isinstance(value, dict):
                     if key == "secrets":
                         extracted_secrets = (
-                                extracted_secrets
-                                | inner_extract_dictionary_secrets(value, True)
+                            extracted_secrets
+                            | inner_extract_dictionary_secrets(value, True)
                         )
                     else:
                         extracted_secrets = (
-                                extracted_secrets
-                                | inner_extract_dictionary_secrets(value, child_of_secrets)
+                            extracted_secrets
+                            | inner_extract_dictionary_secrets(value, child_of_secrets)
                         )
                 elif child_of_secrets or "SECRET" in key.upper():
                     extracted_secrets.add(value.strip())
