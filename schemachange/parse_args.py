@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from tests.Config import DeployConfig, RenderConfig
+from schemachange.Config import DeployConfig, RenderConfig
 
 
 def parse_args(args) -> DeployConfig | RenderConfig:
