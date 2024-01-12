@@ -19,21 +19,19 @@ from cryptography.hazmat.primitives import serialization
 from jinja2.loaders import BaseLoader
 from pandas import DataFrame
 
+from schemachange.JinjaEnvVar import JinjaEnvVar
 from schemachange.parse_args import parse_args
+from schemachange.get_schemachange_config import get_schemachange_config
 
 # region Global Variables
 # metadata
 _schemachange_version = "3.6.1"
-_config_file_name = "schemachange-config.yml"
 _metadata_database_name = "METADATA"
 _metadata_schema_name = "SCHEMACHANGE"
 _metadata_table_name = "CHANGE_HISTORY"
 _snowflake_application_name = "schemachange"
 
 # messages
-_err_jinja_env_var = (
-    "Could not find environmental variable %s and no default" + " value was provided"
-)
 _err_oauth_tk_nm = "Response Json contains keys: {keys} \n but not {key}"
 _err_oauth_tk_err = "\n error description: {desc}"
 _err_no_auth_mthd = (
@@ -93,12 +91,6 @@ _log_apply_set_complete = (
     "Successfully applied {scripts_applied} change scripts (skipping "
     + "{scripts_skipped}) \nCompleted successfully"
 )
-_err_vars_config = "vars did not parse correctly, please check its configuration"
-_err_vars_reserved = (
-    "The variable schemachange has been reserved for use by schemachange, "
-    + "please use a different name"
-)
-_err_invalid_folder = "Invalid {folder_type} folder: {path}"
 _err_dup_scripts = (
     "The script name {script_name} exists more than once (first_instance "
     + "{first_path}, second instance {script_full_path})"
@@ -112,34 +104,7 @@ _log_auth_type = "Proceeding with %s authentication"
 _log_pk_enc = "No private key passphrase provided. Assuming the key is not encrypted."
 _log_okta_ep = "Okta Endpoint: %s"
 
-
 # endregion Global Variables
-
-
-class JinjaEnvVar(jinja2.ext.Extension):
-    """
-    Extends Jinja Templates with access to environmental variables
-    """
-
-    def __init__(self, environment: jinja2.Environment):
-        super().__init__(environment)
-
-        # add globals
-        environment.globals["env_var"] = JinjaEnvVar.env_var
-
-    @staticmethod
-    def env_var(env_var: str, default: Optional[str] = None) -> str:
-        """
-        Returns the value of the environmental variable or the default.
-        """
-        result = default
-        if env_var in os.environ:
-            result = os.environ[env_var]
-
-        if result is None:
-            raise ValueError(_err_jinja_env_var % env_var)
-
-        return result
 
 
 class JinjaTemplateProcessor:
@@ -747,133 +712,6 @@ def sorted_alphanumeric(data):
     return sorted(data, key=get_alphanum_key)
 
 
-def load_schemachange_config(config_file_path: str) -> Dict[str, Any]:
-    """
-    Loads the schemachange config file and processes with jinja templating engine
-    """
-    config = dict()
-
-    # First read in the yaml config file, if present
-    if os.path.isfile(config_file_path):
-        with open(config_file_path) as config_file:
-            # Run the config file through the jinja engine to give access to environmental variables
-            # The config file does not have the same access to the jinja functionality that a script
-            # has.
-            config_template = jinja2.Template(
-                config_file.read(),
-                undefined=jinja2.StrictUndefined,
-                extensions=[JinjaEnvVar],
-            )
-
-            # The FullLoader parameter handles the conversion from YAML scalar values to Python the dictionary format
-            config = yaml.load(config_template.render(), Loader=yaml.FullLoader)
-        print("Using config file: %s" % config_file_path)
-    return config
-
-
-def get_schemachange_config(
-    config_file_path,
-    root_folder,
-    modules_folder,
-    snowflake_account,
-    snowflake_user,
-    snowflake_role,
-    snowflake_warehouse,
-    snowflake_database,
-    snowflake_schema,
-    change_history_table,
-    vars,
-    create_change_history_table,
-    autocommit,
-    verbose,
-    dry_run,
-    query_tag,
-    oauth_config,
-    **kwargs,
-):
-    # create cli override dictionary
-    # Could refactor to just pass Args as a dictionary?
-    # **kwargs inlcuded to avoid complaints about unexpect arguments from arg parser eg:subcommand
-    cli_inputs = {
-        "root_folder": root_folder,
-        "modules_folder": modules_folder,
-        "snowflake_account": snowflake_account,
-        "snowflake_user": snowflake_user,
-        "snowflake_role": snowflake_role,
-        "snowflake_warehouse": snowflake_warehouse,
-        "snowflake_database": snowflake_database,
-        "snowflake_schema": snowflake_schema,
-        "change_history_table": change_history_table,
-        "vars": vars,
-        "create_change_history_table": create_change_history_table,
-        "autocommit": autocommit,
-        "verbose": verbose,
-        "dry_run": dry_run,
-        "query_tag": query_tag,
-        "oauth_config": oauth_config,
-    }
-    cli_inputs = {k: v for (k, v) in cli_inputs.items() if v}
-
-    # load YAML inputs and convert kebabs to snakes
-    config = {
-        k.replace("-", "_"): v
-        for (k, v) in load_schemachange_config(config_file_path).items()
-    }
-    # set values passed into the cli Overriding values in config file
-    config.update(cli_inputs)
-
-    # create Default values dictionary
-    config_defaults = {
-        "root_folder": os.path.abspath("."),
-        "modules_folder": None,
-        "snowflake_account": None,
-        "snowflake_user": None,
-        "snowflake_role": None,
-        "snowflake_warehouse": None,
-        "snowflake_database": None,
-        "snowflake_schema": None,
-        "change_history_table": None,
-        "vars": {},
-        "create_change_history_table": False,
-        "autocommit": False,
-        "verbose": False,
-        "dry_run": False,
-        "query_tag": None,
-        "oauth_config": None,
-    }
-    # insert defualt values for items not populated
-    config.update(
-        {k: v for (k, v) in config_defaults.items() if k not in config.keys()}
-    )
-
-    # Validate folder paths
-    if "root_folder" in config:
-        config["root_folder"] = os.path.abspath(config["root_folder"])
-    if not os.path.isdir(config["root_folder"]):
-        raise ValueError(
-            _err_invalid_folder.format(folder_type="root", path=config["root_folder"])
-        )
-
-    if config["modules_folder"]:
-        config["modules_folder"] = os.path.abspath(config["modules_folder"])
-        if not os.path.isdir(config["modules_folder"]):
-            raise ValueError(
-                _err_invalid_folder.format(
-                    folder_type="modules", path=config["modules_folder"]
-                )
-            )
-    if config["vars"]:
-        # if vars is configured wrong in the config file it will come through as a string
-        if type(config["vars"]) is not dict:
-            raise ValueError(_err_vars_config)
-
-        # the variable schema change has been reserved
-        if "schemachange" in config["vars"]:
-            raise ValueError(_err_vars_reserved)
-
-    return config
-
-
 def get_all_scripts_recursively(root_directory, verbose):
     all_files = dict()
     all_versions = list()
@@ -1027,30 +865,30 @@ def main(argv=sys.argv):
     args = parse_args(argv[1:])
     print("schemachange version: %s" % _schemachange_version)
 
-    # First get the config values
-    config_file_path = os.path.join(args.config_folder, _config_file_name)
+    # # First get the config values
+    # config_file_path = os.path.join(args.config_folder, _config_file_name)
 
-    # Retreive argparser attributes as dictionary
-    schemachange_args = args.__dict__
-    schemachange_args["config_file_path"] = config_file_path
+    # # Retreive argparser attributes as dictionary
+    # schemachange_args = args.__dict__
+    # schemachange_args["config_file_path"] = config_file_path
 
-    # nullify expected null values for render.
-    if args.subcommand == "render":
-        renderoveride = {
-            "snowflake_account": None,
-            "snowflake_user": None,
-            "snowflake_role": None,
-            "snowflake_warehouse": None,
-            "snowflake_database": None,
-            "change_history_table": None,
-            "snowflake_schema": None,
-            "create_change_history_table": None,
-            "autocommit": None,
-            "dry_run": None,
-            "query_tag": None,
-            "oauth_config": None,
-        }
-        schemachange_args.update(renderoveride)
+    # # nullify expected null values for render.
+    # if args.subcommand == "render":
+    #     renderoveride = {
+    #         "snowflake_account": None,
+    #         "snowflake_user": None,
+    #         "snowflake_role": None,
+    #         "snowflake_warehouse": None,
+    #         "snowflake_database": None,
+    #         "change_history_table": None,
+    #         "snowflake_schema": None,
+    #         "create_change_history_table": None,
+    #         "autocommit": None,
+    #         "dry_run": None,
+    #         "query_tag": None,
+    #         "oauth_config": None,
+    #     }
+    #     schemachange_args.update(renderoveride)
     config = get_schemachange_config(**schemachange_args)
 
     # set up a secret manager and assign to global scope

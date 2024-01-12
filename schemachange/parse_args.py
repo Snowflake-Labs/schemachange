@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import argparse
 import json
-import sys
+
+from tests.Config import DeployConfig, RenderConfig
 
 
-def parse_args(args):
+def parse_args(args) -> DeployConfig | RenderConfig:
     parser = argparse.ArgumentParser(
         prog="schemachange",
         description="Apply schema changes to a Snowflake account. Full readme at "
@@ -143,7 +146,7 @@ def parse_args(args):
     parser_deploy.add_argument(
         "--raise-exception-on-ignored-versioned-migration",
         action="store_true",
-        help="Raise an exception if an un-applied versioned migration is ignored",
+        help="Raise an exception if an un-applied versioned migration is ignored (the default is False)",
         required=False,
     )
     # TODO test CLI passing of args
@@ -162,4 +165,8 @@ def parse_args(args):
     ):
         args = ["deploy"] + args
 
-    return parser.parse_args(args)
+    args = parser.parse_args(args)
+    if args.subcommand == "deploy":
+        return DeployConfig.factory(**args.__dict__)
+    elif args.subcommand == "render":
+        return RenderConfig.factory(**args.__dict__)
