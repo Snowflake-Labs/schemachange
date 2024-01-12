@@ -13,16 +13,16 @@ def test_parse_args_defaults():
         expected_arg = arg.strip("-").replace("-", "_")
         expected[expected_arg] = expected_value
 
-    config = parse_args(args)
+    parsed_args = parse_args(args)
     for expected_arg, expected_value in expected.items():
-        parsed_arg = getattr(config, expected_arg)
+        parsed_arg = getattr(parsed_args, expected_arg)
         assert parsed_arg == expected_value
-    assert config.verbose is False
-    assert config.create_change_history_table is False
-    assert config.autocommit is False
-    assert config.dry_run is False
-    assert config.raise_exception_on_ignored_versioned_migration is False
-    assert config.subcommand == "deploy"
+    assert parsed_args.verbose is False
+    assert parsed_args.create_change_history_table is False
+    assert parsed_args.autocommit is False
+    assert parsed_args.dry_run is False
+    assert parsed_args.raise_exception_on_ignored_versioned_migration is False
+    assert parsed_args.subcommand == "deploy"
 
 
 def test_parse_args_deploy_names():
@@ -69,10 +69,10 @@ def test_parse_args_deploy_names():
         expected_arg = arg.strip("-").replace("-", "_")
         expected[expected_arg] = expected_value
 
-    config = parse_args(args)
-    assert config.subcommand == "deploy"
+    parsed_args = parse_args(args)
+    assert parsed_args.subcommand == "deploy"
     for expected_arg, expected_value in expected.items():
-        parsed_arg = getattr(config, expected_arg)
+        parsed_arg = getattr(parsed_args, expected_arg)
         assert parsed_arg == expected_value
 
 
@@ -121,8 +121,8 @@ def test_parse_args_deploy_flags():
         args.extend([arg])
         expected[expected_arg] = expected_value
 
-    config = parse_args(args)
-    assert config.subcommand == "deploy"
+    parsed_args = parse_args(args)
+    assert parsed_args.subcommand == "deploy"
     for expected_arg, expected_value in expected.items():
-        parsed_arg = getattr(config, expected_arg)
+        parsed_arg = getattr(parsed_args, expected_arg)
         assert parsed_arg == expected_value

@@ -6,7 +6,7 @@ import json
 from schemachange.Config import DeployConfig, RenderConfig
 
 
-def parse_args(args) -> DeployConfig | RenderConfig:
+def parse_args(args):
     parser = argparse.ArgumentParser(
         prog="schemachange",
         description="Apply schema changes to a Snowflake account. Full readme at "
@@ -165,8 +165,4 @@ def parse_args(args) -> DeployConfig | RenderConfig:
     ):
         args = ["deploy"] + args
 
-    args = parser.parse_args(args)
-    if args.subcommand == "deploy":
-        return DeployConfig.factory(**args.__dict__)
-    elif args.subcommand == "render":
-        return RenderConfig.factory(**args.__dict__)
+    return parser.parse_args(args)
