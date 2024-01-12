@@ -1,37 +1,42 @@
 from __future__ import annotations
 
-import inspect
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 _config_file_name = "schemachange-config.yml"
 
 
-@dataclass(kw_only=True, frozen=True)
-class Config:
+class Config(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="ignore")
     subcommand: Literal["deploy", "render"]
-    config_folder: str = field(default=".")
-    config_file_path: str
-    root_folder: str | None = None
-    modules_folder: str | None = None
-    vars: dict | None = None
+    config_folder: Path = Field(default=".")
+    config_file_path: Path | None = None
+    root_folder: Path | None = None
+    modules_folder: Path | None = None
+    vars: dict | None = Field(default_factory=dict)
     verbose: bool = False
 
+    @model_validator(mode="before")
     @classmethod
-    def factory(cls, **kwargs):
-        kwargs["config_file_path"] = Path(kwargs["config_folder"]) / _config_file_name
+    def inject_config_file_path(cls, data):
+        data["config_file_path"] = Path(data["config_folder"]) / _config_file_name
+        return data
 
-        return cls(
-            **{
-                k: v
-                for k, v in kwargs.items()
-                if k in inspect.signature(cls).parameters
-            }
-        )
+    @field_validator("root_folder", "modules_folder")
+    @classmethod
+    def must_be_valid_dir(cls, v: str) -> str:
+        print("hey there!")
+        return v
 
 
-@dataclass(kw_only=True, frozen=True)
 class DeployConfig(Config):
     snowflake_account: str | None = None
     snowflake_user: str | None = None
@@ -39,7 +44,9 @@ class DeployConfig(Config):
     snowflake_warehouse: str | None = None
     snowflake_database: str | None = None
     snowflake_schema: str | None = None
-    change_history_table: str = field(default="METADATA.SCHEMACHANGE.CHANGE_HISTORY")
+    change_history_table: str | None = Field(
+        default="METADATA.SCHEMACHANGE.CHANGE_HISTORY"
+    )
     create_change_history_table: bool = False
     autocommit: bool = False
     dry_run: bool = False
@@ -49,6 +56,5 @@ class DeployConfig(Config):
     raise_exception_on_ignored_versioned_migration: bool = False
 
 
-@dataclass(kw_only=True, frozen=True)
 class RenderConfig(Config):
     script: str
