@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
+from typing import Literal, ClassVar
 
 from pydantic import (
     BaseModel,
@@ -10,12 +10,13 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-
-_config_file_name = "schemachange-config.yml"
+from pydantic_core.core_schema import ValidationInfo
 
 
 class Config(BaseModel):
     model_config = ConfigDict(frozen=True, extra="ignore")
+    default_config_file_name: ClassVar[str] = "schemachange-config.yml"
+
     subcommand: Literal["deploy", "render"]
     config_folder: Path = Field(default=".")
     config_file_path: Path | None = None
@@ -27,13 +28,19 @@ class Config(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def inject_config_file_path(cls, data):
-        data["config_file_path"] = Path(data["config_folder"]) / _config_file_name
+        config_folder = data.get("config_folder")
+        if config_folder is None:
+            config_folder = "."
+
+        data["config_file_path"] = Path(config_folder) / cls.default_config_file_name
         return data
 
-    @field_validator("root_folder", "modules_folder")
+    @field_validator("config_folder", "root_folder", "modules_folder")
     @classmethod
-    def must_be_valid_dir(cls, v: str) -> str:
-        print("hey there!")
+    def must_be_valid_dir(cls, v: Path, info: ValidationInfo) -> Path:
+        if not v.is_dir():
+            print("Hey there!")
+            raise ValueError(f"Invalid {info.field_name} folder: {v}")
         return v
 
 
