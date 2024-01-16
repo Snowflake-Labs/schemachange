@@ -1,0 +1,54 @@
+from __future__ import annotations
+
+import os
+import pathlib
+
+import jinja2
+import jinja2.ext
+from jinja2.loaders import BaseLoader
+
+from schemachange.JinjaEnvVar import JinjaEnvVar
+
+
+class JinjaTemplateProcessor:
+    _env_args = {
+        "undefined": jinja2.StrictUndefined,
+        "autoescape": False,
+        "extensions": [JinjaEnvVar],
+    }
+
+    def __init__(self, project_root: str, modules_folder: str = None):
+        loader: BaseLoader
+        if modules_folder:
+            loader = jinja2.ChoiceLoader(
+                [
+                    jinja2.FileSystemLoader(project_root),
+                    jinja2.PrefixLoader(
+                        {"modules": jinja2.FileSystemLoader(modules_folder)}
+                    ),
+                ]
+            )
+        else:
+            loader = jinja2.FileSystemLoader(project_root)
+        self.__environment = jinja2.Environment(loader=loader, **self._env_args)
+        self.__project_root = project_root
+
+    def list(self):
+        return self.__environment.list_templates()
+
+    def override_loader(self, loader: jinja2.BaseLoader):
+        # to make unit testing easier
+        self.__environment = jinja2.Environment(loader=loader, **self._env_args)
+
+    def render(self, script: str, vars: dict[str, object] | None, verbose: bool) -> str:
+        if not vars:
+            vars = {}
+        # jinja needs posix path
+        posix_path = pathlib.Path(script).as_posix()
+        template = self.__environment.get_template(posix_path)
+        content = template.render(**vars).strip()
+        content = content[:-1] if content.endswith(";") else content
+        return content
+
+    def relpath(self, file_path: str):
+        return os.path.relpath(file_path, self.__project_root)

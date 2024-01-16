@@ -4,7 +4,7 @@ import pathlib
 import pytest
 from jinja2 import DictLoader
 from jinja2.exceptions import UndefinedError
-from schemachange.cli import JinjaTemplateProcessor
+from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
 
 
 def test_JinjaTemplateProcessor_render_simple_string():
