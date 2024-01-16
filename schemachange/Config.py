@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from argparse import Namespace
 from pathlib import Path
 from typing import Literal, ClassVar
 
@@ -18,9 +19,9 @@ class Config(BaseModel):
     default_config_file_name: ClassVar[str] = "schemachange-config.yml"
 
     subcommand: Literal["deploy", "render"]
-    config_folder: Path = Field(default=".")
+    config_folder: Path = Field(default=Path("."))
     config_file_path: Path | None = None
-    root_folder: Path | None = None
+    root_folder: Path | None = Field(default=Path("."))
     modules_folder: Path | None = None
     vars: dict | None = Field(default_factory=dict)
     verbose: bool = False
@@ -37,14 +38,29 @@ class Config(BaseModel):
 
     @field_validator("config_folder", "root_folder", "modules_folder")
     @classmethod
-    def must_be_valid_dir(cls, v: Path, info: ValidationInfo) -> Path:
+    def must_be_valid_dir(cls, v: Path, info: ValidationInfo) -> Path | None:
+        if v is None:
+            return v
         if not v.is_dir():
-            print("Hey there!")
             raise ValueError(f"Invalid {info.field_name} folder: {v}")
+        return v
+
+    @field_validator("vars", mode="before")
+    @classmethod
+    def must_be_dict(cls, v: str | dict) -> dict:
+        if not isinstance(v, dict):
+            raise ValueError(
+                "vars did not parse correctly, please check its configuration"
+            )
+        if "schemachange" in v.keys():
+            raise ValueError(
+                "The variable 'schemachange' has been reserved for use by schemachange, please use a different name"
+            )
         return v
 
 
 class DeployConfig(Config):
+    subcommand: Literal["deploy"] = "deploy"
     snowflake_account: str | None = None
     snowflake_user: str | None = None
     snowflake_role: str | None = None
@@ -64,4 +80,14 @@ class DeployConfig(Config):
 
 
 class RenderConfig(Config):
+    subcommand: Literal["render"] = "render"
     script: str
+
+
+def config_factory(args: Namespace) -> DeployConfig | RenderConfig:
+    if args.subcommand == "deploy":
+        return DeployConfig(**args.__dict__)
+    elif args.subcommand == "render":
+        return RenderConfig(**args.__dict__)
+    else:
+        raise Exception(f"unhandled subcommand: {args.subcommand}")
