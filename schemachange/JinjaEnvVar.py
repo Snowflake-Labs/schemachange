@@ -4,8 +4,6 @@ import os
 
 import jinja2.ext
 
-_err_jinja_env_var = ()
-
 
 class JinjaEnvVar(jinja2.ext.Extension):
     """

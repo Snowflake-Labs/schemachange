@@ -3,7 +3,7 @@ import unittest.mock as mock
 import jinja2
 import pytest
 
-from schemachange.cli import JinjaEnvVar
+from schemachange.JinjaEnvVar import JinjaEnvVar
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
