@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 
 import jinja2
 import jinja2.ext
@@ -8,15 +7,19 @@ import yaml
 
 from schemachange.JinjaEnvVar import JinjaEnvVar
 
+from pathlib import Path
 
-def load_schemachange_config(config_file_path: Path) -> dict[str, object]:
+from Config import DeployConfig, RenderConfig, config_factory
+
+
+def load_yaml_config(config_file_path: Path | None) -> dict[str, object]:
     """
     Loads the schemachange config file and processes with jinja templating engine
     """
     config = dict()
 
     # First read in the yaml config file, if present
-    if config_file_path.is_file():
+    if config_file_path is not None and config_file_path.is_file():
         with config_file_path.open() as config_file:
             # Run the config file through the jinja engine to give access to environmental variables
             # The config file does not have the same access to the jinja functionality that a script
@@ -31,3 +34,18 @@ def load_schemachange_config(config_file_path: Path) -> dict[str, object]:
             config = yaml.load(config_template.render(), Loader=yaml.FullLoader)
         print(f"Using config file: {str(config_file_path)}")
     return config
+
+
+def get_yaml_config(
+    subcommand: str, config_file_path: Path | None
+) -> DeployConfig | RenderConfig:
+    # TODO: I think the configuration key for oauthconfig should be oauth-config.
+    #  This looks like a bug in the current state of the repo to me
+    kwargs = {
+        k.replace("-", "_").replace("oauthconfig", "oauth_config"): v
+        for (k, v) in load_yaml_config(config_file_path).items()
+    }
+    kwargs["subcommand"] = subcommand
+
+    # load YAML inputs and convert kebabs to snakes
+    return config_factory(kwargs)
