@@ -782,7 +782,7 @@ def main():
             exclude_none=False,
         )
     )
-    config = dict() # TODO: Placeholder
+    config = dict()  # TODO: Placeholder
 
     # set up a secret manager and assign to global scope
     sm = SecretManager()
