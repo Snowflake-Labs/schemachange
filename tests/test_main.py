@@ -1,76 +1,101 @@
 import os
 import tempfile
 import unittest.mock as mock
+from pathlib import Path
 from textwrap import dedent
 
 import pytest
 
 import schemachange.cli as cli
 
+default_deploy_config = {
+    # Shared configuration options
+    "config_folder": Path("."),
+    "root_folder": Path("."),
+    "modules_folder": None,
+    "vars": {},
+    "verbose": False,
+    # Deploy configuration options
+    "snowflake_account": None,
+    "snowflake_user": None,
+    "snowflake_role": None,
+    "snowflake_warehouse": None,
+    "snowflake_database": None,
+    "snowflake_schema": None,
+    "change_history_table": "METADATA.SCHEMACHANGE.CHANGE_HISTORY",
+    "create_change_history_table": False,
+    "autocommit": False,
+    "dry_run": False,
+    "query_tag": None,
+    "oauth_config": None,
+    "version_number_validation_regex": None,
+    "raise_exception_on_ignored_versioned_migration": False,
+}
+
 
 @pytest.mark.parametrize(
-    "args, expected",
+    "cli_args, expected",
     [
-        (["schemachange"], cli.CONFIG_DEFAULTS),
-        (["schemachange", "deploy"], cli.CONFIG_DEFAULTS),
+        (["schemachange"], default_deploy_config),
+        (["schemachange", "deploy"], default_deploy_config),
         (
             ["schemachange", "deploy", "-f", "."],
-            {**cli.CONFIG_DEFAULTS, "root_folder": os.path.abspath(".")},
+            {**default_deploy_config, "root_folder": Path(".")},
         ),
         (
             ["schemachange", "deploy", "--snowflake-account", "account"],
-            {**cli.CONFIG_DEFAULTS, "snowflake_account": "account"},
+            {**default_deploy_config, "snowflake_account": "account"},
         ),
         (
             ["schemachange", "deploy", "--snowflake-user", "user"],
-            {**cli.CONFIG_DEFAULTS, "snowflake_user": "user"},
+            {**default_deploy_config, "snowflake_user": "user"},
         ),
         (
             ["schemachange", "deploy", "--snowflake-role", "role"],
-            {**cli.CONFIG_DEFAULTS, "snowflake_role": "role"},
+            {**default_deploy_config, "snowflake_role": "role"},
         ),
         (
             ["schemachange", "deploy", "--snowflake-warehouse", "warehouse"],
-            {**cli.CONFIG_DEFAULTS, "snowflake_warehouse": "warehouse"},
+            {**default_deploy_config, "snowflake_warehouse": "warehouse"},
         ),
         (
             ["schemachange", "deploy", "--snowflake-database", "database"],
-            {**cli.CONFIG_DEFAULTS, "snowflake_database": "database"},
+            {**default_deploy_config, "snowflake_database": "database"},
         ),
         (
             ["schemachange", "deploy", "--snowflake-schema", "schema"],
-            {**cli.CONFIG_DEFAULTS, "snowflake_schema": "schema"},
+            {**default_deploy_config, "snowflake_schema": "schema"},
         ),
         (
             ["schemachange", "deploy", "--change-history-table", "db.schema.table"],
-            {**cli.CONFIG_DEFAULTS, "change_history_table": "db.schema.table"},
+            {**default_deploy_config, "change_history_table": "db.schema.table"},
         ),
         (
             ["schemachange", "deploy", "--vars", '{"var1": "val"}'],
             {
-                **cli.CONFIG_DEFAULTS,
+                **default_deploy_config,
                 "vars": {"var1": "val"},
             },
         ),
         (
             ["schemachange", "deploy", "--create-change-history-table"],
-            {**cli.CONFIG_DEFAULTS, "create_change_history_table": True},
+            {**default_deploy_config, "create_change_history_table": True},
         ),
         (
             ["schemachange", "deploy", "--autocommit"],
-            {**cli.CONFIG_DEFAULTS, "autocommit": True},
+            {**default_deploy_config, "autocommit": True},
         ),
         (
             ["schemachange", "deploy", "--verbose"],
-            {**cli.CONFIG_DEFAULTS, "verbose": True},
+            {**default_deploy_config, "verbose": True},
         ),
         (
             ["schemachange", "deploy", "--dry-run"],
-            {**cli.CONFIG_DEFAULTS, "dry_run": True},
+            {**default_deploy_config, "dry_run": True},
         ),
         (
             ["schemachange", "deploy", "--query-tag", "querytag"],
-            {**cli.CONFIG_DEFAULTS, "query_tag": "querytag"},
+            {**default_deploy_config, "query_tag": "querytag"},
         ),
         (
             [
@@ -80,56 +105,93 @@ import schemachange.cli as cli
                 '{"token-provider-url": "https//..."}',
             ],
             {
-                **cli.CONFIG_DEFAULTS,
+                **default_deploy_config,
                 "oauth_config": {"token-provider-url": "https//..."},
             },
         ),
     ],
 )
+@mock.patch("schemachange.cli.deploy_command")
 def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
-    args, expected
+    mock_deploy_command, cli_args, expected
 ):
-    with mock.patch("schemachange.cli.deploy_command") as mock_deploy_command:
-        cli.main(args)
+    with mock.patch("sys.argv", cli_args):
+        cli.main()
         mock_deploy_command.assert_called_once()
-        [
-            config,
-        ], _call_kwargs = mock_deploy_command.call_args
-        assert config == expected
+        _, call_kwargs = mock_deploy_command.call_args
+        for expected_arg, expected_value in expected.items():
+            actual_value = getattr(call_kwargs["config"], expected_arg)
+            assert actual_value == expected_value
 
 
 @pytest.mark.parametrize(
-    "args, expected",
+    "cli_args, expected",
     [
         (
-            ["schemachange", "render", "script.sql"],
-            ({**cli.CONFIG_DEFAULTS}, "script.sql"),
-        ),
-        (
-            ["schemachange", "render", "--root-folder", ".", "script.sql"],
+            [
+                "schemachange",
+                "render",
+                str(Path(__file__).parent / "assets" / "script.sql"),
+            ],
             (
-                {**cli.CONFIG_DEFAULTS, "root_folder": os.path.abspath(".")},
-                "script.sql",
+                {**default_deploy_config},
+                Path(__file__).parent / "assets" / "script.sql",
             ),
         ),
         (
-            ["schemachange", "render", "--vars", '{"var1": "val"}', "script.sql"],
-            ({**cli.CONFIG_DEFAULTS, "vars": {"var1": "val"}}, "script.sql"),
+            [
+                "schemachange",
+                "render",
+                "--root-folder",
+                ".",
+                str(Path(__file__).parent / "assets" / "script.sql"),
+            ],
+            (
+                {**default_deploy_config, "root_folder": Path(".")},
+                Path(__file__).parent / "assets" / "script.sql",
+            ),
         ),
         (
-            ["schemachange", "render", "--verbose", "script.sql"],
-            ({**cli.CONFIG_DEFAULTS, "verbose": True}, "script.sql"),
+            [
+                "schemachange",
+                "render",
+                "--vars",
+                '{"var1": "val"}',
+                str(Path(__file__).parent / "assets" / "script.sql"),
+            ],
+            (
+                {**default_deploy_config, "vars": {"var1": "val"}},
+                Path(__file__).parent / "assets" / "script.sql",
+            ),
+        ),
+        (
+            [
+                "schemachange",
+                "render",
+                "--verbose",
+                str(Path(__file__).parent / "assets" / "script.sql"),
+            ],
+            (
+                {**default_deploy_config, "verbose": True},
+                Path(__file__).parent / "assets" / "script.sql",
+            ),
         ),
     ],
 )
+@mock.patch("schemachange.cli.render")
 def test_main_render_subcommand_given_arguments_make_sure_arguments_set_on_call(
-    args, expected
+    mock_render_command, cli_args, expected
 ):
-    with mock.patch("schemachange.cli.render_command") as mock_render_command:
-        cli.main(args)
+    expected_config, expected_script = expected
+
+    with mock.patch("sys.argv", cli_args):
+        cli.main()
         mock_render_command.assert_called_once()
-        call_args, _call_kwargs = mock_render_command.call_args
-        assert call_args == expected
+        _, call_kwargs = mock_render_command.call_args
+        for expected_arg, expected_value in expected_config.items():
+            actual_value = getattr(call_kwargs["config"], expected_arg)
+            assert actual_value == expected_value
+        assert call_kwargs["script_path"] == expected_script
 
 
 @pytest.mark.parametrize(
@@ -138,12 +200,21 @@ def test_main_render_subcommand_given_arguments_make_sure_arguments_set_on_call(
         (
             ["schemachange", "deploy", "--config-folder", "DUMMY"],
             "schemachange.cli.deploy_command",
-            ({**cli.CONFIG_DEFAULTS, "snowflake_account": "account"},),
+            ({**default_deploy_config, "snowflake_account": "account"},),
         ),
         (
-            ["schemachange", "render", "script.sql", "--config-folder", "DUMMY"],
-            "schemachange.cli.render_command",
-            ({**cli.CONFIG_DEFAULTS, "snowflake_account": "account"}, "script.sql"),
+            [
+                "schemachange",
+                "render",
+                str(Path(__file__).parent / "assets" / "script.sql"),
+                "--config-folder",
+                "DUMMY",
+            ],
+            "schemachange.cli.render",
+            (
+                {**default_deploy_config, "snowflake_account": "account"},
+                Path(__file__).parent / "assets" / "script.sql",
+            ),
         ),
     ],
 )
@@ -159,12 +230,18 @@ def test_main_deploy_config_folder(args, to_mock, expected_args):
             )
 
         args[args.index("DUMMY")] = d
+        expected_args[0]["config_folder"] = Path(d)
 
         with mock.patch(to_mock) as mock_command:
-            cli.main(args)
-            mock_command.assert_called_once()
-            call_args, _call_kwargs = mock_command.call_args
-            assert call_args == expected_args
+            with mock.patch("sys.argv", args):
+                cli.main()
+                mock_command.assert_called_once()
+                _, call_kwargs = mock_command.call_args
+                for expected_arg, expected_value in expected_args[0].items():
+                    actual_value = getattr(call_kwargs["config"], expected_arg)
+                    assert actual_value == expected_value
+                if len(expected_args) == 2:
+                    assert call_kwargs["script_path"] == expected_args[1]
 
 
 @pytest.mark.parametrize(
@@ -173,22 +250,36 @@ def test_main_deploy_config_folder(args, to_mock, expected_args):
         (
             ["schemachange", "deploy", "--modules-folder", "DUMMY"],
             "schemachange.cli.deploy_command",
-            ({**cli.CONFIG_DEFAULTS, "modules_folder": "DUMMY"},),
+            ({**default_deploy_config, "modules_folder": "DUMMY"},),
         ),
         (
-            ["schemachange", "render", "script.sql", "--modules-folder", "DUMMY"],
-            "schemachange.cli.render_command",
-            ({**cli.CONFIG_DEFAULTS, "modules_folder": "DUMMY"}, "script.sql"),
+            [
+                "schemachange",
+                "render",
+                str(Path(__file__).parent / "assets" / "script.sql"),
+                "--modules-folder",
+                "DUMMY",
+            ],
+            "schemachange.cli.render",
+            (
+                {**default_deploy_config, "modules_folder": "DUMMY"},
+                Path(__file__).parent / "assets" / "script.sql",
+            ),
         ),
     ],
 )
 def test_main_deploy_modules_folder(args, to_mock, expected_args):
     with tempfile.TemporaryDirectory() as d:
         args[args.index("DUMMY")] = d
-        expected_args[0]["modules_folder"] = d
+        expected_args[0]["modules_folder"] = Path(d)
 
         with mock.patch(to_mock) as mock_command:
-            cli.main(args)
-            mock_command.assert_called_once()
-            call_args, _call_kwargs = mock_command.call_args
-            assert call_args == expected_args
+            with mock.patch("sys.argv", args):
+                cli.main()
+                mock_command.assert_called_once()
+                _, call_kwargs = mock_command.call_args
+                for expected_arg, expected_value in expected_args[0].items():
+                    actual_value = getattr(call_kwargs["config"], expected_arg)
+                    assert actual_value == expected_value
+                if len(expected_args) == 2:
+                    assert call_kwargs["script_path"] == expected_args[1]

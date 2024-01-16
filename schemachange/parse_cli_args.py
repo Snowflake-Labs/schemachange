@@ -154,7 +154,7 @@ def parse_cli_args(args) -> argparse.Namespace:
         parents=[parent_parser],
     )
     parser_render.add_argument(
-        "script-path", type=str, help="Path to the script to render"
+        "script_path", type=str, help="Path to the script to render"
     )
 
     # The original parameters did not support subcommands. Check if a subcommand has been supplied

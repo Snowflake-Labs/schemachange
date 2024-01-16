@@ -709,7 +709,9 @@ def main():
     args = parse_cli_args(sys.argv[1:])
     cli_config = config_factory(args=args)
     yaml_config = get_yaml_config(
-        subcommand=cli_config.subcommand, config_file_path=cli_config.config_file_path
+        subcommand=cli_config.subcommand,
+        config_file_path=cli_config.config_file_path,
+        script_path=getattr(cli_config, "script_path", None),
     )
 
     # override the YAML config with the CLI configuration
@@ -742,9 +744,9 @@ def main():
 
     # Finally, execute the command
     if config.subcommand == "render":
-        render(config, config.script)
+        render(config=config, script_path=config.script_path)
     else:
-        deploy_command(config)
+        deploy_command(config=config)
 
 
 if __name__ == "__main__":

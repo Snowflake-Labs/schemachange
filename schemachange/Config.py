@@ -50,14 +50,19 @@ class Config(BaseModel):
     @field_validator("vars", mode="before")
     @classmethod
     def must_be_dict(cls, v: str | dict) -> dict:
+        if v is None:
+            return {}
+
         if not isinstance(v, dict):
             raise ValueError(
                 "vars did not parse correctly, please check its configuration"
             )
+
         if "schemachange" in v.keys():
             raise ValueError(
                 "The variable 'schemachange' has been reserved for use by schemachange, please use a different name"
             )
+
         return v
 
     def merge_exclude_unset(self: T, other: T) -> T:
@@ -90,7 +95,7 @@ class DeployConfig(Config):
     raise_exception_on_ignored_versioned_migration: bool = False
 
 
-class RenderConfig(Config):
+class RenderConfig(DeployConfig):
     subcommand: Literal["render"] = "render"
     script_path: Path
 
@@ -109,6 +114,7 @@ def config_factory(args: Namespace | dict) -> DeployConfig | RenderConfig:
     else:
         subcommand = args.get("subcommand")
         kwargs = args
+
     if subcommand == "deploy":
         return DeployConfig(**kwargs)
     elif subcommand == "render":
