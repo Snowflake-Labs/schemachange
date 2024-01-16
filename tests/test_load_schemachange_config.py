@@ -4,7 +4,7 @@ import unittest.mock as mock
 
 import pytest
 
-from schemachange.cli import load_schemachange_config
+from schemachange.load_schemachange_config import load_schemachange_config
 
 # Note Paramters in config file are kebab case  and are re-rendered as snake case after
 # 'load_schemachange_config' is called
@@ -21,7 +21,7 @@ vars:
     config_file = tmp_path / "schemachange-config.yml"
     config_file.write_text(config_contents)
 
-    config = load_schemachange_config(str(config_file))
+    config = load_schemachange_config(config_file)
 
     assert config["config-version"] == 1
     assert config["root-folder"] == "scripts"
@@ -43,7 +43,7 @@ vars:
     config_file = tmp_path / "schemachange-config.yml"
     config_file.write_text(config_contents)
 
-    config = load_schemachange_config(str(config_file))
+    config = load_schemachange_config(config_file)
 
     assert config["root-folder"] == "env_value"
 
@@ -62,7 +62,7 @@ vars:
     config_file.write_text(config_contents)
 
     with pytest.raises(ValueError) as e:
-        load_schemachange_config(str(config_file))
+        load_schemachange_config(config_file)
     assert (
         str(e.value)
         == "Could not find environmental variable TEST_VAR and no default value was provided"
