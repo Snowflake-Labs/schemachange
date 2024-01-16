@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-import pathlib
+from pathlib import Path
 
 import jinja2
 import jinja2.ext
@@ -17,7 +17,7 @@ class JinjaTemplateProcessor:
         "extensions": [JinjaEnvVar],
     }
 
-    def __init__(self, project_root: str, modules_folder: str = None):
+    def __init__(self, project_root: Path, modules_folder: Path = None):
         loader: BaseLoader
         if modules_folder:
             loader = jinja2.ChoiceLoader(
@@ -44,11 +44,11 @@ class JinjaTemplateProcessor:
         if not vars:
             vars = {}
         # jinja needs posix path
-        posix_path = pathlib.Path(script).as_posix()
+        posix_path = Path(script).as_posix()
         template = self.__environment.get_template(posix_path)
         content = template.render(**vars).strip()
         content = content[:-1] if content.endswith(";") else content
         return content
 
-    def relpath(self, file_path: str):
-        return os.path.relpath(file_path, self.__project_root)
+    def relpath(self, file_path: Path):
+        return file_path.relative_to(self.__project_root)

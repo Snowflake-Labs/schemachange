@@ -6,7 +6,6 @@ import sys
 import textwrap
 import time
 import warnings
-from typing import Dict, Any, Optional, Set
 
 import requests
 import snowflake.connector
@@ -15,6 +14,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from pandas import DataFrame
 
+from schemachange.render import render
+from schemachange.extract_config_secrets import extract_config_secrets
 from schemachange.Config import config_factory
 from schemachange.SecretManager import SecretManager
 from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
@@ -101,7 +102,7 @@ _err_invalid_cht = "Invalid change history table name: %s"
 _log_auth_type = "Proceeding with %s authentication"
 _log_pk_enc = "No private key passphrase provided. Assuming the key is not encrypted."
 _log_okta_ep = "Okta Endpoint: %s"
-
+CONFIG_DEFAULTS = {}  # TODO: Placeholder to allow test cases to run
 # endregion Global Variables
 
 
@@ -577,29 +578,6 @@ def deploy_command(config):
     )
 
 
-def render_command(config, script_path):
-    """
-    Renders the provided script.
-
-    Note: does not apply secrets filtering.
-    """
-    # Validate the script file path
-    script_path = os.path.abspath(script_path)
-    if not os.path.isfile(script_path):
-        raise ValueError(f"Invalid script_path folder: {script_path}")
-    # Always process with jinja engine
-    jinja_processor = JinjaTemplateProcessor(
-        project_root=config["root_folder"], modules_folder=config["modules_folder"]
-    )
-    content = jinja_processor.render(
-        jinja_processor.relpath(script_path), config["vars"], config["verbose"]
-    )
-
-    checksum = hashlib.sha224(content.encode("utf-8")).hexdigest()
-    print("Checksum %s" % checksum)
-    print(content)
-
-
 # This function will return a list containing the parts of the key (split by number parts)
 # Each number is converted to and integer and string parts are left as strings
 # This will enable correct sorting in python when the lists are compared
@@ -725,46 +703,6 @@ def get_change_history_table_details(change_history_table):
     return {k: v if '"' in v else v.upper() for (k, v) in details.items()}
 
 
-def extract_config_secrets(config: Optional[Dict[str, Any]]) -> Set[str]:
-    """
-    Extracts all secret values from the vars attributes in config
-    """
-
-    # defined as an inner/ nested function to provide encapsulation
-    def inner_extract_dictionary_secrets(
-        dictionary: Dict[str, Any], child_of_secrets: bool = False
-    ) -> Set[str]:
-        """
-        Considers any key with the word secret in the name as a secret or
-        all values as secrets if a child of a key named secrets.
-        """
-        extracted_secrets: Set[str] = set()
-
-        if dictionary:
-            for key, value in dictionary.items():
-                if isinstance(value, dict):
-                    if key == "secrets":
-                        extracted_secrets = (
-                            extracted_secrets
-                            | inner_extract_dictionary_secrets(value, True)
-                        )
-                    else:
-                        extracted_secrets = (
-                            extracted_secrets
-                            | inner_extract_dictionary_secrets(value, child_of_secrets)
-                        )
-                elif child_of_secrets or "SECRET" in key.upper():
-                    extracted_secrets.add(value.strip())
-        return extracted_secrets
-
-    extracted = set()
-
-    if config:
-        if "vars" in config:
-            extracted = inner_extract_dictionary_secrets(config["vars"])
-    return extracted
-
-
 def main():
     print("schemachange version: %s" % _schemachange_version)
 
@@ -774,15 +712,8 @@ def main():
         subcommand=cli_config.subcommand, config_file_path=cli_config.config_file_path
     )
 
-    # set values passed into the cli Overriding values in config file
-    merged_config = yaml_config.model_copy(
-        update=cli_config.model_dump(
-            exclude_unset=False,
-            exclude_defaults=False,
-            exclude_none=False,
-        )
-    )
-    config = dict()  # TODO: Placeholder
+    # override the YAML config with the CLI configuration
+    config = yaml_config.merge_exclude_unset(other=cli_config)
 
     # set up a secret manager and assign to global scope
     sm = SecretManager()
@@ -791,27 +722,27 @@ def main():
     sm.add_range(extract_config_secrets(config))
 
     # Then log some details
-    print("Using root folder %s" % config["root_folder"])
-    if config["modules_folder"]:
-        print("Using Jinja modules folder %s" % config["modules_folder"])
+    print(f"Using root folder {str(config.root_folder)}")
+    if config.modules_folder:
+        print(f"Using Jinja modules folder {str(config.modules_folder)}")
 
     # pretty print the variables in yaml style
-    if config["vars"] == {}:
+    if not config.vars:
         print("Using variables: {}")
     else:
         print("Using variables:")
         print(
             textwrap.indent(
                 SecretManager.global_redact(
-                    yaml.dump(config["vars"], sort_keys=False, default_flow_style=False)
+                    yaml.dump(config.vars, sort_keys=False, default_flow_style=False)
                 ),
                 prefix="  ",
             )
         )
 
     # Finally, execute the command
-    if args.subcommand == "render":
-        render_command(config, args.script)
+    if config.subcommand == "render":
+        render(config, config.script)
     else:
         deploy_command(config)
 

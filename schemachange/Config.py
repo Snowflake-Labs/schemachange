@@ -44,7 +44,7 @@ class Config(BaseModel):
         if v is None:
             return v
         if not v.is_dir():
-            raise ValueError(f"Invalid {info.field_name} folder: {v}")
+            raise ValueError(f"Invalid {info.field_name} folder: {str(v)}")
         return v
 
     @field_validator("vars", mode="before")
@@ -92,8 +92,13 @@ class DeployConfig(Config):
 
 class RenderConfig(Config):
     subcommand: Literal["render"] = "render"
-    script: str
-
+    script_path: str
+    @field_validator("script_path")
+    @classmethod
+    def must_be_valid_file(cls, v: Path) -> Path | None:
+        if not v.is_file():
+            raise ValueError(f"Invalid script_path: {str(v)}")
+        return v
 
 def config_factory(args: Namespace | dict) -> DeployConfig | RenderConfig:
     if isinstance(args, Namespace):
