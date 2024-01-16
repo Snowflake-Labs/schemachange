@@ -84,10 +84,16 @@ class RenderConfig(Config):
     script: str
 
 
-def config_factory(args: Namespace) -> DeployConfig | RenderConfig:
-    if args.subcommand == "deploy":
-        return DeployConfig(**args.__dict__)
-    elif args.subcommand == "render":
-        return RenderConfig(**args.__dict__)
+def config_factory(args: Namespace | dict) -> DeployConfig | RenderConfig:
+    if isinstance(args, Namespace):
+        subcommand = args.subcommand
+        kwargs = args.__dict__
     else:
-        raise Exception(f"unhandled subcommand: {args.subcommand}")
+        subcommand = args.get("subcommand")
+        kwargs = args
+    if subcommand == "deploy":
+        return DeployConfig(**kwargs)
+    elif subcommand == "render":
+        return RenderConfig(**kwargs)
+    else:
+        raise Exception(f"unhandled subcommand: {subcommand}")

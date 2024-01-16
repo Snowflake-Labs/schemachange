@@ -89,9 +89,9 @@ def test__get_yaml_config(_):
     assert yaml_config.change_history_table == "change-history-table-from-yaml"
     assert yaml_config.query_tag == "query-tag-from-yaml"
 
-    assert yaml_config.create_change_history_table == False
-    assert yaml_config.autocommit == False
-    assert yaml_config.dry_run == False
+    assert yaml_config.create_change_history_table is False
+    assert yaml_config.autocommit is False
+    assert yaml_config.dry_run is False
 
     assert yaml_config.vars == {"var1": "from_yaml"}
     assert yaml_config.oauth_config == {
