@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from argparse import Namespace
 from pathlib import Path
-from typing import Literal, ClassVar
+from typing import Literal, ClassVar, TypeVar
 
 from pydantic import (
     BaseModel,
@@ -12,6 +12,8 @@ from pydantic import (
     model_validator,
 )
 from pydantic_core.core_schema import ValidationInfo
+
+T = TypeVar("T", bound="Config")
 
 
 class Config(BaseModel):
@@ -57,6 +59,15 @@ class Config(BaseModel):
                 "The variable 'schemachange' has been reserved for use by schemachange, please use a different name"
             )
         return v
+
+    def merge_exclude_unset(self: T, other: T) -> T:
+        other_kwargs = other.model_dump(
+            exclude_unset=True,
+            exclude_none=True,
+        )
+        other_kwargs.pop("config_file_path")
+
+        return self.model_copy(update=other_kwargs)
 
 
 class DeployConfig(Config):
