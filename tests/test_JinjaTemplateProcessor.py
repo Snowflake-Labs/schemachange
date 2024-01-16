@@ -57,8 +57,8 @@ class TestJinjaTemplateProcessor:
         script_file = script_folder / "1.0.0_my_test.sql"
         script_file.write_text("Hello world!")
 
-        processor = JinjaTemplateProcessor(str(root_folder), None)
-        template_path = processor.relpath(str(script_file))
+        processor = JinjaTemplateProcessor(root_folder, None)
+        template_path = processor.relpath(script_file)
 
         context = processor.render(template_path, {}, True)
 

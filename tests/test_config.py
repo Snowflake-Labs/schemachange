@@ -158,10 +158,13 @@ class TestConfig:
     "args, expected_class",
     [
         (Namespace(subcommand="deploy"), DeployConfig),
-        (Namespace(subcommand="render", script="some script"), RenderConfig),
+        (Namespace(subcommand="render", script_path="some script"), RenderConfig),
     ],
 )
-def test_config_factory(args: Namespace, expected_class: DeployConfig | RenderConfig):
+@mock.patch("pathlib.Path.is_file", return_value=True)
+def test_config_factory(
+    _, args: Namespace, expected_class: DeployConfig | RenderConfig
+):
     result = config_factory(args)
     # noinspection PyTypeChecker
     assert isinstance(result, expected_class)
@@ -171,3 +174,10 @@ def test_config_factory_unhandled_subcommand():
     with pytest.raises(Exception) as e_info:
         config_factory(Namespace(subcommand="unhandled"))
     assert "unhandled subcommand" in str(e_info)
+
+
+@mock.patch("pathlib.Path.is_file", return_value=False)
+def test_render_config_invalid_path(_):
+    with pytest.raises(Exception) as e_info:
+        RenderConfig(script_path="invalid path")
+    assert "invalid script_path" in str(e_info)

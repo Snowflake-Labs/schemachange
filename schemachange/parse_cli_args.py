@@ -153,7 +153,9 @@ def parse_cli_args(args) -> argparse.Namespace:
         description="Renders a script to the console, used to check and verify jinja output from scripts.",
         parents=[parent_parser],
     )
-    parser_render.add_argument("script", type=str, help="The script to render")
+    parser_render.add_argument(
+        "script-path", type=str, help="Path to the script to render"
+    )
 
     # The original parameters did not support subcommands. Check if a subcommand has been supplied
     # if not default to deploy to match original behaviour.

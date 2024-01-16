@@ -92,13 +92,15 @@ class DeployConfig(Config):
 
 class RenderConfig(Config):
     subcommand: Literal["render"] = "render"
-    script_path: str
+    script_path: Path
+
     @field_validator("script_path")
     @classmethod
     def must_be_valid_file(cls, v: Path) -> Path | None:
         if not v.is_file():
-            raise ValueError(f"Invalid script_path: {str(v)}")
+            raise ValueError(f"invalid script_path: {str(v)}")
         return v
+
 
 def config_factory(args: Namespace | dict) -> DeployConfig | RenderConfig:
     if isinstance(args, Namespace):
