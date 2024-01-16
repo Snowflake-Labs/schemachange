@@ -1,7 +1,6 @@
 import hashlib
 import json
 import os
-import pathlib
 import re
 import sys
 import textwrap
@@ -9,19 +8,18 @@ import time
 import warnings
 from typing import Dict, Any, Optional, Set
 
-import jinja2
-import jinja2.ext
 import requests
 import snowflake.connector
 import yaml
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
-from jinja2.loaders import BaseLoader
 from pandas import DataFrame
 
-from schemachange.JinjaEnvVar import JinjaEnvVar
-from schemachange.parse_args import parse_args
-from schemachange.get_schemachange_config import get_schemachange_config
+from schemachange.Config import config_factory
+from schemachange.SecretManager import SecretManager
+from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
+from schemachange.get_yaml_config import get_yaml_config
+from schemachange.parse_cli_args import parse_cli_args
 
 # region Global Variables
 # metadata
@@ -105,98 +103,6 @@ _log_pk_enc = "No private key passphrase provided. Assuming the key is not encry
 _log_okta_ep = "Okta Endpoint: %s"
 
 # endregion Global Variables
-
-
-class JinjaTemplateProcessor:
-    _env_args = {
-        "undefined": jinja2.StrictUndefined,
-        "autoescape": False,
-        "extensions": [JinjaEnvVar],
-    }
-
-    def __init__(self, project_root: str, modules_folder: str = None):
-        loader: BaseLoader
-        if modules_folder:
-            loader = jinja2.ChoiceLoader(
-                [
-                    jinja2.FileSystemLoader(project_root),
-                    jinja2.PrefixLoader(
-                        {"modules": jinja2.FileSystemLoader(modules_folder)}
-                    ),
-                ]
-            )
-        else:
-            loader = jinja2.FileSystemLoader(project_root)
-        self.__environment = jinja2.Environment(loader=loader, **self._env_args)
-        self.__project_root = project_root
-
-    def list(self):
-        return self.__environment.list_templates()
-
-    def override_loader(self, loader: jinja2.BaseLoader):
-        # to make unit testing easier
-        self.__environment = jinja2.Environment(loader=loader, **self._env_args)
-
-    def render(self, script: str, vars: Optional[Dict[str, Any]], verbose: bool) -> str:
-        if not vars:
-            vars = {}
-        # jinja needs posix path
-        posix_path = pathlib.Path(script).as_posix()
-        template = self.__environment.get_template(posix_path)
-        content = template.render(**vars).strip()
-        content = content[:-1] if content.endswith(";") else content
-        return content
-
-    def relpath(self, file_path: str):
-        return os.path.relpath(file_path, self.__project_root)
-
-
-class SecretManager:
-    """
-    Provides the ability to redact secrets
-    """
-
-    __singleton: "SecretManager"
-
-    @staticmethod
-    def get_global_manager() -> "SecretManager":
-        return SecretManager.__singleton
-
-    @staticmethod
-    def set_global_manager(global_manager: "SecretManager"):
-        SecretManager.__singleton = global_manager
-
-    @staticmethod
-    def global_redact(context: str) -> str:
-        """
-        redacts any text that has been classified a secret
-        using the global SecretManager instance.
-        """
-        return SecretManager.__singleton.redact(context)
-
-    def __init__(self):
-        self.__secrets = set()
-
-    def clear(self):
-        self.__secrets = set()
-
-    def add(self, secret: str):
-        if secret:
-            self.__secrets.add(secret)
-
-    def add_range(self, secrets: Optional[Set[str]]):
-        if secrets:
-            self.__secrets = self.__secrets | secrets
-
-    def redact(self, context: Optional[str]) -> str:
-        """
-        redacts any text that has been classified a secret
-        """
-        redacted = context
-        if redacted:
-            for secret in self.__secrets:
-                redacted = redacted.replace(secret, "*" * len(secret))
-        return redacted
 
 
 class SnowflakeSchemachangeSession:
@@ -680,9 +586,7 @@ def render_command(config, script_path):
     # Validate the script file path
     script_path = os.path.abspath(script_path)
     if not os.path.isfile(script_path):
-        raise ValueError(
-            _err_invalid_folder.format(folder_type="script_path", path=script_path)
-        )
+        raise ValueError(f"Invalid script_path folder: {script_path}")
     # Always process with jinja engine
     jinja_processor = JinjaTemplateProcessor(
         project_root=config["root_folder"], modules_folder=config["modules_folder"]
@@ -861,35 +765,24 @@ def extract_config_secrets(config: Optional[Dict[str, Any]]) -> Set[str]:
     return extracted
 
 
-def main(argv=sys.argv):
-    args = parse_args(argv[1:])
+def main():
     print("schemachange version: %s" % _schemachange_version)
 
-    # # First get the config values
-    # config_file_path = os.path.join(args.config_folder, _config_file_name)
+    args = parse_cli_args(sys.argv[1:])
+    cli_config = config_factory(args=args)
+    yaml_config = get_yaml_config(
+        subcommand=cli_config.subcommand, config_file_path=cli_config.config_file_path
+    )
 
-    # # Retreive argparser attributes as dictionary
-    # schemachange_args = args.__dict__
-    # schemachange_args["config_file_path"] = config_file_path
-
-    # # nullify expected null values for render.
-    # if args.subcommand == "render":
-    #     renderoveride = {
-    #         "snowflake_account": None,
-    #         "snowflake_user": None,
-    #         "snowflake_role": None,
-    #         "snowflake_warehouse": None,
-    #         "snowflake_database": None,
-    #         "change_history_table": None,
-    #         "snowflake_schema": None,
-    #         "create_change_history_table": None,
-    #         "autocommit": None,
-    #         "dry_run": None,
-    #         "query_tag": None,
-    #         "oauth_config": None,
-    #     }
-    #     schemachange_args.update(renderoveride)
-    config = get_schemachange_config(**schemachange_args)
+    # set values passed into the cli Overriding values in config file
+    merged_config = yaml_config.model_copy(
+        update=cli_config.model_dump(
+            exclude_unset=False,
+            exclude_defaults=False,
+            exclude_none=False,
+        )
+    )
+    config = dict() # TODO: Placeholder
 
     # set up a secret manager and assign to global scope
     sm = SecretManager()
