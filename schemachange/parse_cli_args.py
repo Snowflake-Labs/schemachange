@@ -3,10 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 
-from schemachange.Config import DeployConfig, RenderConfig
 
-
-def parse_args(args):
+def parse_cli_args(args) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="schemachange",
         description="Apply schema changes to a Snowflake account. Full readme at "
@@ -149,7 +147,6 @@ def parse_args(args):
         help="Raise an exception if an un-applied versioned migration is ignored (the default is False)",
         required=False,
     )
-    # TODO test CLI passing of args
 
     parser_render = subcommands.add_parser(
         "render",

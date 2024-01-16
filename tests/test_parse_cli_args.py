@@ -1,6 +1,6 @@
 import json
 
-from schemachange.parse_args import parse_args
+from schemachange.parse_cli_args import parse_cli_args
 
 
 def test_parse_args_defaults():
@@ -13,7 +13,7 @@ def test_parse_args_defaults():
         expected_arg = arg.strip("-").replace("-", "_")
         expected[expected_arg] = expected_value
 
-    parsed_args = parse_args(args)
+    parsed_args = parse_cli_args(args)
     for expected_arg, expected_value in expected.items():
         parsed_arg = getattr(parsed_args, expected_arg)
         assert parsed_arg == expected_value
@@ -69,7 +69,7 @@ def test_parse_args_deploy_names():
         expected_arg = arg.strip("-").replace("-", "_")
         expected[expected_arg] = expected_value
 
-    parsed_args = parse_args(args)
+    parsed_args = parse_cli_args(args)
     assert parsed_args.subcommand == "deploy"
     for expected_arg, expected_value in expected.items():
         parsed_arg = getattr(parsed_args, expected_arg)
@@ -121,7 +121,7 @@ def test_parse_args_deploy_flags():
         args.extend([arg])
         expected[expected_arg] = expected_value
 
-    parsed_args = parse_args(args)
+    parsed_args = parse_cli_args(args)
     assert parsed_args.subcommand == "deploy"
     for expected_arg, expected_value in expected.items():
         parsed_arg = getattr(parsed_args, expected_arg)
