@@ -94,6 +94,28 @@ class DeployConfig(Config):
     version_number_validation_regex: str | None = None
     raise_exception_on_ignored_versioned_migration: bool = False
 
+    def check_for_deploy_args(self) -> None:
+        """Make sure we have the required connection info
+
+        :return:
+        """
+        #
+        req_args = {
+            "snowflake_account": self.snowflake_account,
+            "snowflake_user": self.snowflake_user,
+            "snowflake_role": self.snowflake_role,
+            "snowflake_warehouse": self.snowflake_warehouse,
+        }
+        missing_args = [key for key, value in req_args.items() if value is None]
+
+        if len(missing_args) == 0:
+            return
+
+        missing_args = ", ".join({arg.replace("_", " ") for arg in missing_args})
+        raise ValueError(
+            f"Missing config values. The following config values are required: {missing_args}"
+        )
+
 
 class RenderConfig(DeployConfig):
     subcommand: Literal["render"] = "render"

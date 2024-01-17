@@ -4,7 +4,12 @@ from unittest import mock
 
 import pytest
 
-from Config import Config, DeployConfig, config_factory, RenderConfig
+from schemachange.Config import (
+    Config,
+    DeployConfig,
+    config_factory,
+    RenderConfig,
+)
 
 
 @pytest.fixture

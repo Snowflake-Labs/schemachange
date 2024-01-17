@@ -111,14 +111,24 @@ default_deploy_config = {
         ),
     ],
 )
-@mock.patch("schemachange.cli.deploy_command")
+@mock.patch(
+    "schemachange.get_yaml_config.DeployConfig.check_for_deploy_args", return_value=True
+)
+@mock.patch("schemachange.cli.credential_factory")
+@mock.patch("schemachange.cli.SnowflakeSession")
+@mock.patch("schemachange.cli.deploy")
 def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
-    mock_deploy_command, cli_args, expected
+    mock_deploy,
+    _,
+    __,
+    ___,
+    cli_args,
+    expected,
 ):
     with mock.patch("sys.argv", cli_args):
         cli.main()
-        mock_deploy_command.assert_called_once()
-        _, call_kwargs = mock_deploy_command.call_args
+        mock_deploy.assert_called_once()
+        _, call_kwargs = mock_deploy.call_args
         for expected_arg, expected_value in expected.items():
             actual_value = getattr(call_kwargs["config"], expected_arg)
             assert actual_value == expected_value
@@ -199,7 +209,7 @@ def test_main_render_subcommand_given_arguments_make_sure_arguments_set_on_call(
     [
         (
             ["schemachange", "deploy", "--config-folder", "DUMMY"],
-            "schemachange.cli.deploy_command",
+            "schemachange.cli.deploy",
             ({**default_deploy_config, "snowflake_account": "account"},),
         ),
         (
@@ -218,7 +228,12 @@ def test_main_render_subcommand_given_arguments_make_sure_arguments_set_on_call(
         ),
     ],
 )
-def test_main_deploy_config_folder(args, to_mock, expected_args):
+@mock.patch(
+    "schemachange.get_yaml_config.DeployConfig.check_for_deploy_args", return_value=True
+)
+@mock.patch("schemachange.cli.credential_factory")
+@mock.patch("schemachange.cli.SnowflakeSession")
+def test_main_deploy_config_folder(_, __, ___, args, to_mock, expected_args):
     with tempfile.TemporaryDirectory() as d:
         with open(os.path.join(d, "schemachange-config.yml"), "wt") as f:
             f.write(
@@ -249,7 +264,7 @@ def test_main_deploy_config_folder(args, to_mock, expected_args):
     [
         (
             ["schemachange", "deploy", "--modules-folder", "DUMMY"],
-            "schemachange.cli.deploy_command",
+            "schemachange.cli.deploy",
             ({**default_deploy_config, "modules_folder": "DUMMY"},),
         ),
         (
@@ -268,7 +283,12 @@ def test_main_deploy_config_folder(args, to_mock, expected_args):
         ),
     ],
 )
-def test_main_deploy_modules_folder(args, to_mock, expected_args):
+@mock.patch(
+    "schemachange.get_yaml_config.DeployConfig.check_for_deploy_args", return_value=True
+)
+@mock.patch("schemachange.cli.credential_factory")
+@mock.patch("schemachange.cli.SnowflakeSession")
+def test_main_deploy_modules_folder(_, __, ___, args, to_mock, expected_args):
     with tempfile.TemporaryDirectory() as d:
         args[args.index("DUMMY")] = d
         expected_args[0]["modules_folder"] = Path(d)
