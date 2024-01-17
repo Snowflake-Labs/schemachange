@@ -28,33 +28,6 @@ def sorted_alphanumeric(data):
     return sorted(data, key=get_alphanum_key)
 
 
-def get_change_history_table_details(change_history_table):
-    # Start with the global defaults
-    details = dict()
-    details["database_name"] = _metadata_database_name
-    details["schema_name"] = _metadata_schema_name
-    details["table_name"] = _metadata_table_name
-
-    # Then override the defaults if requested. The name could be in one, two or three part notation.
-    if change_history_table is not None:
-        table_name_parts = change_history_table.strip().split(".")
-        if len(table_name_parts) == 1:
-            details["table_name"] = table_name_parts[0]
-        elif len(table_name_parts) == 2:
-            details["table_name"] = table_name_parts[1]
-            details["schema_name"] = table_name_parts[0]
-        elif len(table_name_parts) == 3:
-            details["table_name"] = table_name_parts[2]
-            details["schema_name"] = table_name_parts[1]
-            details["database_name"] = table_name_parts[0]
-        else:
-            raise ValueError(
-                f"Invalid change history table name: {change_history_table}"
-            )
-    # if the object name does not include '"' raise to upper case on return
-    return {k: v if '"' in v else v.upper() for (k, v) in details.items()}
-
-
 def deploy(config: DeployConfig, session: SnowflakeSession):
     if config.dry_run:
         print("Running in dry-run mode")
@@ -69,25 +42,26 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
     scripts_applied = 0
 
     # Deal with the change history table (create if specified)
-    change_history_table = get_change_history_table_details(config.change_history_table)
     change_history_metadata = session.fetch_change_history_metadata(
-        change_history_table
+        change_history_table=config.change_history_table
     )
     if change_history_metadata:
         print(
-            f"Using change history table {database_name}.{schema_name}.{table_name} "
+            f"Using change history table {config.change_history_table.fully_qualified} "
             f"(last altered {change_history_metadata['last_altered']})"
         )
-    elif config["create_change_history_table"]:
+    elif config.create_change_history_table:
         # Create the change history table (and containing objects) if it doesn't exist.
-        if not config["dry_run"]:
-            session.create_change_history_table_if_missing(change_history_table)
+        if not config.dry_run:
+            session.create_change_history_table_if_missing(
+                change_history_table=config.change_history_table
+            )
         print(
-            f"Created change history table {database_name}.{schema_name}.{table_name}"
+            f"Created change history table {config.change_history_table.fully_qualified}"
         )
     else:
         raise ValueError(
-            f"Unable to find change history table {database_name}.{schema_name}.{table_name}"
+            f"Unable to find change history table {config.change_history_table.fully_qualified}"
         )
 
     # Find the max published version
@@ -96,15 +70,19 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
     change_history = None
     r_scripts_checksum = None
     if (config["dry_run"] and change_history_metadata) or not config["dry_run"]:
-        change_history = session.fetch_change_history(change_history_table)
-        r_scripts_checksum = session.fetch_r_scripts_checksum(change_history_table)
+        change_history = session.fetch_change_history(
+            change_history_table=config.change_history_table
+        )
+        r_scripts_checksum = session.fetch_r_scripts_checksum(
+            change_history_table=config.change_history_table
+        )
 
     if change_history:
         max_published_version = change_history[0]
-    max_published_version_display = max_published_version
-    if max_published_version_display == "":
-        max_published_version_display = "None"
-    print(f"Max applied change script version: {max_published_version_display}")
+
+    print(
+        f"Max applied change script version: {max_published_version if max_published_version != '' else 'None'}"
+    )
 
     # Find all scripts in the root folder (recursively) and sort them correctly
     all_scripts = get_all_scripts_recursively(config["root_folder"], config["verbose"])
@@ -175,7 +153,9 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
 
         print(f"Applying change script {script_name}")
         if not config["dry_run"]:
-            session.apply_change_script(script, content, change_history_table)
+            session.apply_change_script(
+                script, content, change_history_table=config.change_history_table
+            )
 
         scripts_applied += 1
 

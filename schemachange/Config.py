@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import textwrap
+from abc import ABC
 from argparse import Namespace
 from pathlib import Path
 from typing import Literal, ClassVar, TypeVar
 
+import yaml
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -13,10 +16,12 @@ from pydantic import (
 )
 from pydantic_core.core_schema import ValidationInfo
 
+from schemachange.SecretManager import SecretManager
+
 T = TypeVar("T", bound="Config")
 
 
-class Config(BaseModel):
+class Config(BaseModel, ABC):
     model_config = ConfigDict(frozen=True, extra="ignore")
     default_config_file_name: ClassVar[str] = "schemachange-config.yml"
 
@@ -71,8 +76,59 @@ class Config(BaseModel):
             exclude_none=True,
         )
         other_kwargs.pop("config_file_path")
+        if "change_history_table" in other_kwargs:
+            other_kwargs["change_history_table"] = other.change_history_table
 
         return self.model_copy(update=other_kwargs)
+
+    def log_details(self):
+        print(f"Using root folder {str(self.root_folder)}")
+        if self.modules_folder:
+            print(f"Using Jinja modules folder {str(self.modules_folder)}")
+
+        # pretty print the variables in yaml style
+        if not self.vars:
+            print("Using variables: {}")
+        else:
+            print("Using variables:")
+            print(
+                textwrap.indent(
+                    SecretManager.global_redact(
+                        yaml.dump(self.vars, sort_keys=False, default_flow_style=False)
+                    ),
+                    prefix="  ",
+                )
+            )
+
+
+class Table(BaseModel):
+    # model_config = ConfigDict(frozen=True, extra="ignore")
+
+    table_name: str = "CHANGE_HISTORY"
+    schema_name: str = "SCHEMACHANGE"
+    database_name: str = "METADATA"
+
+    @property
+    def fully_qualified(self) -> str:
+        return f"{self.database_name}.{self.schema_name}.{self.table_name}"
+
+    @classmethod
+    def from_str(cls, v: str):
+        details = dict()
+        table_name_parts = v.strip().split(".")
+        if len(table_name_parts) == 1:
+            details["table_name"] = table_name_parts[0]
+        elif len(table_name_parts) == 2:
+            details["table_name"] = table_name_parts[1]
+            details["schema_name"] = table_name_parts[0]
+        elif len(table_name_parts) == 3:
+            details["table_name"] = table_name_parts[2]
+            details["schema_name"] = table_name_parts[1]
+            details["database_name"] = table_name_parts[0]
+        else:
+            raise ValueError(f"Invalid change history table name: {v}")
+        # if the object name does not include '"' raise to upper case on return
+        return cls(**{k: v if '"' in v else v.upper() for (k, v) in details.items()})
 
 
 class DeployConfig(Config):
@@ -83,9 +139,7 @@ class DeployConfig(Config):
     snowflake_warehouse: str | None = None
     snowflake_database: str | None = None
     snowflake_schema: str | None = None
-    change_history_table: str | None = Field(
-        default="METADATA.SCHEMACHANGE.CHANGE_HISTORY"
-    )
+    change_history_table: Table | None = Field(default_factory=Table)
     create_change_history_table: bool = False
     autocommit: bool = False
     dry_run: bool = False
@@ -136,6 +190,9 @@ def config_factory(args: Namespace | dict) -> DeployConfig | RenderConfig:
     else:
         subcommand = args.get("subcommand")
         kwargs = args
+
+    if "change_history_table" in kwargs and kwargs["change_history_table"] is not None:
+        kwargs["change_history_table"] = Table.from_str(kwargs["change_history_table"])
 
     if subcommand == "deploy":
         return DeployConfig(**kwargs)

@@ -9,6 +9,7 @@ from schemachange.Config import (
     DeployConfig,
     config_factory,
     RenderConfig,
+    Table,
 )
 
 
@@ -27,7 +28,7 @@ def yaml_config(_) -> DeployConfig:
         snowflake_warehouse="yaml_snowflake_warehouse",
         snowflake_database="yaml_snowflake_database",
         snowflake_schema="yaml_snowflake_schema",
-        change_history_table="yaml_change_history_table",
+        change_history_table=Table(table_name="yaml_change_history_table"),
         create_change_history_table=True,
         autocommit=True,
         dry_run=True,
@@ -68,7 +69,7 @@ class TestConfig:
                 snowflake_warehouse="some_snowflake_warehouse",
                 snowflake_database="some_snowflake_database",
                 snowflake_schema="some_snowflake_schema",
-                change_history_table="some_history_table",
+                change_history_table=Table(table_name="some_history_table"),
                 query_tag="some_query_tag",
                 oauth_config={"some": "values"},
                 version_number_validation_regex="some_regex",
@@ -111,7 +112,7 @@ class TestConfig:
                     snowflake_warehouse="cli_snowflake_warehouse",
                     snowflake_database="cli_snowflake_database",
                     snowflake_schema="cli_snowflake_schema",
-                    change_history_table="cli_change_history_table",
+                    change_history_table=Table(table_name="cli_change_history_table"),
                     create_change_history_table=False,
                     autocommit=False,
                     dry_run=False,

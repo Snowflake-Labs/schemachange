@@ -1,12 +1,13 @@
 import hashlib
 import time
+from textwrap import dedent
 
 import snowflake.connector
 from pandas import DataFrame
 
-from schemachange.Config import DeployConfig
+from schemachange.Config import DeployConfig, Table, RenderConfig
 from schemachange.SecretManager import SecretManager
-from schemachange.session.Credential import SomeCredential
+from schemachange.session.Credential import SomeCredential, credential_factory
 
 
 class SnowflakeSession:
@@ -26,44 +27,6 @@ class SnowflakeSession:
     """
     Manages Snowflake Interactions and authentication
     """
-
-    # region Query Templates
-    _q_ch_metadata = (
-        "SELECT CREATED, LAST_ALTERED FROM {database_name}.INFORMATION_SCHEMA.TABLES"
-        + " WHERE TABLE_SCHEMA = REPLACE('{schema_name}','\"','') AND TABLE_NAME = REPLACE('{table_name}','\"','')"
-    )
-    _q_ch_schema_present = (
-        "SELECT COUNT(1) FROM {database_name}.INFORMATION_SCHEMA.SCHEMATA"
-        + " WHERE SCHEMA_NAME = REPLACE('{schema_name}','\"','')"
-    )
-    _q_ch_ddl_schema = "CREATE SCHEMA {schema_name}"
-    _q_ch_ddl_table = (
-        "CREATE TABLE IF NOT EXISTS {database_name}.{schema_name}.{table_name} (VERSION VARCHAR, "
-        + "DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR,"
-        + " EXECUTION_TIME NUMBER, STATUS VARCHAR, INSTALLED_BY VARCHAR, INSTALLED_ON TIMESTAMP_LTZ)"
-    )
-    _q_ch_r_checksum = (
-        "SELECT DISTINCT SCRIPT, FIRST_VALUE(CHECKSUM) OVER (PARTITION BY SCRIPT "
-        + "ORDER BY INSTALLED_ON DESC) FROM {database_name}.{schema_name}.{table_name} WHERE SCRIPT_TYPE = 'R' AND "
-        + "STATUS = 'Success'"
-    )
-    _q_ch_fetch = (
-        "SELECT VERSION FROM {database_name}.{schema_name}.{table_name} WHERE SCRIPT_TYPE = 'V' ORDER"
-        + " BY INSTALLED_ON DESC LIMIT 1"
-    )
-    _q_sess_tag = "ALTER SESSION SET QUERY_TAG = '{query_tag}'"
-    _q_ch_log = (
-        "INSERT INTO {database_name}.{schema_name}.{table_name} (VERSION, DESCRIPTION, SCRIPT, SCRIPT_TYPE, "
-        + "CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) VALUES ('{script_version}',"
-        + "'{script_description}','{script_name}','{script_type}','{checksum}',{execution_time},"
-        + "'{status}','{user}',CURRENT_TIMESTAMP);"
-    )
-    _q_set_sess_role = "USE ROLE {role};"
-    _q_set_sess_database = "USE DATABASE {database};"
-    _q_set_sess_schema = "USE SCHEMA {schema};"
-    _q_set_sess_warehouse = "USE WAREHOUSE {warehouse};"
-
-    # endregion Query Templates
 
     def __init__(
         self,
@@ -122,7 +85,8 @@ class SnowflakeSession:
         if hasattr(self, "con"):
             self.con.close()
 
-    def execute_snowflake_query(self, query):
+    def execute_snowflake_query(self, query: str):
+        query = dedent(query)
         if self.verbose:
             print(SecretManager.global_redact(f"SQL query: {query}"))
         try:
@@ -135,9 +99,16 @@ class SnowflakeSession:
                 self.con.rollback()
             raise e
 
-    def fetch_change_history_metadata(self, change_history_table):
+    def fetch_change_history_metadata(self, change_history_table: Table) -> dict:
         # This should only ever return 0 or 1 rows
-        query = self._q_ch_metadata.format(**change_history_table)
+        query = f"""
+            SELECT
+                CREATED,
+                LAST_ALTERED
+            FROM {change_history_table.database_name}.INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = REPLACE('{change_history_table.schema_name}','\"','')
+                AND TABLE_NAME = REPLACE('{change_history_table.table_name}','\"','')
+        """
         results = self.execute_snowflake_query(query)
 
         # Collect all the results into a list
@@ -149,9 +120,16 @@ class SnowflakeSession:
 
         return change_history_metadata
 
-    def create_change_history_table_if_missing(self, change_history_table):
+    def create_change_history_table_if_missing(
+        self, change_history_table: Table
+    ) -> None:
         # Check if schema exists
-        query = self._q_ch_schema_present.format(**change_history_table)
+        query = f"""
+            SELECT
+                COUNT(1)
+            FROM {change_history_table.database_name}.INFORMATION_SCHEMA.SCHEMATA
+            WHERE SCHEMA_NAME = REPLACE('{change_history_table.schema_name}','\"','')
+        """
         results = self.execute_snowflake_query(query)
         schema_exists = False
         for cursor in results:
@@ -160,15 +138,37 @@ class SnowflakeSession:
 
         # Create the schema if it doesn't exist
         if not schema_exists:
-            query = self._q_ch_ddl_schema.format(**change_history_table)
+            query = f"CREATE SCHEMA {change_history_table.schema_name}"
             self.execute_snowflake_query(query)
 
         # Finally, create the change history table if it doesn't exist
-        query = self._q_ch_ddl_table.format(**change_history_table)
+        query = f"""
+            CREATE TABLE IF NOT EXISTS {change_history_table.fully_qualified} (
+                VERSION VARCHAR,
+                DESCRIPTION VARCHAR,
+                SCRIPT VARCHAR,
+                SCRIPT_TYPE VARCHAR,
+                CHECKSUM VARCHAR,
+                EXECUTION_TIME NUMBER,
+                STATUS VARCHAR,
+                INSTALLED_BY VARCHAR,
+                INSTALLED_ON TIMESTAMP_LTZ
+            )
+        """
         self.execute_snowflake_query(query)
 
-    def fetch_r_scripts_checksum(self, change_history_table):
-        query = self._q_ch_r_checksum.format(**change_history_table)
+    def fetch_r_scripts_checksum(self, change_history_table: Table) -> DataFrame:
+        query = f"""
+        SELECT DISTINCT
+            SCRIPT,
+            FIRST_VALUE(CHECKSUM) OVER (
+                PARTITION BY SCRIPT
+                ORDER BY INSTALLED_ON DESC
+            )
+        FROM {change_history_table.fully_qualified}
+        WHERE SCRIPT_TYPE = 'R'
+            AND STATUS = 'Success'
+        """
         results = self.execute_snowflake_query(query)
 
         # Collect all the results into a dict
@@ -184,8 +184,15 @@ class SnowflakeSession:
         d_script_checksum["checksum"] = checksums
         return d_script_checksum
 
-    def fetch_change_history(self, change_history_table):
-        query = self._q_ch_fetch.format(**change_history_table)
+    def fetch_change_history(self, change_history_table: Table) -> list[object]:
+        query = f"""
+        SELECT
+            VERSION
+        FROM {change_history_table.fully_qualified}
+        WHERE SCRIPT_TYPE = 'V'
+        ORDER BY INSTALLED_ON DESC
+        LIMIT 1
+        """
         results = self.execute_snowflake_query(query)
 
         # Collect all the results into a list
@@ -198,26 +205,26 @@ class SnowflakeSession:
 
     def reset_session(self):
         # These items are optional, so we can only reset the ones with values
-        reset_query = ""
-        if self.conArgs["role"]:
-            reset_query += self._q_set_sess_role.format(**self.conArgs) + " "
-        if self.conArgs["warehouse"]:
-            reset_query += self._q_set_sess_warehouse.format(**self.conArgs) + " "
-        if self.conArgs["database"]:
-            reset_query += self._q_set_sess_database.format(**self.conArgs) + " "
-        if self.conArgs["schema"]:
-            reset_query += self._q_set_sess_schema.format(**self.conArgs) + " "
+        reset_query = []
+        if self.role:
+            reset_query.append(f"USE ROLE {self.role};")
+        if self.warehouse:
+            reset_query.append(f"USE WAREHOUSE {self.warehouse};")
+        if self.database:
+            reset_query.append(f"USE DATABASE {self.database};")
+        if self.schema:
+            reset_query.append(f"USE SCHEMA {self.schema};")
 
-        self.execute_snowflake_query(reset_query)
+        self.execute_snowflake_query("\n".join(reset_query))
 
     def reset_query_tag(self, extra_tag=None):
-        query_tag = self.conArgs["session_parameters"]["QUERY_TAG"]
+        query_tag = self.session_parameters["QUERY_TAG"]
         if extra_tag:
             query_tag += f";{extra_tag}"
 
-        self.execute_snowflake_query(self._q_sess_tag.format(query_tag=query_tag))
+        self.execute_snowflake_query(f"ALTER SESSION SET QUERY_TAG = '{query_tag}'")
 
-    def apply_change_script(self, script, script_content, change_history_table):
+    def apply_change_script(self, script, script_content, change_history_table: Table):
         # Define a few other change related variables
         checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
         execution_time = 0
@@ -237,10 +244,52 @@ class SnowflakeSession:
         # Finally record this change in the change history table by gathering data
         frmt_args = script.copy()
         frmt_args.update(change_history_table)
-        frmt_args["checksum"] = checksum
-        frmt_args["execution_time"] = execution_time
-        frmt_args["status"] = status
-        frmt_args["user"] = self.conArgs["user"]
         # Compose and execute the insert statement to the log file
-        query = self._q_ch_log.format(**frmt_args)
+        query = f"""
+            INSERT INTO {change_history_table.fully_qualified} (
+                VERSION,
+                DESCRIPTION,
+                SCRIPT,
+                SCRIPT_TYPE,
+                CHECKSUM,
+                EXECUTION_TIME,
+                STATUS,
+                INSTALLED_BY,
+                INSTALLED_ON
+            ) VALUES (
+                '{script_version}',
+                '{script_description}',
+                '{script_name}',
+                '{script_type}',
+                '{checksum}',
+                {execution_time},
+                '{status}',
+                '{self.user}',
+                CURRENT_TIMESTAMP
+            );
+        """
         self.execute_snowflake_query(query)
+
+
+def get_session(
+    config: DeployConfig | RenderConfig,
+    schemachange_version: str,
+    snowflake_application_name: str,
+) -> SnowflakeSession:
+    config.check_for_deploy_args()
+    credential = credential_factory(
+        oauth_config=config.oauth_config, verbose=config.verbose
+    )
+    return SnowflakeSession(
+        config=config,
+        snowflake_user=config.snowflake_user,
+        snowflake_account=config.snowflake_account,
+        snowflake_role=config.snowflake_role,
+        schemachange_version=schemachange_version,
+        snowflake_application_name=snowflake_application_name,
+        credential=credential,
+        snowflake_warehouse=config.snowflake_warehouse,
+        snowflake_database=config.snowflake_database,
+        snowflake_schema=config.snowflake_schema,
+        query_tag=config.query_tag,
+    )

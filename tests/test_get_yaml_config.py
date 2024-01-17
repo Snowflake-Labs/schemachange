@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from Config import Table
 from schemachange.get_yaml_config import load_yaml_config, get_yaml_config
 
 
@@ -11,7 +12,7 @@ from schemachange.get_yaml_config import load_yaml_config, get_yaml_config
 # 'load_yaml_config' is called
 
 
-def test__load_yaml_config__simple_config_file(tmp_path: Path):
+def test_load_yaml_config__simple_config_file(tmp_path: Path):
     config_contents = """
 config-version: 1
 root-folder: scripts
@@ -31,7 +32,7 @@ vars:
 
 
 @mock.patch.dict(os.environ, {"TEST_VAR": "env_value"})
-def test__load_yaml_config__with_env_var_should_populate_value(
+def test_load_yaml_config__with_env_var_should_populate_value(
     tmp_path: Path,
 ):
     config_contents = """
@@ -49,7 +50,7 @@ vars:
     assert config["root-folder"] == "env_value"
 
 
-def test__load_yaml_config__requiring_env_var_but_env_var_not_set_should_raise_exception(
+def test_load_yaml_config__requiring_env_var_but_env_var_not_set_should_raise_exception(
     tmp_path: Path,
 ):
     config_contents = """
@@ -71,7 +72,7 @@ vars:
 
 
 @mock.patch("pathlib.Path.is_dir", return_value=True)
-def test__get_yaml_config(_):
+def test_get_yaml_config(_):
     config_file_path = (
         Path(__file__).parent / "assets" / "schemachange-config-complete.yml"
     )
@@ -86,7 +87,9 @@ def test__get_yaml_config(_):
     assert yaml_config.snowflake_warehouse == "snowflake-warehouse-from-yaml"
     assert yaml_config.snowflake_database == "snowflake-database-from-yaml"
     assert yaml_config.snowflake_schema == "snowflake-schema-from-yaml"
-    assert yaml_config.change_history_table == "change-history-table-from-yaml"
+    assert yaml_config.change_history_table == Table(
+        table_name="CHANGE-HISTORY-TABLE-FROM-YAML"
+    )
     assert yaml_config.query_tag == "query-tag-from-yaml"
 
     assert yaml_config.create_change_history_table is False
