@@ -58,6 +58,7 @@ class SnowflakeSession:
         self.oauth_config = config.oauth_config
         self.autocommit = config.autocommit
         self.verbose = config.verbose
+        self.change_history_table = config.change_history_table
         self.con = snowflake.connector.connect(
             user=self.user,
             account=self.account,
@@ -71,15 +72,6 @@ class SnowflakeSession:
         )
         if not self.autocommit:
             self.con.autocommit(False)
-        # TODO: Where does this go?
-        # else:
-        #     print(
-        #         "Missing environment variable(s). \n"
-        #         "SNOWFLAKE_PASSWORD must be defined for password authentication. \n"
-        #         "SNOWFLAKE_PRIVATE_KEY_PATH and (optional) SNOWFLAKE_PRIVATE_KEY_PASSPHRASE "
-        #         "must be defined for private key authentication.\n"
-        #         "SNOWFLAKE_AUTHENTICATOR must be defined is using Oauth, OKTA or external Browser Authentication."
-        #     )
 
     def __del__(self):
         if hasattr(self, "con"):
@@ -99,15 +91,15 @@ class SnowflakeSession:
                 self.con.rollback()
             raise e
 
-    def fetch_change_history_metadata(self, change_history_table: Table) -> dict:
+    def fetch_change_history_metadata(self) -> dict:
         # This should only ever return 0 or 1 rows
         query = f"""
             SELECT
                 CREATED,
                 LAST_ALTERED
-            FROM {change_history_table.database_name}.INFORMATION_SCHEMA.TABLES
-            WHERE TABLE_SCHEMA = REPLACE('{change_history_table.schema_name}','\"','')
-                AND TABLE_NAME = REPLACE('{change_history_table.table_name}','\"','')
+            FROM {self.change_history_table.database_name}.INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = REPLACE('{self.change_history_table.schema_name}','\"','')
+                AND TABLE_NAME = REPLACE('{self.change_history_table.table_name}','\"','')
         """
         results = self.execute_snowflake_query(query)
 
@@ -120,15 +112,13 @@ class SnowflakeSession:
 
         return change_history_metadata
 
-    def create_change_history_table_if_missing(
-        self, change_history_table: Table
-    ) -> None:
+    def create_change_history_table_if_missing(self) -> None:
         # Check if schema exists
         query = f"""
             SELECT
                 COUNT(1)
-            FROM {change_history_table.database_name}.INFORMATION_SCHEMA.SCHEMATA
-            WHERE SCHEMA_NAME = REPLACE('{change_history_table.schema_name}','\"','')
+            FROM {self.change_history_table.database_name}.INFORMATION_SCHEMA.SCHEMATA
+            WHERE SCHEMA_NAME = REPLACE('{self.change_history_table.schema_name}','\"','')
         """
         results = self.execute_snowflake_query(query)
         schema_exists = False
@@ -138,12 +128,12 @@ class SnowflakeSession:
 
         # Create the schema if it doesn't exist
         if not schema_exists:
-            query = f"CREATE SCHEMA {change_history_table.schema_name}"
+            query = f"CREATE SCHEMA {self.change_history_table.schema_name}"
             self.execute_snowflake_query(query)
 
         # Finally, create the change history table if it doesn't exist
         query = f"""
-            CREATE TABLE IF NOT EXISTS {change_history_table.fully_qualified} (
+            CREATE TABLE IF NOT EXISTS {self.change_history_table.fully_qualified} (
                 VERSION VARCHAR,
                 DESCRIPTION VARCHAR,
                 SCRIPT VARCHAR,
@@ -157,7 +147,7 @@ class SnowflakeSession:
         """
         self.execute_snowflake_query(query)
 
-    def fetch_r_scripts_checksum(self, change_history_table: Table) -> DataFrame:
+    def fetch_r_scripts_checksum(self) -> DataFrame:
         query = f"""
         SELECT DISTINCT
             SCRIPT,
@@ -165,7 +155,7 @@ class SnowflakeSession:
                 PARTITION BY SCRIPT
                 ORDER BY INSTALLED_ON DESC
             )
-        FROM {change_history_table.fully_qualified}
+        FROM {self.change_history_table.fully_qualified}
         WHERE SCRIPT_TYPE = 'R'
             AND STATUS = 'Success'
         """
@@ -184,11 +174,11 @@ class SnowflakeSession:
         d_script_checksum["checksum"] = checksums
         return d_script_checksum
 
-    def fetch_change_history(self, change_history_table: Table) -> list[object]:
+    def fetch_change_history(self) -> list[object]:
         query = f"""
         SELECT
             VERSION
-        FROM {change_history_table.fully_qualified}
+        FROM {self.change_history_table.fully_qualified}
         WHERE SCRIPT_TYPE = 'V'
         ORDER BY INSTALLED_ON DESC
         LIMIT 1
@@ -224,7 +214,7 @@ class SnowflakeSession:
 
         self.execute_snowflake_query(f"ALTER SESSION SET QUERY_TAG = '{query_tag}'")
 
-    def apply_change_script(self, script, script_content, change_history_table: Table):
+    def apply_change_script(self, script, script_content):
         # Define a few other change related variables
         checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
         execution_time = 0
@@ -243,10 +233,10 @@ class SnowflakeSession:
 
         # Finally record this change in the change history table by gathering data
         frmt_args = script.copy()
-        frmt_args.update(change_history_table)
+        frmt_args.update(self.change_history_table)
         # Compose and execute the insert statement to the log file
         query = f"""
-            INSERT INTO {change_history_table.fully_qualified} (
+            INSERT INTO {self.change_history_table.fully_qualified} (
                 VERSION,
                 DESCRIPTION,
                 SCRIPT,

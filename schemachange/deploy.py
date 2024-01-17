@@ -42,9 +42,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
     scripts_applied = 0
 
     # Deal with the change history table (create if specified)
-    change_history_metadata = session.fetch_change_history_metadata(
-        change_history_table=config.change_history_table
-    )
+    change_history_metadata = session.fetch_change_history_metadata()
     if change_history_metadata:
         print(
             f"Using change history table {config.change_history_table.fully_qualified} "
@@ -53,9 +51,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
     elif config.create_change_history_table:
         # Create the change history table (and containing objects) if it doesn't exist.
         if not config.dry_run:
-            session.create_change_history_table_if_missing(
-                change_history_table=config.change_history_table
-            )
+            session.create_change_history_table_if_missing()
         print(
             f"Created change history table {config.change_history_table.fully_qualified}"
         )
@@ -70,12 +66,8 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
     change_history = None
     r_scripts_checksum = None
     if (config["dry_run"] and change_history_metadata) or not config["dry_run"]:
-        change_history = session.fetch_change_history(
-            change_history_table=config.change_history_table
-        )
-        r_scripts_checksum = session.fetch_r_scripts_checksum(
-            change_history_table=config.change_history_table
-        )
+        change_history = session.fetch_change_history()
+        r_scripts_checksum = session.fetch_r_scripts_checksum()
 
     if change_history:
         max_published_version = change_history[0]
@@ -153,9 +145,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
 
         print(f"Applying change script {script_name}")
         if not config["dry_run"]:
-            session.apply_change_script(
-                script, content, change_history_table=config.change_history_table
-            )
+            session.apply_change_script(script, content)
 
         scripts_applied += 1
 
