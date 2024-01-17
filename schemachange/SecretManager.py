@@ -12,7 +12,7 @@ def extract_config_secrets(config: DeployConfig | RenderConfig | None) -> set[st
 
     # defined as an inner/ nested function to provide encapsulation
     def inner_extract_dictionary_secrets(
-        dictionary: dict[str, object], child_of_secrets: bool = False
+        dictionary: dict[str, dict | str], child_of_secrets: bool = False
     ) -> set[str]:
         """
         Considers any key with the word secret in the name as a secret or
