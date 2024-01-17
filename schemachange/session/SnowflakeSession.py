@@ -8,11 +8,13 @@ import snowflake.connector
 from schemachange.Config import DeployConfig, Table, RenderConfig
 from schemachange.SecretManager import SecretManager
 from schemachange.session.Credential import SomeCredential, credential_factory
+from schemachange.session.Script import VersionedScript, RepeatableScript, AlwaysScript
 
 
 class SnowflakeSession:
     secret_manager: SecretManager
     user: str
+    account: str
     role: str
     warehouse: str
     database: str | None
@@ -49,6 +51,7 @@ class SnowflakeSession:
     ):
         self.secret_manager = secret_manager
         self.user = snowflake_user
+        self.account = snowflake_account
         self.role = snowflake_role
         self.warehouse = snowflake_warehouse
         self.database = snowflake_database
@@ -64,7 +67,7 @@ class SnowflakeSession:
 
         self.con = snowflake.connector.connect(
             user=self.user,
-            account=snowflake_account,
+            account=self.account,
             role=self.role,
             warehouse=self.warehouse,
             database=self.database,
@@ -223,10 +226,15 @@ class SnowflakeSession:
 
         self.execute_snowflake_query(f"ALTER SESSION SET QUERY_TAG = '{query_tag}'")
 
-    def apply_change_script(self, script, script_content) -> None:
+    def apply_change_script(
+        self,
+        script: VersionedScript | RepeatableScript | AlwaysScript,
+        script_content: str,
+    ) -> None:
         if self.dry_run:
-            print(f"Running in dry-run mode. Skipping execution: {script.script_name}")
+            print(f"Running in dry-run mode. Skipping execution: {script.name}")
             return
+        print(f"Applying change script {script.name}")
         # Define a few other change related variables
         checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
         execution_time = 0
@@ -236,16 +244,13 @@ class SnowflakeSession:
         if len(script_content) > 0:
             start = time.time()
             self.reset_session()
-            self.reset_query_tag(script["script_name"])
+            self.reset_query_tag(script.name)
             self.execute_snowflake_query(script_content)
             self.reset_query_tag()
             self.reset_session()
             end = time.time()
             execution_time = round(end - start)
 
-        # Finally record this change in the change history table by gathering data
-        frmt_args = script.copy()
-        frmt_args.update(self.change_history_table)
         # Compose and execute the insert statement to the log file
         query = f"""\
             INSERT INTO {self.change_history_table.fully_qualified} (
@@ -259,10 +264,10 @@ class SnowflakeSession:
                 INSTALLED_BY,
                 INSTALLED_ON
             ) VALUES (
-                '{script_version}',
-                '{script_description}',
-                '{script_name}',
-                '{script_type}',
+                '{getattr(script, "version", "")}',
+                '{script.description}',
+                '{script.name}',
+                '{script.type}',
                 '{checksum}',
                 {execution_time},
                 '{status}',

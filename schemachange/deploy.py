@@ -3,7 +3,7 @@ import re
 
 from schemachange.Config import DeployConfig
 from schemachange.session.SnowflakeSession import SnowflakeSession
-from schemachange.get_all_scripts_recursively import get_all_scripts_recursively
+from schemachange.session.Script import get_all_scripts_recursively
 from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
 
 
@@ -29,17 +29,12 @@ def sorted_alphanumeric(data):
 
 
 def deploy(config: DeployConfig, session: SnowflakeSession):
-    if config.dry_run:
-        print("Running in dry-run mode")
     print(
         f"Using Snowflake account {session.account}\n"
         f"Using default role {session.role}\n"
         f"Using default warehouse {session.warehouse}\n"
         f"Using default database {session.database} schema {session.schema}"
     )
-
-    scripts_skipped = 0
-    scripts_applied = 0
 
     # Deal with the change history table (create if specified)
     change_history_metadata = session.fetch_change_history_metadata()
@@ -50,8 +45,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
         )
     elif config.create_change_history_table:
         # Create the change history table (and containing objects) if it doesn't exist.
-        if not config.dry_run:
-            session.create_change_history_table_if_missing()
+        session.create_change_history_table_if_missing()
         print(
             f"Created change history table {session.change_history_table.fully_qualified}"
         )
@@ -77,7 +71,9 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
     )
 
     # Find all scripts in the root folder (recursively) and sort them correctly
-    all_scripts = get_all_scripts_recursively(config["root_folder"], config["verbose"])
+    all_scripts = get_all_scripts_recursively(
+        root_directory=config.root_folder, verbose=config.verbose
+    )
     all_script_names = list(all_scripts.keys())
     # Sort scripts such that versioned scripts get applied first and then the repeatable ones.
     all_script_names_sorted = (
@@ -90,18 +86,21 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
         )
     )
 
+    scripts_skipped = 0
+    scripts_applied = 0
+
     # Loop through each script in order and apply any required changes
     for script_name in all_script_names_sorted:
         script = all_scripts[script_name]
 
         # Apply a versioned-change script only if the version is newer than the most recent change in the database
         # Apply any other scripts, i.e. repeatable scripts, irrespective of the most recent change in the database
-        if script_name[0] == "V" and get_alphanum_key(
-            script["script_version"]
-        ) <= get_alphanum_key(max_published_version):
-            if config["verbose"]:
+        if script.type == "V" and get_alphanum_key(script.version) <= get_alphanum_key(
+            max_published_version
+        ):
+            if config.verbose:
                 print(
-                    f"Skipping change script {script_name} because it's older "
+                    f"Skipping change script {script.name} because it's older "
                     f"than the most recently applied change ({max_published_version})"
                 )
             scripts_skipped += 1
@@ -109,37 +108,35 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
 
         # Always process with jinja engine
         jinja_processor = JinjaTemplateProcessor(
-            project_root=config["root_folder"], modules_folder=config["modules_folder"]
+            project_root=config.root_folder, modules_folder=config.modules_folder
         )
         content = jinja_processor.render(
-            jinja_processor.relpath(script["script_full_path"]),
-            config["vars"],
-            config["verbose"],
+            jinja_processor.relpath(script.file_path),
+            config.vars,
+            config.verbose,
         )
 
         # Apply only R scripts where the checksum changed compared to the last execution of snowchange
-        if script_name[0] == "R":
+        if script.type == "R":
             # Compute the checksum for the script
             checksum_current = hashlib.sha224(content.encode("utf-8")).hexdigest()
 
             # check if R file was already executed
-            if (r_scripts_checksum is not None) and script_name in r_scripts_checksum:
-                checksum_last = r_scripts_checksum[script_name][0]
+            if (r_scripts_checksum is not None) and script.name in r_scripts_checksum:
+                checksum_last = r_scripts_checksum[script.name][0]
             else:
                 checksum_last = ""
 
             # check if there is a change of the checksum in the script
             if checksum_current == checksum_last:
-                if config["verbose"]:
+                if config.verbose:
                     print(
-                        f"Skipping change script {script_name} because there is no change since the last execution"
+                        f"Skipping change script {script.name} because there is no change since the last execution"
                     )
                 scripts_skipped += 1
                 continue
 
-        print(f"Applying change script {script_name}")
-        if not config["dry_run"]:
-            session.apply_change_script(script, content)
+        session.apply_change_script(script, content)
 
         scripts_applied += 1
 
