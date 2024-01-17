@@ -29,14 +29,9 @@ def main():
     print(f"schemachange version: {SCHEMACHANGE_VERSION}")
 
     config = get_merged_config()
+    secret_manager = SecretManager(config_vars=config.vars)
 
-    # set up a secret manager and assign to global scope
-    sm = SecretManager()
-    SecretManager.set_global_manager(sm)
-    # Extract all secrets for --vars
-    sm.add_range_from_config(config)
-
-    config.log_details()
+    config.log_details(secret_manager=secret_manager)
 
     # Finally, execute the command
     if config.subcommand == "render":
@@ -44,6 +39,7 @@ def main():
     else:
         session = get_session_from_config(
             config=config,
+            secret_manager=secret_manager,
             schemachange_version=SCHEMACHANGE_VERSION,
             snowflake_application_name=SNOWFLAKE_APPLICATION_NAME,
         )

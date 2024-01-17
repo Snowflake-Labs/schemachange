@@ -37,6 +37,7 @@ class PrivateKeyCredential(Credential):
 
 class ExternalBrowserCredential(Credential):
     authenticator: Literal["externalbrowser"] = "externalbrowser"
+    password: str | None = None
 
 
 class OktaCredential(Credential):

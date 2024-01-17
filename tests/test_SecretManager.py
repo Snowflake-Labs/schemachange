@@ -1,6 +1,5 @@
 import pytest
 
-from schemachange.Config import DeployConfig
 from schemachange.SecretManager import SecretManager, extract_config_secrets
 
 
@@ -71,62 +70,40 @@ class TestSecretManager:
         assert "one" in sm._SecretManager__secrets
         assert "two" in sm._SecretManager__secrets
 
-    ##### test static methods #####
-
-    def test_check_global_assignment_round_trip(self):
-        sm = SecretManager()
-
-        SecretManager.set_global_manager(sm)
-        assert SecretManager.get_global_manager() is sm
-
-    def test_global_redact(self):
-        sm = SecretManager()
-        sm.add("Hello")
-        SecretManager.set_global_manager(sm)
-
-        assert SecretManager.global_redact("Hello World!") == "***** World!"
-
 
 class TestExtractConfigSecrets:
     def test_given_empty_config_should_not_error(self):
-        config = DeployConfig()
-        extract_config_secrets(config)
+        extract_config_secrets(config_vars={})
 
     def test_given_None_should_not_error(self):
         extract_config_secrets(None)
 
     @pytest.mark.parametrize(
-        "config_kwargs, secret",
+        "config_vars, secret",
         [
-            ({"vars": {"secret": "secret_val1"}}, "secret_val1"),
-            ({"vars": {"SECret": "secret_val2"}}, "secret_val2"),
-            ({"vars": {"secret_key": "secret_val3"}}, "secret_val3"),
-            ({"vars": {"s3_bucket_secret": "secret_val4"}}, "secret_val4"),
-            ({"vars": {"s3SecretKey": "secret_val5"}}, "secret_val5"),
-            ({"vars": {"nested": {"s3_bucket_secret": "secret_val6"}}}, "secret_val6"),
+            ({"secret": "secret_val1"}, "secret_val1"),
+            ({"SECret": "secret_val2"}, "secret_val2"),
+            ({"secret_key": "secret_val3"}, "secret_val3"),
+            ({"s3_bucket_secret": "secret_val4"}, "secret_val4"),
+            ({"s3SecretKey": "secret_val5"}, "secret_val5"),
+            ({"nested": {"s3_bucket_secret": "secret_val6"}}, "secret_val6"),
         ],
     )
-    def test_given__vars_with_keys_should_extract_secret(self, config_kwargs, secret):
-        config = DeployConfig(**config_kwargs)
-        results = extract_config_secrets(config)
+    def test_given__vars_with_keys_should_extract_secret(self, config_vars, secret):
+        results = extract_config_secrets(config_vars)
         assert secret in results
 
     def test_given_vars_with_secrets_key_then_all_children_should_be_treated_as_secrets(
         self,
     ):
-        config = DeployConfig(
-            **{
-                "vars": {
-                    "secrets": {
-                        "database_name": "database_name_val",
-                        "schema_name": "schema_name_val",
-                        "nested_secrets": {"SEC_ONE": "SEC_ONE_VAL"},
-                    }
-                }
+        config_vars = {
+            "secrets": {
+                "database_name": "database_name_val",
+                "schema_name": "schema_name_val",
+                "nested_secrets": {"SEC_ONE": "SEC_ONE_VAL"},
             }
-        )
-
-        results = extract_config_secrets(config)
+        }
+        results = extract_config_secrets(config_vars=config_vars)
 
         assert len(results) == 3
         assert "database_name_val" in results
@@ -136,21 +113,17 @@ class TestExtractConfigSecrets:
     def test_given_vars_with_nested_secrets_key_then_all_children_should_be_treated_as_secrets(
         self,
     ):
-        config = DeployConfig(
-            **{
-                "vars": {
-                    "nested": {
-                        "secrets": {
-                            "database_name": "database_name_val",
-                            "schema_name": "schema_name_val",
-                            "nested": {"SEC_ONE": "SEC_ONE_VAL"},
-                        }
-                    }
+        config_vars = {
+            "nested": {
+                "secrets": {
+                    "database_name": "database_name_val",
+                    "schema_name": "schema_name_val",
+                    "nested": {"SEC_ONE": "SEC_ONE_VAL"},
                 }
             }
-        )
+        }
 
-        results = extract_config_secrets(config)
+        results = extract_config_secrets(config_vars)
 
         assert len(results) == 3
         assert "database_name_val" in results
@@ -158,19 +131,15 @@ class TestExtractConfigSecrets:
         assert "SEC_ONE_VAL" in results
 
     def test_given_vars_with_same_secret_twice_then_only_extracted_once(self):
-        config = DeployConfig(
-            **{
-                "vars": {
-                    "secrets": {
-                        "database_name": "SECRET_VALUE",
-                        "schema_name": "SECRET_VALUE",
-                        "nested_secrets": {"SEC_ONE": "SECRET_VALUE"},
-                    }
-                }
+        config_vars = {
+            "secrets": {
+                "database_name": "SECRET_VALUE",
+                "schema_name": "SECRET_VALUE",
+                "nested_secrets": {"SEC_ONE": "SECRET_VALUE"},
             }
-        )
+        }
 
-        results = extract_config_secrets(config)
+        results = extract_config_secrets(config_vars)
 
         assert len(results) == 1
         assert "SECRET_VALUE" in results

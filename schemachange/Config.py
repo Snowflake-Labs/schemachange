@@ -81,7 +81,7 @@ class Config(BaseModel, ABC):
 
         return self.model_copy(update=other_kwargs)
 
-    def log_details(self):
+    def log_details(self, secret_manager: SecretManager):
         print(f"Using root folder {str(self.root_folder)}")
         if self.modules_folder:
             print(f"Using Jinja modules folder {str(self.modules_folder)}")
@@ -93,7 +93,7 @@ class Config(BaseModel, ABC):
             print("Using variables:")
             print(
                 textwrap.indent(
-                    SecretManager.global_redact(
+                    secret_manager.redact(
                         yaml.dump(self.vars, sort_keys=False, default_flow_style=False)
                     ),
                     prefix="  ",
@@ -139,6 +139,7 @@ class DeployConfig(Config):
     snowflake_warehouse: str | None = None
     snowflake_database: str | None = None
     snowflake_schema: str | None = None
+    # TODO: Turn change_history_table into three arguments. There's no need to parse it from a string
     change_history_table: Table | None = Field(default_factory=Table)
     create_change_history_table: bool = False
     autocommit: bool = False

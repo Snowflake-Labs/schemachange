@@ -1,11 +1,7 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from schemachange.Config import RenderConfig, DeployConfig
 
 
-def extract_config_secrets(config: DeployConfig | RenderConfig | None) -> set[str]:
+def extract_config_secrets(config_vars: dict[str, dict | str] | None) -> set[str]:
     """
     Extracts all secret values from the vars attributes in config
     """
@@ -39,8 +35,8 @@ def extract_config_secrets(config: DeployConfig | RenderConfig | None) -> set[st
 
     extracted = set()
 
-    if config:
-        extracted = inner_extract_dictionary_secrets(config.vars)
+    if config_vars:
+        extracted = inner_extract_dictionary_secrets(config_vars)
     return extracted
 
 
@@ -49,26 +45,12 @@ class SecretManager:
     Provides the ability to redact secrets
     """
 
-    __singleton: "SecretManager"
+    __secrets: set
 
-    @staticmethod
-    def get_global_manager() -> "SecretManager":
-        return SecretManager.__singleton
-
-    @staticmethod
-    def set_global_manager(global_manager: "SecretManager"):
-        SecretManager.__singleton = global_manager
-
-    @staticmethod
-    def global_redact(context: str) -> str:
-        """
-        redacts any text that has been classified a secret
-        using the global SecretManager instance.
-        """
-        return SecretManager.__singleton.redact(context)
-
-    def __init__(self):
+    def __init__(self, config_vars: dict[str, dict | str] | None = None):
         self.__secrets = set()
+        secrets = extract_config_secrets(config_vars=config_vars)
+        self.add_range(secrets=secrets)
 
     def clear(self):
         self.__secrets = set()
@@ -76,10 +58,6 @@ class SecretManager:
     def add(self, secret: str):
         if secret:
             self.__secrets.add(secret)
-
-    def add_range_from_config(self, config: DeployConfig | RenderConfig):
-        secrets = extract_config_secrets(config)
-        self.add_range(secrets=secrets)
 
     def add_range(self, secrets: set[str] | None):
         if secrets:

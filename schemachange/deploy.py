@@ -45,7 +45,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
     change_history_metadata = session.fetch_change_history_metadata()
     if change_history_metadata:
         print(
-            f"Using change history table {config.change_history_table.fully_qualified} "
+            f"Using change history table {session.change_history_table.fully_qualified} "
             f"(last altered {change_history_metadata['last_altered']})"
         )
     elif config.create_change_history_table:
@@ -53,11 +53,11 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
         if not config.dry_run:
             session.create_change_history_table_if_missing()
         print(
-            f"Created change history table {config.change_history_table.fully_qualified}"
+            f"Created change history table {session.change_history_table.fully_qualified}"
         )
     else:
         raise ValueError(
-            f"Unable to find change history table {config.change_history_table.fully_qualified}"
+            f"Unable to find change history table {session.change_history_table.fully_qualified}"
         )
 
     # Find the max published version
@@ -66,8 +66,8 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
     change_history = None
     r_scripts_checksum = None
     if (config["dry_run"] and change_history_metadata) or not config["dry_run"]:
-        change_history = session.fetch_change_history()
-        r_scripts_checksum = session.fetch_r_scripts_checksum()
+        change_history = session.fetch_versioned_scripts()
+        r_scripts_checksum = session.fetch_repeatable_scripts()
 
     if change_history:
         max_published_version = change_history[0]
@@ -123,14 +123,8 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
             checksum_current = hashlib.sha224(content.encode("utf-8")).hexdigest()
 
             # check if R file was already executed
-            if (r_scripts_checksum is not None) and script_name in list(
-                r_scripts_checksum["script_name"]
-            ):
-                checksum_last = list(
-                    r_scripts_checksum.loc[
-                        r_scripts_checksum["script_name"] == script_name, "checksum"
-                    ]
-                )[0]
+            if (r_scripts_checksum is not None) and script_name in r_scripts_checksum:
+                checksum_last = r_scripts_checksum[script_name][0]
             else:
                 checksum_last = ""
 
