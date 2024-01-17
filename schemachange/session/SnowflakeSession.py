@@ -2,8 +2,8 @@ import hashlib
 import time
 from textwrap import dedent
 
-import snowflake.connector
 from pandas import DataFrame
+from snowflake.connector import SnowflakeConnection, connect
 
 from schemachange.Config import DeployConfig, Table, RenderConfig
 from schemachange.SecretManager import SecretManager
@@ -12,17 +12,15 @@ from schemachange.session.Credential import SomeCredential, credential_factory
 
 class SnowflakeSession:
     user: str
-    account: str
-    role: str | None
-    warehouse: str | None
+    role: str
+    warehouse: str
     database: str | None
     schema: str | None
-    application: str
-    session_parameters: dict
-    oauth_config: dict | None
+    query_tag: str | None
     autocommit: bool
     verbose: bool
-    credential: SomeCredential
+    change_history_table: Table
+    conn: SnowflakeConnection
 
     """
     Manages Snowflake Interactions and authentication
@@ -30,44 +28,43 @@ class SnowflakeSession:
 
     def __init__(
         self,
-        config: DeployConfig,
         snowflake_user: str,
         snowflake_account: str,
         snowflake_role: str,
+        snowflake_warehouse: str,
         schemachange_version: str,
-        snowflake_application_name: str,
+        application: str,
         credential: SomeCredential,
-        snowflake_warehouse: str | None = None,
+        change_history_table: Table,
+        autocommit: bool = False,
+        verbose: bool = False,
         snowflake_database: str | None = None,
         snowflake_schema: str | None = None,
         query_tag: str | None = None,
     ):
-        session_parameters = {"QUERY_TAG": f"schemachange {schemachange_version}"}
-        if query_tag:
-            session_parameters["QUERY_TAG"] += f";{config.query_tag}"
-
-        # Retrieve Connection info from config dictionary
         self.user = snowflake_user
-        self.account = snowflake_account
         self.role = snowflake_role
         self.warehouse = snowflake_warehouse
         self.database = snowflake_database
         self.schema = snowflake_schema
-        self.application = snowflake_application_name
-        self.session_parameters = session_parameters
-        self.oauth_config = config.oauth_config
-        self.autocommit = config.autocommit
-        self.verbose = config.verbose
-        self.change_history_table = config.change_history_table
-        self.con = snowflake.connector.connect(
+        self.query_tag = query_tag
+        self.autocommit = autocommit
+        self.verbose = verbose
+        self.change_history_table = change_history_table
+
+        session_parameters = {"QUERY_TAG": f"schemachange {schemachange_version}"}
+        if self.query_tag:
+            session_parameters["QUERY_TAG"] += f";{self.query_tag}"
+
+        self.con = connect(
             user=self.user,
-            account=self.account,
+            account=snowflake_account,
             role=self.role,
             warehouse=self.warehouse,
             database=self.database,
             schema=self.schema,
-            application=self.application,
-            session_parameters=self.session_parameters,
+            application=application,
+            session_parameters=session_parameters,
             **credential.model_dump(),
         )
         if not self.autocommit:
@@ -78,7 +75,6 @@ class SnowflakeSession:
             self.con.close()
 
     def execute_snowflake_query(self, query: str):
-        query = dedent(query)
         if self.verbose:
             print(SecretManager.global_redact(f"SQL query: {query}"))
         try:
@@ -101,7 +97,7 @@ class SnowflakeSession:
             WHERE TABLE_SCHEMA = REPLACE('{self.change_history_table.schema_name}','\"','')
                 AND TABLE_NAME = REPLACE('{self.change_history_table.table_name}','\"','')
         """
-        results = self.execute_snowflake_query(query)
+        results = self.execute_snowflake_query(dedent(query))
 
         # Collect all the results into a list
         change_history_metadata = dict()
@@ -120,7 +116,7 @@ class SnowflakeSession:
             FROM {self.change_history_table.database_name}.INFORMATION_SCHEMA.SCHEMATA
             WHERE SCHEMA_NAME = REPLACE('{self.change_history_table.schema_name}','\"','')
         """
-        results = self.execute_snowflake_query(query)
+        results = self.execute_snowflake_query(dedent(query))
         schema_exists = False
         for cursor in results:
             for row in cursor:
@@ -129,7 +125,7 @@ class SnowflakeSession:
         # Create the schema if it doesn't exist
         if not schema_exists:
             query = f"CREATE SCHEMA {self.change_history_table.schema_name}"
-            self.execute_snowflake_query(query)
+            self.execute_snowflake_query(dedent(query))
 
         # Finally, create the change history table if it doesn't exist
         query = f"""
@@ -145,7 +141,7 @@ class SnowflakeSession:
                 INSTALLED_ON TIMESTAMP_LTZ
             )
         """
-        self.execute_snowflake_query(query)
+        self.execute_snowflake_query(dedent(query))
 
     def fetch_r_scripts_checksum(self) -> DataFrame:
         query = f"""
@@ -159,7 +155,7 @@ class SnowflakeSession:
         WHERE SCRIPT_TYPE = 'R'
             AND STATUS = 'Success'
         """
-        results = self.execute_snowflake_query(query)
+        results = self.execute_snowflake_query(dedent(query))
 
         # Collect all the results into a dict
         d_script_checksum = DataFrame(columns=["script_name", "checksum"])
@@ -183,7 +179,7 @@ class SnowflakeSession:
         ORDER BY INSTALLED_ON DESC
         LIMIT 1
         """
-        results = self.execute_snowflake_query(query)
+        results = self.execute_snowflake_query(dedent(query))
 
         # Collect all the results into a list
         change_history = list()
@@ -208,7 +204,7 @@ class SnowflakeSession:
         self.execute_snowflake_query("\n".join(reset_query))
 
     def reset_query_tag(self, extra_tag=None):
-        query_tag = self.session_parameters["QUERY_TAG"]
+        query_tag = self.query_tag
         if extra_tag:
             query_tag += f";{extra_tag}"
 
@@ -258,10 +254,10 @@ class SnowflakeSession:
                 CURRENT_TIMESTAMP
             );
         """
-        self.execute_snowflake_query(query)
+        self.execute_snowflake_query(dedent(query))
 
 
-def get_session(
+def get_session_from_config(
     config: DeployConfig | RenderConfig,
     schemachange_version: str,
     snowflake_application_name: str,
@@ -271,14 +267,16 @@ def get_session(
         oauth_config=config.oauth_config, verbose=config.verbose
     )
     return SnowflakeSession(
-        config=config,
         snowflake_user=config.snowflake_user,
         snowflake_account=config.snowflake_account,
         snowflake_role=config.snowflake_role,
-        schemachange_version=schemachange_version,
-        snowflake_application_name=snowflake_application_name,
-        credential=credential,
         snowflake_warehouse=config.snowflake_warehouse,
+        schemachange_version=schemachange_version,
+        application=snowflake_application_name,
+        credential=credential,
+        change_history_table=config.change_history_table,
+        autocommit=config.autocommit,
+        verbose=config.verbose,
         snowflake_database=config.snowflake_database,
         snowflake_schema=config.snowflake_schema,
         query_tag=config.query_tag,

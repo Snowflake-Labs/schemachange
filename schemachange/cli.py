@@ -6,7 +6,7 @@ from schemachange.Config import config_factory, RenderConfig, DeployConfig
 from schemachange.SecretManager import SecretManager
 from schemachange.get_yaml_config import get_yaml_config
 from schemachange.parse_cli_args import parse_cli_args
-from schemachange.session.SnowflakeSession import get_session
+from schemachange.session.SnowflakeSession import get_session_from_config
 
 SCHEMACHANGE_VERSION = "3.6.1"
 SNOWFLAKE_APPLICATION_NAME = "schemachange"
@@ -42,7 +42,7 @@ def main():
     if config.subcommand == "render":
         render(config=config, script_path=config.script_path)
     else:
-        session = get_session(
+        session = get_session_from_config(
             config=config,
             schemachange_version=SCHEMACHANGE_VERSION,
             snowflake_application_name=SNOWFLAKE_APPLICATION_NAME,
