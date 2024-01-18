@@ -46,11 +46,20 @@ class VersionedScript(Script):
         r"^(V)(?P<version>.+?)?__(?P<description>.+?)\.", re.IGNORECASE
     )
     type: ClassVar[Literal["V"]] = "V"
+    version_number_regex: ClassVar[str | None] = None
     version: str
 
     @classmethod
     def from_path(cls: T, file_path: Path, verbose: bool = False, **kwargs) -> T:
         name_parts = cls.pattern.search(file_path.name.strip())
+
+        if cls.version_number_regex:
+            version = name_parts.group("version")
+            if re.search(cls.version_number_regex, version, re.IGNORECASE) is None:
+                raise ValueError(
+                    f"change script version doesn't match the supplied regular expression: "
+                    f"{cls.version_number_regex}\n{str(file_path)}"
+                )
 
         return super().from_path(
             file_path=file_path,
@@ -73,23 +82,20 @@ class AlwaysScript(Script):
     type: ClassVar[Literal["A"]] = "A"
 
 
-pattern_constructors: dict[
-    re.Pattern[str], type[VersionedScript | RepeatableScript | AlwaysScript]
-] = {
-    VersionedScript.pattern: VersionedScript,
-    RepeatableScript.pattern: RepeatableScript,
-    AlwaysScript.pattern: AlwaysScript,
-}
+constructors: list[type[VersionedScript | RepeatableScript | AlwaysScript]] = [
+    VersionedScript,
+    RepeatableScript,
+    AlwaysScript,
+]
 
 
 def script_factory(
     file_path: Path, verbose: bool = False
 ) -> VersionedScript | RepeatableScript | AlwaysScript | None:
     constructor: type[VersionedScript | RepeatableScript | AlwaysScript] | None = None
-    for pattern in pattern_constructors.keys():
-        name_parts = pattern.search(file_path.name.strip())
-        if name_parts is not None:
-            constructor = pattern_constructors[pattern]
+    for a_constructor in constructors:
+        if a_constructor.pattern.search(file_path.name.strip()) is not None:
+            constructor = a_constructor
             break
 
     if constructor is None:
@@ -100,7 +106,13 @@ def script_factory(
     return constructor.from_path(file_path=file_path, verbose=verbose)
 
 
-def get_all_scripts_recursively(root_directory: Path, verbose: bool = False):
+def get_all_scripts_recursively(
+    root_directory: Path,
+    verbose: bool = False,
+    version_number_regex: str | None = None,
+):
+    VersionedScript.version_number_regex = version_number_regex
+
     all_files: dict[str, VersionedScript | RepeatableScript | AlwaysScript] = dict()
     all_versions = list()
     # Walk the entire directory structure recursively

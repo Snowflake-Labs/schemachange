@@ -128,11 +128,85 @@ class TestGetAllScriptsRecursively:
     #### Version file tests ####
     ############################
 
+    def test_version_number_regex_numeric_happy_path(self):
+        with mock.patch("pathlib.Path.rglob") as mock_rglob:
+            mock_rglob.side_effect = [
+                [
+                    Path("V1.1.1__initial.sql"),
+                    Path("subfolder") / "V1.1.2__update.SQL",
+                    Path("subfolder") / "subfolder2" / "V1.1.3__update.sql",
+                ],
+                [],
+            ]
+
+            result = get_all_scripts_recursively(
+                Path("scripts"),
+                verbose=False,
+                version_number_regex="\d\.\d\.\d",
+            )
+
+        assert len(result) == 3
+        assert "v1.1.1__initial.sql" in result
+        assert "v1.1.2__update.sql" in result
+        assert "v1.1.3__update.sql" in result
+
+    def test_version_number_regex_numeric_exception(self):
+        with mock.patch("pathlib.Path.rglob") as mock_rglob:
+            mock_rglob.side_effect = [
+                [
+                    Path("V1.10.1__initial.sql"),
+                ],
+                [],
+            ]
+            with pytest.raises(ValueError) as e:
+                get_all_scripts_recursively(
+                    Path("scripts"),
+                    verbose=False,
+                    version_number_regex="\d\.\d\.\d",
+                )
+            assert str(e.value).startswith(
+                "change script version doesn't match the supplied regular expression"
+            )
+
+    def test_version_number_regex_text_happy_path(self):
+        with mock.patch("pathlib.Path.rglob") as mock_rglob:
+            mock_rglob.side_effect = [
+                [
+                    Path("Va.b.c__initial.sql"),
+                ],
+                [],
+            ]
+            result = get_all_scripts_recursively(
+                Path("scripts"),
+                verbose=False,
+                version_number_regex="[a-z]\.[a-z]\.[a-z]",
+            )
+        assert len(result) == 1
+        assert "va.b.c__initial.sql" in result
+
+    def test_version_number_regex_text_exception(self):
+        with mock.patch("pathlib.Path.rglob") as mock_rglob:
+            mock_rglob.side_effect = [
+                [
+                    Path("V1.10.1__initial.sql"),
+                ],
+                [],
+            ]
+            with pytest.raises(ValueError) as e:
+                get_all_scripts_recursively(
+                    Path("scripts"),
+                    verbose=False,
+                    version_number_regex="[a-z]\.[a-z]\.[a-z]",
+                )
+            assert str(e.value).startswith(
+                "change script version doesn't match the supplied regular expression"
+            )
+
     def test_given_version_files_should_return_version_files(self):
         with mock.patch("pathlib.Path.rglob") as mock_rglob:
             mock_rglob.side_effect = [
                 [
-                    Path("V1.1.1__intial.sql"),
+                    Path("V1.1.1__initial.sql"),
                     Path("subfolder") / "V1.1.2__update.SQL",
                     Path("subfolder") / "subfolder2" / "V1.1.3__update.sql",
                 ],
@@ -142,7 +216,7 @@ class TestGetAllScriptsRecursively:
             result = get_all_scripts_recursively(Path("scripts"), False)
 
         assert len(result) == 3
-        assert "v1.1.1__intial.sql" in result
+        assert "v1.1.1__initial.sql" in result
         assert "v1.1.2__update.sql" in result
         assert "v1.1.3__update.sql" in result
 
@@ -150,7 +224,7 @@ class TestGetAllScriptsRecursively:
         with mock.patch("pathlib.Path.rglob") as mock_rglob:
             mock_rglob.side_effect = [
                 [
-                    Path("V1.1.1__intial.sql"),
+                    Path("V1.1.1__initial.sql"),
                     Path("subfolder") / "V1.1.1__update.sql",
                     Path("subfolder") / "subfolder2" / "V1.1.2__update.sql",
                 ],
@@ -203,15 +277,15 @@ class TestGetAllScriptsRecursively:
         with mock.patch("pathlib.Path.rglob") as mock_rglob:
             mock_rglob.side_effect = [
                 [
-                    Path("V1.1.1__intial.sql"),
-                    Path("V1.1.1__intial.sql.jinja"),
+                    Path("V1.1.1__initial.sql"),
+                    Path("V1.1.1__initial.sql.jinja"),
                 ],
                 [],
             ]
             with pytest.raises(ValueError) as e:
                 get_all_scripts_recursively(Path("scripts"), False)
             assert str(e.value).startswith(
-                "The script name V1.1.1__intial.sql exists more than once (first_instance"
+                "The script name V1.1.1__initial.sql exists more than once (first_instance"
             )
 
     ###########################
@@ -239,8 +313,8 @@ class TestGetAllScriptsRecursively:
         with mock.patch("pathlib.Path.rglob") as mock_rglob:
             mock_rglob.side_effect = [
                 [
-                    Path("A__intial.sql"),
-                    Path("subfolder") / "A__intial.sql",
+                    Path("A__initial.sql"),
+                    Path("subfolder") / "A__initial.sql",
                     Path("subfolder") / "subfolder2" / "A__proc3.sql",
                 ],
                 [],
@@ -249,7 +323,7 @@ class TestGetAllScriptsRecursively:
             with pytest.raises(ValueError) as e:
                 get_all_scripts_recursively(Path("scripts"), False)
             assert str(e.value).startswith(
-                "The script name A__intial.sql exists more than once (first_instance "
+                "The script name A__initial.sql exists more than once (first_instance "
             )
 
     def test_given_single_always_file_should_extract_attributes(self):
@@ -287,14 +361,14 @@ class TestGetAllScriptsRecursively:
     ):
         with mock.patch("pathlib.Path.rglob") as mock_rglob:
             mock_rglob.side_effect = [
-                [Path("A__intial.sql"), Path("A__intial.sql.jinja")],
+                [Path("A__initial.sql"), Path("A__initial.sql.jinja")],
                 [],
             ]
 
             with pytest.raises(ValueError) as e:
                 get_all_scripts_recursively(Path("scripts"), False)
             assert str(e.value).startswith(
-                "The script name A__intial.sql exists more than once (first_instance "
+                "The script name A__initial.sql exists more than once (first_instance "
             )
 
     ###############################
@@ -322,15 +396,15 @@ class TestGetAllScriptsRecursively:
         with mock.patch("pathlib.Path.rglob") as mock_rglob:
             mock_rglob.side_effect = [
                 [
-                    Path("R__intial.sql"),
-                    Path("subfolder") / "R__intial.SQL",
+                    Path("R__initial.sql"),
+                    Path("subfolder") / "R__initial.SQL",
                 ],
                 [],
             ]
             with pytest.raises(ValueError) as e:
                 get_all_scripts_recursively(Path("scripts"), False)
             assert str(e.value).startswith(
-                "The script name R__intial.SQL exists more than once (first_instance "
+                "The script name R__initial.SQL exists more than once (first_instance "
             )
 
     def test_given_single_repeatable_file_should_extract_attributes(self):
@@ -368,11 +442,11 @@ class TestGetAllScriptsRecursively:
     ):
         with mock.patch("pathlib.Path.rglob") as mock_rglob:
             mock_rglob.side_effect = [
-                [Path("R__intial.sql"), Path("R__intial.sql.jinja")],
+                [Path("R__initial.sql"), Path("R__initial.sql.jinja")],
                 [],
             ]
             with pytest.raises(ValueError) as e:
                 get_all_scripts_recursively(Path("scripts"), False)
             assert str(e.value).startswith(
-                "The script name R__intial.sql exists more than once (first_instance "
+                "The script name R__initial.sql exists more than once (first_instance "
             )

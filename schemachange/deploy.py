@@ -72,7 +72,9 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
 
     # Find all scripts in the root folder (recursively) and sort them correctly
     all_scripts = get_all_scripts_recursively(
-        root_directory=config.root_folder, verbose=config.verbose
+        root_directory=config.root_folder,
+        verbose=config.verbose,
+        version_number_regex=config.version_number_validation_regex,
     )
     all_script_names = list(all_scripts.keys())
     # Sort scripts such that versioned scripts get applied first and then the repeatable ones.
