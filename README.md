@@ -218,7 +218,7 @@ CREATE TABLE IF NOT EXISTS SCHEMACHANGE.CHANGE_HISTORY
 ```
 
 ## Authentication
-Schemachange supports snowflake's default authenticator, External Oauth, Browswer based SSO and Programmatic SSO options supported by the [Snowflake Python Connector](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-to-snowflake). Set the environment variable `SNOWFLAKE_AUTHENTICATOR` to one of the following
+Schemachange supports snowflake's default authenticator, External Oauth, Browser based SSO and Programmatic SSO options supported by the [Snowflake Python Connector](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-to-snowflake). Set the environment variable `SNOWFLAKE_AUTHENTICATOR` to one of the following
 Authentication Option | Expected Value
 --- | ---
 Default [Password](https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-using-the-default-authenticator) Authenticator | `snowflake`
