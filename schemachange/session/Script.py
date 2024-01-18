@@ -34,7 +34,7 @@ class Script(BaseModel, ABC):
 
         # script name is the filename without any jinja extension
         script_name = cls.get_script_name(file_path=file_path)
-        name_parts = cls.pattern.search(file_path.stem.strip())
+        name_parts = cls.pattern.search(file_path.name.strip())
         description = name_parts.group("description").replace("_", " ").capitalize()
         return cls(
             name=script_name, file_path=file_path, description=description, **kwargs
@@ -50,7 +50,7 @@ class VersionedScript(Script):
 
     @classmethod
     def from_path(cls: T, file_path: Path, verbose: bool = False, **kwargs) -> T:
-        name_parts = cls.pattern.search(file_path.stem.strip())
+        name_parts = cls.pattern.search(file_path.name.strip())
 
         return super().from_path(
             file_path=file_path,
@@ -87,7 +87,7 @@ def script_factory(
 ) -> VersionedScript | RepeatableScript | AlwaysScript | None:
     constructor: type[VersionedScript | RepeatableScript | AlwaysScript] | None = None
     for pattern in pattern_constructors.keys():
-        name_parts = pattern.search(file_path.stem.strip())
+        name_parts = pattern.search(file_path.name.strip())
         if name_parts is not None:
             constructor = pattern_constructors[pattern]
             break
@@ -110,16 +110,18 @@ def get_all_scripts_recursively(root_directory: Path, verbose: bool = False):
 
     for file_path in file_paths:
         script = script_factory(file_path=file_path, verbose=verbose)
+        if script is None:
+            continue
 
         # Throw an error if the script_name already exists
-        if script.name in all_files:
+        if script.name.lower() in all_files:
             raise ValueError(
                 f"The script name {script.name} exists more than once ("
-                f"first_instance {str(all_files[script.name].file_path)}, "
+                f"first_instance {str(all_files[script.name.lower()].file_path)}, "
                 f"second instance {str(script.file_path)})"
             )
 
-        all_files[script.name] = script
+        all_files[script.name.lower()] = script
 
         # Throw an error if the same version exists more than once
         if script.type == "V":
@@ -128,6 +130,6 @@ def get_all_scripts_recursively(root_directory: Path, verbose: bool = False):
                     f"The script version {script.version} exists more than once "
                     f"(second instance {str(script.file_path)})"
                 )
-            all_versions.append(script["script_version"])
+            all_versions.append(script.version)
 
     return all_files
