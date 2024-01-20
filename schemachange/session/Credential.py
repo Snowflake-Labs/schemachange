@@ -1,6 +1,8 @@
 import os
 from abc import ABC
 from typing import Literal, Annotated
+
+import structlog
 from pydantic import BaseModel, UrlConstraints
 from pydantic_core import Url
 
@@ -14,6 +16,8 @@ HttpsUrl = Annotated[
     Url,
     UrlConstraints(allowed_schemes=["https"]),
 ]
+
+logger = structlog.getLogger(__name__)
 
 
 class Credential(BaseModel, ABC):
@@ -47,7 +51,6 @@ class OktaCredential(Credential):
 
 def credential_factory(
     oauth_config: dict | None = None,
-    verbose: bool = False,
 ) -> (
     OauthCredential
     | PasswordCredential
@@ -61,46 +64,42 @@ def credential_factory(
 
     # OAuth based authentication
     if snowflake_authenticator.lower() == "oauth":
-        if verbose:
-            print("Proceeding with Oauth Access Token authentication")
+        logger.debug("Proceeding with Oauth Access Token authentication")
         return OauthCredential(token=get_oauth_token(oauth_config))
 
     # External Browser based SSO
     if snowflake_authenticator.lower() == "externalbrowser":
-        if verbose:
-            print("Proceeding with External Browser authentication")
+        logger.debug("Proceeding with External Browser authentication")
         return ExternalBrowserCredential()
 
     snowflake_password = get_snowflake_password()
 
     # IDP based Authentication, limited to Okta
     if snowflake_authenticator.lower()[:8] == "https://":
-        if verbose:
-            print("Proceeding with Okta authentication")
-            print(f"Okta Endpoint: {snowflake_authenticator}")
+        logger.debug(
+            "Proceeding with Okta authentication", okta_endpoint=snowflake_authenticator
+        )
         return OktaCredential(
             authenticator=snowflake_authenticator, password=snowflake_password
         )
 
     if snowflake_authenticator.lower() != "snowflake":
-        if verbose:
-            print(
-                f"'{snowflake_authenticator}' is not supported authenticator option. "
-                "Choose from snowflake, externalbrowser, oauth, https://<subdomain>.okta.com. "
-                "Using default value = 'snowflake'"
-            )
+        logger.debug(
+            "Supplied authenticator is not supported authenticator option. Choose from snowflake, "
+            "externalbrowser, oauth, https://<subdomain>.okta.com. "
+            "Using default value = 'snowflake'",
+            snowflake_authenticator=snowflake_authenticator,
+        )
 
     if snowflake_password:
-        if verbose:
-            print("Proceeding with password authentication")
+        logger.debug("Proceeding with password authentication")
 
         return PasswordCredential(password=snowflake_password)
 
     if os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH", ""):
-        if verbose:
-            print("Proceeding with private key authentication")
+        logger.debug("Proceeding with private key authentication")
 
-        return PrivateKeyCredential(private_key=get_private_key_bytes(verbose=verbose))
+        return PrivateKeyCredential(private_key=get_private_key_bytes())
 
     raise NameError(
         "Missing environment variable(s). \n"

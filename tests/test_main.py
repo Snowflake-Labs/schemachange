@@ -15,7 +15,6 @@ default_deploy_config = {
     "root_folder": Path("."),
     "modules_folder": None,
     "vars": {},
-    "verbose": False,
     # Deploy configuration options
     "snowflake_account": None,
     "snowflake_user": None,

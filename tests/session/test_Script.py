@@ -141,7 +141,6 @@ class TestGetAllScriptsRecursively:
 
             result = get_all_scripts_recursively(
                 Path("scripts"),
-                verbose=False,
                 version_number_regex="\d\.\d\.\d",
             )
 
@@ -161,7 +160,6 @@ class TestGetAllScriptsRecursively:
             with pytest.raises(ValueError) as e:
                 get_all_scripts_recursively(
                     Path("scripts"),
-                    verbose=False,
                     version_number_regex="\d\.\d\.\d",
                 )
             assert str(e.value).startswith(
@@ -178,7 +176,6 @@ class TestGetAllScriptsRecursively:
             ]
             result = get_all_scripts_recursively(
                 Path("scripts"),
-                verbose=False,
                 version_number_regex="[a-z]\.[a-z]\.[a-z]",
             )
         assert len(result) == 1
@@ -195,7 +192,6 @@ class TestGetAllScriptsRecursively:
             with pytest.raises(ValueError) as e:
                 get_all_scripts_recursively(
                     Path("scripts"),
-                    verbose=False,
                     version_number_regex="[a-z]\.[a-z]\.[a-z]",
                 )
             assert str(e.value).startswith(

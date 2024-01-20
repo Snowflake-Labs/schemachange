@@ -1,5 +1,7 @@
 import sys
 
+import structlog
+
 from schemachange.deploy import deploy
 from schemachange.render import render
 from schemachange.Config import config_factory, RenderConfig, DeployConfig
@@ -10,6 +12,7 @@ from schemachange.session.SnowflakeSession import get_session_from_config
 
 SCHEMACHANGE_VERSION = "3.6.1"
 SNOWFLAKE_APPLICATION_NAME = "schemachange"
+logger = structlog.getLogger(__name__)
 
 
 def get_merged_config() -> DeployConfig | RenderConfig:
@@ -26,7 +29,10 @@ def get_merged_config() -> DeployConfig | RenderConfig:
 
 
 def main():
-    print(f"schemachange version: {SCHEMACHANGE_VERSION}")
+    logger.info(
+        "schemachange version: %(schemachange_version)s"
+        % {"schemachange_version": SCHEMACHANGE_VERSION}
+    )
 
     config = get_merged_config()
     secret_manager = SecretManager(config_vars=config.vars)

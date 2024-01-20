@@ -4,11 +4,14 @@ from collections import defaultdict
 from textwrap import dedent, indent
 
 import snowflake.connector
+import structlog
 
 from schemachange.Config import DeployConfig, Table, RenderConfig
 from schemachange.SecretManager import SecretManager
 from schemachange.session.Credential import SomeCredential, credential_factory
 from schemachange.session.Script import VersionedScript, RepeatableScript, AlwaysScript
+
+logger = structlog.getLogger(__name__)
 
 
 class SnowflakeSession:
@@ -21,7 +24,6 @@ class SnowflakeSession:
     schema: str | None
     query_tag: str | None
     autocommit: bool
-    verbose: bool
     dry_run: bool
     change_history_table: Table
     session_parameters: dict[str, str]
@@ -43,7 +45,6 @@ class SnowflakeSession:
         credential: SomeCredential,
         change_history_table: Table,
         autocommit: bool = False,
-        verbose: bool = False,
         snowflake_database: str | None = None,
         snowflake_schema: str | None = None,
         query_tag: str | None = None,
@@ -57,7 +58,6 @@ class SnowflakeSession:
         self.database = snowflake_database
         self.schema = snowflake_schema
         self.autocommit = autocommit
-        self.verbose = verbose
         self.dry_run = dry_run
         self.change_history_table = change_history_table
 
@@ -83,14 +83,11 @@ class SnowflakeSession:
         if hasattr(self, "con"):
             self.con.close()
 
-    def print_snowflake_query(self, query: str):
-        if self.verbose:
-            print("SQL query:")
-            print(indent(self.secret_manager.redact(query), prefix="\t"))
-            print()
-
     def execute_snowflake_query(self, query: str):
-        self.print_snowflake_query(query=query)
+        logger.debug(
+            "Executing query",
+            query=indent(self.secret_manager.redact(query), prefix="\t"),
+        )
         try:
             res = self.con.execute_string(query)
             if not self.autocommit:
@@ -140,8 +137,12 @@ class SnowflakeSession:
         if not schema_exists:
             query = f"CREATE SCHEMA {self.change_history_table.schema_name}"
             if self.dry_run:
-                print("Running in dry-run mode. Skipping execution:")
-                self.print_snowflake_query(query=dedent(query))
+                logger.debug(
+                    "Running in dry-run mode. Skipping execution.",
+                    query=indent(
+                        self.secret_manager.redact(dedent(query)), prefix="\t"
+                    ),
+                )
             else:
                 self.execute_snowflake_query(dedent(query))
 
@@ -160,8 +161,10 @@ class SnowflakeSession:
             )
         """
         if self.dry_run:
-            print("Running in dry-run mode. Skipping execution:")
-            self.print_snowflake_query(query=dedent(query))
+            logger.debug(
+                "Running in dry-run mode. Skipping execution.",
+                query=indent(self.secret_manager.redact(dedent(query)), prefix="\t"),
+            )
         else:
             self.execute_snowflake_query(dedent(query))
 
@@ -231,10 +234,16 @@ class SnowflakeSession:
         script: VersionedScript | RepeatableScript | AlwaysScript,
         script_content: str,
     ) -> None:
+        script_log = logger.bind(
+            script_name=script.name,
+            query=indent(
+                self.secret_manager.redact(dedent(script_content)), prefix="\t"
+            ),
+        )
         if self.dry_run:
-            print(f"Running in dry-run mode. Skipping execution: {script.name}")
+            script_log.debug("Running in dry-run mode. Skipping execution")
             return
-        print(f"Applying change script {script.name}")
+        script_log.log("Applying change script")
         # Define a few other change related variables
         checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
         execution_time = 0
@@ -285,9 +294,7 @@ def get_session_from_config(
     snowflake_application_name: str,
 ) -> SnowflakeSession:
     config.check_for_deploy_args()
-    credential = credential_factory(
-        oauth_config=config.oauth_config, verbose=config.verbose
-    )
+    credential = credential_factory(oauth_config=config.oauth_config)
     return SnowflakeSession(
         secret_manager=secret_manager,
         snowflake_user=config.snowflake_user,
@@ -299,7 +306,6 @@ def get_session_from_config(
         credential=credential,
         change_history_table=config.change_history_table,
         autocommit=config.autocommit,
-        verbose=config.verbose,
         snowflake_database=config.snowflake_database,
         snowflake_schema=config.snowflake_schema,
         query_tag=config.query_tag,

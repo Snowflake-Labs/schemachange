@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import structlog
+
+logger = structlog.getLogger(__name__)
+
 
 def extract_config_secrets(config_vars: dict[str, dict | str] | None) -> set[str]:
     """

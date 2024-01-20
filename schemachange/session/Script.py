@@ -6,9 +6,11 @@ from abc import ABC
 from pathlib import Path
 from typing import Literal, ClassVar, TypeVar
 
+import structlog
 from pydantic import BaseModel, ConfigDict
 
 
+logger = structlog.getLogger(__name__)
 T = TypeVar("T", bound="Script")
 
 
@@ -28,9 +30,8 @@ class Script(BaseModel, ABC):
         return file_path.name
 
     @classmethod
-    def from_path(cls, file_path: Path, verbose: bool = False, **kwargs) -> Script[T]:
-        if verbose:
-            print(f"Found {cls.__name__}: {str(file_path)}")
+    def from_path(cls, file_path: Path, **kwargs) -> Script[T]:
+        logger.debug("script found", class_name=cls.__name__, file_path=str(file_path))
 
         # script name is the filename without any jinja extension
         script_name = cls.get_script_name(file_path=file_path)
@@ -50,7 +51,7 @@ class VersionedScript(Script):
     version: str
 
     @classmethod
-    def from_path(cls: T, file_path: Path, verbose: bool = False, **kwargs) -> T:
+    def from_path(cls: T, file_path: Path, **kwargs) -> T:
         name_parts = cls.pattern.search(file_path.name.strip())
 
         if cls.version_number_regex:
@@ -62,9 +63,7 @@ class VersionedScript(Script):
                 )
 
         return super().from_path(
-            file_path=file_path,
-            verbose=verbose,
-            version=name_parts.group("version"),
+            file_path=file_path, version=name_parts.group("version")
         )
 
 
@@ -90,7 +89,7 @@ constructors: list[type[VersionedScript | RepeatableScript | AlwaysScript]] = [
 
 
 def script_factory(
-    file_path: Path, verbose: bool = False
+    file_path: Path,
 ) -> VersionedScript | RepeatableScript | AlwaysScript | None:
     constructor: type[VersionedScript | RepeatableScript | AlwaysScript] | None = None
     for a_constructor in constructors:
@@ -99,17 +98,14 @@ def script_factory(
             break
 
     if constructor is None:
-        if verbose:
-            print(f"Ignoring non-change file {str(file_path)}")
+        logger.debug("ignoring non-change file", file_path=str(file_path))
         return
 
-    return constructor.from_path(file_path=file_path, verbose=verbose)
+    return constructor.from_path(file_path=file_path)
 
 
 def get_all_scripts_recursively(
-    root_directory: Path,
-    verbose: bool = False,
-    version_number_regex: str | None = None,
+    root_directory: Path, version_number_regex: str | None = None
 ):
     VersionedScript.version_number_regex = version_number_regex
 
@@ -121,7 +117,7 @@ def get_all_scripts_recursively(
     )
 
     for file_path in file_paths:
-        script = script_factory(file_path=file_path, verbose=verbose)
+        script = script_factory(file_path=file_path)
         if script is None:
             continue
 

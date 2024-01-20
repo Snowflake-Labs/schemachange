@@ -31,6 +31,8 @@ snowflake-connector-python = ">=2.8,<4.0"
 requests = "^2.31.0"
 cryptography = "^41.0.7"
 pydantic = "^2.5.3"
+structlog = "^24.1.0"
+rich = "^13.7.0"
 
 
 [tool.poetry.group.dev.dependencies]

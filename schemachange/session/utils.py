@@ -3,8 +3,12 @@ import os
 import warnings
 
 import requests
+import structlog
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
+
+
+logger = structlog.getLogger(__name__)
 
 
 def get_snowflake_password() -> str | None:
@@ -30,20 +34,21 @@ def get_snowflake_password() -> str | None:
     return snowflake_password
 
 
-def get_private_key_password(verbose: bool) -> bytes | None:
+def get_private_key_password() -> bytes | None:
     private_key_password = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE", "")
 
     if private_key_password:
         return private_key_password.encode()
 
-    if verbose:
-        print("No private key passphrase provided. Assuming the key is not encrypted.")
+    logger.debug(
+        "No private key passphrase provided. Assuming the key is not encrypted."
+    )
 
     return None
 
 
-def get_private_key_bytes(verbose: bool) -> bytes:
-    private_key_password = get_private_key_password(verbose=verbose)
+def get_private_key_bytes() -> bytes:
+    private_key_password = get_private_key_password()
     with open(os.environ["SNOWFLAKE_PRIVATE_KEY_PATH"], "rb") as key:
         p_key = serialization.load_pem_private_key(
             key.read(),

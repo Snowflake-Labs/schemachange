@@ -3,6 +3,10 @@ from __future__ import annotations
 import argparse
 import json
 
+import structlog
+
+logger = structlog.getLogger(__name__)
+
 
 def parse_cli_args(args) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -42,6 +46,7 @@ def parse_cli_args(args) -> argparse.Namespace:
         '"value1", "variable2": "value2"})',
         required=False,
     )
+    # TODO: Convert to log level instead
     parent_parser.add_argument(
         "-v",
         "--verbose",

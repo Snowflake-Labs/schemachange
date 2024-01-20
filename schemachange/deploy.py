@@ -1,12 +1,14 @@
 import hashlib
 import re
 
+import structlog
+
 from schemachange.Config import DeployConfig
-from schemachange.session.SnowflakeSession import SnowflakeSession
-from schemachange.session.Script import get_all_scripts_recursively
 from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
+from schemachange.session.Script import get_all_scripts_recursively
+from schemachange.session.SnowflakeSession import SnowflakeSession
 
-
+logger = structlog.getLogger(__name__)
 _metadata_database_name = "METADATA"
 _metadata_schema_name = "SCHEMACHANGE"
 _metadata_table_name = "CHANGE_HISTORY"
@@ -29,26 +31,30 @@ def sorted_alphanumeric(data):
 
 
 def deploy(config: DeployConfig, session: SnowflakeSession):
-    print(
-        f"Using Snowflake account {session.account}\n"
-        f"Using default role {session.role}\n"
-        f"Using default warehouse {session.warehouse}\n"
-        f"Using default database {session.database} schema {session.schema}"
+    log = logger.bind(
+        snowflake_account=session.account,
+        default_role=session.role,
+        default_warehouse=session.warehouse,
+        default_database=session.database,
+        default_schema=session.schema,
+        change_history_table=session.change_history_table.fully_qualified,
+    )
+
+    log.info(
+        "starting deploy",
     )
 
     # Deal with the change history table (create if specified)
     change_history_metadata = session.fetch_change_history_metadata()
     if change_history_metadata:
-        print(
-            f"Using change history table {session.change_history_table.fully_qualified} "
-            f"(last altered {change_history_metadata['last_altered']})"
+        log.info(
+            "Using existing change history table",
+            {"last_altered": change_history_metadata["last_altered"]},
         )
     elif config.create_change_history_table:
         # Create the change history table (and containing objects) if it doesn't exist.
         session.create_change_history_table_if_missing()
-        print(
-            f"Created change history table {session.change_history_table.fully_qualified}"
-        )
+        logger.info("Created change history table")
     else:
         raise ValueError(
             f"Unable to find change history table {session.change_history_table.fully_qualified}"
@@ -66,14 +72,18 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
     if change_history:
         max_published_version = change_history[0]
 
-    print(
-        f"Max applied change script version: {max_published_version if max_published_version != '' else 'None'}"
+    log.info(
+        "Max applied change script version %(max_published_version)s"
+        % {
+            "max_published_version": max_published_version
+            if max_published_version != ""
+            else "None"
+        }
     )
 
     # Find all scripts in the root folder (recursively) and sort them correctly
     all_scripts = get_all_scripts_recursively(
         root_directory=config.root_folder,
-        verbose=config.verbose,
         version_number_regex=config.version_number_validation_regex,
     )
     all_script_names = list(all_scripts.keys())
@@ -94,17 +104,21 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
     # Loop through each script in order and apply any required changes
     for script_name in all_script_names_sorted:
         script = all_scripts[script_name]
+        script_log = log.bind(
+            script_name=script.name,
+            script_type=script.type,
+            script_version=getattr(script, "version", "N/A"),
+        )
 
         # Apply a versioned-change script only if the version is newer than the most recent change in the database
         # Apply any other scripts, i.e. repeatable scripts, irrespective of the most recent change in the database
         if script.type == "V" and get_alphanum_key(script.version) <= get_alphanum_key(
             max_published_version
         ):
-            if config.verbose:
-                print(
-                    f"Skipping change script {script.name} because it's older "
-                    f"than the most recently applied change ({max_published_version})"
-                )
+            script_log.debug(
+                "Skipping change script because it's older than the most recently applied change",
+                max_published_version=max_published_version,
+            )
             scripts_skipped += 1
             continue
 
@@ -115,7 +129,6 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
         content = jinja_processor.render(
             jinja_processor.relpath(script.file_path),
             config.vars,
-            config.verbose,
         )
 
         # Apply only R scripts where the checksum changed compared to the last execution of snowchange
@@ -131,10 +144,9 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
 
             # check if there is a change of the checksum in the script
             if checksum_current == checksum_last:
-                if config.verbose:
-                    print(
-                        f"Skipping change script {script.name} because there is no change since the last execution"
-                    )
+                script_log.debug(
+                    "Skipping change script because there is no change since the last execution"
+                )
                 scripts_skipped += 1
                 continue
 
@@ -142,7 +154,8 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
 
         scripts_applied += 1
 
-    print(
-        f"Successfully applied {scripts_applied} change scripts "
-        f"(skipping {scripts_skipped}) \nCompleted successfully"
+    log.info(
+        "Completed successfully",
+        scripts_applied=scripts_applied,
+        scripts_skipped=scripts_skipped,
     )

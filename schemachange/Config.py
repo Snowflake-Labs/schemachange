@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import textwrap
 from abc import ABC
 from argparse import Namespace
 from pathlib import Path
 from typing import Literal, ClassVar, TypeVar
 
-import yaml
+import structlog
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -18,6 +17,7 @@ from pydantic_core.core_schema import ValidationInfo
 
 from schemachange.SecretManager import SecretManager
 
+logger = structlog.getLogger(__name__)
 T = TypeVar("T", bound="Config")
 
 
@@ -31,7 +31,6 @@ class Config(BaseModel, ABC):
     root_folder: Path | None = Field(default=Path("."))
     modules_folder: Path | None = None
     vars: dict | None = Field(default_factory=dict)
-    verbose: bool = False
 
     @model_validator(mode="before")
     @classmethod
@@ -82,23 +81,18 @@ class Config(BaseModel, ABC):
         return self.model_copy(update=other_kwargs)
 
     def log_details(self, secret_manager: SecretManager):
-        print(f"Using root folder {str(self.root_folder)}")
+        logger.info("Using root folder", root_folder=self.root_folder)
         if self.modules_folder:
-            print(f"Using Jinja modules folder {str(self.modules_folder)}")
-
-        # pretty print the variables in yaml style
-        if not self.vars:
-            print("Using variables: {}")
-        else:
-            print("Using variables:")
-            print(
-                textwrap.indent(
-                    secret_manager.redact(
-                        yaml.dump(self.vars, sort_keys=False, default_flow_style=False)
-                    ),
-                    prefix="  ",
-                )
+            logger.info(
+                "Using Jinja modules folder", modules_folder=str(self.modules_folder)
             )
+
+        if not self.vars:
+            logger.info("No variables set")
+        else:
+            logger.info(
+                "Using variables", **self.vars
+            )  # TODO: Confirm secret redaction
 
 
 class Table(BaseModel):

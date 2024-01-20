@@ -20,7 +20,6 @@ def test_env_var_with_no_default_and_no_environmental_variables_should_raise_exc
 
 @mock.patch.dict(os.environ, {}, clear=True)
 def test_env_var_with_default_and_no_environmental_variables_should_return_default():
-    print(os.environ)
     assert ("SF_DATABASE" in os.environ) is False
 
     result = JinjaEnvVar.env_var("SF_DATABASE", "SCHEMACHANGE_DEMO")

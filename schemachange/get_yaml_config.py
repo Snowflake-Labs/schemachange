@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import jinja2
 import jinja2.ext
+import structlog
 import yaml
 
 from schemachange.JinjaEnvVar import JinjaEnvVar
@@ -10,6 +11,9 @@ from schemachange.JinjaEnvVar import JinjaEnvVar
 from pathlib import Path
 
 from Config import DeployConfig, RenderConfig, config_factory
+
+
+logger = structlog.getLogger(__name__)
 
 
 def load_yaml_config(config_file_path: Path | None) -> dict[str, object]:
@@ -32,7 +36,7 @@ def load_yaml_config(config_file_path: Path | None) -> dict[str, object]:
 
             # The FullLoader parameter handles the conversion from YAML scalar values to Python the dictionary format
             config = yaml.load(config_template.render(), Loader=yaml.FullLoader)
-        print(f"Using config file: {str(config_file_path)}")
+        logger.log(f"Using config file", config_file_path=str(config_file_path))
     return config
 
 

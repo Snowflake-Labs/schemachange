@@ -37,5 +37,5 @@ def test_get_snowflake_password(env_vars: dict, expected: str):
 )
 def test_get_private_key_password(env_vars: dict, expected: str):
     with mock.patch.dict(os.environ, env_vars, clear=True):
-        result = get_private_key_password(verbose=False)
+        result = get_private_key_password()
         assert result == expected

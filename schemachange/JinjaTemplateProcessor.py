@@ -4,9 +4,13 @@ from pathlib import Path
 
 import jinja2
 import jinja2.ext
+import structlog
 from jinja2.loaders import BaseLoader
 
 from schemachange.JinjaEnvVar import JinjaEnvVar
+
+
+logger = structlog.getLogger(__name__)
 
 
 class JinjaTemplateProcessor:
@@ -39,7 +43,7 @@ class JinjaTemplateProcessor:
         # to make unit testing easier
         self.__environment = jinja2.Environment(loader=loader, **self._env_args)
 
-    def render(self, script: str, vars: dict[str, object] | None, verbose: bool) -> str:
+    def render(self, script: str, vars: dict[str, object] | None) -> str:
         if not vars:
             vars = {}
         # jinja needs posix path
