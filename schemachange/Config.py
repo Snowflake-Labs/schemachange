@@ -185,11 +185,6 @@ class DeployConfig(Config):
     version_number_validation_regex: str | None = None
     raise_exception_on_ignored_versioned_migration: bool = False
 
-    def merge_exclude_unset(self: T, other: T) -> T:
-        result = super().merge_exclude_unset(other=other)
-        result.check_for_deploy_args()
-        return result
-
     def check_for_deploy_args(self) -> None:
         """Make sure we have the required connection info"""
 

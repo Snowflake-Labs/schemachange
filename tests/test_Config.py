@@ -81,9 +81,8 @@ class TestConfig:
     def test_vars_not_a_dict(self):
         with pytest.raises(Exception) as e_info:
             Config(subcommand="deploy", vars="a string")
-        assert (
-            "Value error, vars did not parse correctly, please check its configuration"
-            in str(e_info.value)
+        assert "vars did not parse correctly, please check its configuration" in str(
+            e_info.value
         )
 
     def test_vars_reserved_word(self):

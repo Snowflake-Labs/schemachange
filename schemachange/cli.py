@@ -62,6 +62,7 @@ def main():
     if config.subcommand == "render":
         render(config=config, script_path=config.script_path)
     else:
+        config.check_for_deploy_args()
         session = get_session_from_config(
             config=config,
             schemachange_version=SCHEMACHANGE_VERSION,
