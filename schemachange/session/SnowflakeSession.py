@@ -7,7 +7,6 @@ import snowflake.connector
 import structlog
 
 from schemachange.Config import DeployConfig, Table, RenderConfig
-from schemachange.SecretManager import SecretManager
 from schemachange.session.Credential import SomeCredential, credential_factory
 from schemachange.session.Script import VersionedScript, RepeatableScript, AlwaysScript
 
@@ -15,7 +14,6 @@ logger = structlog.getLogger(__name__)
 
 
 class SnowflakeSession:
-    secret_manager: SecretManager
     user: str
     account: str
     role: str
@@ -35,7 +33,6 @@ class SnowflakeSession:
 
     def __init__(
         self,
-        secret_manager: SecretManager,
         snowflake_user: str,
         snowflake_account: str,
         snowflake_role: str,
@@ -50,7 +47,6 @@ class SnowflakeSession:
         query_tag: str | None = None,
         dry_run: bool = True,
     ):
-        self.secret_manager = secret_manager
         self.user = snowflake_user
         self.account = snowflake_account
         self.role = snowflake_role
@@ -86,7 +82,7 @@ class SnowflakeSession:
     def execute_snowflake_query(self, query: str):
         logger.debug(
             "Executing query",
-            query=indent(self.secret_manager.redact(query), prefix="\t"),
+            query=indent(query, prefix="\t"),
         )
         try:
             res = self.con.execute_string(query)
@@ -139,9 +135,7 @@ class SnowflakeSession:
             if self.dry_run:
                 logger.debug(
                     "Running in dry-run mode. Skipping execution.",
-                    query=indent(
-                        self.secret_manager.redact(dedent(query)), prefix="\t"
-                    ),
+                    query=indent(dedent(query), prefix="\t"),
                 )
             else:
                 self.execute_snowflake_query(dedent(query))
@@ -163,7 +157,7 @@ class SnowflakeSession:
         if self.dry_run:
             logger.debug(
                 "Running in dry-run mode. Skipping execution.",
-                query=indent(self.secret_manager.redact(dedent(query)), prefix="\t"),
+                query=indent(dedent(query), prefix="\t"),
             )
         else:
             self.execute_snowflake_query(dedent(query))
@@ -236,9 +230,7 @@ class SnowflakeSession:
     ) -> None:
         script_log = logger.bind(
             script_name=script.name,
-            query=indent(
-                self.secret_manager.redact(dedent(script_content)), prefix="\t"
-            ),
+            query=indent(dedent(script_content), prefix="\t"),
         )
         if self.dry_run:
             script_log.debug("Running in dry-run mode. Skipping execution")
@@ -289,14 +281,12 @@ class SnowflakeSession:
 
 def get_session_from_config(
     config: DeployConfig | RenderConfig,
-    secret_manager: SecretManager,
     schemachange_version: str,
     snowflake_application_name: str,
 ) -> SnowflakeSession:
     config.check_for_deploy_args()
     credential = credential_factory(oauth_config=config.oauth_config)
     return SnowflakeSession(
-        secret_manager=secret_manager,
         snowflake_user=config.snowflake_user,
         snowflake_account=config.snowflake_account,
         snowflake_role=config.snowflake_role,

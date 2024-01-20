@@ -10,7 +10,7 @@ from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
 
 @pytest.fixture()
 def processor() -> JinjaTemplateProcessor:
-    return JinjaTemplateProcessor("", None)
+    return JinjaTemplateProcessor(pathlib.Path("."), None)
 
 
 class TestJinjaTemplateProcessor:
@@ -42,9 +42,9 @@ class TestJinjaTemplateProcessor:
         templates = {"test.sql": "Hello {{ myvar }}!"}
         processor.override_loader(DictLoader(templates))
 
-        vars = json.loads('{"myvar" : "world"}')
+        variables = json.loads('{"myvar" : "world"}')
 
-        context = processor.render("test.sql", vars)
+        context = processor.render("test.sql", variables)
 
         assert context == "Hello world!"
 

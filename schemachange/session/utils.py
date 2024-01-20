@@ -71,13 +71,13 @@ def get_oauth_token(oauth_config: dict):
     }
     token_name = oauth_config["token-response-name"]
     response = requests.post(**req_info)
-    resJsonDict = json.loads(response.text)
+    response_dict = json.loads(response.text)
     try:
-        return resJsonDict[token_name]
+        return response_dict[token_name]
     except KeyError:
-        keys = ", ".join(resJsonDict.keys())
+        keys = ", ".join(response_dict.keys())
         errormessage = f"Response Json contains keys: {keys} \n but not {token_name}"
         # if there is an error passed with the response include that
-        if "error_description" in resJsonDict.keys():
-            errormessage = f"{errormessage}\n error description: {resJsonDict['error_description']}"
+        if "error_description" in response_dict.keys():
+            errormessage = f"{errormessage}\n error description: {response_dict['error_description']}"
         raise KeyError(errormessage)

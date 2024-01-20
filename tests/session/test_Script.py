@@ -106,7 +106,7 @@ class TestGetAllScriptsRecursively:
             root_directory = Path(
                 "C:\\Users\\T001ZC\\KYFB_Projects\\temp_repo\\dataplatform_sf\\migrations"
             )
-            result = get_all_scripts_recursively(root_directory, False)
+            result = get_all_scripts_recursively(root_directory)
 
         assert result == dict()
 
@@ -120,7 +120,7 @@ class TestGetAllScriptsRecursively:
                 ],
                 [],
             ]
-            result = get_all_scripts_recursively(Path("scripts"), False)
+            result = get_all_scripts_recursively(Path("scripts"))
 
         assert result == dict()
 
@@ -141,7 +141,7 @@ class TestGetAllScriptsRecursively:
 
             result = get_all_scripts_recursively(
                 Path("scripts"),
-                version_number_regex="\d\.\d\.\d",
+                version_number_regex="\d\.\d\.\d",  # noqa: W605
             )
 
         assert len(result) == 3
@@ -160,7 +160,7 @@ class TestGetAllScriptsRecursively:
             with pytest.raises(ValueError) as e:
                 get_all_scripts_recursively(
                     Path("scripts"),
-                    version_number_regex="\d\.\d\.\d",
+                    version_number_regex="\d\.\d\.\d",  # noqa: W605
                 )
             assert str(e.value).startswith(
                 "change script version doesn't match the supplied regular expression"
@@ -176,7 +176,7 @@ class TestGetAllScriptsRecursively:
             ]
             result = get_all_scripts_recursively(
                 Path("scripts"),
-                version_number_regex="[a-z]\.[a-z]\.[a-z]",
+                version_number_regex="[a-z]\.[a-z]\.[a-z]",  # noqa: W605
             )
         assert len(result) == 1
         assert "va.b.c__initial.sql" in result
@@ -192,7 +192,7 @@ class TestGetAllScriptsRecursively:
             with pytest.raises(ValueError) as e:
                 get_all_scripts_recursively(
                     Path("scripts"),
-                    version_number_regex="[a-z]\.[a-z]\.[a-z]",
+                    version_number_regex="[a-z]\.[a-z]\.[a-z]",  # noqa: W605
                 )
             assert str(e.value).startswith(
                 "change script version doesn't match the supplied regular expression"
@@ -209,7 +209,7 @@ class TestGetAllScriptsRecursively:
                 [],
             ]
 
-            result = get_all_scripts_recursively(Path("scripts"), False)
+            result = get_all_scripts_recursively(Path("scripts"))
 
         assert len(result) == 3
         assert "v1.1.1__initial.sql" in result
@@ -227,7 +227,7 @@ class TestGetAllScriptsRecursively:
                 [],
             ]
             with pytest.raises(ValueError) as e:
-                get_all_scripts_recursively(Path("scripts"), False)
+                get_all_scripts_recursively(Path("scripts"))
             assert str(e.value).startswith(
                 "The script version 1.1.1 exists more than once (second instance"
             )
@@ -238,7 +238,7 @@ class TestGetAllScriptsRecursively:
                 [Path("subfolder") / "V1.1.1.1__THIS_is_my_test.sql"],
                 [],
             ]
-            result = get_all_scripts_recursively(Path("scripts"), False)
+            result = get_all_scripts_recursively(Path("scripts"))
 
         assert len(result) == 1
         script = result["v1.1.1.1__this_is_my_test.sql"]
@@ -254,7 +254,7 @@ class TestGetAllScriptsRecursively:
                 [Path("subfolder") / "V1.1.1.2__THIS_is_my_test.sql.jinja"],
                 [],
             ]
-            result = get_all_scripts_recursively(Path("scripts"), False)
+            result = get_all_scripts_recursively(Path("scripts"))
 
         assert len(result) == 1
         script = result["v1.1.1.2__this_is_my_test.sql"]
@@ -279,7 +279,7 @@ class TestGetAllScriptsRecursively:
                 [],
             ]
             with pytest.raises(ValueError) as e:
-                get_all_scripts_recursively(Path("scripts"), False)
+                get_all_scripts_recursively(Path("scripts"))
             assert str(e.value).startswith(
                 "The script name V1.1.1__initial.sql exists more than once (first_instance"
             )
@@ -298,7 +298,7 @@ class TestGetAllScriptsRecursively:
                 ],
                 [],
             ]
-            result = get_all_scripts_recursively(Path("scripts"), False)
+            result = get_all_scripts_recursively(Path("scripts"))
 
         assert len(result) == 3
         assert "a__proc1.sql" in result
@@ -317,7 +317,7 @@ class TestGetAllScriptsRecursively:
             ]
 
             with pytest.raises(ValueError) as e:
-                get_all_scripts_recursively(Path("scripts"), False)
+                get_all_scripts_recursively(Path("scripts"))
             assert str(e.value).startswith(
                 "The script name A__initial.sql exists more than once (first_instance "
             )
@@ -328,7 +328,7 @@ class TestGetAllScriptsRecursively:
                 [Path("subfolder") / "A__THIS_is_my_test.sql"],
                 [],
             ]
-            result = get_all_scripts_recursively(Path("scripts"), False)
+            result = get_all_scripts_recursively(Path("scripts"))
 
         assert len(result) == 1
         script = result["a__this_is_my_test.sql"]
@@ -343,7 +343,7 @@ class TestGetAllScriptsRecursively:
                 [Path("subfolder") / "A__THIS_is_my_test.sql.jinja"],
                 [],
             ]
-            result = get_all_scripts_recursively(Path("scripts"), False)
+            result = get_all_scripts_recursively(Path("scripts"))
 
         assert len(result) == 1
         script = result["a__this_is_my_test.sql"]
@@ -362,7 +362,7 @@ class TestGetAllScriptsRecursively:
             ]
 
             with pytest.raises(ValueError) as e:
-                get_all_scripts_recursively(Path("scripts"), False)
+                get_all_scripts_recursively(Path("scripts"))
             assert str(e.value).startswith(
                 "The script name A__initial.sql exists more than once (first_instance "
             )
@@ -381,7 +381,7 @@ class TestGetAllScriptsRecursively:
                 ],
                 [],
             ]
-            result = get_all_scripts_recursively(Path("scripts"), False)
+            result = get_all_scripts_recursively(Path("scripts"))
 
         assert len(result) == 3
         assert "r__proc1.sql" in result
@@ -398,7 +398,7 @@ class TestGetAllScriptsRecursively:
                 [],
             ]
             with pytest.raises(ValueError) as e:
-                get_all_scripts_recursively(Path("scripts"), False)
+                get_all_scripts_recursively(Path("scripts"))
             assert str(e.value).startswith(
                 "The script name R__initial.SQL exists more than once (first_instance "
             )
@@ -409,7 +409,7 @@ class TestGetAllScriptsRecursively:
                 [Path("subfolder") / "R__THIS_is_my_test.sql"],
                 [],
             ]
-            result = get_all_scripts_recursively(Path("scripts"), False)
+            result = get_all_scripts_recursively(Path("scripts"))
 
         assert len(result) == 1
         script = result["r__this_is_my_test.sql"]
@@ -424,7 +424,7 @@ class TestGetAllScriptsRecursively:
                 [Path("subfolder") / "R__THIS_is_my_test.sql.jinja"],
                 [],
             ]
-            result = get_all_scripts_recursively(Path("scripts"), False)
+            result = get_all_scripts_recursively(Path("scripts"))
 
         assert len(result) == 1
         script = result["r__this_is_my_test.sql"]
@@ -442,7 +442,7 @@ class TestGetAllScriptsRecursively:
                 [],
             ]
             with pytest.raises(ValueError) as e:
-                get_all_scripts_recursively(Path("scripts"), False)
+                get_all_scripts_recursively(Path("scripts"))
             assert str(e.value).startswith(
                 "The script name R__initial.sql exists more than once (first_instance "
             )

@@ -23,7 +23,8 @@ vars:
     config_file = tmp_path / "schemachange-config.yml"
     config_file.write_text(config_contents)
 
-    config = load_yaml_config(config_file)
+    # noinspection PyTypeChecker
+    config: dict[str, dict[str, str]] = load_yaml_config(config_file)
 
     assert config["config-version"] == 1
     assert config["root-folder"] == "scripts"

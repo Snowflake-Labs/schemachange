@@ -14,16 +14,47 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from pydantic_core import PydanticCustomError
 from pydantic_core.core_schema import ValidationInfo
 
-from schemachange.SecretManager import SecretManager
 
 logger = structlog.getLogger(__name__)
 T = TypeVar("T", bound="Config")
 
 
+def get_config_secrets(config_vars: dict[str, dict | str] | None) -> set[str]:
+    """Extracts all secret values from the vars attributes in config"""
+
+    def inner_extract_dictionary_secrets(
+        dictionary: dict[str, dict | str] | None, child_of_secrets: bool = False
+    ) -> set[str]:
+        """Considers any key with the word secret in the name as a secret or
+        all values as secrets if a child of a key named secrets.
+
+        defined as an inner/ nested function to provide encapsulation
+        """
+        extracted_secrets: set[str] = set()
+
+        if not dictionary:
+            return extracted_secrets
+
+        for key, value in dictionary.items():
+            if isinstance(value, dict):
+                if key == "secrets":
+                    child_of_secrets = True
+                extracted_secrets = (
+                    extracted_secrets
+                    | inner_extract_dictionary_secrets(value, child_of_secrets)
+                )
+            elif child_of_secrets or "SECRET" in key.upper():
+                extracted_secrets.add(value.strip())
+
+        return extracted_secrets
+
+    return inner_extract_dictionary_secrets(config_vars)
+
+
 class Config(BaseModel, ABC):
-    model_config = ConfigDict(frozen=True, extra="ignore")
     default_config_file_name: ClassVar[str] = "schemachange-config.yml"
 
     subcommand: Literal["deploy", "render"]
@@ -32,6 +63,7 @@ class Config(BaseModel, ABC):
     root_folder: Path | None = Field(default=Path("."))
     modules_folder: Path | None = None
     vars: dict | None = Field(default_factory=dict)
+    secrets: set[str] = Field(default_factory=set)
     log_level: int = logging.INFO
 
     @model_validator(mode="before")
@@ -50,7 +82,11 @@ class Config(BaseModel, ABC):
         if v is None:
             return v
         if not v.is_dir():
-            raise ValueError(f"Invalid {info.field_name} folder: {str(v)}")
+            raise PydanticCustomError(
+                info.field_name,
+                "Invalid {field_name} folder: {field_value}",
+                {"field_name": info.field_name, "field_value": str(v)},
+            )
         return v
 
     @field_validator("vars", mode="before")
@@ -60,13 +96,14 @@ class Config(BaseModel, ABC):
             return {}
 
         if not isinstance(v, dict):
-            raise ValueError(
-                "vars did not parse correctly, please check its configuration"
+            raise PydanticCustomError(
+                "vars", "vars did not parse correctly, please check its configuration"
             )
 
         if "schemachange" in v.keys():
-            raise ValueError(
-                "The variable 'schemachange' has been reserved for use by schemachange, please use a different name"
+            raise PydanticCustomError(
+                "vars",
+                "The variable 'schemachange' has been reserved for use by schemachange, please use a different name",
             )
 
         return v
@@ -82,23 +119,22 @@ class Config(BaseModel, ABC):
 
         return self.model_copy(update=other_kwargs)
 
-    def log_details(self, secret_manager: SecretManager):
-        logger.info("Using root folder", root_folder=self.root_folder)
+    @model_validator(mode="after")
+    def set_secrets(self):
+        self.secrets = get_config_secrets(self.vars)
+
+    def log_details(self):
+        logger.info("Using root folder", root_folder=str(self.root_folder))
         if self.modules_folder:
             logger.info(
                 "Using Jinja modules folder", modules_folder=str(self.modules_folder)
             )
 
-        if not self.vars:
-            logger.info("No variables set")
-        else:
-            logger.info(
-                "Using variables", **self.vars
-            )  # TODO: Confirm secret redaction
+        logger.info("Using variables", vars=self.vars)
 
 
 class Table(BaseModel):
-    # model_config = ConfigDict(frozen=True, extra="ignore")
+    model_config = ConfigDict(frozen=True, extra="ignore")
 
     table_name: str = "CHANGE_HISTORY"
     schema_name: str = "SCHEMACHANGE"
@@ -122,7 +158,11 @@ class Table(BaseModel):
             details["schema_name"] = table_name_parts[1]
             details["database_name"] = table_name_parts[0]
         else:
-            raise ValueError(f"Invalid change history table name: {v}")
+            raise PydanticCustomError(
+                "change_history_table",
+                "Invalid change history table name: {change_history_table}",
+                {"change_history_table": v},
+            )
         # if the object name does not include '"' raise to upper case on return
         return cls(**{k: v if '"' in v else v.upper() for (k, v) in details.items()})
 
@@ -145,12 +185,14 @@ class DeployConfig(Config):
     version_number_validation_regex: str | None = None
     raise_exception_on_ignored_versioned_migration: bool = False
 
-    def check_for_deploy_args(self) -> None:
-        """Make sure we have the required connection info
+    def merge_exclude_unset(self: T, other: T) -> T:
+        result = super().merge_exclude_unset(other=other)
+        result.check_for_deploy_args()
+        return result
 
-        :return:
-        """
-        #
+    def check_for_deploy_args(self) -> None:
+        """Make sure we have the required connection info"""
+
         req_args = {
             "snowflake_account": self.snowflake_account,
             "snowflake_user": self.snowflake_user,
@@ -176,7 +218,9 @@ class RenderConfig(DeployConfig):
     @classmethod
     def must_be_valid_file(cls, v: Path) -> Path | None:
         if not v.is_file():
-            raise ValueError(f"invalid script_path: {str(v)}")
+            raise PydanticCustomError(
+                "script_path", "invalid script_path: {script_path}", {"script_path": v}
+            )
         return v
 
 

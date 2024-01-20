@@ -35,7 +35,7 @@ class TestSecretManager:
         # check private variable
         assert len(sm._SecretManager__secrets) == 0
 
-    def test_given_one_secrets_when_add_range_with_None_then_Count_should_remain_one(
+    def test_given_one_secrets_when_add_range_with_none_then_count_should_remain_one(
         self,
     ):
         sm = SecretManager()
@@ -44,7 +44,7 @@ class TestSecretManager:
 
         assert len(sm._SecretManager__secrets) == 1
 
-    def test_given_one_secrets_when_add_range_with_empty_set_then_Count_should_remain_one(
+    def test_given_one_secrets_when_add_range_with_empty_set_then_count_should_remain_one(
         self,
     ):
         sm = SecretManager()
@@ -75,7 +75,7 @@ class TestExtractConfigSecrets:
     def test_given_empty_config_should_not_error(self):
         extract_config_secrets(config_vars={})
 
-    def test_given_None_should_not_error(self):
+    def test_given_none_should_not_error(self):
         extract_config_secrets(None)
 
     @pytest.mark.parametrize(

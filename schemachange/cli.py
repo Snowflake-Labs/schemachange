@@ -1,14 +1,17 @@
 import sys
 
 import structlog
+import hashlib
+from pathlib import Path
 
+from schemachange.redact_config_secrets import redact_config_secrets
 from schemachange.deploy import deploy
-from schemachange.render import render
-from schemachange.Config import config_factory, RenderConfig, DeployConfig
-from schemachange.SecretManager import SecretManager
+from schemachange.Config import config_factory, DeployConfig, RenderConfig
 from schemachange.get_yaml_config import get_yaml_config
 from schemachange.parse_cli_args import parse_cli_args
 from schemachange.session.SnowflakeSession import get_session_from_config
+from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
+
 
 SCHEMACHANGE_VERSION = "3.6.1"
 SNOWFLAKE_APPLICATION_NAME = "schemachange"
@@ -28,6 +31,22 @@ def get_merged_config() -> DeployConfig | RenderConfig:
     return yaml_config.merge_exclude_unset(other=cli_config)
 
 
+def render(config: RenderConfig, script_path: Path) -> None:
+    """
+    Renders the provided script.
+
+    Note: does not apply secrets filtering.
+    """
+    # Always process with jinja engine
+    jinja_processor = JinjaTemplateProcessor(
+        project_root=config.root_folder, modules_folder=config.modules_folder
+    )
+    content = jinja_processor.render(jinja_processor.relpath(script_path), config.vars)
+
+    checksum = hashlib.sha224(content.encode("utf-8")).hexdigest()
+    logger.log("Success", checksum=checksum, content=content)
+
+
 def main():
     logger.info(
         "schemachange version: %(schemachange_version)s"
@@ -35,9 +54,9 @@ def main():
     )
 
     config = get_merged_config()
-    secret_manager = SecretManager(config_vars=config.vars)
+    redact_config_secrets(config_secrets=config.secrets)
 
-    config.log_details(secret_manager=secret_manager)
+    config.log_details()
 
     # Finally, execute the command
     if config.subcommand == "render":
@@ -45,7 +64,6 @@ def main():
     else:
         session = get_session_from_config(
             config=config,
-            secret_manager=secret_manager,
             schemachange_version=SCHEMACHANGE_VERSION,
             snowflake_application_name=SNOWFLAKE_APPLICATION_NAME,
         )

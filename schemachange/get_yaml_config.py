@@ -36,7 +36,7 @@ def load_yaml_config(config_file_path: Path | None) -> dict[str, object]:
 
             # The FullLoader parameter handles the conversion from YAML scalar values to Python the dictionary format
             config = yaml.load(config_template.render(), Loader=yaml.FullLoader)
-        logger.info(f"Using config file", config_file_path=str(config_file_path))
+        logger.info("Using config file", config_file_path=str(config_file_path))
     return config
 
 

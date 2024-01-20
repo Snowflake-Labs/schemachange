@@ -43,13 +43,13 @@ class JinjaTemplateProcessor:
         # to make unit testing easier
         self.__environment = jinja2.Environment(loader=loader, **self._env_args)
 
-    def render(self, script: str, vars: dict[str, object] | None) -> str:
-        if not vars:
-            vars = {}
+    def render(self, script: str, variables: dict[str, object] | None) -> str:
+        if not variables:
+            variables = {}
         # jinja needs posix path
         posix_path = Path(script).as_posix()
         template = self.__environment.get_template(posix_path)
-        content = template.render(**vars).strip()
+        content = template.render(**variables).strip()
         content = content[:-1] if content.endswith(";") else content
         return content
 
