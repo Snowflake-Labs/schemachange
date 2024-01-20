@@ -19,7 +19,7 @@ class TestJinjaTemplateProcessor:
         templates = {"test.sql": "some text"}
         processor.override_loader(DictLoader(templates))
 
-        context = processor.render("test.sql", None, True)
+        context = processor.render("test.sql", None)
 
         assert context == "some text"
 
@@ -31,7 +31,7 @@ class TestJinjaTemplateProcessor:
         processor.override_loader(DictLoader(templates))
 
         with pytest.raises(UndefinedError) as e:
-            processor.render("test.sql", None, True)
+            processor.render("test.sql", None)
 
         assert str(e.value) == "'myvar' is undefined"
 
@@ -44,7 +44,7 @@ class TestJinjaTemplateProcessor:
 
         vars = json.loads('{"myvar" : "world"}')
 
-        context = processor.render("test.sql", vars, True)
+        context = processor.render("test.sql", vars)
 
         assert context == "Hello world!"
 
@@ -60,7 +60,7 @@ class TestJinjaTemplateProcessor:
         processor = JinjaTemplateProcessor(root_folder, None)
         template_path = processor.relpath(script_file)
 
-        context = processor.render(template_path, {}, True)
+        context = processor.render(template_path, {})
 
         assert context == "Hello world!"
 
@@ -70,7 +70,7 @@ class TestJinjaTemplateProcessor:
         processor.override_loader(DictLoader(templates))
 
         with pytest.raises(ValueError) as e:
-            processor.render("test.sql", None, True)
+            processor.render("test.sql", None)
 
         assert (
             str(e.value)
@@ -85,7 +85,7 @@ class TestJinjaTemplateProcessor:
         templates = {"test.sql": "some text {{ env_var('MYVAR') }}"}
         processor.override_loader(DictLoader(templates))
 
-        context = processor.render("test.sql", None, True)
+        context = processor.render("test.sql", None)
 
         # unset MYVAR env variable
         del os.environ["MYVAR"]
@@ -97,6 +97,6 @@ class TestJinjaTemplateProcessor:
         templates = {"test.sql": "some text {{ env_var('MYVAR', 'myvar_default') }}"}
         processor.override_loader(DictLoader(templates))
 
-        context = processor.render("test.sql", None, True)
+        context = processor.render("test.sql", None)
 
         assert context == "some text myvar_default"
