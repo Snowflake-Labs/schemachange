@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 import unittest.mock as mock
@@ -142,7 +143,7 @@ script_path = Path(__file__).parent / "assets" / "script.sql"
         (
             "schemachange.cli.deploy",
             ["schemachange", "deploy", *required_args, "--verbose"],
-            {**default_deploy_config, **required_config, "verbose": True},
+            {**default_deploy_config, **required_config, "log_level": logging.DEBUG},
             None,
         ),
         (
@@ -215,7 +216,7 @@ script_path = Path(__file__).parent / "assets" / "script.sql"
                 "--verbose",
                 str(script_path),
             ],
-            {**default_deploy_config, "verbose": True},
+            {**default_deploy_config, "log_level": logging.DEBUG},
             script_path,
         ),
     ],

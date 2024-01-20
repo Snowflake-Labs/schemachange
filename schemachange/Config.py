@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC
 from argparse import Namespace
 from pathlib import Path
@@ -31,6 +32,7 @@ class Config(BaseModel, ABC):
     root_folder: Path | None = Field(default=Path("."))
     modules_folder: Path | None = None
     vars: dict | None = Field(default_factory=dict)
+    log_level: int = logging.INFO
 
     @model_validator(mode="before")
     @classmethod

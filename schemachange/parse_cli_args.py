@@ -2,10 +2,44 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
+import sys
+import warnings
+from enum import Enum
 
 import structlog
 
+from schemachange.utils import EnumAction
+
 logger = structlog.getLogger(__name__)
+
+
+class LogLevel(Enum):
+    CRITICAL = logging.CRITICAL
+    ERROR = logging.ERROR
+    WARNING = logging.WARNING
+    INFO = logging.INFO
+    DEBUG = logging.DEBUG
+
+
+def deprecate_verbose(
+    args: list[str], verbose: argparse.Action, parsed_args: argparse.Namespace
+):
+    # If --verbose or -v were supplied, warn the user and interpret it as a
+    for option_string in verbose.option_strings:
+        if option_string not in args:
+            continue
+
+        warnings.warn(
+            "Argument %s is deprecated and will be interpreted as a DEBUG log level."
+            % verbose.option_strings
+        )
+
+        parsed_args.log_level = logging.DEBUG
+
+        break
+
+    del parsed_args.verbose
 
 
 def parse_cli_args(args) -> argparse.Namespace:
@@ -46,12 +80,19 @@ def parse_cli_args(args) -> argparse.Namespace:
         '"value1", "variable2": "value2"})',
         required=False,
     )
-    # TODO: Convert to log level instead
     parent_parser.add_argument(
+        "--log-level",
+        type=LogLevel,
+        action=EnumAction,
+        default=logging.INFO,
+        help="Set the log level. Defaults to INFO.",
+    )
+    verbose = parent_parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
-        help="Display verbose debugging details during execution (the default is False)",
+        help="DEPRECATED: Use --log-level instead. Display verbose debugging details "
+        "during execution (the default is False)",
         required=False,
     )
 
@@ -169,4 +210,12 @@ def parse_cli_args(args) -> argparse.Namespace:
     ):
         args = ["deploy"] + args
 
-    return parser.parse_args(args)
+    parsed_args = parser.parse_args(args)
+
+    deprecate_verbose(args=args, verbose=verbose, parsed_args=parsed_args)
+
+    return parsed_args
+
+
+if __name__ == "__main__":
+    parse_cli_args(sys.argv[1:])

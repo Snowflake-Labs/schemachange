@@ -1,4 +1,7 @@
 import json
+import logging
+
+import pytest
 
 from schemachange.parse_cli_args import parse_cli_args
 
@@ -17,7 +20,6 @@ def test_parse_args_defaults():
     for expected_arg, expected_value in expected.items():
         parsed_arg = getattr(parsed_args, expected_arg)
         assert parsed_arg == expected_value
-    assert parsed_args.verbose is False
     assert parsed_args.create_change_history_table is False
     assert parsed_args.autocommit is False
     assert parsed_args.dry_run is False
@@ -57,7 +59,6 @@ def test_parse_args_deploy_names():
         expected[expected_arg] = expected_value
 
     valueless_test_args: list[tuple[str, bool]] = [
-        ("--verbose", True),
         ("--create-change-history-table", True),
         ("--autocommit", True),
         ("--dry-run", True),
@@ -113,7 +114,6 @@ def test_parse_args_deploy_flags():
         expected[expected_arg] = expected_value
 
     valueless_test_args: list[tuple[str, str, bool]] = [
-        ("-v", "verbose", True),
         ("-ac", "autocommit", True),
     ]
 
@@ -126,3 +126,15 @@ def test_parse_args_deploy_flags():
     for expected_arg, expected_value in expected.items():
         parsed_arg = getattr(parsed_args, expected_arg)
         assert parsed_arg == expected_value
+
+
+def test_parse_args_verbose_deprecation():
+    args: list[str] = ["--verbose"]
+    with pytest.warns(UserWarning) as warning:
+        parsed_args = parse_cli_args(args)
+    assert getattr(parsed_args, "verbose", None) is None
+    assert parsed_args.log_level is logging.DEBUG
+    assert (
+        str(warning[0].message)
+        == "Argument ['-v', '--verbose'] is deprecated and will be interpreted as a DEBUG log level."
+    )
