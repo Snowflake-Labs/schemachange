@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+from pydantic_core import PydanticCustomError
 
 from schemachange.Config import (
     Config,
@@ -111,6 +112,80 @@ class TestGetConfigSecrets:
 
         assert len(results) == 1
         assert "SECRET_VALUE" in results
+
+
+class TestTable:
+    @pytest.mark.parametrize(
+        "table_str, expected",
+        [
+            (
+                "DATABASE_NAME.SCHEMA_NAME.TABLE_NAME",
+                Table(
+                    table_name="TABLE_NAME",
+                    schema_name="SCHEMA_NAME",
+                    database_name="DATABASE_NAME",
+                ),
+            ),
+            (
+                "SCHEMA_NAME.TABLE_NAME",
+                Table(
+                    table_name="TABLE_NAME",
+                    schema_name="SCHEMA_NAME",
+                    database_name="METADATA",
+                ),
+            ),
+            (
+                "TABLE_NAME",
+                Table(
+                    table_name="TABLE_NAME",
+                    schema_name="SCHEMACHANGE",
+                    database_name="METADATA",
+                ),
+            ),
+        ],
+    )
+    def test_from_str_happy_path(self, table_str: str, expected: Table):
+        result = Table.from_str(table_str)
+        assert result == expected
+
+    def test_from_str_exception(self):
+        with pytest.raises(PydanticCustomError) as e:
+            Table.from_str("FOUR.THREE.TWO.ONE")
+
+        assert "Invalid change history table name:" in str(e.value)
+
+    @pytest.mark.parametrize(
+        "table, expected",
+        [
+            (
+                Table(
+                    table_name="TABLE_NAME",
+                    schema_name="SCHEMA_NAME",
+                    database_name="DATABASE_NAME",
+                ),
+                "DATABASE_NAME.SCHEMA_NAME.TABLE_NAME",
+            ),
+            (
+                Table(
+                    table_name="TABLE_NAME",
+                    schema_name="SCHEMA_NAME",
+                    database_name="METADATA",
+                ),
+                "METADATA.SCHEMA_NAME.TABLE_NAME",
+            ),
+            (
+                Table(
+                    table_name="TABLE_NAME",
+                    schema_name="SCHEMACHANGE",
+                    database_name="METADATA",
+                ),
+                "METADATA.SCHEMACHANGE.TABLE_NAME",
+            ),
+        ],
+    )
+    def test_fully_qualified(self, table: Table, expected: str):
+        result = table.fully_qualified
+        assert result == expected
 
 
 class TestConfig:
@@ -229,6 +304,24 @@ class TestConfig:
                 assert getattr(merged_config, name) == getattr(yaml_config, name)
             else:
                 assert getattr(merged_config, name) == getattr(cli_config, name)
+
+    def test_check_for_deploy_args_happy_path(self):
+        config = DeployConfig(
+            snowflake_account="account",
+            snowflake_user="user",
+            snowflake_role="role",
+            snowflake_warehouse="warehouse",
+        )
+        config.check_for_deploy_args()
+
+    def test_check_for_deploy_args_exception(self):
+        config = DeployConfig()
+        with pytest.raises(ValueError) as e:
+            config.check_for_deploy_args()
+
+        assert "Missing config values. The following config values are required" in str(
+            e.value
+        )
 
 
 @pytest.mark.parametrize(

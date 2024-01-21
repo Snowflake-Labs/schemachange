@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import sys
 import warnings
 from enum import Enum
 
@@ -245,7 +244,3 @@ def parse_cli_args(args) -> argparse.Namespace:
     deprecate_verbose(args=args, verbose=verbose, parsed_args=parsed_args)
 
     return parsed_args
-
-
-if __name__ == "__main__":
-    parse_cli_args(sys.argv[1:])
