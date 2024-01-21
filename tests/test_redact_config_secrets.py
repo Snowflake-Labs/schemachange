@@ -7,6 +7,7 @@ from schemachange.redact_config_secrets import get_redact_config_secrets_process
     "secrets, extra_kwargs, expected",
     [
         ({}, {"keyword": "secret"}, {"keyword": "secret"}),
+        ({}, {}, {}),
         ({"secret"}, {"keyword": "secret"}, {"keyword": "******"}),
         (
             {"secret"},
