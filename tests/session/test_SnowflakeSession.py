@@ -8,7 +8,7 @@ from schemachange.session.SnowflakeSession import SnowflakeSession
 from schemachange.session.Credential import ExternalBrowserCredential
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def session() -> SnowflakeSession:
     credential = ExternalBrowserCredential(password="password")
     change_history_table = Table()

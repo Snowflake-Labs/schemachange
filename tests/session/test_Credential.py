@@ -4,6 +4,7 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
+import structlog
 
 from schemachange.session.Credential import (
     credential_factory,
@@ -88,14 +89,18 @@ def test_credential_factory(
     mock_response = MagicMock()
     mock_response.text = json.dumps({"token-response-name-from-yaml": "my-token"})
     mock_post.return_value = mock_response
+    logger = structlog.testing.CapturingLogger()
 
     with mock.patch.dict(os.environ, env_vars, clear=True):
-        result = credential_factory(oauth_config=oauth_config)
+        # noinspection PyTypeChecker
+        result = credential_factory(oauth_config=oauth_config, logger=logger)
         assert result == expected
 
 
 @pytest.mark.parametrize("env_vars", [{}])
 def test_credential_factory_unhandled(env_vars):
+    logger = structlog.testing.CapturingLogger()
     with pytest.raises(NameError):
         with mock.patch.dict(os.environ, env_vars, clear=True):
-            credential_factory()
+            # noinspection PyTypeChecker
+            credential_factory(logger=logger)

@@ -4,6 +4,8 @@ import structlog
 import hashlib
 from pathlib import Path
 
+from structlog import BoundLogger
+
 from schemachange.redact_config_secrets import redact_config_secrets
 from schemachange.deploy import deploy
 from schemachange.Config import config_factory, DeployConfig, RenderConfig
@@ -31,7 +33,7 @@ def get_merged_config() -> DeployConfig | RenderConfig:
     return yaml_config.merge_exclude_unset(other=cli_config)
 
 
-def render(config: RenderConfig, script_path: Path) -> None:
+def render(config: RenderConfig, script_path: Path, logger: BoundLogger) -> None:
     """
     Renders the provided script.
 
@@ -61,7 +63,11 @@ def main():
 
     # Finally, execute the command
     if config.subcommand == "render":
-        render(config=config, script_path=config.script_path)
+        render(
+            config=config,
+            script_path=config.script_path,
+            logger=logger,
+        )
     else:
         config.check_for_deploy_args()
         session = get_session_from_config(
