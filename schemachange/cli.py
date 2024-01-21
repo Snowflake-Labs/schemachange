@@ -15,7 +15,7 @@ from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
 
 SCHEMACHANGE_VERSION = "3.6.1"
 SNOWFLAKE_APPLICATION_NAME = "schemachange"
-logger = structlog.getLogger(__name__)
+module_logger = structlog.getLogger(__name__)
 
 
 def get_merged_config() -> DeployConfig | RenderConfig:
@@ -48,10 +48,11 @@ def render(config: RenderConfig, script_path: Path) -> None:
 
 
 def main():
-    logger.info(
+    module_logger.info(
         "schemachange version: %(schemachange_version)s"
         % {"schemachange_version": SCHEMACHANGE_VERSION}
     )
+    logger = module_logger.bind(schemachange_version=SCHEMACHANGE_VERSION)
 
     config = get_merged_config()
     redact_config_secrets(config_secrets=config.secrets)
@@ -67,6 +68,7 @@ def main():
             config=config,
             schemachange_version=SCHEMACHANGE_VERSION,
             snowflake_application_name=SNOWFLAKE_APPLICATION_NAME,
+            logger=logger,
         )
         deploy(config=config, session=session)
 

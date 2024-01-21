@@ -44,41 +44,13 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
         "starting deploy",
     )
 
-    # Deal with the change history table (create if specified)
-    change_history_metadata = session.fetch_change_history_metadata()
-    if change_history_metadata:
-        log.info(
-            "Using existing change history table",
-            {"last_altered": change_history_metadata["last_altered"]},
-        )
-    elif config.create_change_history_table:
-        # Create the change history table (and containing objects) if it doesn't exist.
-        session.create_change_history_table_if_missing()
-        logger.info("Created change history table")
-    else:
-        raise ValueError(
-            f"Unable to find change history table {session.change_history_table.fully_qualified}"
-        )
-
-    # Find the max published version
-    max_published_version = ""
-
-    change_history = None
-    r_scripts_checksum = None
-    if (config["dry_run"] and change_history_metadata) or not config["dry_run"]:
-        change_history = session.fetch_versioned_scripts()
-        r_scripts_checksum = session.fetch_repeatable_scripts()
-
-    if change_history:
-        max_published_version = change_history[0]
-
-    log.info(
-        "Max applied change script version %(max_published_version)s"
-        % {
-            "max_published_version": max_published_version
-            if max_published_version != ""
-            else "None"
-        }
+    (
+        change_history,
+        r_scripts_checksum,
+        max_published_version,
+    ) = session.get_script_metadata(
+        create_change_history_table=config.create_change_history_table,
+        dry_run=config.dry_run,
     )
 
     # Find all scripts in the root folder (recursively) and sort them correctly

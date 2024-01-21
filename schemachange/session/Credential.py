@@ -17,8 +17,6 @@ HttpsUrl = Annotated[
     UrlConstraints(allowed_schemes=["https"]),
 ]
 
-logger = structlog.getLogger(__name__)
-
 
 class Credential(BaseModel, ABC):
     authenticator: Literal["snowflake", "oauth", "externalbrowser"] | HttpsUrl
@@ -50,6 +48,7 @@ class OktaCredential(Credential):
 
 
 def credential_factory(
+    logger: structlog.BoundLogger,
     oauth_config: dict | None = None,
 ) -> (
     OauthCredential

@@ -10,8 +10,6 @@ from schemachange.Config import DeployConfig, Table, RenderConfig
 from schemachange.session.Credential import SomeCredential, credential_factory
 from schemachange.session.Script import VersionedScript, RepeatableScript, AlwaysScript
 
-logger = structlog.getLogger(__name__)
-
 
 class SnowflakeSession:
     user: str
@@ -22,8 +20,8 @@ class SnowflakeSession:
     schema: str | None
     query_tag: str | None
     autocommit: bool
-    dry_run: bool
     change_history_table: Table
+    logger: structlog.BoundLogger
     session_parameters: dict[str, str]
     conn: snowflake.connector.SnowflakeConnection
 
@@ -41,11 +39,11 @@ class SnowflakeSession:
         application: str,
         credential: SomeCredential,
         change_history_table: Table,
+        logger: structlog.BoundLogger,
         autocommit: bool = False,
         snowflake_database: str | None = None,
         snowflake_schema: str | None = None,
         query_tag: str | None = None,
-        dry_run: bool = True,
     ):
         self.user = snowflake_user
         self.account = snowflake_account
@@ -54,8 +52,8 @@ class SnowflakeSession:
         self.database = snowflake_database
         self.schema = snowflake_schema
         self.autocommit = autocommit
-        self.dry_run = dry_run
         self.change_history_table = change_history_table
+        self.logger = logger
 
         self.session_parameters = {"QUERY_TAG": f"schemachange {schemachange_version}"}
         if query_tag:
@@ -80,7 +78,7 @@ class SnowflakeSession:
             self.con.close()
 
     def execute_snowflake_query(self, query: str):
-        logger.debug(
+        self.logger.debug(
             "Executing query",
             query=indent(query, prefix="\t"),
         )
@@ -115,8 +113,7 @@ class SnowflakeSession:
 
         return change_history_metadata
 
-    def create_change_history_table_if_missing(self) -> None:
-        # Check if schema exists
+    def change_history_schema_exists(self) -> bool:
         query = f"""\
             SELECT
                 COUNT(1)
@@ -124,23 +121,21 @@ class SnowflakeSession:
             WHERE SCHEMA_NAME = REPLACE('{self.change_history_table.schema_name}','\"','')
         """
         results = self.execute_snowflake_query(dedent(query))
-        schema_exists = False
         for cursor in results:
             for row in cursor:
-                schema_exists = row[0] > 0
+                return row[0] > 0
 
-        # Create the schema if it doesn't exist
-        if not schema_exists:
-            query = f"CREATE SCHEMA {self.change_history_table.schema_name}"
-            if self.dry_run:
-                logger.debug(
-                    "Running in dry-run mode. Skipping execution.",
-                    query=indent(dedent(query), prefix="\t"),
-                )
-            else:
-                self.execute_snowflake_query(dedent(query))
+    def create_change_history_schema(self, dry_run: bool) -> None:
+        query = f"CREATE SCHEMA {self.change_history_table.schema_name}"
+        if dry_run:
+            self.logger.debug(
+                "Running in dry-run mode. Skipping execution.",
+                query=indent(dedent(query), prefix="\t"),
+            )
+        else:
+            self.execute_snowflake_query(dedent(query))
 
-        # Finally, create the change history table if it doesn't exist
+    def create_change_history_table(self, dry_run: bool) -> None:
         query = f"""\
             CREATE TABLE IF NOT EXISTS {self.change_history_table.fully_qualified} (
                 VERSION VARCHAR,
@@ -154,13 +149,61 @@ class SnowflakeSession:
                 INSTALLED_ON TIMESTAMP_LTZ
             )
         """
-        if self.dry_run:
-            logger.debug(
+        if dry_run:
+            self.logger.debug(
                 "Running in dry-run mode. Skipping execution.",
                 query=indent(dedent(query), prefix="\t"),
             )
         else:
             self.execute_snowflake_query(dedent(query))
+
+    def change_history_table_exists(
+        self, create_change_history_table: bool, dry_run: bool
+    ) -> bool:
+        change_history_metadata = self.fetch_change_history_metadata()
+        if change_history_metadata:
+            self.logger.info(
+                "Using existing change history table",
+                last_altered=change_history_metadata["last_altered"],
+            )
+            return True
+        elif create_change_history_table:
+            schema_exists = self.change_history_schema_exists()
+            if not schema_exists:
+                self.create_change_history_schema(dry_run=dry_run)
+            self.create_change_history_table(dry_run=dry_run)
+            if dry_run:
+                return False
+            self.logger.info("Created change history table")
+            return True
+        else:
+            raise ValueError(
+                f"Unable to find change history table {self.change_history_table.fully_qualified}"
+            )
+
+    def get_script_metadata(
+        self, create_change_history_table: bool, dry_run: bool
+    ) -> tuple[list[str | int] | None, dict[str, list[str]] | None, str | int | None]:
+        change_history_table_exists = self.change_history_table_exists(
+            create_change_history_table=create_change_history_table,
+            dry_run=dry_run,
+        )
+        if not change_history_table_exists:
+            return None, None, None
+
+        change_history = self.fetch_versioned_scripts()
+        r_scripts_checksum = self.fetch_repeatable_scripts()
+        max_published_version = change_history[0] if change_history else ""
+
+        self.logger.info(
+            "Max applied change script version %(max_published_version)s"
+            % {
+                "max_published_version": max_published_version
+                if max_published_version != ""
+                else "None"
+            }
+        )
+        return change_history, r_scripts_checksum, max_published_version
 
     def fetch_repeatable_scripts(self) -> dict[str, list[str]]:
         query = f"""\
@@ -227,12 +270,13 @@ class SnowflakeSession:
         self,
         script: VersionedScript | RepeatableScript | AlwaysScript,
         script_content: str,
+        dry_run: bool,
     ) -> None:
-        script_log = logger.bind(
+        script_log = self.logger.bind(
             script_name=script.name,
             query=indent(dedent(script_content), prefix="\t"),
         )
-        if self.dry_run:
+        if dry_run:
             script_log.debug("Running in dry-run mode. Skipping execution")
             return
         script_log.log("Applying change script")
@@ -281,11 +325,12 @@ class SnowflakeSession:
 
 def get_session_from_config(
     config: DeployConfig | RenderConfig,
+    logger: structlog.BoundLogger,
     schemachange_version: str,
     snowflake_application_name: str,
 ) -> SnowflakeSession:
     config.check_for_deploy_args()
-    credential = credential_factory(oauth_config=config.oauth_config)
+    credential = credential_factory(logger=logger, oauth_config=config.oauth_config)
     return SnowflakeSession(
         snowflake_user=config.snowflake_user,
         snowflake_account=config.snowflake_account,
@@ -295,9 +340,9 @@ def get_session_from_config(
         application=snowflake_application_name,
         credential=credential,
         change_history_table=config.change_history_table,
+        logger=logger,
         autocommit=config.autocommit,
         snowflake_database=config.snowflake_database,
         snowflake_schema=config.snowflake_schema,
         query_tag=config.query_tag,
-        dry_run=config.dry_run,
     )
