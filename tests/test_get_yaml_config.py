@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from Config import Table
+from schemachange.Config import Table
 from schemachange.get_yaml_config import load_yaml_config, get_yaml_config
 
 

@@ -9,7 +9,7 @@ from schemachange.JinjaEnvVar import JinjaEnvVar
 
 from pathlib import Path
 
-from Config import DeployConfig, RenderConfig, config_factory
+from schemachange.Config import DeployConfig, RenderConfig, config_factory
 
 
 logger = structlog.getLogger(__name__)
