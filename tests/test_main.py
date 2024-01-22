@@ -34,7 +34,7 @@ default_deploy_config = {
     "query_tag": None,
     "oauth_config": None,
     "version_number_validation_regex": None,
-    "raise_exception_on_ignored_versioned_migration": False,
+    "raise_exception_on_ignored_versioned_script": False,
 }
 
 required_args = [

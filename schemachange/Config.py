@@ -183,7 +183,7 @@ class DeployConfig(Config):
     query_tag: str | None = None
     oauth_config: dict | None = None
     version_number_validation_regex: str | None = None
-    raise_exception_on_ignored_versioned_migration: bool = False
+    raise_exception_on_ignored_versioned_script: bool = False
 
     def check_for_deploy_args(self) -> None:
         """Make sure we have the required connection info"""

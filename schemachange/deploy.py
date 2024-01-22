@@ -31,7 +31,8 @@ def sorted_alphanumeric(data):
 
 
 def deploy(config: DeployConfig, session: SnowflakeSession):
-    log = logger.bind(
+    logger.info(
+        "starting deploy",
         snowflake_account=session.account,
         default_role=session.role,
         default_warehouse=session.warehouse,
@@ -40,18 +41,16 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
         change_history_table=session.change_history_table.fully_qualified,
     )
 
-    log.info(
-        "starting deploy",
-    )
-
     (
-        change_history,
+        versioned_scripts,
         r_scripts_checksum,
         max_published_version,
     ) = session.get_script_metadata(
         create_change_history_table=config.create_change_history_table,
         dry_run=config.dry_run,
     )
+
+    max_published_version = get_alphanum_key(max_published_version)
 
     # Find all scripts in the root folder (recursively) and sort them correctly
     all_scripts = get_all_scripts_recursively(
@@ -61,12 +60,12 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
     all_script_names = list(all_scripts.keys())
     # Sort scripts such that versioned scripts get applied first and then the repeatable ones.
     all_script_names_sorted = (
-        sorted_alphanumeric([script for script in all_script_names if script[0] == "V"])
+        sorted_alphanumeric([script for script in all_script_names if script[0] == "v"])
         + sorted_alphanumeric(
-            [script for script in all_script_names if script[0] == "R"]
+            [script for script in all_script_names if script[0] == "r"]
         )
         + sorted_alphanumeric(
-            [script for script in all_script_names if script[0] == "A"]
+            [script for script in all_script_names if script[0] == "a"]
         )
     )
 
@@ -76,24 +75,11 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
     # Loop through each script in order and apply any required changes
     for script_name in all_script_names_sorted:
         script = all_scripts[script_name]
-        script_log = log.bind(
+        script_log = logger.bind(
             script_name=script.name,
             script_type=script.type,
             script_version=getattr(script, "version", "N/A"),
         )
-
-        # Apply a versioned-change script only if the version is newer than the most recent change in the database
-        # Apply any other scripts, i.e. repeatable scripts, irrespective of the most recent change in the database
-        if script.type == "V" and get_alphanum_key(script.version) <= get_alphanum_key(
-            max_published_version
-        ):
-            script_log.debug(
-                "Skipping change script because it's older than the most recently applied change",
-                max_published_version=max_published_version,
-            )
-            scripts_skipped += 1
-            continue
-
         # Always process with jinja engine
         jinja_processor = JinjaTemplateProcessor(
             project_root=config.root_folder, modules_folder=config.modules_folder
@@ -103,11 +89,43 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
             config.vars,
         )
 
+        checksum_current = hashlib.sha224(content.encode("utf-8")).hexdigest()
+
+        # Apply a versioned-change script only if the version is newer than the most recent change in the database
+        # Apply any other scripts, i.e. repeatable scripts, irrespective of the most recent change in the database
+        if script.type == "V":
+            script_metadata = versioned_scripts.get(script.name)
+
+            if get_alphanum_key(script.version) <= max_published_version:
+                if script_metadata is None:
+                    if config.raise_exception_on_ignored_versioned_script:
+                        raise ValueError(
+                            f"Versioned script will never be applied: {script.name}\n"
+                            f"Version number is less than the max version number: {max_published_version}"
+                        )
+                    else:
+                        script_log.debug(
+                            "Skipping versioned script because it's older than the most recently applied change",
+                            max_published_version=max_published_version,
+                        )
+                        scripts_skipped += 1
+                        continue
+                else:
+                    script_log.debug(
+                        "Script has already been applied",
+                        max_published_version=max_published_version,
+                    )
+                    if script_metadata["checksum"] != checksum_current:
+                        script_log.info("Script checksum has drifted since application")
+
+                    scripts_skipped += 1
+                    continue
+
+        #     scripts_skipped += 1
+        #     continue
+
         # Apply only R scripts where the checksum changed compared to the last execution of snowchange
         if script.type == "R":
-            # Compute the checksum for the script
-            checksum_current = hashlib.sha224(content.encode("utf-8")).hexdigest()
-
             # check if R file was already executed
             if (r_scripts_checksum is not None) and script.name in r_scripts_checksum:
                 checksum_last = r_scripts_checksum[script.name][0]
@@ -122,11 +140,13 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
                 scripts_skipped += 1
                 continue
 
-        session.apply_change_script(script, content)
+        session.apply_change_script(
+            script=script, script_content=content, dry_run=config.dry_run
+        )
 
         scripts_applied += 1
 
-    log.info(
+    logger.info(
         "Completed successfully",
         scripts_applied=scripts_applied,
         scripts_skipped=scripts_skipped,

@@ -23,7 +23,7 @@ def test_parse_args_defaults():
     assert parsed_args.create_change_history_table is False
     assert parsed_args.autocommit is False
     assert parsed_args.dry_run is False
-    assert parsed_args.raise_exception_on_ignored_versioned_migration is False
+    assert parsed_args.raise_exception_on_ignored_versioned_script is False
     assert parsed_args.subcommand == "deploy"
 
 
@@ -62,7 +62,7 @@ def test_parse_args_deploy_names():
         ("--create-change-history-table", True),
         ("--autocommit", True),
         ("--dry-run", True),
-        ("--raise-exception-on-ignored-versioned-migration", True),
+        ("--raise-exception-on-ignored-versioned-script", True),
     ]
 
     for arg, expected_value in valueless_test_args:

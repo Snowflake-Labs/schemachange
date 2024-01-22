@@ -217,9 +217,9 @@ def parse_cli_args(args) -> argparse.Namespace:
         required=False,
     )
     parser_deploy.add_argument(
-        "--raise-exception-on-ignored-versioned-migration",
+        "--raise-exception-on-ignored-versioned-script",
         action="store_true",
-        help="Raise an exception if an un-applied versioned migration is ignored (the default is False)",
+        help="Raise an exception if an un-applied versioned script is ignored (the default is False)",
         required=False,
     )
 

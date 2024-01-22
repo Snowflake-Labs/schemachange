@@ -183,7 +183,11 @@ class SnowflakeSession:
 
     def get_script_metadata(
         self, create_change_history_table: bool, dry_run: bool
-    ) -> tuple[list[str | int] | None, dict[str, list[str]] | None, str | int | None]:
+    ) -> tuple[
+        dict[str, dict[str, str | int]] | None,
+        dict[str, list[str]] | None,
+        str | int | None,
+    ]:
         change_history_table_exists = self.change_history_table_exists(
             create_change_history_table=create_change_history_table,
             dry_run=dry_run,
@@ -191,9 +195,8 @@ class SnowflakeSession:
         if not change_history_table_exists:
             return None, None, None
 
-        change_history = self.fetch_versioned_scripts()
+        change_history, max_published_version = self.fetch_versioned_scripts()
         r_scripts_checksum = self.fetch_repeatable_scripts()
-        max_published_version = change_history[0] if change_history else ""
 
         self.logger.info(
             "Max applied change script version %(max_published_version)s"
@@ -226,24 +229,30 @@ class SnowflakeSession:
                 script_checksums[script_name].append(checksum)
         return script_checksums
 
-    def fetch_versioned_scripts(self) -> list[str | int]:
+    def fetch_versioned_scripts(
+        self,
+    ) -> tuple[dict[str, dict[str, str | int]], int | str | None]:
         query = f"""\
-        SELECT
-            VERSION
+        SELECT VERSION, SCRIPT, CHECKSUM
         FROM {self.change_history_table.fully_qualified}
         WHERE SCRIPT_TYPE = 'V'
         ORDER BY INSTALLED_ON DESC -- TODO: Why not order by version?
-        LIMIT 1
         """
         results = self.execute_snowflake_query(dedent(query))
 
         # Collect all the results into a list
-        change_history = list()
+        versioned_scripts: dict[str, dict[str, str | int]] = defaultdict(dict)
+        versions: list[str | int] = []
         for cursor in results:
-            for row in cursor:
-                change_history.append(row[0])
+            for version, script, checksum in cursor:
+                versions.append(version)
+                versioned_scripts[script] = {
+                    "version": version,
+                    "script": script,
+                    "checksum": checksum,
+                }
 
-        return change_history
+        return versioned_scripts, versions[0] if versions else None
 
     def reset_session(self):
         # These items are optional, so we can only reset the ones with values

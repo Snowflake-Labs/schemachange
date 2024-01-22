@@ -36,7 +36,7 @@ def yaml_config(_) -> DeployConfig:
         query_tag="yaml_query_tag",
         oauth_config={"oauth": "yaml_oauth"},
         version_number_validation_regex="yaml_version_number_validation_regex",
-        raise_exception_on_ignored_versioned_migration=True,
+        raise_exception_on_ignored_versioned_script=True,
     )
 
 
@@ -266,7 +266,7 @@ class TestConfig:
                     query_tag="cli_query_tag",
                     oauth_config={"oauth": "cli_oauth"},
                     version_number_validation_regex="cli_version_number_validation_regex",
-                    raise_exception_on_ignored_versioned_migration=False,
+                    raise_exception_on_ignored_versioned_script=False,
                 ),
                 [
                     "config_folder",
@@ -286,7 +286,7 @@ class TestConfig:
                     "query_tag",
                     "oauth_config",
                     "version_number_validation_regex",
-                    "raise_exception_on_ignored_versioned_migration",
+                    "raise_exception_on_ignored_versioned_script",
                 ],
             ),
         ],
