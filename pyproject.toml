@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "schemachange"
-version = "3.6.1"
+version = "3.7.0"
 description = "A Database Change Management tool for Snowflake"
 authors = [
     "jamesweakley <https://github.com/jamesweakley>",
