@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import os
 from abc import ABC
-from typing import Literal, Annotated, Optional, Union
+from typing import Literal, Optional, Union
 
 import structlog
 from pydantic import BaseModel, UrlConstraints
 from pydantic_core import Url
+from typing_extensions import Annotated
 
 from schemachange.session.utils import (
     get_snowflake_password,
