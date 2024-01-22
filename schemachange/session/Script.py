@@ -16,7 +16,7 @@ T = TypeVar("T", bound="Script")
 
 class Script(BaseModel, ABC):
     model_config = ConfigDict(frozen=True, extra="ignore")
-    pattern: ClassVar[re.Pattern[str]]
+    pattern: ClassVar[re.Pattern]
     type: ClassVar[Literal["V", "R", "A"]]
     name: str
     file_path: Path
