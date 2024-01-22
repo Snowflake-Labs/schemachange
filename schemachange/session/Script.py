@@ -4,7 +4,17 @@ import itertools
 import re
 from abc import ABC
 from pathlib import Path
-from typing import Literal, ClassVar, TypeVar, Optional, Union, List, Dict, Type
+from typing import (
+    Literal,
+    ClassVar,
+    TypeVar,
+    Optional,
+    Union,
+    List,
+    Dict,
+    Type,
+    Pattern,
+)
 
 import structlog
 from pydantic import BaseModel, ConfigDict
@@ -16,7 +26,7 @@ T = TypeVar("T", bound="Script")
 
 class Script(BaseModel, ABC):
     model_config = ConfigDict(frozen=True, extra="ignore")
-    pattern: ClassVar[re.Pattern]
+    pattern: ClassVar[Pattern[str]]
     type: ClassVar[Literal["V", "R", "A"]]
     name: str
     file_path: Path
