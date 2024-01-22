@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Set
+
 import pytest
 import structlog
 
@@ -54,7 +56,7 @@ class TestGetRedactConfigSecretsProcessor:
             ),
         ],
     )
-    def test_happy_path(self, secrets: set[str], extra_kwargs: dict, expected: dict):
+    def test_happy_path(self, secrets: Set[str], extra_kwargs: dict, expected: dict):
         redact_config_secrets_processor = get_redact_config_secrets_processor(
             config_secrets=secrets
         )

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, Union
+from typing import Optional, Union, Dict, Any
 
 import jinja2
 import jinja2.ext
@@ -17,7 +17,7 @@ from schemachange.Config import DeployConfig, RenderConfig, config_factory
 logger = structlog.getLogger(__name__)
 
 
-def load_yaml_config(config_file_path: Optional[Path]) -> dict[str, object]:
+def load_yaml_config(config_file_path: Optional[Path]) -> Dict[str, Any]:
     """
     Loads the schemachange config file and processes with jinja templating engine
     """

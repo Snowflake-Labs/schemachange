@@ -6,7 +6,7 @@ import tempfile
 import unittest.mock as mock
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional
+from typing import Optional, List
 
 import pytest
 
@@ -228,7 +228,7 @@ script_path = Path(__file__).parent / "assets" / "script.sql"
 def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
     _,
     to_mock: str,
-    cli_args: list[str],
+    cli_args: List[str],
     expected_config: dict,
     expected_script_path: Optional[Path],
 ):
@@ -293,7 +293,7 @@ def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
 def test_main_deploy_config_folder(
     _,
     to_mock: str,
-    args: list[str],
+    args: List[str],
     expected_config: dict,
     expected_script_path: Optional[Path],
 ):
@@ -359,7 +359,7 @@ def test_main_deploy_config_folder(
 def test_main_deploy_modules_folder(
     _,
     to_mock: str,
-    args: list[str],
+    args: List[str],
     expected_config: dict,
     expected_script_path: Optional[Path],
 ):

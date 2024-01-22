@@ -4,7 +4,7 @@ import itertools
 import re
 from abc import ABC
 from pathlib import Path
-from typing import Literal, ClassVar, TypeVar, Optional, Union
+from typing import Literal, ClassVar, TypeVar, Optional, Union, List, Dict, Type
 
 import structlog
 from pydantic import BaseModel, ConfigDict
@@ -81,7 +81,7 @@ class AlwaysScript(Script):
     type: ClassVar[Literal["A"]] = "A"
 
 
-constructors: list[type[Union[VersionedScript, RepeatableScript, AlwaysScript]]] = [
+constructors: List[Type[Union[VersionedScript, RepeatableScript, AlwaysScript]]] = [
     VersionedScript,
     RepeatableScript,
     AlwaysScript,
@@ -92,7 +92,7 @@ def script_factory(
     file_path: Path,
 ) -> Optional[Union[VersionedScript, RepeatableScript, AlwaysScript]]:
     constructor: Optional[
-        type[Union[VersionedScript, RepeatableScript, AlwaysScript]]
+        Type[Union[VersionedScript, RepeatableScript, AlwaysScript]]
     ] = None
     for a_constructor in constructors:
         if a_constructor.pattern.search(file_path.name.strip()) is not None:
@@ -111,7 +111,7 @@ def get_all_scripts_recursively(
 ):
     VersionedScript.version_number_regex = version_number_regex
 
-    all_files: dict[
+    all_files: Dict[
         str, Union[VersionedScript, RepeatableScript, AlwaysScript]
     ] = dict()
     all_versions = list()

@@ -4,7 +4,7 @@ import logging
 from abc import ABC
 from argparse import Namespace
 from pathlib import Path
-from typing import Literal, ClassVar, TypeVar, Optional, Union
+from typing import Literal, ClassVar, TypeVar, Optional, Union, Dict, Set
 
 import structlog
 from pydantic import (
@@ -22,19 +22,19 @@ logger = structlog.getLogger(__name__)
 T = TypeVar("T", bound="Config")
 
 
-def get_config_secrets(config_vars: Optional[dict[str, Union[dict, str]]]) -> set[str]:
+def get_config_secrets(config_vars: Optional[Dict[str, Union[dict, str]]]) -> Set[str]:
     """Extracts all secret values from the vars attributes in config"""
 
     def inner_extract_dictionary_secrets(
-        dictionary: Optional[dict[str, Union[dict, str]]],
+        dictionary: Optional[Dict[str, Union[dict, str]]],
         child_of_secrets: bool = False,
-    ) -> set[str]:
+    ) -> Set[str]:
         """Considers any key with the word secret in the name as a secret or
         all values as secrets if a child of a key named secrets.
 
         defined as an inner/ nested function to provide encapsulation
         """
-        extracted_secrets: set[str] = set()
+        extracted_secrets: Set[str] = set()
 
         if not dictionary:
             return extracted_secrets
@@ -64,7 +64,7 @@ class Config(BaseModel, ABC):
     root_folder: Optional[Path] = Field(default=Path("."))
     modules_folder: Optional[Path] = None
     vars: Optional[dict] = Field(default_factory=dict)
-    secrets: set[str] = Field(default_factory=set)
+    secrets: Set[str] = Field(default_factory=set)
     log_level: int = logging.INFO
 
     @model_validator(mode="before")
@@ -164,7 +164,7 @@ class Table(BaseModel):
                 "Invalid change history table name: {change_history_table}",
                 {"change_history_table": v},
             )
-        # if the object name does not include '"' raise to upper case on return
+        # if the name element does not include '"' raise to upper case on return
         return cls(**{k: v if '"' in v else v.upper() for (k, v) in details.items()})
 
 

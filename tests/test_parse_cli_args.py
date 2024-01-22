@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Union
+from typing import Union, List, Tuple, Dict
 
 import pytest
 
@@ -10,9 +10,9 @@ from schemachange.parse_cli_args import parse_cli_args
 
 
 def test_parse_args_defaults():
-    args: list[str] = []
+    args: List[str] = []
     test_args = [("--config-folder", None, ".")]
-    expected: dict[str, Union[str, int]] = {}
+    expected: Dict[str, Union[str, int]] = {}
     for arg, value, expected_value in test_args:
         if value:
             args.extend([arg, value])
@@ -31,10 +31,10 @@ def test_parse_args_defaults():
 
 
 def test_parse_args_deploy_names():
-    args: list[str] = ["deploy"]
-    expected: dict[str, Union[str, int]] = {}
+    args: List[str] = ["deploy"]
+    expected: Dict[str, Union[str, int]] = {}
 
-    valued_test_args: list[tuple[str, str, str]] = [
+    valued_test_args: List[Tuple[str, str, str]] = [
         ("--config-folder", "some_config_folder_name", "some_config_folder_name"),
         ("--root-folder", "some_root_folder_name", "some_root_folder_name"),
         ("--modules-folder", "some_modules_folder_name", "some_modules_folder_name"),
@@ -61,7 +61,7 @@ def test_parse_args_deploy_names():
         expected_arg = arg.strip("-").replace("-", "_")
         expected[expected_arg] = expected_value
 
-    valueless_test_args: list[tuple[str, bool]] = [
+    valueless_test_args: List[Tuple[str, bool]] = [
         ("--create-change-history-table", True),
         ("--autocommit", True),
         ("--dry-run", True),
@@ -81,10 +81,10 @@ def test_parse_args_deploy_names():
 
 
 def test_parse_args_deploy_flags():
-    args: list[str] = ["deploy"]
-    expected: dict[str, Union[str, int]] = {}
+    args: List[str] = ["deploy"]
+    expected: Dict[str, Union[str, int]] = {}
 
-    valued_test_args: list[tuple[str, str, str, str]] = [
+    valued_test_args: List[Tuple[str, str, str, str]] = [
         ("-f", "root_folder", "some_root_folder_name", "some_root_folder_name"),
         (
             "-m",
@@ -116,7 +116,7 @@ def test_parse_args_deploy_flags():
             args.extend([arg, value])
         expected[expected_arg] = expected_value
 
-    valueless_test_args: list[tuple[str, str, bool]] = [
+    valueless_test_args: List[Tuple[str, str, bool]] = [
         ("-ac", "autocommit", True),
     ]
 
@@ -132,7 +132,7 @@ def test_parse_args_deploy_flags():
 
 
 def test_parse_args_verbose_deprecation():
-    args: list[str] = ["--verbose"]
+    args: List[str] = ["--verbose"]
     with pytest.warns(UserWarning) as warning:
         parsed_args = parse_cli_args(args)
     assert getattr(parsed_args, "verbose", None) is None

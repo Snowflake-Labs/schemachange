@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import warnings
-from typing import Callable
+from typing import Callable, Set
 
 import structlog
 from structlog import PrintLogger
 
 
 def get_redact_config_secrets_processor(
-    config_secrets: set[str],
+    config_secrets: Set[str],
 ) -> Callable[[PrintLogger, str, dict], dict]:
     def redact_config_secrets_processor(
         _: PrintLogger, __: str, event_dict: dict
@@ -50,7 +50,7 @@ def get_redact_config_secrets_processor(
     return redact_config_secrets_processor
 
 
-def redact_config_secrets(config_secrets: set[str]) -> None:
+def redact_config_secrets(config_secrets: Set[str]) -> None:
     if not config_secrets:
         return
 

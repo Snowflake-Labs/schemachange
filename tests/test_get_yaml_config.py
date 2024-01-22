@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import unittest.mock as mock
 from pathlib import Path
+from typing import Dict
 
 import pytest
 
@@ -26,7 +27,7 @@ vars:
     config_file.write_text(config_contents)
 
     # noinspection PyTypeChecker
-    config: dict[str, dict[str, str]] = load_yaml_config(config_file)
+    config: Dict[str, Dict[str, str]] = load_yaml_config(config_file)
 
     assert config["config-version"] == 1
     assert config["root-folder"] == "scripts"

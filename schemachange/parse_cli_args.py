@@ -5,6 +5,7 @@ import json
 import logging
 import warnings
 from enum import Enum
+from typing import List
 
 import structlog
 
@@ -52,7 +53,7 @@ class LogLevel(Enum):
 
 
 def deprecate_verbose(
-    args: list[str], verbose: argparse.Action, parsed_args: argparse.Namespace
+    args: List[str], verbose: argparse.Action, parsed_args: argparse.Namespace
 ):
     # If --verbose or -v were supplied, warn the user and interpret it as a
     for option_string in verbose.option_strings:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from argparse import Namespace
 from pathlib import Path
-from typing import Union
+from typing import Union, List
 from unittest import mock
 
 import pytest
@@ -298,7 +298,7 @@ class TestConfig:
         self,
         yaml_config: DeployConfig,
         cli_config: DeployConfig,
-        cli_overrides: list[str],
+        cli_overrides: List[str],
     ):
         merged_config = yaml_config.merge_exclude_unset(other=cli_config)
 

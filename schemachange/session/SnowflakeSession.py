@@ -4,7 +4,7 @@ import hashlib
 import time
 from collections import defaultdict
 from textwrap import dedent, indent
-from typing import Optional, Union
+from typing import Optional, Union, Dict, Tuple, List
 
 import snowflake.connector
 import structlog
@@ -25,7 +25,7 @@ class SnowflakeSession:
     autocommit: bool
     change_history_table: Table
     logger: structlog.BoundLogger
-    session_parameters: dict[str, str]
+    session_parameters: Dict[str, str]
     conn: snowflake.connector.SnowflakeConnection
 
     """
@@ -186,9 +186,9 @@ class SnowflakeSession:
 
     def get_script_metadata(
         self, create_change_history_table: bool, dry_run: bool
-    ) -> tuple[
-        Optional[dict[str, dict[str, Union[str, int]]]],
-        Optional[dict[str, list[str]]],
+    ) -> Tuple[
+        Optional[Dict[str, Dict[str, Union[str, int]]]],
+        Optional[Dict[str, List[str]]],
         Optional[Union[str, int]],
     ]:
         change_history_table_exists = self.change_history_table_exists(
@@ -211,7 +211,7 @@ class SnowflakeSession:
         )
         return change_history, r_scripts_checksum, max_published_version
 
-    def fetch_repeatable_scripts(self) -> dict[str, list[str]]:
+    def fetch_repeatable_scripts(self) -> Dict[str, List[str]]:
         query = f"""\
         SELECT DISTINCT
             SCRIPT AS SCRIPT_NAME,
@@ -226,7 +226,7 @@ class SnowflakeSession:
         results = self.execute_snowflake_query(dedent(query))
 
         # Collect all the results into a dict
-        script_checksums: dict[str, list[str]] = defaultdict(list)
+        script_checksums: Dict[str, List[str]] = defaultdict(list)
         for cursor in results:
             for script_name, checksum in cursor:
                 script_checksums[script_name].append(checksum)
@@ -234,7 +234,7 @@ class SnowflakeSession:
 
     def fetch_versioned_scripts(
         self,
-    ) -> tuple[dict[str, dict[str, Union[str, int]]], Optional[Union[str, int]]]:
+    ) -> Tuple[Dict[str, Dict[str, Union[str, int]]], Optional[Union[str, int]]]:
         query = f"""\
         SELECT VERSION, SCRIPT, CHECKSUM
         FROM {self.change_history_table.fully_qualified}
@@ -244,8 +244,8 @@ class SnowflakeSession:
         results = self.execute_snowflake_query(dedent(query))
 
         # Collect all the results into a list
-        versioned_scripts: dict[str, dict[str, Union[str, int]]] = defaultdict(dict)
-        versions: list[Union[str, int]] = []
+        versioned_scripts: Dict[str, Dict[str, Union[str, int]]] = defaultdict(dict)
+        versions: List[Union[str, int]] = []
         for cursor in results:
             for version, script, checksum in cursor:
                 versions.append(version)
