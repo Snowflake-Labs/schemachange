@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 import jinja2
 import jinja2.ext
 import structlog
