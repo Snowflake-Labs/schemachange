@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from argparse import Namespace
 from pathlib import Path
+from typing import Union
 from unittest import mock
 
 import pytest
@@ -335,7 +336,7 @@ class TestConfig:
 )
 @mock.patch("pathlib.Path.is_file", return_value=True)
 def test_config_factory(
-    _, args: Namespace, expected_class: DeployConfig | RenderConfig
+    _, args: Namespace, expected_class: Union[DeployConfig, RenderConfig]
 ):
     result = config_factory(args)
     # noinspection PyTypeChecker

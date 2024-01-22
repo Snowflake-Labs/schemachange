@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional, Union
+
 import jinja2
 import jinja2.ext
 import structlog
@@ -15,7 +17,7 @@ from schemachange.Config import DeployConfig, RenderConfig, config_factory
 logger = structlog.getLogger(__name__)
 
 
-def load_yaml_config(config_file_path: Path | None) -> dict[str, object]:
+def load_yaml_config(config_file_path: Optional[Path]) -> dict[str, object]:
     """
     Loads the schemachange config file and processes with jinja templating engine
     """
@@ -40,8 +42,10 @@ def load_yaml_config(config_file_path: Path | None) -> dict[str, object]:
 
 
 def get_yaml_config(
-    subcommand: str, config_file_path: Path | None, script_path: Path | None = None
-) -> DeployConfig | RenderConfig:
+    subcommand: str,
+    config_file_path: Optional[Path],
+    script_path: Optional[Path] = None,
+) -> Union[DeployConfig, RenderConfig]:
     # TODO: I think the configuration key for oauthconfig should be oauth-config.
     #  This looks like a bug in the current state of the repo to me
 

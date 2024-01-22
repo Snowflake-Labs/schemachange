@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from typing import Union
 
 import structlog
 import hashlib
@@ -22,7 +23,7 @@ SNOWFLAKE_APPLICATION_NAME = "schemachange"
 module_logger = structlog.getLogger(__name__)
 
 
-def get_merged_config() -> DeployConfig | RenderConfig:
+def get_merged_config() -> Union[DeployConfig, RenderConfig]:
     args = parse_cli_args(sys.argv[1:])
     cli_config = config_factory(args=args)
     yaml_config = get_yaml_config(

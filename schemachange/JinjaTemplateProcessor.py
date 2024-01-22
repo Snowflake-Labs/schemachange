@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
 
 import jinja2
 import jinja2.ext
@@ -43,7 +44,7 @@ class JinjaTemplateProcessor:
         # to make unit testing easier
         self.__environment = jinja2.Environment(loader=loader, **self._env_args)
 
-    def render(self, script: str, variables: dict[str, object] | None) -> str:
+    def render(self, script: str, variables: Optional[dict[str, object]]) -> str:
         if not variables:
             variables = {}
         # jinja needs posix path

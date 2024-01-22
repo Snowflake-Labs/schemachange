@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from abc import ABC
-from typing import Literal, Annotated
+from typing import Literal, Annotated, Optional, Union
 
 import structlog
 from pydantic import BaseModel, UrlConstraints
@@ -21,7 +21,7 @@ HttpsUrl = Annotated[
 
 
 class Credential(BaseModel, ABC):
-    authenticator: Literal["snowflake", "oauth", "externalbrowser"] | HttpsUrl
+    authenticator: Union[HttpsUrl, Literal["snowflake", "oauth", "externalbrowser"]]
 
 
 class OauthCredential(Credential):
@@ -41,7 +41,7 @@ class PrivateKeyCredential(Credential):
 
 class ExternalBrowserCredential(Credential):
     authenticator: Literal["externalbrowser"] = "externalbrowser"
-    password: str | None = None
+    password: Optional[str] = None
 
 
 class OktaCredential(Credential):
@@ -49,16 +49,19 @@ class OktaCredential(Credential):
     password: str
 
 
+SomeCredential = Union[
+    OauthCredential,
+    PasswordCredential,
+    ExternalBrowserCredential,
+    OktaCredential,
+    PrivateKeyCredential,
+]
+
+
 def credential_factory(
     logger: structlog.BoundLogger,
-    oauth_config: dict | None = None,
-) -> (
-    OauthCredential
-    | PasswordCredential
-    | ExternalBrowserCredential
-    | OktaCredential
-    | PrivateKeyCredential
-):
+    oauth_config: Optional[dict] = None,
+) -> SomeCredential:
     snowflake_authenticator = os.getenv("SNOWFLAKE_AUTHENTICATOR")
     if not snowflake_authenticator:
         snowflake_authenticator = "snowflake"
@@ -109,12 +112,3 @@ def credential_factory(
         "must be defined for private key authentication. \n"
         "SNOWFLAKE_AUTHENTICATOR must be defined is using Oauth, OKTA or external Browser Authentication."
     )
-
-
-SomeCredential = (
-    OauthCredential
-    | PasswordCredential
-    | ExternalBrowserCredential
-    | OktaCredential
-    | PrivateKeyCredential
-)

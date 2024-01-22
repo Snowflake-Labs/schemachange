@@ -4,7 +4,7 @@ import logging
 from abc import ABC
 from argparse import Namespace
 from pathlib import Path
-from typing import Literal, ClassVar, TypeVar
+from typing import Literal, ClassVar, TypeVar, Optional, Union
 
 import structlog
 from pydantic import (
@@ -22,11 +22,12 @@ logger = structlog.getLogger(__name__)
 T = TypeVar("T", bound="Config")
 
 
-def get_config_secrets(config_vars: dict[str, dict | str] | None) -> set[str]:
+def get_config_secrets(config_vars: Optional[dict[str, Union[dict, str]]]) -> set[str]:
     """Extracts all secret values from the vars attributes in config"""
 
     def inner_extract_dictionary_secrets(
-        dictionary: dict[str, dict | str] | None, child_of_secrets: bool = False
+        dictionary: Optional[dict[str, Union[dict, str]]],
+        child_of_secrets: bool = False,
     ) -> set[str]:
         """Considers any key with the word secret in the name as a secret or
         all values as secrets if a child of a key named secrets.
@@ -59,10 +60,10 @@ class Config(BaseModel, ABC):
 
     subcommand: Literal["deploy", "render"]
     config_folder: Path = Field(default=Path("."))
-    config_file_path: Path | None = None
-    root_folder: Path | None = Field(default=Path("."))
-    modules_folder: Path | None = None
-    vars: dict | None = Field(default_factory=dict)
+    config_file_path: Optional[Path] = None
+    root_folder: Optional[Path] = Field(default=Path("."))
+    modules_folder: Optional[Path] = None
+    vars: Optional[dict] = Field(default_factory=dict)
     secrets: set[str] = Field(default_factory=set)
     log_level: int = logging.INFO
 
@@ -78,7 +79,7 @@ class Config(BaseModel, ABC):
 
     @field_validator("config_folder", "root_folder", "modules_folder")
     @classmethod
-    def must_be_valid_dir(cls, v: Path, info: ValidationInfo) -> Path | None:
+    def must_be_valid_dir(cls, v: Path, info: ValidationInfo) -> Optional[Path]:
         if v is None:
             return v
         if not v.is_dir():
@@ -91,7 +92,7 @@ class Config(BaseModel, ABC):
 
     @field_validator("vars", mode="before")
     @classmethod
-    def must_be_dict(cls, v: str | dict) -> dict:
+    def must_be_dict(cls, v: Union[str, dict]) -> dict:
         if v is None:
             return {}
 
@@ -169,20 +170,20 @@ class Table(BaseModel):
 
 class DeployConfig(Config):
     subcommand: Literal["deploy"] = "deploy"
-    snowflake_account: str | None = None
-    snowflake_user: str | None = None
-    snowflake_role: str | None = None
-    snowflake_warehouse: str | None = None
-    snowflake_database: str | None = None
-    snowflake_schema: str | None = None
+    snowflake_account: Optional[str] = None
+    snowflake_user: Optional[str] = None
+    snowflake_role: Optional[str] = None
+    snowflake_warehouse: Optional[str] = None
+    snowflake_database: Optional[str] = None
+    snowflake_schema: Optional[str] = None
     # TODO: Turn change_history_table into three arguments. There's no need to parse it from a string
-    change_history_table: Table | None = Field(default_factory=Table)
+    change_history_table: Optional[Table] = Field(default_factory=Table)
     create_change_history_table: bool = False
     autocommit: bool = False
     dry_run: bool = False
-    query_tag: str | None = None
-    oauth_config: dict | None = None
-    version_number_validation_regex: str | None = None
+    query_tag: Optional[str] = None
+    oauth_config: Optional[dict] = None
+    version_number_validation_regex: Optional[str] = None
     raise_exception_on_ignored_versioned_script: bool = False
 
     def check_for_deploy_args(self) -> None:
@@ -211,7 +212,7 @@ class RenderConfig(DeployConfig):
 
     @field_validator("script_path")
     @classmethod
-    def must_be_valid_file(cls, v: Path) -> Path | None:
+    def must_be_valid_file(cls, v: Path) -> Optional[Path]:
         if not v.is_file():
             raise PydanticCustomError(
                 "script_path", "invalid script_path: {script_path}", {"script_path": v}
@@ -219,7 +220,7 @@ class RenderConfig(DeployConfig):
         return v
 
 
-def config_factory(args: Namespace | dict) -> DeployConfig | RenderConfig:
+def config_factory(args: Union[Namespace, dict]) -> Union[DeployConfig, RenderConfig]:
     if isinstance(args, Namespace):
         subcommand = args.subcommand
         kwargs = args.__dict__

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import warnings
+from typing import Optional
 
 import requests
 import structlog
@@ -13,7 +14,7 @@ from cryptography.hazmat.primitives import serialization
 logger = structlog.getLogger(__name__)
 
 
-def get_snowflake_password() -> str | None:
+def get_snowflake_password() -> Optional[str]:
     snowflake_password = None
     if os.getenv("SNOWFLAKE_PASSWORD") is not None and os.getenv("SNOWFLAKE_PASSWORD"):
         snowflake_password = os.getenv("SNOWFLAKE_PASSWORD")
@@ -36,7 +37,7 @@ def get_snowflake_password() -> str | None:
     return snowflake_password
 
 
-def get_private_key_password() -> bytes | None:
+def get_private_key_password() -> Optional[bytes]:
     private_key_password = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE", "")
 
     if private_key_password:

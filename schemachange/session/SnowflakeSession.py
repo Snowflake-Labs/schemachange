@@ -4,6 +4,7 @@ import hashlib
 import time
 from collections import defaultdict
 from textwrap import dedent, indent
+from typing import Optional, Union
 
 import snowflake.connector
 import structlog
@@ -18,9 +19,9 @@ class SnowflakeSession:
     account: str
     role: str
     warehouse: str
-    database: str | None
-    schema: str | None
-    query_tag: str | None
+    database: Optional[str]
+    schema: Optional[str]
+    query_tag: Optional[str]
     autocommit: bool
     change_history_table: Table
     logger: structlog.BoundLogger
@@ -43,9 +44,9 @@ class SnowflakeSession:
         change_history_table: Table,
         logger: structlog.BoundLogger,
         autocommit: bool = False,
-        snowflake_database: str | None = None,
-        snowflake_schema: str | None = None,
-        query_tag: str | None = None,
+        snowflake_database: Optional[str] = None,
+        snowflake_schema: Optional[str] = None,
+        query_tag: Optional[str] = None,
     ):
         self.user = snowflake_user
         self.account = snowflake_account
@@ -186,9 +187,9 @@ class SnowflakeSession:
     def get_script_metadata(
         self, create_change_history_table: bool, dry_run: bool
     ) -> tuple[
-        dict[str, dict[str, str | int]] | None,
-        dict[str, list[str]] | None,
-        str | int | None,
+        Optional[dict[str, dict[str, Union[str, int]]]],
+        Optional[dict[str, list[str]]],
+        Optional[Union[str, int]],
     ]:
         change_history_table_exists = self.change_history_table_exists(
             create_change_history_table=create_change_history_table,
@@ -233,7 +234,7 @@ class SnowflakeSession:
 
     def fetch_versioned_scripts(
         self,
-    ) -> tuple[dict[str, dict[str, str | int]], int | str | None]:
+    ) -> tuple[dict[str, dict[str, Union[str, int]]], Optional[Union[str, int]]]:
         query = f"""\
         SELECT VERSION, SCRIPT, CHECKSUM
         FROM {self.change_history_table.fully_qualified}
@@ -243,8 +244,8 @@ class SnowflakeSession:
         results = self.execute_snowflake_query(dedent(query))
 
         # Collect all the results into a list
-        versioned_scripts: dict[str, dict[str, str | int]] = defaultdict(dict)
-        versions: list[str | int] = []
+        versioned_scripts: dict[str, dict[str, Union[str, int]]] = defaultdict(dict)
+        versions: list[Union[str, int]] = []
         for cursor in results:
             for version, script, checksum in cursor:
                 versions.append(version)
@@ -279,7 +280,7 @@ class SnowflakeSession:
 
     def apply_change_script(
         self,
-        script: VersionedScript | RepeatableScript | AlwaysScript,
+        script: Union[VersionedScript, RepeatableScript, AlwaysScript],
         script_content: str,
         dry_run: bool,
     ) -> None:
@@ -335,7 +336,7 @@ class SnowflakeSession:
 
 
 def get_session_from_config(
-    config: DeployConfig | RenderConfig,
+    config: Union[DeployConfig, RenderConfig],
     logger: structlog.BoundLogger,
     schemachange_version: str,
     snowflake_application_name: str,

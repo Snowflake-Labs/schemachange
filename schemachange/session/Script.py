@@ -4,7 +4,7 @@ import itertools
 import re
 from abc import ABC
 from pathlib import Path
-from typing import Literal, ClassVar, TypeVar
+from typing import Literal, ClassVar, TypeVar, Optional, Union
 
 import structlog
 from pydantic import BaseModel, ConfigDict
@@ -47,7 +47,7 @@ class VersionedScript(Script):
         r"^(V)(?P<version>.+?)?__(?P<description>.+?)\.", re.IGNORECASE
     )
     type: ClassVar[Literal["V"]] = "V"
-    version_number_regex: ClassVar[str | None] = None
+    version_number_regex: ClassVar[Optional[str]] = None
     version: str
 
     @classmethod
@@ -81,7 +81,7 @@ class AlwaysScript(Script):
     type: ClassVar[Literal["A"]] = "A"
 
 
-constructors: list[type[VersionedScript | RepeatableScript | AlwaysScript]] = [
+constructors: list[type[Union[VersionedScript, RepeatableScript, AlwaysScript]]] = [
     VersionedScript,
     RepeatableScript,
     AlwaysScript,
@@ -90,8 +90,10 @@ constructors: list[type[VersionedScript | RepeatableScript | AlwaysScript]] = [
 
 def script_factory(
     file_path: Path,
-) -> VersionedScript | RepeatableScript | AlwaysScript | None:
-    constructor: type[VersionedScript | RepeatableScript | AlwaysScript] | None = None
+) -> Optional[Union[VersionedScript, RepeatableScript, AlwaysScript]]:
+    constructor: Optional[
+        type[Union[VersionedScript, RepeatableScript, AlwaysScript]]
+    ] = None
     for a_constructor in constructors:
         if a_constructor.pattern.search(file_path.name.strip()) is not None:
             constructor = a_constructor
@@ -105,11 +107,13 @@ def script_factory(
 
 
 def get_all_scripts_recursively(
-    root_directory: Path, version_number_regex: str | None = None
+    root_directory: Path, version_number_regex: Optional[str] = None
 ):
     VersionedScript.version_number_regex = version_number_regex
 
-    all_files: dict[str, VersionedScript | RepeatableScript | AlwaysScript] = dict()
+    all_files: dict[
+        str, Union[VersionedScript, RepeatableScript, AlwaysScript]
+    ] = dict()
     all_versions = list()
     # Walk the entire directory structure recursively
     file_paths = itertools.chain(

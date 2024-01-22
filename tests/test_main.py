@@ -6,6 +6,7 @@ import tempfile
 import unittest.mock as mock
 from pathlib import Path
 from textwrap import dedent
+from typing import Optional
 
 import pytest
 
@@ -229,7 +230,7 @@ def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
     to_mock: str,
     cli_args: list[str],
     expected_config: dict,
-    expected_script_path: Path | None,
+    expected_script_path: Optional[Path],
 ):
     with mock.patch.dict(os.environ, {"SNOWFLAKE_PASSWORD": "password"}, clear=True):
         with mock.patch("sys.argv", cli_args):
@@ -294,7 +295,7 @@ def test_main_deploy_config_folder(
     to_mock: str,
     args: list[str],
     expected_config: dict,
-    expected_script_path: Path | None,
+    expected_script_path: Optional[Path],
 ):
     with mock.patch.dict(os.environ, {"SNOWFLAKE_PASSWORD": "password"}, clear=True):
         with tempfile.TemporaryDirectory() as d:
@@ -360,7 +361,7 @@ def test_main_deploy_modules_folder(
     to_mock: str,
     args: list[str],
     expected_config: dict,
-    expected_script_path: Path | None,
+    expected_script_path: Optional[Path],
 ):
     with mock.patch.dict(os.environ, {"SNOWFLAKE_PASSWORD": "password"}, clear=True):
         with tempfile.TemporaryDirectory() as d:

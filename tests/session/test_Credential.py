@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from typing import Optional
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -86,7 +87,7 @@ from schemachange.session.Credential import (
 )
 @mock.patch("requests.post")
 def test_credential_factory(
-    mock_post, _, env_vars: dict, oauth_config: dict | None, expected: str
+    mock_post, _, env_vars: dict, oauth_config: Optional[dict], expected: str
 ):
     mock_response = MagicMock()
     mock_response.text = json.dumps({"token-response-name-from-yaml": "my-token"})

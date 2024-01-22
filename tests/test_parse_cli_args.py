@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Union
 
 import pytest
 
@@ -11,7 +12,7 @@ from schemachange.parse_cli_args import parse_cli_args
 def test_parse_args_defaults():
     args: list[str] = []
     test_args = [("--config-folder", None, ".")]
-    expected: dict[str, str | int] = {}
+    expected: dict[str, Union[str, int]] = {}
     for arg, value, expected_value in test_args:
         if value:
             args.extend([arg, value])
@@ -31,7 +32,7 @@ def test_parse_args_defaults():
 
 def test_parse_args_deploy_names():
     args: list[str] = ["deploy"]
-    expected: dict[str, str | int] = {}
+    expected: dict[str, Union[str, int]] = {}
 
     valued_test_args: list[tuple[str, str, str]] = [
         ("--config-folder", "some_config_folder_name", "some_config_folder_name"),
@@ -81,7 +82,7 @@ def test_parse_args_deploy_names():
 
 def test_parse_args_deploy_flags():
     args: list[str] = ["deploy"]
-    expected: dict[str, str | int] = {}
+    expected: dict[str, Union[str, int]] = {}
 
     valued_test_args: list[tuple[str, str, str, str]] = [
         ("-f", "root_folder", "some_root_folder_name", "some_root_folder_name"),
