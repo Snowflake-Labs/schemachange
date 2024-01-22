@@ -252,9 +252,9 @@ class TestConfig:
             (DeployConfig(), []),
             (
                 DeployConfig(
-                    config_folder=Path(".") / "assets",
-                    root_folder=Path(".") / "assets",
-                    modules_folder=Path(".") / "assets",
+                    config_folder=Path(__file__).parent / "assets",
+                    root_folder=Path(__file__).parent / "assets",
+                    modules_folder=Path(__file__).parent / "assets",
                     vars={"var1": "cli_vars"},
                     snowflake_account="cli_snowflake_account",
                     snowflake_user="cli_snowflake_user",
