@@ -57,7 +57,6 @@ def main():
         "schemachange version: %(schemachange_version)s"
         % {"schemachange_version": SCHEMACHANGE_VERSION}
     )
-    logger = module_logger.bind(schemachange_version=SCHEMACHANGE_VERSION)
 
     config = get_merged_config()
     redact_config_secrets(config_secrets=config.secrets)
@@ -65,6 +64,9 @@ def main():
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(config.log_level),
     )
+
+    logger = structlog.getLogger()
+    logger = logger.bind(schemachange_version=SCHEMACHANGE_VERSION)
 
     config.log_details()
 

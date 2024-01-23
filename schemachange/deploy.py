@@ -118,16 +118,13 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
                 else:
                     script_log.debug(
                         "Script has already been applied",
-                        max_published_version=max_published_version,
+                        max_published_version=str(max_published_version),
                     )
                     if script_metadata["checksum"] != checksum_current:
                         script_log.info("Script checksum has drifted since application")
 
                     scripts_skipped += 1
                     continue
-
-        #     scripts_skipped += 1
-        #     continue
 
         # Apply only R scripts where the checksum changed compared to the last execution of snowchange
         if script.type == "R":
