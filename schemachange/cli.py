@@ -62,6 +62,10 @@ def main():
     config = get_merged_config()
     redact_config_secrets(config_secrets=config.secrets)
 
+    structlog.configure(
+        wrapper_class=structlog.make_filtering_bound_logger(config.log_level),
+    )
+
     config.log_details()
 
     # Finally, execute the command
