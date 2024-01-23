@@ -84,7 +84,6 @@ def parse_cli_args(args) -> argparse.Namespace:
     parent_parser.add_argument(
         "--config-folder",
         type=str,
-        default=".",
         help="The folder to look in for the schemachange-config.yml file "
         "(the default is the current working directory)",
         required=False,
@@ -114,13 +113,14 @@ def parse_cli_args(args) -> argparse.Namespace:
         "--log-level",
         type=LogLevel,
         action=EnumAction,
-        default=logging.INFO,
         help="Set the log level. Defaults to INFO.",
     )
     verbose = parent_parser.add_argument(
         "-v",
         "--verbose",
-        action="store_true",
+        action="store_const",
+        const=True,
+        default=None,
         help="DEPRECATED: Use --log-level instead. Display verbose debugging details "
         "during execution (the default is False)",
         required=False,
@@ -181,20 +181,26 @@ def parse_cli_args(args) -> argparse.Namespace:
     )
     parser_deploy.add_argument(
         "--create-change-history-table",
-        action="store_true",
+        action="store_const",
+        const=True,
+        default=None,
         help="Create the change history schema and table, if they do not exist (the default is False)",
         required=False,
     )
     parser_deploy.add_argument(
         "-ac",
         "--autocommit",
-        action="store_true",
+        action="store_const",
+        const=True,
+        default=None,
         help="Enable autocommit feature for DML commands (the default is False)",
         required=False,
     )
     parser_deploy.add_argument(
         "--dry-run",
-        action="store_true",
+        action="store_const",
+        const=True,
+        default=None,
         help="Run schemachange in dry run mode (the default is False)",
         required=False,
     )
@@ -219,7 +225,9 @@ def parse_cli_args(args) -> argparse.Namespace:
     )
     parser_deploy.add_argument(
         "--raise-exception-on-ignored-versioned-script",
-        action="store_true",
+        action="store_const",
+        const=True,
+        default=None,
         help="Raise an exception if an un-applied versioned script is ignored (the default is False)",
         required=False,
     )

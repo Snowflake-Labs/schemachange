@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Union, List, Tuple, Dict
+from typing import Union, List, Tuple, Dict, Optional
 
 import pytest
 
@@ -11,8 +11,8 @@ from schemachange.parse_cli_args import parse_cli_args
 
 def test_parse_args_defaults():
     args: List[str] = []
-    test_args = [("--config-folder", None, ".")]
-    expected: Dict[str, Union[str, int]] = {}
+    test_args = [("--config-folder", None, None)]
+    expected: Dict[str, Optional[Union[str, int]]] = {}
     for arg, value, expected_value in test_args:
         if value:
             args.extend([arg, value])
@@ -23,10 +23,10 @@ def test_parse_args_defaults():
     for expected_arg, expected_value in expected.items():
         parsed_arg = getattr(parsed_args, expected_arg)
         assert parsed_arg == expected_value
-    assert parsed_args.create_change_history_table is False
-    assert parsed_args.autocommit is False
-    assert parsed_args.dry_run is False
-    assert parsed_args.raise_exception_on_ignored_versioned_script is False
+    assert parsed_args.create_change_history_table is None
+    assert parsed_args.autocommit is None
+    assert parsed_args.dry_run is None
+    assert parsed_args.raise_exception_on_ignored_versioned_script is None
     assert parsed_args.subcommand == "deploy"
 
 

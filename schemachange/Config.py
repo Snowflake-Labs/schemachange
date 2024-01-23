@@ -112,6 +112,7 @@ class Config(BaseModel, ABC):
     def merge_exclude_unset(self: T, other: T) -> T:
         other_kwargs = other.model_dump(
             exclude_unset=True,
+            exclude_defaults=True,
             exclude_none=True,
         )
         other_kwargs.pop("config_file_path")
@@ -227,6 +228,8 @@ def config_factory(args: Union[Namespace, dict]) -> Union[DeployConfig, RenderCo
     else:
         subcommand = args.get("subcommand")
         kwargs = args
+
+    kwargs = {k: v for k, v in kwargs.items() if v is not None}
 
     if "change_history_table" in kwargs and kwargs["change_history_table"] is not None:
         kwargs["change_history_table"] = Table.from_str(kwargs["change_history_table"])
