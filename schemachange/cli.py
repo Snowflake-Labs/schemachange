@@ -49,7 +49,7 @@ def render(config: RenderConfig, script_path: Path, logger: BoundLogger) -> None
     content = jinja_processor.render(jinja_processor.relpath(script_path), config.vars)
 
     checksum = hashlib.sha224(content.encode("utf-8")).hexdigest()
-    logger.log("Success", checksum=checksum, content=content)
+    logger.info("Success", checksum=checksum, content=content)
 
 
 def main():

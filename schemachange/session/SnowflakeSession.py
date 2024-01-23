@@ -291,7 +291,7 @@ class SnowflakeSession:
         if dry_run:
             script_log.debug("Running in dry-run mode. Skipping execution")
             return
-        script_log.log("Applying change script")
+        script_log.info("Applying change script")
         # Define a few other change related variables
         checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
         execution_time = 0
