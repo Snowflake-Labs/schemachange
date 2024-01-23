@@ -112,7 +112,6 @@ class Config(BaseModel, ABC):
     def merge_exclude_unset(self: T, other: T) -> T:
         other_kwargs = other.model_dump(
             exclude_unset=True,
-            exclude_defaults=True,
             exclude_none=True,
         )
         other_kwargs.pop("config_file_path")
