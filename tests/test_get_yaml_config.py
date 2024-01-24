@@ -92,7 +92,8 @@ def test_get_yaml_config(_):
     assert yaml_config.snowflake_database == "snowflake-database-from-yaml"
     assert yaml_config.snowflake_schema == "snowflake-schema-from-yaml"
     assert yaml_config.change_history_table == Table(
-        table_name="CHANGE-HISTORY-TABLE-FROM-YAML"
+        database_name="SNOWFLAKE-DATABASE-FROM-YAML",
+        table_name="CHANGE-HISTORY-TABLE-FROM-YAML",
     )
     assert yaml_config.query_tag == "query-tag-from-yaml"
 

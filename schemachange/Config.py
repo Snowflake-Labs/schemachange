@@ -145,7 +145,7 @@ class Table(BaseModel):
         return f"{self.database_name}.{self.schema_name}.{self.table_name}"
 
     @classmethod
-    def from_str(cls, table_str: str, database: Optional[str]):
+    def from_str(cls, table_str: str, database: Optional[str] = None):
         details: dict[str, str] = {}
         if database:
             details["database_name"] = database
