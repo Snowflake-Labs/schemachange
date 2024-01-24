@@ -144,7 +144,10 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
                 continue
 
         session.apply_change_script(
-            script=script, script_content=content, dry_run=config.dry_run, logger=script_log
+            script=script,
+            script_content=content,
+            dry_run=config.dry_run,
+            logger=script_log,
         )
 
         scripts_applied += 1

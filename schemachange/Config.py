@@ -17,7 +17,6 @@ from pydantic import (
 from pydantic_core import PydanticCustomError
 from pydantic_core.core_schema import ValidationInfo
 
-
 logger = structlog.getLogger(__name__)
 T = TypeVar("T", bound="Config")
 
@@ -146,9 +145,12 @@ class Table(BaseModel):
         return f"{self.database_name}.{self.schema_name}.{self.table_name}"
 
     @classmethod
-    def from_str(cls, v: str):
-        details = dict()
-        table_name_parts = v.strip().split(".")
+    def from_str(cls, table_str: str, database: Optional[str]):
+        details: dict[str, str] = {}
+        if database:
+            details["database_name"] = database
+
+        table_name_parts = table_str.strip().split(".")
         if len(table_name_parts) == 1:
             details["table_name"] = table_name_parts[0]
         elif len(table_name_parts) == 2:
@@ -162,10 +164,15 @@ class Table(BaseModel):
             raise PydanticCustomError(
                 "change_history_table",
                 "Invalid change history table name: {change_history_table}",
-                {"change_history_table": v},
+                {"change_history_table": table_str},
             )
         # if the name element does not include '"' raise to upper case on return
-        return cls(**{k: v if '"' in v else v.upper() for (k, v) in details.items()})
+        return cls(
+            **{
+                k: table_str if '"' in table_str else table_str.upper()
+                for (k, table_str) in details.items()
+            }
+        )
 
 
 class DeployConfig(Config):
@@ -231,7 +238,10 @@ def config_factory(args: Union[Namespace, dict]) -> Union[DeployConfig, RenderCo
     kwargs = {k: v for k, v in kwargs.items() if v is not None}
 
     if "change_history_table" in kwargs and kwargs["change_history_table"] is not None:
-        kwargs["change_history_table"] = Table.from_str(kwargs["change_history_table"])
+        snowflake_database = kwargs.get("snowflake_database")
+        kwargs["change_history_table"] = Table.from_str(
+            table_str=kwargs["change_history_table"], database=snowflake_database
+        )
 
     if subcommand == "deploy":
         return DeployConfig(**kwargs)
