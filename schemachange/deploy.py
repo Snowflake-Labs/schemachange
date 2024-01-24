@@ -81,8 +81,9 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
     for script_name in all_script_names_sorted:
         script = all_scripts[script_name]
         script_log = logger.bind(
-            script_name=script.name,
-            script_type=script.type,
+            # The logging keys will be sorted alphabetically.
+            # Appending 'a' is a lazy way to get the script name to appear at the start of the log
+            a_script_name=script.name,
             script_version=getattr(script, "version", "N/A"),
         )
         # Always process with jinja engine
@@ -143,7 +144,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
                 continue
 
         session.apply_change_script(
-            script=script, script_content=content, dry_run=config.dry_run
+            script=script, script_content=content, dry_run=config.dry_run, logger=script_log
         )
 
         scripts_applied += 1

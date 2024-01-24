@@ -80,8 +80,8 @@ class SnowflakeSession:
         if hasattr(self, "con"):
             self.con.close()
 
-    def execute_snowflake_query(self, query: str):
-        self.logger.debug(
+    def execute_snowflake_query(self, query: str, logger: structlog.BoundLogger):
+        logger.debug(
             "Executing query",
             query=indent(query, prefix="\t"),
         )
@@ -105,7 +105,7 @@ class SnowflakeSession:
             WHERE TABLE_SCHEMA = REPLACE('{self.change_history_table.schema_name}','\"','')
                 AND TABLE_NAME = REPLACE('{self.change_history_table.table_name}','\"','')
         """
-        results = self.execute_snowflake_query(dedent(query))
+        results = self.execute_snowflake_query(query=dedent(query), logger=self.logger)
 
         # Collect all the results into a list
         change_history_metadata = dict()
@@ -123,7 +123,7 @@ class SnowflakeSession:
             FROM {self.change_history_table.database_name}.INFORMATION_SCHEMA.SCHEMATA
             WHERE SCHEMA_NAME = REPLACE('{self.change_history_table.schema_name}','\"','')
         """
-        results = self.execute_snowflake_query(dedent(query))
+        results = self.execute_snowflake_query(dedent(query), logger=self.logger)
         for cursor in results:
             for row in cursor:
                 return row[0] > 0
@@ -136,7 +136,7 @@ class SnowflakeSession:
                 query=indent(dedent(query), prefix="\t"),
             )
         else:
-            self.execute_snowflake_query(dedent(query))
+            self.execute_snowflake_query(dedent(query), logger=self.logger)
 
     def create_change_history_table(self, dry_run: bool) -> None:
         query = f"""\
@@ -158,7 +158,7 @@ class SnowflakeSession:
                 query=indent(dedent(query), prefix="\t"),
             )
         else:
-            self.execute_snowflake_query(dedent(query))
+            self.execute_snowflake_query(dedent(query), logger=self.logger)
 
     def change_history_table_exists(
         self, create_change_history_table: bool, dry_run: bool
@@ -223,7 +223,7 @@ class SnowflakeSession:
         WHERE SCRIPT_TYPE = 'R'
             AND STATUS = 'Success'
         """
-        results = self.execute_snowflake_query(dedent(query))
+        results = self.execute_snowflake_query(dedent(query), logger=self.logger)
 
         # Collect all the results into a dict
         script_checksums: Dict[str, List[str]] = defaultdict(list)
@@ -241,7 +241,7 @@ class SnowflakeSession:
         WHERE SCRIPT_TYPE = 'V'
         ORDER BY INSTALLED_ON DESC -- TODO: Why not order by version?
         """
-        results = self.execute_snowflake_query(dedent(query))
+        results = self.execute_snowflake_query(dedent(query), logger=self.logger)
 
         # Collect all the results into a list
         versioned_scripts: Dict[str, Dict[str, Union[str, int]]] = defaultdict(dict)
@@ -257,7 +257,7 @@ class SnowflakeSession:
 
         return versioned_scripts, versions[0] if versions else None
 
-    def reset_session(self):
+    def reset_session(self, logger: structlog.BoundLogger):
         # These items are optional, so we can only reset the ones with values
         reset_query = []
         if self.role:
@@ -269,29 +269,28 @@ class SnowflakeSession:
         if self.schema:
             reset_query.append(f"USE SCHEMA {self.schema};")
 
-        self.execute_snowflake_query("\n".join(reset_query))
+        self.execute_snowflake_query("\n".join(reset_query), logger=logger)
 
-    def reset_query_tag(self, extra_tag=None):
+    def reset_query_tag(self, logger: structlog.BoundLogger, extra_tag=None):
         query_tag = self.session_parameters["QUERY_TAG"]
         if extra_tag:
             query_tag += f";{extra_tag}"
 
-        self.execute_snowflake_query(f"ALTER SESSION SET QUERY_TAG = '{query_tag}'")
+        self.execute_snowflake_query(
+            f"ALTER SESSION SET QUERY_TAG = '{query_tag}'", logger=logger
+        )
 
     def apply_change_script(
         self,
         script: Union[VersionedScript, RepeatableScript, AlwaysScript],
         script_content: str,
         dry_run: bool,
+        logger: structlog.BoundLogger,
     ) -> None:
-        script_log = self.logger.bind(
-            script_name=script.name,
-            query=indent(dedent(script_content), prefix="\t"),
-        )
         if dry_run:
-            script_log.debug("Running in dry-run mode. Skipping execution")
+            logger.debug("Running in dry-run mode. Skipping execution")
             return
-        script_log.info("Applying change script")
+        logger.info("Applying change script")
         # Define a few other change related variables
         checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
         execution_time = 0
@@ -300,11 +299,14 @@ class SnowflakeSession:
         # Execute the contents of the script
         if len(script_content) > 0:
             start = time.time()
-            self.reset_session()
-            self.reset_query_tag(script.name)
-            self.execute_snowflake_query(script_content)
-            self.reset_query_tag()
-            self.reset_session()
+            self.reset_session(logger=logger)
+            self.reset_query_tag(extra_tag=script.name, logger=logger)
+            try:
+                self.execute_snowflake_query(query=script_content, logger=logger)
+            except Exception as e:
+                raise Exception(f"Failed to execute {script.name}") from e
+            self.reset_query_tag(logger=logger)
+            self.reset_session(logger=logger)
             end = time.time()
             execution_time = round(end - start)
 
@@ -332,7 +334,7 @@ class SnowflakeSession:
                 CURRENT_TIMESTAMP
             );
         """
-        self.execute_snowflake_query(dedent(query))
+        self.execute_snowflake_query(dedent(query), logger=logger)
 
 
 def get_session_from_config(
