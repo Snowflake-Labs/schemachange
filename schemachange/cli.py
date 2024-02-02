@@ -19,7 +19,7 @@ from cryptography.hazmat.primitives import serialization
 from jinja2.loaders import BaseLoader
 from pandas import DataFrame
 
-#region Global Variables 
+#region Global Variables
 # metadata
 _schemachange_version = '3.5.3'
 _config_file_name = 'schemachange-config.yml'
@@ -48,7 +48,7 @@ _log_config_details = "Using Snowflake account {snowflake_account}\nUsing defaul
   + "{snowflake_role}\nUsing default warehouse {snowflake_warehouse}\nUsing default " \
   + "database {snowflake_database}"
 _log_ch_use = "Using change history table {database_name}.{schema_name}.{table_name} " \
-  + "(last altered {last_altered})" 
+  + "(last altered {last_altered})"
 _log_ch_create = "Created change history table {database_name}.{schema_name}.{table_name}"
 _err_ch_missing = "Unable to find change history table {database_name}.{schema_name}.{table_name}"
 _log_ch_max_version = "Max applied change script version: {max_published_version_display}"
@@ -66,7 +66,7 @@ _err_vars_reserved = "The variable schemachange has been reserved for use by sch
   + "please use a different name"
 _err_invalid_folder  = "Invalid {folder_type} folder: {path}"
 _err_dup_scripts = "The script name {script_name} exists more than once (first_instance " \
-  + "{first_path}, second instance {script_full_path})" 
+  + "{first_path}, second instance {script_full_path})"
 _err_dup_scripts_version = "The script version {script_version} exists more than once " \
   + "(second instance {script_full_path})"
 _err_dup_undo_scripts_version = "The undo version {script_version} exists more than once " \
@@ -271,7 +271,7 @@ class SnowflakeSchemachangeSession:
     snowflake_password = None
     if os.getenv("SNOWFLAKE_PASSWORD") is not None and os.getenv("SNOWFLAKE_PASSWORD"):
       snowflake_password = os.getenv("SNOWFLAKE_PASSWORD")
-    
+
     # Check legacy/deprecated env variable
     if os.getenv("SNOWSQL_PWD") is not None and os.getenv("SNOWSQL_PWD"):
       if snowflake_password:
@@ -312,20 +312,20 @@ class SnowflakeSchemachangeSession:
 
       self.conArgs['private_key'] = pkb
       self.conArgs['authenticator'] = 'snowflake'
-    
-    elif os.getenv("SNOWFLAKE_AUTHENTICATOR") == 'oauth' and os.getenv("SNOWFLAKE_AUTHENTICATOR"):      
+
+    elif os.getenv("SNOWFLAKE_AUTHENTICATOR") == 'oauth' and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
       oauth_token = self.get_oauth_token()
-      
+
       if self.verbose:
         print( _log_auth_type % 'Oauth Access Token')
       self.conArgs['token'] = oauth_token
       self.conArgs['authenticator'] = 'oauth'
-    
+
     elif os.getenv("SNOWFLAKE_AUTHENTICATOR") == 'externalbrowser' and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
       self.conArgs['authenticator'] = 'externalbrowser'
       if self.verbose:
         print(_log_auth_type % 'External Browser')
-        
+
     elif os.getenv("SNOWFLAKE_AUTHENTICATOR").lower()[:8]=='https://' \
       and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
       okta = os.getenv("SNOWFLAKE_AUTHENTICATOR")
@@ -468,7 +468,7 @@ class SnowflakeSchemachangeSession:
     # Compose and execute the insert statement to the log file
     query = self._q_ch_log.format(**frmt_args)
     self.execute_snowflake_query(query)
-  
+
 
 def deploy_command(config):
   req_args = set(['snowflake_account','snowflake_user','snowflake_role','snowflake_warehouse'])
@@ -613,6 +613,98 @@ def undo_command(config):
 
   print(_log_undo_set_complete.format(scripts_applied=scripts_applied))
 
+def recalculate_checksum(config):
+  """
+  Recalculate checksum for repeatable migrations
+
+  Useful when cloning a database and want to just recalculate the checksums as you already know that database is in the
+  latest state.
+
+
+  """
+  req_args = set(['snowflake_account','snowflake_user','snowflake_role','snowflake_warehouse'])
+  validate_auth_config(config, req_args)
+
+  # Log some additional details
+  if config['dry_run']:
+    print("Running in dry-run mode")
+  print(_log_config_details.format(**config))
+
+  #connect to snowflake and maintain connection
+  session = SnowflakeSchemachangeSession(config)
+
+  scripts_skipped = 0
+  scripts_applied = 0
+
+  # Deal with the change history table (create if specified)
+  change_history_table = get_change_history_table_details(config['change_history_table'])
+  change_history_metadata = session.fetch_change_history_metadata(change_history_table)
+  if change_history_metadata:
+    print(_log_ch_use.format(last_altered=change_history_metadata['last_altered'], **change_history_table))
+  elif config['create_change_history_table']:
+    # Create the change history table (and containing objects) if it don't exist.
+    if not config['dry_run']:
+      session.create_change_history_table_if_missing(change_history_table)
+    print(_log_ch_create.format(**change_history_table))
+  else:
+    raise ValueError(_err_ch_missing.format(**change_history_table))
+
+  # Find the max published version
+  max_published_version = ''
+
+  change_history = None
+  r_scripts_checksum = None
+  if (config['dry_run'] and change_history_metadata) or not config['dry_run']:
+    change_history = session.fetch_change_history(change_history_table)
+    r_scripts_checksum = session.fetch_r_scripts_checksum(change_history_table)
+
+  if change_history:
+    max_published_version = change_history[0]
+  max_published_version_display = max_published_version
+  if max_published_version_display == '':
+    max_published_version_display = 'None'
+  print(_log_ch_max_version.format(max_published_version_display=max_published_version_display))
+
+  # Find all scripts in the root folder (recursively) and sort them correctly
+  all_scripts = get_all_scripts_recursively(config['root_folder'], config['verbose'])
+  all_script_names = list(all_scripts.keys())
+  # Sort scripts such that versioned scripts get applied first and then the repeatable ones.
+  all_script_names_sorted = sorted_alphanumeric([script for script in all_script_names if script[0] == 'R'])
+
+  # Loop through each script in order and apply any required changes
+  for script_name in all_script_names_sorted:
+    script = all_scripts[script_name]
+
+    # Always process with jinja engine
+    jinja_processor = JinjaTemplateProcessor(project_root = config['root_folder'], modules_folder = config['modules_folder'])
+    content = jinja_processor.render(jinja_processor.relpath(script['script_full_path']), config['vars'], config['verbose'])
+
+    # Apply only R scripts where the checksum changed compared to the last execution of snowchange
+    if script_name[0] == 'R':
+      # Compute the checksum for the script
+      checksum_current = hashlib.sha224(content.encode('utf-8')).hexdigest()
+
+      # check if R file was already executed
+      if (r_scripts_checksum is not None) and script_name in list(r_scripts_checksum['script_name']):
+        checksum_last = list(r_scripts_checksum.loc[r_scripts_checksum['script_name'] == script_name, 'checksum'])[0]
+      else:
+        checksum_last = ''
+
+      # check if there is a change of the checksum in the script
+      if checksum_current == checksum_last:
+        if config['verbose']:
+          print(_log_skip_r.format(**script))
+        scripts_skipped += 1
+        continue
+
+    print(_log_apply.format(**script))
+
+    if not config['dry_run']:
+      session.record_change_script(script, content, change_history_table, 0)
+      scripts_applied += 1
+
+  print(_log_apply_set_complete.format(scripts_applied=scripts_applied, scripts_skipped=scripts_skipped))
+
 def render_command(config, script_path):
   """
   Renders the provided script.
@@ -622,7 +714,7 @@ def render_command(config, script_path):
   # Validate the script file path
   script_path = os.path.abspath(script_path)
   if not os.path.isfile(script_path):
-    raise ValueError(_err_invalid_folder.format(folder_type='script_path', path=script_path))   
+    raise ValueError(_err_invalid_folder.format(folder_type='script_path', path=script_path))
   # Always process with jinja engine
   jinja_processor = JinjaTemplateProcessor(project_root = config['root_folder'], \
      modules_folder = config['modules_folder'])
@@ -713,10 +805,10 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
 
   # Validate folder paths
   if 'root_folder' in config:
-    config['root_folder'] = os.path.abspath(config['root_folder'])   
+    config['root_folder'] = os.path.abspath(config['root_folder'])
   if not os.path.isdir(config['root_folder']):
     raise ValueError(_err_invalid_folder.format(folder_type='root', path=config['root_folder']))
- 
+
   if config['modules_folder']:
     config['modules_folder'] = os.path.abspath(config['modules_folder'])
     if not os.path.isdir(config['modules_folder']):
@@ -810,7 +902,7 @@ def get_all_scripts_recursively(root_directory, verbose):
       # Throw an error if the same version exists more than once
       if script_type == 'V':
         if script['script_version'] in all_versions:
-          raise ValueError(_err_dup_scripts_version.format(**script)) 
+          raise ValueError(_err_dup_scripts_version.format(**script))
         all_versions.append(script['script_version'])
 
       if script_type == 'U':
@@ -828,22 +920,22 @@ def get_all_scripts_recursively(root_directory, verbose):
 def get_change_history_table_details(change_history_table):
   # Start with the global defaults
   details = dict()
-  details['database_name'] = _metadata_database_name 
-  details['schema_name'] = _metadata_schema_name 
-  details['table_name'] = _metadata_table_name 
+  details['database_name'] = _metadata_database_name
+  details['schema_name'] = _metadata_schema_name
+  details['table_name'] = _metadata_table_name
 
   # Then override the defaults if requested. The name could be in one, two or three part notation.
   if change_history_table is not None:
     table_name_parts = change_history_table.strip().split('.')
-    if len(table_name_parts) == 1: 
-      details['table_name'] = table_name_parts[0] 
+    if len(table_name_parts) == 1:
+      details['table_name'] = table_name_parts[0]
     elif len(table_name_parts) == 2:
-      details['table_name'] = table_name_parts[1] 
-      details['schema_name'] = table_name_parts[0] 
+      details['table_name'] = table_name_parts[1]
+      details['schema_name'] = table_name_parts[0]
     elif len(table_name_parts) == 3:
-      details['table_name'] = table_name_parts[2] 
-      details['schema_name'] = table_name_parts[1] 
-      details['database_name'] = table_name_parts[0] 
+      details['table_name'] = table_name_parts[2]
+      details['schema_name'] = table_name_parts[1]
+      details['database_name'] = table_name_parts[0]
     else:
       raise ValueError(_err_invalid_cht % change_history_table)
   #if the object name does not include '"' raise to upper case on return
@@ -894,6 +986,24 @@ def main(argv=sys.argv):
   parser = argparse.ArgumentParser(prog = 'schemachange', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/Snowflake-Labs/schemachange', formatter_class = argparse.RawTextHelpFormatter)
   subcommands = parser.add_subparsers(dest='subcommand')
 
+  parser_undo = subcommands.add_parser("recalculate_checksum")
+  parser_undo.add_argument('--config-folder', type = str, default = '.', help = 'The folder to look in for the schemachange-config.yml file (the default is the current working directory)', required = False)
+  parser_undo.add_argument('-s', '--step', type = int, default = 1, help = 'Amount of versioned migrations to be undone in the reverse of their applied order', required = False)
+  parser_undo.add_argument('-f', '--root-folder', type = str, help = 'The root folder for the database change scripts', required = False)
+  parser_undo.add_argument('-m', '--modules-folder', type = str, help = 'The modules folder for jinja macros and templates to be used across multiple scripts', required = False)
+  parser_undo.add_argument('-a', '--snowflake-account', type = str, help = 'The name of the snowflake account (e.g. xy12345.east-us-2.azure)', required = False)
+  parser_undo.add_argument('-u', '--snowflake-user', type = str, help = 'The name of the snowflake user', required = False)
+  parser_undo.add_argument('-r', '--snowflake-role', type = str, help = 'The name of the default role to use', required = False)
+  parser_undo.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the default warehouse to use. Can be overridden in the change scripts.', required = False)
+  parser_undo.add_argument('-d', '--snowflake-database', type = str, help = 'The name of the default database to use. Can be overridden in the change scripts.', required = False)
+  parser_undo.add_argument('-c', '--change-history-table', type = str, help = 'Used to override the default name of the change history table (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)', required = False)
+  parser_undo.add_argument('--vars', type = json.loads, help = 'Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})', required = False)
+  parser_undo.add_argument('-ac', '--autocommit', action='store_true', help = 'Enable autocommit feature for DML commands (the default is False)', required = False)
+  parser_undo.add_argument('-v','--verbose', action='store_true', help = 'Display verbose debugging details during execution (the default is False)', required = False)
+  parser_undo.add_argument('--dry-run', action='store_true', help = 'Run schemachange in dry run mode (the default is False)', required = False)
+  parser_undo.add_argument('--query-tag', type = str, help = 'The string to add to the Snowflake QUERY_TAG session value for each query executed', required = False)
+  parser_undo.add_argument('--oauth-config', type = json.loads, help = 'Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })', required = False)
+
   parser_undo = subcommands.add_parser("undo")
   parser_undo.add_argument('--config-folder', type = str, default = '.', help = 'The folder to look in for the schemachange-config.yml file (the default is the current working directory)', required = False)
   parser_undo.add_argument('-s', '--step', type = int, default = 1, help = 'Amount of versioned migrations to be undone in the reverse of their applied order', required = False)
@@ -942,7 +1052,7 @@ def main(argv=sys.argv):
   # The original parameters did not support subcommands. Check if a subcommand has been supplied
   # if not default to deploy to match original behaviour.
   args = argv[1:]
-  if len(args) == 0 or not any(subcommand in args[0].upper() for subcommand in ["DEPLOY", "RENDER", "UNDO"]):
+  if len(args) == 0 or not any(subcommand in args[0].upper() for subcommand in ["DEPLOY", "RENDER", "UNDO", "RECALCULATE_CHECKSUM"]):
     args = ["deploy"] + args
 
   args = parser.parse_args(args)
@@ -997,6 +1107,8 @@ def main(argv=sys.argv):
     render_command(config, args.script)
   elif args.subcommand == 'undo':
     undo_command(config)
+  elif args.subcommand == 'recalculate_checksum':
+    recalculate_checksum(config)
   else:
     deploy_command(config)
 
