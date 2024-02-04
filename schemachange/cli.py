@@ -18,6 +18,9 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from jinja2.loaders import BaseLoader
 from pandas import DataFrame
+import pandas as pd
+import datetime
+from snowflake.connector.pandas_tools import write_pandas
 
 #region Global Variables
 # metadata
@@ -186,6 +189,16 @@ class SecretManager:
         redacted = redacted.replace(secret, "*" * len(secret))
     return redacted
 
+class RepeatableMigrationBatchItem:
+  def __init__(self, script_name: str, script_number: int, content: str, checksum: str):
+    self.script_name = script_name
+    self.script_number = script_number
+    self.content = content
+    self.checksum = checksum
+
+  def get_clean_script_name(self) -> str:
+    index = self.script_name.index("__") + len("__")
+    return self.script_name[index:].replace("_", " ")
 
 class SnowflakeSchemachangeSession:
   """
@@ -366,6 +379,35 @@ class SnowflakeSchemachangeSession:
         self.con.rollback()
       raise e
 
+  def execute_pandas_df(self, df: pd.DataFrame, change_history_table: dict):
+    if self.verbose:
+      print(SecretManager.global_redact("SQL query: %s" % df.to_string()))
+
+    try:
+      success, nchunks, nrows, _ = write_pandas(self.con, df, table_name=change_history_table['table_name'],\
+                                                database=change_history_table['database_name'],\
+                                                schema=change_history_table['schema_name'])
+      if not self.autocommit:
+        self.con.commit()
+      return success
+    except Exception as e:
+      if not self.autocommit:
+        self.con.rollback()
+      raise e
+
+  def execute_snowflake_batch_query(self, query):
+    if self.verbose:
+      print(SecretManager.global_redact("SQL query: %s" % query))
+    try:
+      res = self.con.execute_string(query)
+      if not self.autocommit:
+        self.con.commit()
+      return (True, "Success")
+    except Exception as e:
+      if not self.autocommit:
+        self.con.rollback()
+      return (False, e)
+
   def fetch_change_history_metadata(self,change_history_table):
     # This should only ever return 0 or 1 rows
     query = self._q_ch_metadata.format(**change_history_table)
@@ -476,6 +518,39 @@ class SnowflakeSchemachangeSession:
     query = self._q_ch_log.format(**frmt_args)
     self.execute_snowflake_query(query)
 
+  def apply_batch_change_script(self, scripts: list[RepeatableMigrationBatchItem], change_history_table):
+
+    script_content = ";\n".join([script.content for script in scripts])
+
+    # Execute the contents of the script
+    if len(script_content) > 0:
+      start = time.time()
+      self.reset_session()
+      self.reset_query_tag("SchemaChange_Batch_Repeatable Count:" + str(len(scripts)))
+      batch_processed_successfully = self.execute_snowflake_batch_query(script_content)
+      self.reset_query_tag()
+      self.reset_session()
+      end = time.time()
+      execution_time = round(end - start)
+
+      if batch_processed_successfully[0]:
+        df = pd.DataFrame(index=range(len(scripts)), columns=['VERSION', 'DESCRIPTION', 'SCRIPT', 'SCRIPT_TYPE',
+                                                              'CHECKSUM', 'EXECUTION_TIME', 'STATUS', 'INSTALLED_BY',
+                                                              'INSTALLED_ON'])
+
+        for i in range(len(scripts)):
+          df.loc[i] = [None, scripts[i].get_clean_script_name(), scripts[i].script_name, "R", scripts[i].checksum,
+                       execution_time, "Success", self.conArgs['user'], datetime.datetime.now().astimezone()]
+
+        self.execute_pandas_df(df, change_history_table)
+      else:
+        count = len(scripts) // 2
+        if len(scripts) == 1:
+          raise Exception(batch_processed_successfully[1])
+
+        self.apply_batch_change_script(scripts[:count], change_history_table)
+
+        self.apply_batch_change_script(scripts[count:], change_history_table)
 
 def deploy_command(config):
   # Make sure we have the required connection info, all of the below needs to be present.
@@ -533,44 +608,87 @@ def deploy_command(config):
   # Find all scripts in the root folder (recursively) and sort them correctly
   all_scripts = get_all_scripts_recursively(config['root_folder'], config['verbose'])
   all_script_names = list(all_scripts.keys())
+
+  # If batch sizes are set then pull through that setting, otherwise set the batch to 1 to keep existing functionality
+  batch_size = config.get("batch_migration_count", 1)
+
   # Sort scripts such that versioned scripts get applied first and then the repeatable ones.
-  all_script_names_sorted =   sorted_alphanumeric([script for script in all_script_names if script[0] == 'V']) \
-                            + sorted_alphanumeric([script for script in all_script_names if script[0] == 'R']) \
-                            + sorted_alphanumeric([script for script in all_script_names if script[0] == 'A'])
+  versioned_script_names = sorted_alphanumeric([script for script in all_script_names if script[0] == 'V'])
+  repeatable_script_names = sorted_alphanumeric([script for script in all_script_names if script[0] == 'R'])
+  always_script_names = sorted_alphanumeric([script for script in all_script_names if script[0] == 'A'])
 
   # Loop through each script in order and apply any required changes
-  for script_name in all_script_names_sorted:
+  for script_name in versioned_script_names:
     script = all_scripts[script_name]
 
     # Apply a versioned-change script only if the version is newer than the most recent change in the database
     # Apply any other scripts, i.e. repeatable scripts, irrespective of the most recent change in the database
-    if script_name[0] == 'V' and get_alphanum_key(script['script_version']) <= get_alphanum_key(max_published_version):
+    if get_alphanum_key(script['script_version']) <= get_alphanum_key(max_published_version):
       if config['verbose']:
         print(_log_skip_v.format(max_published_version=max_published_version, **script) )
       scripts_skipped += 1
+    else:
+      # Always process with jinja engine
+      jinja_processor = JinjaTemplateProcessor(project_root = config['root_folder'], modules_folder = config['modules_folder'])
+      content = jinja_processor.render(jinja_processor.relpath(script['script_full_path']), config['vars'], config['verbose'])
+
+      print(_log_apply.format(**script))
+      if not config['dry_run']:
+        session.apply_change_script(script, content, change_history_table)
+
+      scripts_applied += 1
+
+  # Run the repeatable scripts and batch together if needed
+  scripts_to_run_in_batch = []
+  total_repeatable_count = len(repeatable_script_names)
+  for script_name in repeatable_script_names:
+    script = all_scripts[script_name]
+
+    jinja_processor = JinjaTemplateProcessor(project_root=config['root_folder'],
+                                             modules_folder=config['modules_folder'])
+    content = jinja_processor.render(jinja_processor.relpath(script['script_full_path']), config['vars'],
+                                     config['verbose'])
+
+    # Compute the checksum for the script
+    checksum_current = hashlib.sha224(content.encode('utf-8')).hexdigest()
+
+    # check if R file was already executed
+    if (r_scripts_checksum is not None) and script_name in list(r_scripts_checksum['script_name']):
+      checksum_last = list(r_scripts_checksum.loc[r_scripts_checksum['script_name'] == script_name, 'checksum'])[0]
+    else:
+      checksum_last = ''
+
+    # check if there is a change of the checksum in the script
+    if checksum_current == checksum_last:
+      if config['verbose']:
+        print(_log_skip_r.format(**script))
+      scripts_skipped += 1
       continue
+
+    # If more records can be added to the list of batches then add it
+    if not config['dry_run'] and batch_size > 1 and len(scripts_to_run_in_batch) < batch_size:
+      checksum = hashlib.sha224(content.encode('utf-8')).hexdigest()
+      scripts_to_run_in_batch.append(RepeatableMigrationBatchItem(script_name, batch_size, content, checksum))
+
+      # If the batch size is hit or all of the remaining records are added then apply the changes and update the counts
+      if len(scripts_to_run_in_batch) == batch_size or len(scripts_to_run_in_batch) == total_repeatable_count:
+        session.apply_batch_change_script(scripts_to_run_in_batch, change_history_table)
+        scripts_applied += len(scripts_to_run_in_batch)
+        total_repeatable_count -= len(scripts_to_run_in_batch)
+        scripts_to_run_in_batch = []
+
+    # If batch size is 1 then run the code normally
+    elif not config['dry_run'] and batch_size == 1:
+      session.apply_change_script(script, content, change_history_table)
+      scripts_applied += 1
+
+  # Run the always scripts
+  for script_name in always_script_names:
+    script = all_scripts[script_name]
 
     # Always process with jinja engine
     jinja_processor = JinjaTemplateProcessor(project_root = config['root_folder'], modules_folder = config['modules_folder'])
     content = jinja_processor.render(jinja_processor.relpath(script['script_full_path']), config['vars'], config['verbose'])
-
-    # Apply only R scripts where the checksum changed compared to the last execution of snowchange
-    if script_name[0] == 'R':
-      # Compute the checksum for the script
-      checksum_current = hashlib.sha224(content.encode('utf-8')).hexdigest()
-
-      # check if R file was already executed
-      if (r_scripts_checksum is not None) and script_name in list(r_scripts_checksum['script_name']):
-        checksum_last = list(r_scripts_checksum.loc[r_scripts_checksum['script_name'] == script_name, 'checksum'])[0]
-      else:
-        checksum_last = ''
-
-      # check if there is a change of the checksum in the script
-      if checksum_current == checksum_last:
-        if config['verbose']:
-          print(_log_skip_r.format(**script))
-        scripts_skipped += 1
-        continue
 
     print(_log_apply.format(**script))
     if not config['dry_run']:
@@ -635,7 +753,7 @@ def load_schemachange_config(config_file_path: str) -> Dict[str, Any]:
 def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, \
   snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, snowflake_schema, \
   change_history_table, vars, create_change_history_table, autocommit, verbose, \
-  dry_run, query_tag, oauth_config, **kwargs):
+  dry_run, query_tag, oauth_config, batch_migration_count, **kwargs):
 
   # create cli override dictionary
   # Could refactor to just pass Args as a dictionary?
@@ -648,7 +766,7 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
     "change_history_table":change_history_table, "vars":vars, \
     "create_change_history_table":create_change_history_table, \
     "autocommit":autocommit, "verbose":verbose, "dry_run":dry_run,\
-    "query_tag":query_tag, "oauth_config":oauth_config}
+    "query_tag":query_tag, "oauth_config":oauth_config, "batch_migration_count": batch_migration_count}
   cli_inputs = {k:v for (k,v) in cli_inputs.items() if v}
 
   # load YAML inputs and convert kebabs to snakes
@@ -824,6 +942,7 @@ def main(argv=sys.argv):
   parser_deploy.add_argument('-d', '--snowflake-database', type = str, help = 'The name of the default database to use. Can be overridden in the change scripts.', required = False)
   parser_deploy.add_argument('-s', '--snowflake-schema', type = str, help = 'The name of the default schema to use. Can be overridden in the change scripts.', required = False)
   parser_deploy.add_argument('-c', '--change-history-table', type = str, help = 'Used to override the default name of the change history table (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)', required = False)
+  parser_deploy.add_argument('-b', '--batch_migration_count', type=str, help='Used to override default batch size for repeatable migration operations. Default is set to 1.', required=False)
   parser_deploy.add_argument('--vars', type = json.loads, help = 'Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})', required = False)
   parser_deploy.add_argument('--create-change-history-table', action='store_true', help = 'Create the change history schema and table, if they do not exist (the default is False)', required = False)
   parser_deploy.add_argument('-ac', '--autocommit', action='store_true', help = 'Enable autocommit feature for DML commands (the default is False)', required = False)
