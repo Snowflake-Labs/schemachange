@@ -65,6 +65,8 @@ _log_apply_set_complete  =  "Successfully applied {scripts_applied} change scrip
 _err_vars_config = "vars did not parse correctly, please check its configuration"
 _err_vars_reserved = "The variable schemachange has been reserved for use by schemachange, " \
   + "please use a different name"
+_err_jinja_config = "jinja did not parse correctly, please check its configuration"
+_err_jinja_restricted = "Restricted Jinja environment settings provided: {restricted}"
 _err_invalid_folder  = "Invalid {folder_type} folder: {path}"
 _err_dup_scripts = "The script name {script_name} exists more than once (first_instance " \
   + "{first_path}, second instance {script_full_path})"
@@ -74,6 +76,8 @@ _err_invalid_cht  = 'Invalid change history table name: %s'
 _log_auth_type ="Proceeding with %s authentication"
 _log_pk_enc ="No private key passphrase provided. Assuming the key is not encrypted."
 _log_okta_ep ="Okta Endpoint: %s"
+_jinja_env_defaults = {"undefined", "autoescape", "extensions"}
+_jinja_env_restricted = _jinja_env_defaults | {"enable_async", "loader", "bytecode_cache", "finalize"}
 
 #endregion Global Variables
 
@@ -105,7 +109,7 @@ class JinjaEnvVar(jinja2.ext.Extension):
 class JinjaTemplateProcessor:
   _env_args = {"undefined":jinja2.StrictUndefined,"autoescape":False, "extensions":[JinjaEnvVar]}
 
-  def __init__(self, project_root: str, modules_folder: str = None):
+  def __init__(self, project_root: str, modules_folder: str = None, jinja_env_args: Dict[str, Any] = None):
     loader: BaseLoader
     if modules_folder:
       loader = jinja2.ChoiceLoader(
@@ -116,6 +120,9 @@ class JinjaTemplateProcessor:
       )
     else:
       loader = jinja2.FileSystemLoader(project_root)
+    if jinja_env_args:
+      # The default environment args still takes precedence over user provided Jinja environment args
+      self._env_args = {**jinja_env_args, **self._env_args}
     self.__environment = jinja2.Environment(loader=loader, **self._env_args)
     self.__project_root = project_root
 
@@ -551,7 +558,8 @@ def deploy_command(config):
       continue
 
     # Always process with jinja engine
-    jinja_processor = JinjaTemplateProcessor(project_root = config['root_folder'], modules_folder = config['modules_folder'])
+    jinja_processor = JinjaTemplateProcessor(project_root = config['root_folder'], modules_folder = config['modules_folder'],
+                                             jinja_env_args = config.get('jinja'))
     content = jinja_processor.render(jinja_processor.relpath(script['script_full_path']), config['vars'], config['verbose'])
 
     # Apply only R scripts where the checksum changed compared to the last execution of snowchange
@@ -592,7 +600,7 @@ def render_command(config, script_path):
     raise ValueError(_err_invalid_folder.format(folder_type='script_path', path=script_path))
   # Always process with jinja engine
   jinja_processor = JinjaTemplateProcessor(project_root = config['root_folder'], \
-     modules_folder = config['modules_folder'])
+     modules_folder = config['modules_folder'], jinja_env_args = config.get('jinja'))
   content = jinja_processor.render(jinja_processor.relpath(script_path), \
     config['vars'], config['verbose'])
 
@@ -676,6 +684,13 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
     config['modules_folder'] = os.path.abspath(config['modules_folder'])
     if not os.path.isdir(config['modules_folder']):
       raise ValueError(_err_invalid_folder.format(folder_type='modules', path=config['modules_folder']))
+  if 'jinja' in config:
+    # if jinja environment is configured wrong in the config file it will come through as a string
+    if type(config['jinja']) is not dict:
+      raise ValueError(_err_jinja_config)
+    # restrict keys that would conflict with the default jinja environment
+    if restricted := _jinja_env_restricted & set(config['jinja'].keys()):
+      raise ValueError(_err_jinja_restricted.format(restricted=", ".join(sorted(restricted))))
   if config['vars']:
     # if vars is configured wrong in the config file it will come through as a string
     if type(config['vars']) is not dict:
