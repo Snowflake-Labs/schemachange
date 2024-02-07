@@ -31,7 +31,7 @@ All notable changes to this project will be documented in this file.
 - Cleaned up argument passing and other repetitive code using dictionary and set comparisons for easy maintenance. (Converted variable names to a consistent snake_case from a mix of kebab-case and snake_case)
 - Fixed change history table processing to allow mixed case names when '"' are used in the name.
 - Moved most error, log and warning messages and query strings to global or class variables.
-- Updated readme to cover new authentication methods 
+- Updated readme to cover new authentication methods
 
 ## [3.4.2] - 2022-10-24
 ### Changed

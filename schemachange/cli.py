@@ -19,7 +19,7 @@ from cryptography.hazmat.primitives import serialization
 from jinja2.loaders import BaseLoader
 from pandas import DataFrame
 
-#region Global Variables 
+#region Global Variables
 # metadata
 _schemachange_version = '3.5.4'
 _config_file_name = 'schemachange-config.yml'
@@ -48,7 +48,7 @@ _log_config_details = "Using Snowflake account {snowflake_account}\nUsing defaul
   + "{snowflake_role}\nUsing default warehouse {snowflake_warehouse}\nUsing default " \
   + "database {snowflake_database}"
 _log_ch_use = "Using change history table {database_name}.{schema_name}.{table_name} " \
-  + "(last altered {last_altered})" 
+  + "(last altered {last_altered})"
 _log_ch_create = "Created change history table {database_name}.{schema_name}.{table_name}"
 _err_ch_missing = "Unable to find change history table {database_name}.{schema_name}.{table_name}"
 _log_ch_max_version = "Max applied change script version: {max_published_version_display}"
@@ -66,7 +66,7 @@ _err_vars_reserved = "The variable schemachange has been reserved for use by sch
   + "please use a different name"
 _err_invalid_folder  = "Invalid {folder_type} folder: {path}"
 _err_dup_scripts = "The script name {script_name} exists more than once (first_instance " \
-  + "{first_path}, second instance {script_full_path})" 
+  + "{first_path}, second instance {script_full_path})"
 _err_dup_scripts_version = "The script version {script_version} exists more than once " \
   + "(second instance {script_full_path})"
 _err_dup_undo_scripts_version = "The undo version {script_version} exists more than once " \
@@ -271,7 +271,7 @@ class SnowflakeSchemachangeSession:
     snowflake_password = None
     if os.getenv("SNOWFLAKE_PASSWORD") is not None and os.getenv("SNOWFLAKE_PASSWORD"):
       snowflake_password = os.getenv("SNOWFLAKE_PASSWORD")
-    
+
     # Check legacy/deprecated env variable
     if os.getenv("SNOWSQL_PWD") is not None and os.getenv("SNOWSQL_PWD"):
       if snowflake_password:
@@ -312,20 +312,20 @@ class SnowflakeSchemachangeSession:
 
       self.conArgs['private_key'] = pkb
       self.conArgs['authenticator'] = 'snowflake'
-    
-    elif os.getenv("SNOWFLAKE_AUTHENTICATOR") == 'oauth' and os.getenv("SNOWFLAKE_AUTHENTICATOR"):      
+
+    elif os.getenv("SNOWFLAKE_AUTHENTICATOR") == 'oauth' and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
       oauth_token = self.get_oauth_token()
-      
+
       if self.verbose:
         print( _log_auth_type % 'Oauth Access Token')
       self.conArgs['token'] = oauth_token
       self.conArgs['authenticator'] = 'oauth'
-    
+
     elif os.getenv("SNOWFLAKE_AUTHENTICATOR") == 'externalbrowser' and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
       self.conArgs['authenticator'] = 'externalbrowser'
       if self.verbose:
         print(_log_auth_type % 'External Browser')
-        
+
     elif os.getenv("SNOWFLAKE_AUTHENTICATOR").lower()[:8]=='https://' \
       and os.getenv("SNOWFLAKE_AUTHENTICATOR"):
       okta = os.getenv("SNOWFLAKE_AUTHENTICATOR")
@@ -468,7 +468,7 @@ class SnowflakeSchemachangeSession:
     # Compose and execute the insert statement to the log file
     query = self._q_ch_log.format(**frmt_args)
     self.execute_snowflake_query(query)
-  
+
 
 def deploy_command(config):
   req_args = set(['snowflake_account','snowflake_user','snowflake_role','snowflake_warehouse'])
@@ -622,7 +622,7 @@ def render_command(config, script_path):
   # Validate the script file path
   script_path = os.path.abspath(script_path)
   if not os.path.isfile(script_path):
-    raise ValueError(_err_invalid_folder.format(folder_type='script_path', path=script_path))   
+    raise ValueError(_err_invalid_folder.format(folder_type='script_path', path=script_path))
   # Always process with jinja engine
   jinja_processor = JinjaTemplateProcessor(project_root = config['root_folder'], \
      modules_folder = config['modules_folder'])
@@ -713,10 +713,10 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
 
   # Validate folder paths
   if 'root_folder' in config:
-    config['root_folder'] = os.path.abspath(config['root_folder'])   
+    config['root_folder'] = os.path.abspath(config['root_folder'])
   if not os.path.isdir(config['root_folder']):
     raise ValueError(_err_invalid_folder.format(folder_type='root', path=config['root_folder']))
- 
+
   if config['modules_folder']:
     config['modules_folder'] = os.path.abspath(config['modules_folder'])
     if not os.path.isdir(config['modules_folder']):
@@ -810,7 +810,7 @@ def get_all_scripts_recursively(root_directory, verbose):
       # Throw an error if the same version exists more than once
       if script_type == 'V':
         if script['script_version'] in all_versions:
-          raise ValueError(_err_dup_scripts_version.format(**script)) 
+          raise ValueError(_err_dup_scripts_version.format(**script))
         all_versions.append(script['script_version'])
 
       if script_type == 'U':
@@ -828,22 +828,22 @@ def get_all_scripts_recursively(root_directory, verbose):
 def get_change_history_table_details(change_history_table):
   # Start with the global defaults
   details = dict()
-  details['database_name'] = _metadata_database_name 
-  details['schema_name'] = _metadata_schema_name 
-  details['table_name'] = _metadata_table_name 
+  details['database_name'] = _metadata_database_name
+  details['schema_name'] = _metadata_schema_name
+  details['table_name'] = _metadata_table_name
 
   # Then override the defaults if requested. The name could be in one, two or three part notation.
   if change_history_table is not None:
     table_name_parts = change_history_table.strip().split('.')
-    if len(table_name_parts) == 1: 
-      details['table_name'] = table_name_parts[0] 
+    if len(table_name_parts) == 1:
+      details['table_name'] = table_name_parts[0]
     elif len(table_name_parts) == 2:
-      details['table_name'] = table_name_parts[1] 
-      details['schema_name'] = table_name_parts[0] 
+      details['table_name'] = table_name_parts[1]
+      details['schema_name'] = table_name_parts[0]
     elif len(table_name_parts) == 3:
-      details['table_name'] = table_name_parts[2] 
-      details['schema_name'] = table_name_parts[1] 
-      details['database_name'] = table_name_parts[0] 
+      details['table_name'] = table_name_parts[2]
+      details['schema_name'] = table_name_parts[1]
+      details['database_name'] = table_name_parts[0]
     else:
       raise ValueError(_err_invalid_cht % change_history_table)
   #if the object name does not include '"' raise to upper case on return
