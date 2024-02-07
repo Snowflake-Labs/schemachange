@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [3.5.4] - 2024-02-07
+### Changed
+- Updated `snowflake-connector-python` dependency use 3.7.0. This allows to use OpenSSL 3.0
+- Updated `PyYAML` to use 6.0.1
+- Updated `pandas` to use 1.5.3
+- Updated `Jinja2` to use 3.1.1
+
 ## [3.5.3] - 2023-02-18
 ### Changed
 - Added `undo` subcommand, introducing Undo scripts
@@ -24,7 +31,7 @@ All notable changes to this project will be documented in this file.
 - Cleaned up argument passing and other repetitive code using dictionary and set comparisons for easy maintenance. (Converted variable names to a consistent snake_case from a mix of kebab-case and snake_case)
 - Fixed change history table processing to allow mixed case names when '"' are used in the name.
 - Moved most error, log and warning messages and query strings to global or class variables.
-- Updated readme to cover new authentication methods 
+- Updated readme to cover new authentication methods
 
 ## [3.4.2] - 2022-10-24
 ### Changed
