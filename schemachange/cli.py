@@ -610,7 +610,7 @@ def get_change_history_table_details(change_history_table_override):
 
 def fetch_change_history_metadata(change_history_table, snowflake_session_parameters, autocommit, verbose):
     # This should only ever return 0 or 1 rows
-    query = "SELECT CREATED, LAST_ALTERED FROM {0}.INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = REPLACE('{1}', '\"', '') AND TABLE_NAME = REPLACE('{2}', '\"', '')".format(
+    query = "SELECT CREATED, LAST_ALTERED FROM {0}.INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA ILIKE '{1}' AND TABLE_NAME ILIKE '{2}'".format(
         change_history_table['database_name'], change_history_table['schema_name'], change_history_table['table_name'])
     results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters,
                                       autocommit, verbose)
@@ -627,7 +627,7 @@ def fetch_change_history_metadata(change_history_table, snowflake_session_parame
 
 def create_change_history_table_if_missing(change_history_table, snowflake_session_parameters, autocommit, verbose):
     # Check if schema exists
-    query = "SELECT COUNT(1) FROM {0}.INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = REPLACE('{1}', '\"', '')".format(
+    query = "SELECT COUNT(1) FROM {0}.INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME ILIKE '{1}'".format(
         change_history_table['database_name'], change_history_table['schema_name'])
     results = execute_snowflake_query(change_history_table['database_name'], query, snowflake_session_parameters,
                                       autocommit, verbose)
