@@ -103,7 +103,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
             script_metadata = versioned_scripts.get(script.name)
 
             if (
-                max_published_version != "None"
+                max_published_version != ""
                 and get_alphanum_key(script.version) <= max_published_version
             ):
                 if script_metadata is None:
