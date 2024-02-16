@@ -102,7 +102,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
         if script.type == "V":
             script_metadata = versioned_scripts.get(script.name)
 
-            if get_alphanum_key(script.version) <= max_published_version:
+            if max_published_version != 'None' and get_alphanum_key(script.version) <= max_published_version:
                 if script_metadata is None:
                     if config.raise_exception_on_ignored_versioned_script:
                         raise ValueError(
