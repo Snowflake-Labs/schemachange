@@ -17,7 +17,6 @@ import yaml
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from jinja2.loaders import BaseLoader
-from pandas import DataFrame
 
 #region Global Variables
 # metadata
@@ -398,21 +397,21 @@ class SnowflakeSchemachangeSession:
     query = self._q_ch_ddl_table.format(**change_history_table)
     self.execute_snowflake_query(query)
 
-  def fetch_r_scripts_checksum(self,change_history_table):
+  def fetch_r_scripts_checksum(self,change_history_table) -> Dict[str, str]:
+    """
+    Fetches the checksum of the last executed R script from the change history table.
+    return: a dictionary with the script name as key and the last successfully installed script checksum as value
+    """
+    # Note: Query only fetches last successfully installed checksum for R scripts
     query = self._q_ch_r_checksum.format(**change_history_table)
     results = self.execute_snowflake_query(query)
 
     # Collect all the results into a dict
-    d_script_checksum = DataFrame(columns=['script_name', 'checksum'])
-    script_names = []
-    checksums = []
+    d_script_checksum = {}
     for cursor in results:
       for row in cursor:
-        script_names.append(row[0])
-        checksums.append(row[1])
+        d_script_checksum[row[0]] = row[1]
 
-    d_script_checksum['script_name'] = script_names
-    d_script_checksum['checksum'] = checksums
     return d_script_checksum
 
   def fetch_change_history(self, change_history_table):
@@ -560,8 +559,8 @@ def deploy_command(config):
       checksum_current = hashlib.sha224(content.encode('utf-8')).hexdigest()
 
       # check if R file was already executed
-      if (r_scripts_checksum is not None) and script_name in list(r_scripts_checksum['script_name']):
-        checksum_last = list(r_scripts_checksum.loc[r_scripts_checksum['script_name'] == script_name, 'checksum'])[0]
+      if r_scripts_checksum and (script_name in r_scripts_checksum):
+        checksum_last = r_scripts_checksum[script_name]
       else:
         checksum_last = ''
 
