@@ -244,6 +244,32 @@ class SnowflakeSchemachangeSession:
     if hasattr(self, 'con'):
       self.con.close()
 
+  def read_master_token(self):
+    """Reads the master token from a file.
+
+    This function attempts to read the master token from a file specified by the
+    SNOWFLAKE_TOKEN_FILE environment variable. If the file cannot be opened or
+    read, an error is returned.
+
+    Returns:
+        A tuple containing the master token as a string and None, or None and an
+        error message if there is an error.
+    """
+    token_file = os.environ.get("SNOWFLAKE_TOKEN_FILE")
+    if not token_file:
+        token_file = os.path.expanduser("/snowflake/session/token")
+
+    try:
+        with open(token_file, "r") as f:
+            token = f.read().strip()
+            return token, None
+    except FileNotFoundError:
+        return None, f"Token file not found: {token_file}"
+    except PermissionError as e:
+        return None, f"Permission error reading token file: {e}"
+    except Exception as e:
+        return None, f"Error reading token file: {e}"
+
   def get_oauth_token(self):
     req_info = { \
       "url":self.oauth_config['token-provider-url'], \
@@ -285,7 +311,7 @@ class SnowflakeSchemachangeSession:
       # Determine the type of Authenticator
       # OAuth based authentication
       if snowflake_authenticator.lower() == 'oauth':
-        oauth_token = self.get_oauth_token()
+        oauth_token = self.read_master_token()
 
         if self.verbose:
           print( _log_auth_type % 'Oauth Access Token')
