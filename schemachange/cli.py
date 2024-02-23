@@ -262,13 +262,13 @@ class SnowflakeSchemachangeSession:
     try:
         with open(token_file, "r") as f:
             token = f.read().strip()
-            return token, None
+            return token
     except FileNotFoundError:
-        return None, f"Token file not found: {token_file}"
+        raise KeyError(f"Token file not found: {token_file}")
     except PermissionError as e:
-        return None, f"Permission error reading token file: {e}"
+        raise KeyError(f"Permission error reading token file: {e}")
     except Exception as e:
-        return None, f"Error reading token file: {e}"
+        raise KeyError(f"Error reading token file: {e}")
 
   def get_oauth_token(self):
     req_info = { \
