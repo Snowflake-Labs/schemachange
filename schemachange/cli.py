@@ -505,7 +505,8 @@ class SnowflakeSchemachangeSession:
 
 def deploy_command(config):
   # Make sure we have the required connection info, all of the below needs to be present.
-  req_args = set(['snowflake_account','snowflake_user','snowflake_role','snowflake_warehouse'])
+  #req_args = set(['snowflake_account','snowflake_user','snowflake_role','snowflake_warehouse'])
+  req_args = set(['snowflake_account'])
   provided_args = {k:v for (k,v) in config.items() if v}
   missing_args = req_args -provided_args.keys()
   if len(missing_args)>0:
