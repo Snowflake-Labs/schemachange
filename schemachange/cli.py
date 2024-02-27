@@ -1,6 +1,7 @@
 import argparse
 import hashlib
 import json
+import logging
 import os
 import pathlib
 import re
@@ -227,13 +228,17 @@ class SnowflakeSchemachangeSession:
     # Retreive Connection info from config dictionary
     self.conArgs = {"user": config['snowflake_user'],"account": config['snowflake_account'] \
       ,"role": config['snowflake_role'],"warehouse": config['snowflake_warehouse'] \
-      ,"database": config['snowflake_database'],"schema": config['snowflake_schema'], "application": _snowflake_application_name \
+      ,"database": config['snowflake_database'],"schema": config['snowflake_schema'], "host": config['snowflake_host'] \
+      ,"application": _snowflake_application_name \
       ,"session_parameters":session_parameters}
 
     self.oauth_config = config['oauth_config']
     self.autocommit = config['autocommit']
     self.verbose = config['verbose']
+    logger = logging.getLogger(__name__)
+
     if self.set_connection_args():
+      logging.info("Connecting to Snowflake with the following parameters: %s" % self.conArgs)
       self.con = snowflake.connector.connect(**self.conArgs)
       if not self.autocommit:
         self.con.autocommit(False)
@@ -661,7 +666,7 @@ def load_schemachange_config(config_file_path: str) -> Dict[str, Any]:
 
 def get_schemachange_config(config_file_path, root_folder, modules_folder, snowflake_account, \
   snowflake_user, snowflake_role, snowflake_warehouse, snowflake_database, snowflake_schema, \
-  change_history_table, vars, create_change_history_table, autocommit, verbose, \
+  snowflake_host, change_history_table, vars, create_change_history_table, autocommit, verbose, \
   dry_run, query_tag, oauth_config, **kwargs):
 
   # create cli override dictionary
@@ -672,6 +677,7 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
     "snowflake_user":snowflake_user, "snowflake_role":snowflake_role, \
     "snowflake_warehouse":snowflake_warehouse, "snowflake_database":snowflake_database, \
     "snowflake_schema":snowflake_schema, \
+    "snowflake_host":snowflake_host, \
     "change_history_table":change_history_table, "vars":vars, \
     "create_change_history_table":create_change_history_table, \
     "autocommit":autocommit, "verbose":verbose, "dry_run":dry_run,\
@@ -687,7 +693,7 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
   config_defaults =  {"root_folder":os.path.abspath('.'), "modules_folder":None,  \
     "snowflake_account":None,  "snowflake_user":None, "snowflake_role":None,   \
     "snowflake_warehouse":None,  "snowflake_database":None, "snowflake_schema":None, \
-    "change_history_table":None,  \
+    "snowflake_host":None, "change_history_table":None,  \
     "vars":{}, "create_change_history_table":False, "autocommit":False, "verbose":False,  \
     "dry_run":False , "query_tag":None , "oauth_config":None }
   #insert defualt values for items not populated
@@ -850,6 +856,7 @@ def main(argv=sys.argv):
   parser_deploy.add_argument('-w', '--snowflake-warehouse', type = str, help = 'The name of the default warehouse to use. Can be overridden in the change scripts.', required = False)
   parser_deploy.add_argument('-d', '--snowflake-database', type = str, help = 'The name of the default database to use. Can be overridden in the change scripts.', required = False)
   parser_deploy.add_argument('-s', '--snowflake-schema', type = str, help = 'The name of the default schema to use. Can be overridden in the change scripts.', required = False)
+  parser_deploy.add_argument('--snowflake-host', type = str, help = 'The name of the snowflake host (e.g. snowflake.prod.us-west-2.aws.snowflakecomputing.com)', required = False)
   parser_deploy.add_argument('-c', '--change-history-table', type = str, help = 'Used to override the default name of the change history table (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)', required = False)
   parser_deploy.add_argument('--vars', type = json.loads, help = 'Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})', required = False)
   parser_deploy.add_argument('--create-change-history-table', action='store_true', help = 'Create the change history schema and table, if they do not exist (the default is False)', required = False)
@@ -889,7 +896,7 @@ def main(argv=sys.argv):
   if args.subcommand == 'render':
     renderoveride = {"snowflake_account":None,"snowflake_user":None,"snowflake_role":None, \
       "snowflake_warehouse":None,"snowflake_database":None,"change_history_table":None, \
-      "snowflake_schema":None,"create_change_history_table":None,"autocommit":None, \
+      "snowflake_schema":None,"snowflake_host":None,"create_change_history_table":None,"autocommit":None, \
       "dry_run":None,"query_tag":None,"oauth_config":None }
     schemachange_args.update(renderoveride)
   config = get_schemachange_config(**schemachange_args)
