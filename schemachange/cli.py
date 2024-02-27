@@ -230,7 +230,8 @@ class SnowflakeSchemachangeSession:
       ,"role": config['snowflake_role'],"warehouse": config['snowflake_warehouse'] \
       ,"database": config['snowflake_database'],"schema": config['snowflake_schema'], "host": config['snowflake_host'] \
       ,"application": _snowflake_application_name \
-      ,"session_parameters":session_parameters}
+      ,"session_parameters":session_parameters \
+      ,"insecure_mode":True}
 
     self.oauth_config = config['oauth_config']
     self.autocommit = config['autocommit']
