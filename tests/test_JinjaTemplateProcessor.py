@@ -14,7 +14,7 @@ def test_JinjaTemplateProcessor_render_simple_string():
     templates = {"test.sql": "some text"}
     processor.override_loader(DictLoader(templates))
 
-    context = processor.render("test.sql", None, True)
+    context = processor.render("test.sql", None, True, False)
 
     assert context == "some text"
 
@@ -27,7 +27,7 @@ def test_JinjaTemplateProcessor_render_simple_string_expecting_variable_that_doe
     processor.override_loader(DictLoader(templates))
 
     with pytest.raises(UndefinedError) as e:
-        context = processor.render("test.sql", None, True)
+        context = processor.render("test.sql", None, True, False)
 
     assert str(e.value) == "'myvar' is undefined"
 
@@ -41,7 +41,7 @@ def test_JinjaTemplateProcessor_render_simple_string_expecting_variable():
 
     vars = json.loads('{"myvar" : "world"}')
 
-    context = processor.render("test.sql", vars, True)
+    context = processor.render("test.sql", vars, True, False)
 
     assert context == "Hello world!"
 
@@ -59,6 +59,6 @@ def test_JinjaTemplateProcessor_render_from_subfolder(tmp_path: pathlib.Path):
     processor = JinjaTemplateProcessor(str(root_folder), None)
     template_path = processor.relpath(str(script_file))
 
-    context = processor.render(template_path, {}, True)
+    context = processor.render(template_path, {}, True, False)
 
     assert context == "Hello world!"
