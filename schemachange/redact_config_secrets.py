@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import warnings
 from typing import Callable, Set
 
@@ -45,7 +46,7 @@ def get_redact_config_secrets_processor(
                     return sub_event_dict
             return sub_event_dict
 
-        return redact_dict(level=0, sub_event_dict=event_dict)
+        return redact_dict(level=0, sub_event_dict=copy.deepcopy(event_dict))
 
     return redact_config_secrets_processor
 
