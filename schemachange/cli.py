@@ -210,10 +210,10 @@ class SnowflakeSchemachangeSession:
     + "CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{script_version}'," \
     + "'{script_description}','{script_name}','{script_type}','{checksum}',{execution_time}," \
     + "'{status}','{user}',CURRENT_TIMESTAMP);"
-  _q_set_sess_role = 'USE ROLE {role};'
-  _q_set_sess_database = 'USE DATABASE {database};'
-  _q_set_sess_schema = 'USE SCHEMA {schema};'
-  _q_set_sess_warehouse = 'USE WAREHOUSE {warehouse};'
+  _q_set_sess_role = 'USE ROLE "{role}";'
+  _q_set_sess_database = 'USE DATABASE "{database}";'
+  _q_set_sess_schema = 'USE SCHEMA "{schema}";'
+  _q_set_sess_warehouse = 'USE WAREHOUSE "{warehouse}";'
    #endregion Query Templates
 
 
