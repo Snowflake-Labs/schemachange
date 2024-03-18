@@ -43,6 +43,7 @@ def test_SecretManager_given_one_secrets_when_add_range_with_None_then_Count_sho
 
     assert len(sm._SecretManager__secrets) == 1
 
+
 def test_SecretManager_given_one_secrets_when_add_range_with_empty_set_then_Count_should_remain_one():
     sm = SecretManager()
     sm.add("world")
@@ -51,6 +52,7 @@ def test_SecretManager_given_one_secrets_when_add_range_with_empty_set_then_Coun
     sm.add_range(range)
 
     assert len(sm._SecretManager__secrets) == 1
+
 
 def test_SecretManager_given_one_secrets_when_add_range_with_two_secrets_then_count_of_secrets_three():
     sm = SecretManager()
@@ -67,6 +69,7 @@ def test_SecretManager_given_one_secrets_when_add_range_with_two_secrets_then_co
 
 
 ##### test static methods #####
+
 
 def test_SecretManager_check_global_assignment_round_trip():
     sm = SecretManager()

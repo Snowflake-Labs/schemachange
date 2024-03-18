@@ -1,4 +1,3 @@
-import json
 import os
 
 import pytest
@@ -14,9 +13,12 @@ def test_from_environ_not_set():
     processor.override_loader(DictLoader(templates))
 
     with pytest.raises(ValueError) as e:
-        context = processor.render("test.sql", None, True)
+        processor.render("test.sql", None, True)
 
-    assert str(e.value) == "Could not find environmental variable MYVAR and no default value was provided"
+    assert (
+        str(e.value)
+        == "Could not find environmental variable MYVAR and no default value was provided"
+    )
 
 
 def test_from_environ_set():
