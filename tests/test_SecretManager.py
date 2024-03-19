@@ -22,6 +22,13 @@ def test_SecretManager_given_secrets_when_redact_then_return_redacted_value():
     assert result == "Hello *****!"
 
 
+def test_SecretManager_given_multiline_secrets_when_redact_then_return_redacted_value():
+    sm = SecretManager()
+    sm.add("Hello\nworld")
+    result = sm.redact("Hello\nworld!")
+    assert result == "***********!"
+
+
 def test_SecretManager_given_secrets_when_clear_then_should_hold_zero_secrets():
     sm = SecretManager()
     sm.add("world")

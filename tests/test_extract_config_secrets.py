@@ -52,3 +52,12 @@ def test_extract_config_secrets_given__vars_with_same_secret_twice_then_only_ext
 
     assert len(results) == 1
     assert "SECRET_VALUE" in results
+
+
+def test_extract_config_secrets_given__vars_with_multiline_secret_then_preserve_newlines():
+    config = {"vars": {"secrets" : {"database_name": "SECRET\nVALUE"} } }
+
+    results = extract_config_secrets(config)
+
+    assert len(results) == 1
+    assert "SECRET\nVALUE" in results

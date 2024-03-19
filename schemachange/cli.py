@@ -1,4 +1,5 @@
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -74,6 +75,7 @@ _err_invalid_cht  = 'Invalid change history table name: %s'
 _log_auth_type ="Proceeding with %s authentication"
 _log_pk_enc ="No private key passphrase provided. Assuming the key is not encrypted."
 _log_okta_ep ="Okta Endpoint: %s"
+_err_non_str_secret ="Found a secret that is not of type str."
 
 #endregion Global Variables
 
@@ -799,7 +801,10 @@ def extract_config_secrets(config: Dict[str, Any]) -> Set[str]:
           else :
             extracted_secrets = extracted_secrets | inner_extract_dictionary_secrets(value, child_of_secrets)
         elif child_of_secrets or "SECRET" in key.upper():
+          if not isinstance(value, str):
+            raise ValueError(_err_non_str_secret)
           extracted_secrets.add(value.strip())
+ 
     return extracted_secrets
 
   extracted = set()
@@ -808,6 +813,33 @@ def extract_config_secrets(config: Dict[str, Any]) -> Set[str]:
     if "vars" in config:
       extracted = inner_extract_dictionary_secrets(config["vars"])
   return extracted
+
+
+def redact_config_vars(config_vars: Dict[str, Any]) -> Dict[str, Any]:
+  # Our goal is simply to print the config vars to stdout, but:
+  # - If we serialize to YAML and then redact, we won't redact multiline secrets,
+  #   because YAML dump would add leading whitespace to them, changing them.
+  # - If we serialize to JSON and then redact, we may end up redacting floats, integers, etc,
+  #   and we could not deserialise anymore in order to finally serialize to redacted YAML.
+
+  # Therefore, we have this function here, which sole purpose is to redact the config_vars
+  # dict leaf nodes (only those of type str). This dict can then be serialized to YAML 
+  # or any other format by the caller.
+
+  # Using an inner function, cause I don't want to expose this generic signature to
+  # the caller, given the limited scope of what we are trying to accomplish
+  def inner_redact_config_vars(ob: Any) -> Any:
+    if isinstance(ob, dict):
+      return {key: inner_redact_config_vars(value) for key, value in ob.items()}
+    elif isinstance(ob, list):
+      return [inner_redact_config_vars(value) for value in ob]
+    elif isinstance(ob, str):
+      return SecretManager.global_redact(ob)
+    # Just to be sure, making a deep copy, cause ob can be a reference type 
+    return copy.deepcopy(ob)
+  
+  return inner_redact_config_vars(config_vars)
+
 
 def main(argv=sys.argv):
   parser = argparse.ArgumentParser(prog = 'schemachange', description = 'Apply schema changes to a Snowflake account. Full readme at https://github.com/Snowflake-Labs/schemachange', formatter_class = argparse.RawTextHelpFormatter)
@@ -883,11 +915,10 @@ def main(argv=sys.argv):
     print("Using variables: {}")
   else:
     print("Using variables:")
-    print(textwrap.indent( \
-      SecretManager.global_redact(yaml.dump( \
-        config['vars'], \
-        sort_keys=False, \
-        default_flow_style=False)), prefix = "  "))
+    print(textwrap.indent(yaml.dump( \
+      redact_config_vars(config['vars']), \
+      sort_keys=False, \
+      default_flow_style=False), prefix = "  "))
 
   # Finally, execute the command
   if args.subcommand == 'render':
