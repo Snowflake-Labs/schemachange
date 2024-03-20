@@ -49,7 +49,7 @@ def test_redact_config_vars_given_secret_should_redact_it_in_any_string_it_finds
     # Finally note that tuples are not scanned, just making the point that this redact function cannot
     # do everything; YAML deserialises lists as Python lists, not tuples, so we have no use case for tuples.
     config_vars = {'secrets': {'password' : 'hi'}, 'jdbc': 'jdbc:mysql://127.0.0.1',
-                   'accounts': [{'user': 'john', 'password': '**'}], 'greetings': ['hi', 'hello'], 'greetings_tuple': ('hi',)}
+                   'accounts': [{'user': 'john', 'password': 'hi'}], 'greetings': ['hi', 'hello'], 'greetings_tuple': ('hi',)}
     sm = SecretManager()
     SecretManager.set_global_manager(sm)
     sm.add('hi')
