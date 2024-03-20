@@ -185,7 +185,7 @@ class SecretManager:
     redacted = context
     if redacted:
       for secret in self.__secrets:
-        redacted = redacted.replace(secret, "*" * len(secret))
+        redacted = redacted.replace(secret, '\n'.join(["*" * len(l) for l in secret.split('\n')]))
     return redacted
 
 

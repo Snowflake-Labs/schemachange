@@ -26,7 +26,7 @@ def test_SecretManager_given_multiline_secrets_when_redact_then_return_redacted_
     sm = SecretManager()
     sm.add("Hello\nworld")
     result = sm.redact("Hello\nworld!")
-    assert result == "***********!"
+    assert result == "*****\n*****!"
 
 
 def test_SecretManager_given_secrets_when_clear_then_should_hold_zero_secrets():
