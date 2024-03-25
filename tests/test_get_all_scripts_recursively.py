@@ -103,7 +103,7 @@ def test_get_all_scripts_recursively__given_single_Version_jinja_file_should_ext
 
 
 def test_get_all_scripts_recursively__given_same_version_file_with_and_without_jinja_extension_should_raise_exception():
- with mock.patch("os.walk") as mockwalk:
+    with mock.patch("os.walk") as mockwalk:
         mockwalk.return_value = [
             ("", (""), ("V1.1.1__intial.sql", "V1.1.1__intial.sql.jinja")),
         ]
@@ -113,6 +113,7 @@ def test_get_all_scripts_recursively__given_same_version_file_with_and_without_j
         assert str(e.value).startswith(
             "The script name V1.1.1__intial.sql exists more than once (first_instance"
         )
+
 
 ###########################
 #### Always file tests ####
@@ -186,7 +187,7 @@ def test_get_all_scripts_recursively__given_single_Always_jinja_file_should_extr
 
 
 def test_get_all_scripts_recursively__given_same_Always_file_with_and_without_jinja_extension_should_raise_exception():
- with mock.patch("os.walk") as mockwalk:
+    with mock.patch("os.walk") as mockwalk:
         mockwalk.return_value = [
             ("", (""), ("A__intial.sql", "A__intial.sql.jinja")),
         ]
@@ -196,6 +197,7 @@ def test_get_all_scripts_recursively__given_same_Always_file_with_and_without_ji
         assert str(e.value).startswith(
             "The script name A__intial.sql exists more than once (first_instance "
         )
+
 
 ###############################
 #### Repeatable file tests ####
@@ -269,7 +271,7 @@ def test_get_all_scripts_recursively__given_single_Repeatable_jinja_file_should_
 
 
 def test_get_all_scripts_recursively__given_same_Repeatable_file_with_and_without_jinja_extension_should_raise_exception():
- with mock.patch("os.walk") as mockwalk:
+    with mock.patch("os.walk") as mockwalk:
         mockwalk.return_value = [
             ("", (""), ("R__intial.sql", "R__intial.sql.jinja")),
         ]
