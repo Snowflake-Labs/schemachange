@@ -274,21 +274,8 @@ class SnowflakeSchemachangeSession:
     # endregion Query Templates
 
     def __init__(self, config):
-        session_parameters = {"QUERY_TAG": "schemachange %s" % _schemachange_version}
-        if config["query_tag"]:
-            session_parameters["QUERY_TAG"] += ";%s" % config["query_tag"]
-
         # Retreive Connection info from config dictionary
-        self.conArgs = {
-            "user": config["snowflake_user"],
-            "account": config["snowflake_account"],
-            "role": config["snowflake_role"],
-            "warehouse": config["snowflake_warehouse"],
-            "database": config["snowflake_database"],
-            "schema": config["snowflake_schema"],
-            "application": _snowflake_application_name,
-            "session_parameters": session_parameters,
-        }
+        self.conArgs = self.get_snowflake_params(config)
 
         self.oauth_config = config["oauth_config"]
         self.autocommit = config["autocommit"]
@@ -303,6 +290,23 @@ class SnowflakeSchemachangeSession:
     def __del__(self):
         if hasattr(self, "con"):
             self.con.close()
+
+    def get_snowflake_params(self, config):
+
+        session_parameters = {"QUERY_TAG": "schemachange %s" % _schemachange_version}
+        if config["query_tag"]:
+            session_parameters["QUERY_TAG"] += ";%s" % config["query_tag"]
+
+        return {
+            "user": config["snowflake_user"],
+            "account": config["snowflake_account"],
+            "role": config["snowflake_role"],
+            "warehouse": config["snowflake_warehouse"],
+            "database": config["snowflake_database"],
+            "schema": config["snowflake_schema"],
+            "application": _snowflake_application_name,
+            "session_parameters": session_parameters,
+        }
 
     def get_oauth_token(self):
         req_info = {
