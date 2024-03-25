@@ -253,7 +253,8 @@ class SnowflakeSchemachangeSession:
     token_name = self.oauth_config['token-response-name']
     response = requests.post(**req_info)
     resJsonDict =json.loads(response.text)
-    try: return resJsonDict[token_name]
+    try: 
+      return resJsonDict[token_name]
     except KeyError:
       errormessage = _err_oauth_tk_nm.format(
         keys = ', '.join(resJsonDict.keys()),
@@ -479,15 +480,15 @@ class SnowflakeSchemachangeSession:
 
 def deploy_command(config):
   # Make sure we have the required connection info, all of the below needs to be present.
-  req_args = set(['snowflake_account','snowflake_user','snowflake_role','snowflake_warehouse'])
+  req_args = {'snowflake_account','snowflake_user','snowflake_role','snowflake_warehouse'}
   provided_args = {k:v for (k,v) in config.items() if v}
   missing_args = req_args -provided_args.keys()
   if len(missing_args)>0:
     raise ValueError(_err_args_missing % ', '.join({s.replace('_', ' ') for s in missing_args}))
 
   #ensure an authentication method is specified / present. one of the below needs to be present.
-  req_env_var = set(['SNOWFLAKE_PASSWORD', 'SNOWSQL_PWD','SNOWFLAKE_PRIVATE_KEY_PATH','SNOWFLAKE_AUTHENTICATOR'])
-  if len((req_env_var - dict(os.environ).keys()))==len(req_env_var):
+  req_env_var = {'SNOWFLAKE_PASSWORD', 'SNOWSQL_PWD','SNOWFLAKE_PRIVATE_KEY_PATH','SNOWFLAKE_AUTHENTICATOR'}
+  if len(req_env_var - dict(os.environ).keys())==len(req_env_var):
     raise ValueError(_err_env_missing)
 
   # Log some additional details
@@ -600,14 +601,20 @@ def render_command(config, script_path):
   print("Checksum %s" % checksum)
   print(content)
 
+def alphanum_convert(text:str):
+  result = None
+  if text.isdigit():
+    result = int(text)
+  else:
+    result = text.lower()
+  return result
 
 # This function will return a list containing the parts of the key (split by number parts)
 # Each number is converted to and integer and string parts are left as strings
 # This will enable correct sorting in python when the lists are compared
 # e.g. get_alphanum_key('1.2.2') results in ['', 1, '.', 2, '.', 2, '']
 def get_alphanum_key(key):
-  convert = lambda text: int(text) if text.isdigit() else text.lower()
-  alphanum_key = [ convert(c) for c in re.split('([0-9]+)', key) ]
+  alphanum_key = [ alphanum_convert(c) for c in re.split('([0-9]+)', key) ]
   return alphanum_key
 
 def sorted_alphanumeric(data):
@@ -664,7 +671,7 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
     "vars":{}, "create_change_history_table":False, "autocommit":False, "verbose":False,  \
     "dry_run":False , "query_tag":None , "oauth_config":None }
   #insert defualt values for items not populated
-  config.update({ k:v for (k,v) in config_defaults.items() if not k in config.keys()})
+  config.update({ k:v for (k,v) in config_defaults.items() if k not in config.keys()})
 
   # Validate folder paths
   if 'root_folder' in config:
@@ -678,7 +685,7 @@ def get_schemachange_config(config_file_path, root_folder, modules_folder, snowf
       raise ValueError(_err_invalid_folder.format(folder_type='modules', path=config['modules_folder']))
   if config['vars']:
     # if vars is configured wrong in the config file it will come through as a string
-    if type(config['vars']) is not dict:
+    if not isinstance(config['vars'], dict):
       raise ValueError(_err_vars_config)
 
     # the variable schema change has been reserved
