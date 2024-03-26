@@ -64,7 +64,7 @@ vars:
     config_file.write_text(config_contents)
 
     with pytest.raises(ValueError) as e:
-        config = load_schemachange_config(str(config_file))
+        load_schemachange_config(str(config_file))
     assert (
         str(e.value)
         == "Could not find environmental variable TEST_VAR and no default value was provided"

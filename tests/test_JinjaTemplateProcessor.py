@@ -27,7 +27,7 @@ def test_JinjaTemplateProcessor_render_simple_string_expecting_variable_that_doe
     processor.override_loader(DictLoader(templates))
 
     with pytest.raises(UndefinedError) as e:
-        context = processor.render("test.sql", None, True)
+        processor.render("test.sql", None, True)
 
     assert str(e.value) == "'myvar' is undefined"
 
