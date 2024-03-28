@@ -354,25 +354,27 @@ class SnowflakeSchemachangeSession:
             if snowflake_authenticator.lower() == "oauth":
                 oauth_token = self.get_oauth_token()
 
-            if self.verbose:
-                print(_log_auth_type % "Oauth Access Token")
+                if self.verbose:
+                    print(_log_auth_type % "Oauth Access Token")
 
-            self.conArgs["token"] = oauth_token
-            self.conArgs["authenticator"] = "oauth"
+                self.conArgs["token"] = oauth_token
+                self.conArgs["authenticator"] = "oauth"
             # External Browswer based SSO
-        elif snowflake_authenticator.lower() == "externalbrowser":
-            self.conArgs["authenticator"] = "externalbrowser"
-            if self.verbose:
-                print(_log_auth_type % "External Browser")
-        # IDP based Authentication, limited to Okta
-        elif snowflake_authenticator.lower()[:8] == "https://":
+            elif snowflake_authenticator.lower() == "externalbrowser":
+                self.conArgs["authenticator"] = "externalbrowser"
+                if self.verbose:
+                    print(_log_auth_type % "External Browser")
+            
+            # IDP based Authentication, limited to Okta
+            elif snowflake_authenticator.lower()[:8] == "https://":
 
-            if self.verbose:
-                print(_log_auth_type % "Okta")
-                print(_log_okta_ep % snowflake_authenticator)
+                if self.verbose:
+                    print(_log_auth_type % "Okta")
+                    print(_log_okta_ep % snowflake_authenticator)
 
                 self.conArgs["password"] = snowflake_password
                 self.conArgs["authenticator"] = snowflake_authenticator.lower()
+
             elif snowflake_authenticator.lower() == "snowflake":
                 self.conArgs["authenticator"] = default_authenticator
             # if authenticator is not a supported method or the authenticator variable is defined but not specified
