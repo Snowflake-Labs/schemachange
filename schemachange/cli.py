@@ -354,21 +354,22 @@ class SnowflakeSchemachangeSession:
             if snowflake_authenticator.lower() == "oauth":
                 oauth_token = self.get_oauth_token()
 
-        if self.verbose:
-          print( _log_auth_type % 'Oauth Access Token')
-        self.conArgs['token'] = oauth_token
-        self.conArgs['authenticator'] = 'oauth'
-      # External Browswer based SSO
-      elif snowflake_authenticator.lower() == 'externalbrowser':
-        self.conArgs['authenticator'] = 'externalbrowser'
-        if self.verbose:
-          print(_log_auth_type % 'External Browser')
-      # IDP based Authentication, limited to Okta
-      elif snowflake_authenticator.lower()[:8]=='https://':
+            if self.verbose:
+                print(_log_auth_type % "Oauth Access Token")
 
-        if self.verbose:
-          print(_log_auth_type % 'Okta')
-          print(_log_okta_ep % snowflake_authenticator)
+            self.conArgs["token"] = oauth_token
+            self.conArgs["authenticator"] = "oauth"
+            # External Browswer based SSO
+        elif snowflake_authenticator.lower() == "externalbrowser":
+            self.conArgs["authenticator"] = "externalbrowser"
+            if self.verbose:
+                print(_log_auth_type % "External Browser")
+        # IDP based Authentication, limited to Okta
+        elif snowflake_authenticator.lower()[:8] == "https://":
+
+            if self.verbose:
+                print(_log_auth_type % "Okta")
+                print(_log_okta_ep % snowflake_authenticator)
 
                 self.conArgs["password"] = snowflake_password
                 self.conArgs["authenticator"] = snowflake_authenticator.lower()
@@ -388,16 +389,16 @@ class SnowflakeSchemachangeSession:
             # default authenticator to snowflake
             self.conArgs["authenticator"] = default_authenticator
 
-    if self.conArgs['authenticator'].lower() == default_authenticator:
-      # Giving preference to password based authentication when both private key and password are specified.
-      if snowflake_password:
-        if self.verbose:
-          print(_log_auth_type %  'password' )
-        self.conArgs['password'] = snowflake_password
+        if self.conArgs["authenticator"].lower() == default_authenticator:
+            # Giving preference to password based authentication when both private key and password are specified.
+            if snowflake_password:
+                if self.verbose:
+                    print(_log_auth_type % "password")
+                self.conArgs["password"] = snowflake_password
 
-      elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH", ''):
-        if self.verbose:
-          print( _log_auth_type %  'private key')
+            elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH", ""):
+                if self.verbose:
+                    print(_log_auth_type % "private key")
 
                 private_key_password = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE", "")
                 if private_key_password:
@@ -470,22 +471,22 @@ class SnowflakeSchemachangeSession:
         query = self._q_ch_ddl_table.format(**change_history_table)
         self.execute_snowflake_query(query)
 
-  def fetch_r_scripts_checksum(self,change_history_table) -> Dict[str, str]:
-    """
-    Fetches the checksum of the last executed R script from the change history table.
-    return: a dictionary with the script name as key and the last successfully installed script checksum as value
-    """
-    # Note: Query only fetches last successfully installed checksum for R scripts
-    query = self._q_ch_r_checksum.format(**change_history_table)
-    results = self.execute_snowflake_query(query)
+    def fetch_r_scripts_checksum(self, change_history_table) -> Dict[str, str]:
+        """
+        Fetches the checksum of the last executed R script from the change history table.
+        return: a dictionary with the script name as key and the last successfully installed script checksum as value
+        """
+        # Note: Query only fetches last successfully installed checksum for R scripts
+        query = self._q_ch_r_checksum.format(**change_history_table)
+        results = self.execute_snowflake_query(query)
 
-    # Collect all the results into a dict
-    d_script_checksum = {}
-    for cursor in results:
-      for row in cursor:
-        d_script_checksum[row[0]] = row[1]
+        # Collect all the results into a dict
+        d_script_checksum = {}
+        for cursor in results:
+            for row in cursor:
+                d_script_checksum[row[0]] = row[1]
 
-    return d_script_checksum
+        return d_script_checksum
 
     def fetch_change_history(self, change_history_table):
         query = self._q_ch_fetch.format(**change_history_table)
@@ -674,18 +675,18 @@ def deploy_command(config):
             # Compute the checksum for the script
             checksum_current = hashlib.sha224(content.encode("utf-8")).hexdigest()
 
-      # check if R file was already executed
-      if r_scripts_checksum and (script_name in r_scripts_checksum):
-        checksum_last = r_scripts_checksum[script_name]
-      else:
-        checksum_last = ''
+        # check if R file was already executed
+        if r_scripts_checksum and (script_name in r_scripts_checksum):
+            checksum_last = r_scripts_checksum[script_name]
+        else:
+            checksum_last = ""
 
-            # check if there is a change of the checksum in the script
-            if checksum_current == checksum_last:
-                if config["verbose"]:
-                    print(_log_skip_r.format(**script))
-                scripts_skipped += 1
-                continue
+        # check if there is a change of the checksum in the script
+        if checksum_current == checksum_last:
+            if config["verbose"]:
+                print(_log_skip_r.format(**script))
+            scripts_skipped += 1
+            continue
 
         print(_log_apply.format(**script))
         if not config["dry_run"]:
