@@ -1,0 +1,3 @@
+# Poetry configuration file. https://python-poetry.org/
+[virtualenvs]
+in-project = true
