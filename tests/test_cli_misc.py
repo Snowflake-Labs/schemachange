@@ -123,12 +123,11 @@ def test_get_change_history_table_details_given__acceptable_values_produces_full
 ):
     assert schemachange.cli.get_change_history_table_details(cht) == expected
 
+
 @pytest.mark.parametrize(
     "cht", [("fifth.fourth.third.two.one"), ("fourth.third.two.one")]
 )
-def test_get_change_history_table_details_given__unacceptable_values_raises_error(
-    cht
-):
+def test_get_change_history_table_details_given__unacceptable_values_raises_error(cht):
     with pytest.raises(ValueError) as e:
         schemachange.cli.get_change_history_table_details(cht)
 

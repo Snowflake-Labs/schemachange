@@ -886,7 +886,7 @@ def get_all_scripts_recursively(root_directory, verbose):
     all_files = dict()
     all_versions = list()
     # Walk the entire directory structure recursively
-    for (directory_path, directory_names, file_names) in os.walk(root_directory):
+    for directory_path, directory_names, file_names in os.walk(root_directory):
         for file_name in file_names:
 
             file_full_path = os.path.join(directory_path, file_name)
@@ -1008,7 +1008,7 @@ def extract_config_secrets(config: Dict[str, Any]) -> Set[str]:
         extracted_secrets: Set[str] = set()
 
         if dictionary:
-            for (key, value) in dictionary.items():
+            for key, value in dictionary.items():
                 if isinstance(value, dict):
                     if key == "secrets":
                         extracted_secrets = (
