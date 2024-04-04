@@ -4,3 +4,9 @@ requires = [
   "wheel",
 ]
 build-backend = "setuptools.build_meta"
+
+[project]
+dynamic = ["version"]
+
+[tool.setuptools.dynamic]
+version = {attr = "schemachange.VERSION"}
