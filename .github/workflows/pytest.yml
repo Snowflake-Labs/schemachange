@@ -1,6 +1,11 @@
 name: pytest
 
-on: [push]
+on:
+  pull_request:
+    branches:
+      - master
+      - dev
+  
 
 jobs:
   build:
