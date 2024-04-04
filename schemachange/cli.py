@@ -74,6 +74,7 @@ _err_invalid_cht  = 'Invalid change history table name: %s'
 _log_auth_type ="Proceeding with %s authentication"
 _log_pk_enc ="No private key passphrase provided. Assuming the key is not encrypted."
 _log_okta_ep ="Okta Endpoint: %s"
+_log_current_session_id = "Current session ID: {current_session_id}"
 
 #endregion Global Variables
 
@@ -210,6 +211,7 @@ class SnowflakeSchemachangeSession:
     + "CHECKSUM, EXECUTION_TIME, STATUS, INSTALLED_BY, INSTALLED_ON) values ('{script_version}'," \
     + "'{script_description}','{script_name}','{script_type}','{checksum}',{execution_time}," \
     + "'{status}','{user}',CURRENT_TIMESTAMP);"
+  _q_ch_current_session_id = "SELECT CURRENT_SESSION();"
   _q_set_sess_role = 'USE ROLE {role};'
   _q_set_sess_database = 'USE DATABASE {database};'
   _q_set_sess_schema = 'USE SCHEMA {schema};'
@@ -427,6 +429,13 @@ class SnowflakeSchemachangeSession:
 
     return change_history
 
+  def fetch_session_id(self):
+    query = self._q_ch_current_session_id
+    results = self.execute_snowflake_query(query)
+    current_session_id = results[0]
+
+    return current_session_id
+
   def reset_session(self):
     # These items are optional, so we can only reset the ones with values
     reset_query = ""
@@ -529,6 +538,9 @@ def deploy_command(config):
   if max_published_version_display == '':
     max_published_version_display = 'None'
   print(_log_ch_max_version.format(max_published_version_display=max_published_version_display))
+
+  current_session_id = session.fetch_session_id()
+  print(_log_current_session_id.format(current_session_id=current_session_id))
 
   # Find all scripts in the root folder (recursively) and sort them correctly
   all_scripts = get_all_scripts_recursively(config['root_folder'], config['verbose'])
