@@ -14,6 +14,7 @@ import jinja2.ext
 import requests
 import snowflake.connector
 import yaml
+import setuptools
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from jinja2.loaders import BaseLoader
@@ -21,7 +22,7 @@ from pandas import DataFrame
 
 # region Global Variables
 # metadata
-_schemachange_version = "3.6.1"
+_schemachange_version = setuptools.config.read_configuration('setup.cfg')['metadata']['version']
 _config_file_name = "schemachange-config.yml"
 _metadata_database_name = "METADATA"
 _metadata_schema_name = "SCHEMACHANGE"
