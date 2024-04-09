@@ -88,12 +88,12 @@ All notable changes to this project will be documented in this file.
 ## [3.2.2] - 2021-11-06
 ### Added
 - Restored CLI tests, hopefully less fragile now.
-- Added Github CI workflow to run unit tests and a basic execution test.
+- Added GitHub CI workflow to run unit tests and a basic execution test.
 - `schemachange.cli.main` is now defined as `def main(argv: List[str]=sys.argv)`, to allow consumers to pass a list of arguments easily.
 
 ## [3.2.1] - 2021-11-04
 ### Fixed
-- Jinja Template Engine was not recognising scripts in subfolders on windows machines. Jinja was expecting the paths to follow a unix style ie SQL/V2.0.0__ADHOC_SCRIPT.sql but on windows machines this was being passed through as SQL\V2.0.0__ADHOC_SCRIPT.sql.
+- Jinja Template Engine was not recognising scripts in subfolders on Windows machines. Jinja was expecting the paths to follow a unix style ie SQL/V2.0.0__ADHOC_SCRIPT.sql but on Windows machines this was being passed through as SQL\V2.0.0__ADHOC_SCRIPT.sql.
 
 ### Removed
 - Removed fragile unit tests in test_main.py.
@@ -227,7 +227,7 @@ All notable changes to this project will be documented in this file.
 - Add the Snowflake account name to the script output to provide more log context
 
 ### Removed
-- Removed the deprecated `--snowflake-region` parameter. Instead use the `-a` or `--snowflake-account` account parameter. See [Usage Notes for the account Parameter (for the connect Method)](https://docs.snowflake.com/en/user-guide/python-connector-api.html#label-account-format-info) for more details on how to structure the account name.
+- Removed the deprecated `--snowflake-region` parameter. Instead, use the `-a` or `--snowflake-account` account parameter. See [Usage Notes for the account Parameter (for the connect Method)](https://docs.snowflake.com/en/user-guide/python-connector-api.html#label-account-format-info) for more details on how to structure the account name.
 
 
 ## [2.1.0] - 2020-05-26
