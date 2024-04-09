@@ -117,6 +117,10 @@ class Config(BaseModel, ABC):
         if "change_history_table" in other_kwargs:
             other_kwargs["change_history_table"] = other.change_history_table
 
+        # TODO: Merge the stuffs
+        if "secrets" in other_kwargs and len(other_kwargs["secrets"]) == 0:
+            other_kwargs.pop("secrets")
+
         return self.model_copy(update=other_kwargs)
 
     @model_validator(mode="after")
