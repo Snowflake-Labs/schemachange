@@ -108,6 +108,7 @@ _err_invalid_cht = "Invalid change history table name: %s"
 _log_auth_type = "Proceeding with %s authentication"
 _log_pk_enc = "No private key passphrase provided. Assuming the key is not encrypted."
 _log_okta_ep = "Okta Endpoint: %s"
+_log_current_session_id = "Current session ID: {current_session_id}"
 
 # endregion Global Variables
 
@@ -281,6 +282,7 @@ class SnowflakeSchemachangeSession:
         self.verbose = config["verbose"]
         if self.set_connection_args():
             self.con = snowflake.connector.connect(**self.conArgs)
+            print(_log_current_session_id.format(current_session_id=self.con.session_id))
             if not self.autocommit:
                 self.con.autocommit(False)
         else:
