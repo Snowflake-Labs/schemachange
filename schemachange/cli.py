@@ -17,7 +17,6 @@ import yaml
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from jinja2.loaders import BaseLoader
-from pandas import DataFrame
 
 # region Global Variables
 # metadata
@@ -109,6 +108,7 @@ _err_invalid_cht = "Invalid change history table name: %s"
 _log_auth_type = "Proceeding with %s authentication"
 _log_pk_enc = "No private key passphrase provided. Assuming the key is not encrypted."
 _log_okta_ep = "Okta Endpoint: %s"
+_log_current_session_id = "Current session ID: {current_session_id}"
 
 # endregion Global Variables
 
@@ -282,6 +282,7 @@ class SnowflakeSchemachangeSession:
         self.verbose = config["verbose"]
         if self.set_connection_args():
             self.con = snowflake.connector.connect(**self.conArgs)
+            print(_log_current_session_id.format(current_session_id=self.con.session_id))
             if not self.autocommit:
                 self.con.autocommit(False)
         else:
@@ -357,6 +358,7 @@ class SnowflakeSchemachangeSession:
 
                 if self.verbose:
                     print(_log_auth_type % "Oauth Access Token")
+
                 self.conArgs["token"] = oauth_token
                 self.conArgs["authenticator"] = "oauth"
             # External Browswer based SSO
@@ -364,6 +366,7 @@ class SnowflakeSchemachangeSession:
                 self.conArgs["authenticator"] = "externalbrowser"
                 if self.verbose:
                     print(_log_auth_type % "External Browser")
+            
             # IDP based Authentication, limited to Okta
             elif snowflake_authenticator.lower()[:8] == "https://":
 
@@ -373,6 +376,7 @@ class SnowflakeSchemachangeSession:
 
                 self.conArgs["password"] = snowflake_password
                 self.conArgs["authenticator"] = snowflake_authenticator.lower()
+
             elif snowflake_authenticator.lower() == "snowflake":
                 self.conArgs["authenticator"] = default_authenticator
             # if authenticator is not a supported method or the authenticator variable is defined but not specified
@@ -471,21 +475,21 @@ class SnowflakeSchemachangeSession:
         query = self._q_ch_ddl_table.format(**change_history_table)
         self.execute_snowflake_query(query)
 
-    def fetch_r_scripts_checksum(self, change_history_table):
+    def fetch_r_scripts_checksum(self, change_history_table) -> Dict[str, str]:
+        """
+        Fetches the checksum of the last executed R script from the change history table.
+        return: a dictionary with the script name as key and the last successfully installed script checksum as value
+        """
+        # Note: Query only fetches last successfully installed checksum for R scripts
         query = self._q_ch_r_checksum.format(**change_history_table)
         results = self.execute_snowflake_query(query)
 
         # Collect all the results into a dict
-        d_script_checksum = DataFrame(columns=["script_name", "checksum"])
-        script_names = []
-        checksums = []
+        d_script_checksum = {}
         for cursor in results:
             for row in cursor:
-                script_names.append(row[0])
-                checksums.append(row[1])
+                d_script_checksum[row[0]] = row[1]
 
-        d_script_checksum["script_name"] = script_names
-        d_script_checksum["checksum"] = checksums
         return d_script_checksum
 
     def fetch_change_history(self, change_history_table):
@@ -675,24 +679,18 @@ def deploy_command(config):
             # Compute the checksum for the script
             checksum_current = hashlib.sha224(content.encode("utf-8")).hexdigest()
 
-            # check if R file was already executed
-            if (r_scripts_checksum is not None) and script_name in list(
-                r_scripts_checksum["script_name"]
-            ):
-                checksum_last = list(
-                    r_scripts_checksum.loc[
-                        r_scripts_checksum["script_name"] == script_name, "checksum"
-                    ]
-                )[0]
-            else:
-                checksum_last = ""
+        # check if R file was already executed
+        if r_scripts_checksum and (script_name in r_scripts_checksum):
+            checksum_last = r_scripts_checksum[script_name]
+        else:
+            checksum_last = ""
 
-            # check if there is a change of the checksum in the script
-            if checksum_current == checksum_last:
-                if config["verbose"]:
-                    print(_log_skip_r.format(**script))
-                scripts_skipped += 1
-                continue
+        # check if there is a change of the checksum in the script
+        if checksum_current == checksum_last:
+            if config["verbose"]:
+                print(_log_skip_r.format(**script))
+            scripts_skipped += 1
+            continue
 
         print(_log_apply.format(**script))
         if not config["dry_run"]:

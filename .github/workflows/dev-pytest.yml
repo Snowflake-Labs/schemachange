@@ -1,12 +1,12 @@
-name: dev-pytest
+name: pytest
 
 on:
   push:
     branches:
       - dev
   
-  workflow_dispatch:
-    
+  pull_request:
+    types: [opened, reopened]
 
 jobs:
   build:
@@ -14,13 +14,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11"]
 
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python 3.11
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
       - name: Update pip
         run: |
           python -m pip install --upgrade pip
