@@ -2,10 +2,17 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.2.0
+    rev: v4.5.0
     hooks:
     - id: trailing-whitespace
     - id: end-of-file-fixer
+    - id: check-ast
+    - id: check-case-conflict
+    - id: check-docstring-first
+    - id: check-merge-conflict
+    - id: check-toml
+    - id: check-yaml
+    - id: name-tests-test
   - repo: https://github.com/asottile/setup-cfg-fmt
     rev: v2.4.0
     hooks:
@@ -23,13 +30,3 @@ repos:
         args: [ --fix ]
       # Run the formatter.
       - id: ruff-format
-  # Using this mirror lets us use mypyc-compiled black, which is about 2x faster
-  - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 24.3.0
-    hooks:
-      - id: black
-        # It is recommended to specify the latest version of Python
-        # supported by your project here, or alternatively use
-        # pre-commit's default_language_version, see
-        # https://pre-commit.com/#top_level-default_language_version
-        language_version: python3.11

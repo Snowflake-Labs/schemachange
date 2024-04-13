@@ -1,4 +1,4 @@
-name: pytest
+name: dev-pytest
 
 on:
   push:
@@ -7,6 +7,8 @@ on:
   
   pull_request:
     types: [opened, reopened]
+
+  workflow_dispatch:
 
 jobs:
   build:

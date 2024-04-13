@@ -20,7 +20,7 @@ from jinja2.loaders import BaseLoader
 
 # region Global Variables
 # metadata
-_schemachange_version = "3.6.1"
+_schemachange_version = "3.6.2"
 _config_file_name = "schemachange-config.yml"
 _metadata_database_name = "METADATA"
 _metadata_schema_name = "SCHEMACHANGE"
@@ -267,10 +267,10 @@ class SnowflakeSchemachangeSession:
         + "'{script_description}','{script_name}','{script_type}','{checksum}',{execution_time},"
         + "'{status}','{user}',CURRENT_TIMESTAMP);"
     )
-    _q_set_sess_role = "USE ROLE {role};"
-    _q_set_sess_database = "USE DATABASE {database};"
-    _q_set_sess_schema = "USE SCHEMA {schema};"
-    _q_set_sess_warehouse = "USE WAREHOUSE {warehouse};"
+    _q_set_sess_role = "USE ROLE IDENTIFIER({role});"
+    _q_set_sess_database = "USE DATABASE IDENTIFIER({database});"
+    _q_set_sess_schema = "USE SCHEMA IDENTIFIER({schema});"
+    _q_set_sess_warehouse = "USE WAREHOUSE IDENTIFIER({warehouse});"
     # endregion Query Templates
 
     def __init__(self, config):
@@ -884,7 +884,7 @@ def get_all_scripts_recursively(root_directory, verbose):
     all_files = dict()
     all_versions = list()
     # Walk the entire directory structure recursively
-    for (directory_path, directory_names, file_names) in os.walk(root_directory):
+    for directory_path, directory_names, file_names in os.walk(root_directory):
         for file_name in file_names:
 
             file_full_path = os.path.join(directory_path, file_name)
@@ -1006,7 +1006,7 @@ def extract_config_secrets(config: Dict[str, Any]) -> Set[str]:
         extracted_secrets: Set[str] = set()
 
         if dictionary:
-            for (key, value) in dictionary.items():
+            for key, value in dictionary.items():
                 if isinstance(value, dict):
                     if key == "secrets":
                         extracted_secrets = (

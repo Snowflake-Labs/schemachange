@@ -1,4 +1,4 @@
-name: pytest
+name: master-pytest
 
 on:
   push:
