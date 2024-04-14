@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      
+
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -43,5 +43,6 @@ jobs:
       - name: Test Citibike Demo
         run: |
           schemachange --config-folder ./demo/citibike
+          schemachange --config-folder ./demo/citibike_jinja
       - name: Teardown Citibike Demo
         run: echo "Cleaning up Citibike Demo"
