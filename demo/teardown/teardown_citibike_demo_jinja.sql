@@ -1,4 +1,4 @@
-SET TARGET_SCHEMA_NAME = 'CITIBIKE_DEMO';
+SET TARGET_SCHEMA_NAME = 'CITIBIKE_DEMO_JINJA';
 SET TARGET_DB_NAME = 'SCHEMACHANGE_DEMO'; -- Name of database that will have the SCHEMACHANGE Schema for change tracking.
 -- Dependent Variables; Change the naming pattern if you want but not necessary
 SET ADMIN_ROLE = $TARGET_DB_NAME || '_ADMIN'; -- This role will own the database and schemas.
