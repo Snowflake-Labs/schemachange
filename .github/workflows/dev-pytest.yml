@@ -54,6 +54,8 @@ jobs:
           echo "::endgroup::"
           snow --config-file config.toml connection test -c myconnection
           echo "Tested SnowCLI connection successfully!"
+          echo "Set default connection"
+          snow --config-file config.toml connection set-default "myconnection"
       - name: Test Basic Schemachange
         run: |
           snow --config-file config.toml sql -f ./demo/setup/setup_basics_demo.sql
