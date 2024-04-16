@@ -61,7 +61,7 @@ _err_env_missing = (
 _log_config_details = (
     "Using Snowflake account {snowflake_account}\nUsing default role "
     + "{snowflake_role}\nUsing default warehouse {snowflake_warehouse}\nUsing default "
-    + "database {snowflake_database}"
+    + "database {snowflake_database}\n"
     + "schema {snowflake_schema}"
 )
 _log_ch_use = (
@@ -267,10 +267,10 @@ class SnowflakeSchemachangeSession:
         + "'{script_description}','{script_name}','{script_type}','{checksum}',{execution_time},"
         + "'{status}','{user}',CURRENT_TIMESTAMP);"
     )
-    _q_set_sess_role = "USE ROLE IDENTIFIER({role});"
-    _q_set_sess_database = "USE DATABASE IDENTIFIER({database});"
-    _q_set_sess_schema = "USE SCHEMA IDENTIFIER({schema});"
-    _q_set_sess_warehouse = "USE WAREHOUSE IDENTIFIER({warehouse});"
+    _q_set_sess_role = "USE ROLE IDENTIFIER('{role}');"
+    _q_set_sess_database = "USE DATABASE IDENTIFIER('{database}');"
+    _q_set_sess_schema = "USE SCHEMA IDENTIFIER('{schema}');"
+    _q_set_sess_warehouse = "USE WAREHOUSE IDENTIFIER('{warehouse}');"
     # endregion Query Templates
 
     def __init__(self, config):
@@ -283,6 +283,12 @@ class SnowflakeSchemachangeSession:
         if self.set_connection_args():
             self.con = snowflake.connector.connect(**self.conArgs)
             print(_log_current_session_id.format(current_session_id=self.con.session_id))
+            # Setting session context
+            print(self._q_set_sess_role.format(**self.conArgs))
+            print(self._q_set_sess_warehouse.format(**self.conArgs))
+            print(self._q_set_sess_database.format(**self.conArgs))
+            print(self._q_set_sess_schema.format(**self.conArgs))
+
             if not self.autocommit:
                 self.con.autocommit(False)
         else:
@@ -646,6 +652,8 @@ def deploy_command(config):
         )
     )
 
+    checksum_current = None
+    checksum_last = None
     # Loop through each script in order and apply any required changes
     for script_name in all_script_names_sorted:
         script = all_scripts[script_name]
