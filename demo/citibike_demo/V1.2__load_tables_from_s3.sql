@@ -1,5 +1,6 @@
 -- Set the database and schema context
-USE SCHEMA SCHEMACHANGE_DEMO.CITIBIKE_DEMO;
+use database {{ database_name }};
+use schema {{ schema_name }};
 
 -- Load the trips data
 -- Trips data bucket content has been updated. 
