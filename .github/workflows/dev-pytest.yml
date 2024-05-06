@@ -16,8 +16,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scenario-name: [ 'basics_demo'] #, 'citibike_demo', 'citibike_demo_jinja']
-        os: ["windows-latest"]
+        scenario-name: [ 'basics_demo', 'citibike_demo', 'citibike_demo_jinja']
+        os: ["ubuntu-latest", "windows-latest"]
         python-version: ["3.11"]
     runs-on: ${{ matrix.os }}
     env:
