@@ -3,7 +3,7 @@ name: master-pytest
 on:
   push:
     branches:
-      - master
+      - masterxx
   
   pull_request:
     types: [opened, reopened]

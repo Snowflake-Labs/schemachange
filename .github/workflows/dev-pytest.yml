@@ -16,16 +16,17 @@ jobs:
       SNOWFLAKE_PASSWORD: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_PASSWORD }}
       SNOWFLAKE_USER: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_USER }}
       SNOWFLAKE_ACCOUNT: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_ACCOUNT }}
-      SNOWFLAKE_CONNECTIONS_MYCONNECTION_PASSWORD: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_PASSWORD }}
-      SNOWFLAKE_CONNECTIONS_MYCONNECTION_ACCOUNT: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_ACCOUNT }}
-      SNOWFLAKE_CONNECTIONS_MYCONNECTION_USER: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_USER }}
+      #SNOWFLAKE_CONNECTIONS_MYCONNECTION_PASSWORD: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_PASSWORD }}
+      #SNOWFLAKE_CONNECTIONS_MYCONNECTION_ACCOUNT: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_ACCOUNT }}
+      #SNOWFLAKE_CONNECTIONS_MYCONNECTION_USER: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_USER }}
+      SCHEMACHANGE_BUILD_ID: ${{ github.run_number }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
 
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -38,36 +39,51 @@ jobs:
       - name: Test with pytest
         run: |
           pytest
-      - name: Setup SnowCLI connection file
-        run: |
-          echo "[connections]" > config.toml
-          echo "[connections.myconnection]" >> config.toml
-          chmod 0600 config.toml
-      - name: Install snowcli
-        run: |
-          pip install snowflake-cli-labs
-      - name: Test Default snowcli connection
-        run: |
-          snow --version
-          echo "::group::Config Contents"
-          more config.toml
-          echo "::endgroup::"
-          snow --config-file config.toml connection test -c myconnection
-          echo "Tested SnowCLI connection successfully!"
-          echo "Set default connection"
-          snow --config-file config.toml connection set-default "myconnection"
+      #- name: Setup SnowSQL
+      #  env: 
+      #    SNOWSQL_MAJOR_VERSION: "1.2"
+      #    SNOWSQL_PATCH_VERSION: "28"
+      #    SNOWSQL_DOWNLOAD_DIR: /home/runner/downloads
+      #    SNOWSQL_DEST: '/home/runner/.snowsql/bin'
+      #    SNOWSQL_LOGIN_SHELL: '/home/runner/.profile'
+      #  run: |
+      #    apt-get update -y && apt-get upgrade -y && apt-get install -y curl unzip bash
+      #    curl -O https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/${SNOWSQL_MAJOR_VERSION}/linux_x86_64/snowsql-${SNOWSQL_MAJOR_VERSION}.${SNOWSQL_PATCH_VERSION}-linux_x86_64.bash
+      #    bash snowsql-${SNOWSQL_MAJOR_VERSION}.${SNOWSQL_PATCH_VERSION}-linux_x86_64.bash
+      #- name: Setup SnowCLI connection file
+      #  run: |
+      #    echo "[connections]" > config.toml
+      #    echo "[connections.myconnection]" >> config.toml
+      #    chmod 0600 config.toml
+      #- name: Install snowcli
+      #  run: |
+      #    pip install snowflake-cli-labs
+      #- name: Test Default snowcli connection
+      #  run: |
+      #    snow --version
+      #    echo "::group::Config Contents"
+      #    more config.toml
+      #    echo "::endgroup::"
+      #    snow --config-file config.toml connection test -c myconnection
+      #    echo "Tested SnowCLI connection successfully!"
+      #    echo "Set default connection"
+      #    snow --config-file config.toml connection set-default "myconnection"
       - name: Test Basic Schemachange
         run: |
-          snow --config-file config.toml sql -f ./demo/setup/setup_basics_demo.sql
+          schemachange --config-folder ./demo/setup/basics_demo
           schemachange --config-folder ./demo/basics
-          snow --config-file config.toml sql -f ./demo/teardown/teardown_basics_demo.sql
-      - name: Test Citibike Demo
-        run: |
-          snow --config-file config.toml sql -f ./demo/setup/setup_citibike_demo.sql
-          schemachange --config-folder ./demo/citibike
-          snow --config-file config.toml sql -f ./demo/teardown/teardown_citibike_demo.sql
-      - name: Test Citibike Demo Jinja Template
-        run: |
-          snow --config-file config.toml sql -f ./demo/setup/setup_citibike_demo_jinja.sql
-          schemachange --config-folder ./demo/citibike_jinja
-          snow --config-file config.toml sql -f ./demo/teardown/teardown_citibike_demo_jinja.sql
+          schemachange --config-folder ./demo/teardown/basics_demo
+        #run: |
+        #  snow --config-file config.toml sql -f ./demo/setup/setup_basics_demo.sql
+        #  schemachange --config-folder ./demo/basics
+        #  snow --config-file config.toml sql -f ./demo/teardown/teardown_basics_demo.sql
+      #- name: Test Citibike Demo
+      #  run: |
+      #    snow --config-file config.toml sql -f ./demo/setup/setup_citibike_demo.sql
+      #    schemachange --config-folder ./demo/citibike
+      #    snow --config-file config.toml sql -f ./demo/teardown/teardown_citibike_demo.sql
+      #- name: Test Citibike Demo Jinja Template
+      #  run: |
+      #    snow --config-file config.toml sql -f ./demo/setup/setup_citibike_demo_jinja.sql
+      #    schemachange --config-folder ./demo/citibike_jinja
+      #    snow --config-file config.toml sql -f ./demo/teardown/teardown_citibike_demo_jinja.sql

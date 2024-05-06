@@ -1,6 +1,6 @@
 config-version: 1
 
-root-folder: ./demo/basics
+root-folder: ./setup/basics_demo
 
 snowflake-user: {{ env_var('SNOWFLAKE_USER')}}
 snowflake-account: {{ env_var('SNOWFLAKE_ACCOUNT')}}
@@ -8,7 +8,7 @@ snowflake-role: SCHEMACHANGE_DEMO_DEPLOY
 snowflake-warehouse: SCHEMACHANGE_DEMO_WH
 snowflake-database: SCHEMACHANGE_DEMO
 snowflake-schema: BASICS_DEMO_{{ env_var('SCHEMACHANGE_BUILD_ID') }}
-change-history-table: "SCHEMACHANGE_DEMO.BASICS_DEMO_{{ env_var('SCHEMACHANGE_BUILD_ID') }}.CHANGE_HISTORY"
+change-history-table: "SCHEMACHANGE_DEMO.SCHEMACHANGE.BASICS_DEMO_CHANGE_HISTORY"
 create-change-history-table: true
 
 vars:
