@@ -51,9 +51,9 @@ jobs:
           schemachange deploy --config-folder ./demo/setup/${SCENARIO_NAME}
           echo "::endgroup::"
           echo "::group::Testing Rendering to ${MY_TARGET_SCHEMA}"
-          schemachange render --config-folder ./demo/${SCENARIO_NAME} A__render.sql
-          schemachange render --config-folder ./demo/${SCENARIO_NAME} R__render.sql
-          schemachange render --config-folder ./demo/${SCENARIO_NAME} V1.0.0__render.sql
+          schemachange render --config-folder ./demo/${SCENARIO_NAME} ./demo/${SCENARIO_NAME}/A__render.sql
+          schemachange render --config-folder ./demo/${SCENARIO_NAME} ./demo/${SCENARIO_NAME}/R__render.sql
+          schemachange render --config-folder ./demo/${SCENARIO_NAME} ./demo/${SCENARIO_NAME}/V1.0.0__render.sql
           echo "::endgroup::"
           echo "::group::Testing Deployment using ${MY_TARGET_SCHEMA}"
           schemachange deploy --config-folder ./demo/${SCENARIO_NAME}
@@ -68,9 +68,9 @@ jobs:
             schemachange --config-folder "./demo/setup/$Env:SCENARIO_NAME"
             echo "::endgroup::"
             echo "::group::Testing Rendering to $Env:MY_TARGET_SCHEMA"
-            schemachange render --config-folder ./demo/$Env:SCENARIO_NAME A__render.sql
-            schemachange render --config-folder ./demo/$Env:SCENARIO_NAME R__render.sql
-            schemachange render --config-folder ./demo/$Env:SCENARIO_NAME V1.0.0__render.sql
+            schemachange render --config-folder ./demo/$Env:SCENARIO_NAME ./demo/$Env:SCENARIO_NAME/A__render.sql
+            schemachange render --config-folder ./demo/$Env:SCENARIO_NAME ./demo/$Env:SCENARIO_NAME/R__render.sql
+            schemachange render --config-folder ./demo/$Env:SCENARIO_NAME ./demo/$Env:SCENARIO_NAME/V1.0.0__render.sql
             echo "::endgroup::"
             echo "::group::Testing Deployment using $Env:MY_TARGET_SCHEMA"
             schemachange --config-folder "./demo/$Env:SCENARIO_NAME"
