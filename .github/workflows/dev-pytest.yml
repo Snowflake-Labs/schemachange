@@ -59,3 +59,18 @@ jobs:
           echo "::group::Tearing down up ${MY_TARGET_SCHEMA}"
           schemachange --config-folder ./demo/teardown/${SCENARIO_NAME}
           echo "::endgroup::"
+      - name: Test Schemachange on ${{ matrix.os }} targeting ${{ env.SNOWFLAKE_DATABASE }}.${{ env.MY_TARGET_SCHEMA }} schema
+        if: ${{ matrix.os == 'windows-latest' }}
+        run: |
+            echo "::group::Setting up $Env:MY_TARGET_SCHEMA"
+            schemachange --config-folder "./demo/setup/$Env:SCENARIO_NAME"
+            echo "::endgroup::"
+            echo "::group::Testing Rendering to $Env:MY_TARGET_SCHEMA"
+            echo "Work in Progress - To be Tested"
+            echo "::endgroup::"
+            echo "::group::Testing Deployment using $Env:MY_TARGET_SCHEMA"
+            schemachange --config-folder "./demo/$Env:SCENARIO_NAME"
+            echo "::endgroup::"
+            echo "::group::Tearing down up $Env:MY_TARGET_SCHEMA"
+            schemachange --config-folder "./demo/teardown/$Env:SCENARIO_NAME"
+            echo "::endgroup::"
