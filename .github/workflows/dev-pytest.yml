@@ -3,7 +3,8 @@ name: dev-pytest
 on:
   push:
     branches:
-      - dev  
+      - dev
+      - release/**  
   
   workflow_dispatch: 
 
