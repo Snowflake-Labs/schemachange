@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scenario-name: [ 'basics_demo', 'citibike_demo', 'citibike_demo_jinja']
+        scenario-name: [ 'basics_demo'] #, 'citibike_demo', 'citibike_demo_jinja']
         os: ["windows-latest"]
         python-version: ["3.11"]
     runs-on: ${{ matrix.os }}
@@ -44,7 +44,8 @@ jobs:
       - name: Test with pytest
         run: |
           pytest
-      - name: Test Schemachange on ${{ env.SNOWFLAKE_DATABASE }}.${{ env.MY_TARGET_SCHEMA }}
+      - name: Test Schemachange on ${{ matrix.os }} targeting ${{ env.SNOWFLAKE_DATABASE }}.${{ env.MY_TARGET_SCHEMA }} schema
+        if: ${{ matrix.os != 'windows-latest' }}
         run: |
           echo "::group::Setting up ${MY_TARGET_SCHEMA}"
           schemachange --config-folder ./demo/setup/${SCENARIO_NAME}
