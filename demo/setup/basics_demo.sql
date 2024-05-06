@@ -1,5 +1,5 @@
-SET TARGET_SCHEMA_NAME = {{ schema_name }};
-SET TARGET_DB_NAME = {{ database_name }}; -- Name of database that will have the SCHEMACHANGE Schema for change tracking.
+SET TARGET_SCHEMA_NAME = '&{v_target_schema_name}';
+SET TARGET_DB_NAME = 'SCHEMACHANGE_DEMO'; -- Name of database that will have the SCHEMACHANGE Schema for change tracking.
 -- Dependent Variables; Change the naming pattern if you want but not necessary
 SET ADMIN_ROLE = $TARGET_DB_NAME || '_ADMIN'; -- This role will own the database and schemas.
 SET DEPLOY_ROLE = $TARGET_DB_NAME || '_DEPLOY'; -- This role will be granted privileges to create objects in any schema in the database
