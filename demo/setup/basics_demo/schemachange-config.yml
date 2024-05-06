@@ -1,6 +1,12 @@
 config-version: 1
 
 root-folder: ./demo/setup/basics_demo
+
+snowflake-user: {{ env_var('SNOWFLAKE_USER')}}
+snowflake-account: {{ env_var('SNOWFLAKE_ACCOUNT')}}
+snowflake-role: {{ env_var('SNOWFLAKE_ROLE')}}
+snowflake-warehouse: {{ env_var('SNOWFLAKE_WAREHOUSE')}}
+snowflake-database: {{ env_var('SNOWFLAKE_DATABASE')}}
 change-history-table: "{{ env_var('SNOWFLAKE_DATABASE')}}.SCHEMACHANGE.BASICS_DEMO_CHANGE_HISTORY"
 create-change-history-table: true
 
