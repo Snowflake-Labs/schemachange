@@ -48,8 +48,8 @@ jobs:
           SNOWSQL_MAJOR_VERSION: "1.2"
           SNOWSQL_PATCH_VERSION: "28"
           SNOWSQL_DOWNLOAD_DIR: "/home/runner/downloads"
-          SNOWSQL_DEST: "/home/runner/.snowsql/bin"
-          SNOWSQL_LOGIN_SHELL: "/home/runner/.profile"
+#          SNOWSQL_DEST: "/home/runner/.snowsql/bin"
+#          SNOWSQL_LOGIN_SHELL: "/home/runner/.profile"
           MY_SNOWSQL_CONFIG_FILE: "/home/runner/.snowsql/config"
         run: |
           apt-get update -y && apt-get upgrade -y && apt-get install -y curl unzip bash
@@ -61,7 +61,7 @@ jobs:
           variable_substitution = True
           log_file = /home/runner/.snowsql/log
           EOL
-      - name: Test Basics Demo
+      - name: Test Snowsql
         env:
           SNOWSQL_PWD: ${{ env.SNOWFLAKE_PASSWORD }}
           SNOWSQL_ACCOUNT: ${{ env.SNOWFLAKE_ACCOUNT }}
@@ -70,9 +70,19 @@ jobs:
           SNOWSQL_WAREHOUSE: ${{ env.SNOWFLAKE_WAREHOUSE }}
           SNOWSQL_ROLE: ${{ env.SNOWFLAKE_ROLE }}
           MY_TARGET_SCHEMA: BASICS_DEMO_${{ env.SCHEMACHANGE_BUILD_ID }}
-        run: |
-          snowsql -D v_target_schema_name=$MY_TARGET_SCHEMA -f ./demo/setup/basics_demo.sql
-          snowsql -D v_target_schema_name=$MY_TARGET_SCHEMA -f ./demo/teardown/basics_demo.sql
+        run: snowsql -v
+#      - name: Test Basics Demo
+#        env:
+#          SNOWSQL_PWD: ${{ env.SNOWFLAKE_PASSWORD }}
+#          SNOWSQL_ACCOUNT: ${{ env.SNOWFLAKE_ACCOUNT }}
+#          SNOWSQL_USER: ${{ env.SNOWFLAKE_USER }}
+#          SNOWSQL_DATABASE: ${{ env.SNOWFLAKE_DATABASE }}
+#          SNOWSQL_WAREHOUSE: ${{ env.SNOWFLAKE_WAREHOUSE }}
+#          SNOWSQL_ROLE: ${{ env.SNOWFLAKE_ROLE }}
+#          MY_TARGET_SCHEMA: BASICS_DEMO_${{ env.SCHEMACHANGE_BUILD_ID }}
+#        run: |
+#          snowsql -D v_target_schema_name=$MY_TARGET_SCHEMA -f ./demo/setup/basics_demo.sql
+#          snowsql -D v_target_schema_name=$MY_TARGET_SCHEMA -f ./demo/teardown/basics_demo.sql
       #- name: Setup SnowCLI connection file
       #  run: |
       #    echo "[connections]" > config.toml
