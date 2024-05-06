@@ -1,6 +1,6 @@
 config-version: 1
 
-root-folder: ./demo/basics
+root-folder: ./demo/{{ env_var('SCENARIO_NAME')}}
 
 snowflake-user: {{ env_var('SNOWFLAKE_USER')}}
 snowflake-account: {{ env_var('SNOWFLAKE_ACCOUNT')}}
