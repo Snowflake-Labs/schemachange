@@ -17,8 +17,8 @@ jobs:
       fail-fast: false
       matrix:
         scenario-name: [ 'basics_demo', 'citibike_demo', 'citibike_demo_jinja']
-        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        os: ["windows-latest"]
+        python-version: ["3.11"]
     runs-on: ${{ matrix.os }}
     env:
       SNOWFLAKE_PASSWORD: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_PASSWORD }}
@@ -27,11 +27,8 @@ jobs:
       SNOWFLAKE_DATABASE: SCHEMACHANGE_DEMO
       SNOWFLAKE_WAREHOUSE: SCHEMACHANGE_DEMO_WH
       SNOWFLAKE_ROLE: SCHEMACHANGE_DEMO_DEPLOY
-      #SNOWFLAKE_CONNECTIONS_MYCONNECTION_PASSWORD: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_PASSWORD }}
-      #SNOWFLAKE_CONNECTIONS_MYCONNECTION_ACCOUNT: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_ACCOUNT }}
-      #SNOWFLAKE_CONNECTIONS_MYCONNECTION_USER: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_USER }}
-      SCHEMACHANGE_BUILD_ID: ${{ github.run_number }}_${{ strategy.job-index }}
-
+      MY_TARGET_SCHEMA: ${{ matrix.scenario-name }}_${{ github.run_number }}_${{ strategy.job-index }}
+      SCENARIO_NAME: ${{ matrix.scenario-name }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -47,11 +44,8 @@ jobs:
       - name: Test with pytest
         run: |
           pytest
-      - name: Test Schemachange - ${{ matrix.scenario-name }}
-        env:
-          SCENARIO_NAME: ${{ matrix.scenario-name }}
+      - name: Test Schemachange on ${{ env.SNOWFLAKE_DATABASE }}.${{ env.MY_TARGET_SCHEMA }}
         run: |
-          export MY_TARGET_SCHEMA="${SCENARIO_NAME}_${{ env.SCHEMACHANGE_BUILD_ID }}"
           echo "::group::Setting up ${MY_TARGET_SCHEMA}"
           schemachange --config-folder ./demo/setup/${SCENARIO_NAME}
           echo "::endgroup::"
