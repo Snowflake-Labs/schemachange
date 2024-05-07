@@ -5,15 +5,16 @@ defaults:
     shell: bash
 
 on:
-  push:
-    branches:
-      - dev
-      - release/**  
-  
   workflow_dispatch: 
 
   pull_request:
-    types: [opened, reopened]
+    branches:
+      - "*"
+  push:
+    tags:
+      - "v*" # Push events to matching v*, i.e. v3.6.2, v4.0.0
+    branches:
+      - main
 
 jobs:
   build:
@@ -21,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         scenario-name: [ 'basics_demo', 'citibike_demo', 'citibike_demo_jinja']
-        os: ["ubuntu-latest", "windows-latest"]
+        os: ["ubuntu-latest"]
         python-version: ["3.11"]
     runs-on: ${{ matrix.os }}
     
@@ -47,6 +48,7 @@ jobs:
         run: |
           python -m pip install -e .[dev]
       - name: Test with pytest
+        id: pytest
         run: |
           pytest
       - name: Test Schemachange on ${{ matrix.os }} targeting ${{ env.SNOWFLAKE_DATABASE }}.${{ env.MY_TARGET_SCHEMA }} schema
@@ -65,19 +67,3 @@ jobs:
           echo "::group::Tearing down up ${MY_TARGET_SCHEMA}"
           schemachange deploy --config-folder ./demo/teardown/${SCENARIO_NAME}
           echo "::endgroup::"
-      #- name: Test Schemachange on ${{ matrix.os }} targeting ${{ env.SNOWFLAKE_DATABASE }}.${{ env.MY_TARGET_SCHEMA }} schema
-      #  run: |
-      #      echo "::group::Setting up $Env:MY_TARGET_SCHEMA"
-      #      schemachange --config-folder "./demo/setup/$Env:SCENARIO_NAME"
-      #      echo "::endgroup::"
-      #      echo "::group::Testing Rendering to $Env:MY_TARGET_SCHEMA"
-      #      schemachange render --config-folder ./demo/$Env:SCENARIO_NAME ./demo/$Env:SCENARIO_NAME/A__render.sql
-      #      schemachange render --config-folder ./demo/$Env:SCENARIO_NAME ./demo/$Env:SCENARIO_NAME/R__render.sql
-      #      schemachange render --config-folder ./demo/$Env:SCENARIO_NAME ./demo/$Env:SCENARIO_NAME/V1.0.0__render.sql
-      #      echo "::endgroup::"
-      #      echo "::group::Testing Deployment using $Env:MY_TARGET_SCHEMA"
-      #      schemachange --config-folder "./demo/$Env:SCENARIO_NAME"
-      #      echo "::endgroup::"
-      #      echo "::group::Tearing down up $Env:MY_TARGET_SCHEMA"
-      #      schemachange --config-folder "./demo/teardown/$Env:SCENARIO_NAME"
-      #      echo "::endgroup::"
