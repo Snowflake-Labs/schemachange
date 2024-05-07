@@ -1,6 +1,6 @@
 config-version: 1
 
-root-folder: ./demo/{{ env_var('SCENARIO_NAME')}}/scripts
+root-folder: ./demo/{{ env_var('SCENARIO_NAME')}}
 modules-folder: ./demo/{{ env_var('SCENARIO_NAME')}}/modules
 
 snowflake-user: {{ env_var('SNOWFLAKE_USER')}}
