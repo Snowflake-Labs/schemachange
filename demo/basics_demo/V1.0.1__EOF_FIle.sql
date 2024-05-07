@@ -6,3 +6,5 @@ create transient table FORGETMEPLEASE (
 );
 
 -- comment in the last line
+-- Adding query to avoid last comment line.
+SELECT 1;
