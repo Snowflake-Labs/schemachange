@@ -70,8 +70,8 @@ jobs:
           else
             echo "Deployment Failed. Proceeding to Teardown."
           fi
-          set -e
           echo "::endgroup::"
+          set -e
           echo "::group::Tearing down up ${MY_TARGET_SCHEMA}"
           schemachange deploy --config-folder ./demo/teardown/${SCENARIO_NAME}
           echo "::endgroup::"
