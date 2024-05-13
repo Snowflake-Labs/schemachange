@@ -58,8 +58,19 @@ jobs:
           schemachange render --config-folder ./demo/${SCENARIO_NAME} ./demo/${SCENARIO_NAME}/V1.0.0__render.sql
           echo "::endgroup::"
           echo "::group::Testing Deployment using ${MY_TARGET_SCHEMA}"
+          set +e
           schemachange deploy --config-folder ./demo/${SCENARIO_NAME}
+          RESULT=$?
+          if [ $RESULT -eq 0 ]; then
+            echo "Deployment Completed!"
+          else
+            echo "Deployment Failed. Proceeding to Teardown."
+          fi
           echo "::endgroup::"
+          set -e
           echo "::group::Tearing down up ${MY_TARGET_SCHEMA}"
           schemachange deploy --config-folder ./demo/teardown/${SCENARIO_NAME}
           echo "::endgroup::"
+          if [ $RESULT -ne 0 ]; then
+            exit 1
+          fi
