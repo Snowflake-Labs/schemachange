@@ -21,9 +21,9 @@ As a contributor, you will have to set up schemachange demo database and schemac
     - SNOWFLAKE_USER: This will be the user that will connect to you snowflake account.
     - SNOWFLAKE_PASSWORD: This is the password for the user (SNOWFLAKE_USER) that will connect to the snowflake account.
     - SCENARIO_NAME: This will be demo folder you intend to experiment with. For starters, `basics_demo`, `citibike_demo` or `citibike_demo_jinja` are included with the repo that will set the root folder value in the respective schemachange-config.yml file.
-    - SNOWFLAKE_WAREHOUSE Keyed to SCHEMACHANGE_DEMO_WH
+    - SNOWFLAKE_WAREHOUSE: This will be the warehouse you setup for the demo. Default setup is SCHEMACHANGE_DEMO_WH
     - SNOWFLAKE_DATABASE Keyed to SCHEMACHANGE_DEMO
-    - SNOWFLAKE_ROLE Keyed to SCHEMACHANGE_DEMO_DEPLOY
+    - SNOWFLAKE_ROLE Keyed to SCHEMACHANGE_DEMO-DEPLOY
     
 The scripts in the `provision` folder are to be used to setup up your demo database along with a schema in that database that will house the change tracking tables needed to setup and teardown the schemas used to test a working version of the demo DDL scripts.
 The [initialize](provision/initialize.sql) script setups the database, warehouse and account level access roles that will be used on the 
