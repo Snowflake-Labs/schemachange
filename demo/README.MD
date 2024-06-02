@@ -7,20 +7,20 @@ The contents of this Demo serves two audiences - Consumers and Contributors. For
 - You will need your own snowflake Account to test the Demo. 
 - You will need to review and run statements in the provision folder or setup your own database and schema.
   - [initialize.sql](provision/initialize.sql): Contains the SQL variables to initialize your environment.
-  - [setup_schemachange_schema.sql](provision/setup_schemachange_schema.sql)
+  - [setup_schemachange_schema.sql](provision/setup_schemachange_schema.sql): Contains the SQL variables to track the individual demo scenarios in its own change history table.
 
 ### Contributors
-As a contributor, you will have to set up scehamchange demo database and schemachange schema (See Initialize and Setup scripts below). Alongthen set up the following Secrets in your forked repository so that when the github actions tries 
+As a contributor, you will have to set up schemachange demo database and schemachange schema (See Initialize and Setup scripts below). Along with that you will also set up the following Secrets in your forked repository so that when the github actions can setup, test and teardown the temporary schema it creates to test the changes to your code. 
 - SCHEMACHANGE_SNOWFLAKE_PASSWORD
 - SCHEMACHANGE_SNOWFLAKE_USER
 - SCHEMACHANGE_SNOWFLAKE_ACCOUNT
 
 ### Consumers
 - If you are consumer who is installing schemachange and wants to test-run the demo, then you will have to set the following environment variables.
-    - SNOWFLAKE_ACCOUNT
-    - SNOWFLAKE_USER
-    - SNOWFLAKE_PASSWORD
-    - SCENARIO_NAME
+    - SNOWFLAKE_ACCOUNT: This will be the account identifier for your snowflake account.
+    - SNOWFLAKE_USER: This will be the user that will connect to you snowflake account.
+    - SNOWFLAKE_PASSWORD: This is the password for the user (SNOWFLAKE_USER) that will connect to the snowflake account.
+    - SCENARIO_NAME: This will be demo folder you intend to experiment with. For starters, `basics_demo`, `citibike_demo` or `citibike_demo_jinja` are included with the repo that will set the root folder value in the respective schemachange-config.yml file.
     - SNOWFLAKE_WAREHOUSE Keyed to SCHEMACHANGE_DEMO_WH
     - SNOWFLAKE_DATABASE Keyed to SCHEMACHANGE_DEMO
     - SNOWFLAKE_ROLE Keyed to SCHEMACHANGE_DEMO_DEPLOY

@@ -10,7 +10,12 @@ on:
   pull_request:
     branches:
       - "*"
+    paths-ignore:
+      - '**/README.md'
+      
   push:
+    paths-ignore:
+      - '**/README.md'
     tags:
       - "v*" # Push events to matching v*, i.e. v3.6.2, v4.0.0
     branches:
