@@ -9,14 +9,16 @@ on:
     branches:
       - main
     paths-ignore:
-      - '**/README.md'
+      - '**/*.md'
+      - '**/*.MD'
   push:
     tags:
       - "v*" # Push events to matching v*, i.e. v3.6.2, v4.0.0
     branches:
       - main
     paths-ignore:
-      - '**/README.md'
+      - '**/*.md'
+      - '**/*.MD'
 
 jobs:
   build:
