@@ -32,7 +32,7 @@ jobs:
       SNOWFLAKE_ACCOUNT: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_ACCOUNT }}
       SNOWFLAKE_DATABASE: SCHEMACHANGE_DEMO
       SNOWFLAKE_WAREHOUSE: SCHEMACHANGE_DEMO_WH
-      SNOWFLAKE_ROLE: SCHEMACHANGE_DEMO-DEPLOY
+      SNOWFLAKE_ROLE: '"SCHEMACHANGE_DEMO-DEPLOY"'
       MY_TARGET_SCHEMA: ${{ matrix.scenario-name }}_${{ github.run_number }}_${{ strategy.job-index }}
       SCENARIO_NAME: ${{ matrix.scenario-name }}
     steps:

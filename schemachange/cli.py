@@ -521,9 +521,6 @@ class SnowflakeSchemachangeSession:
             reset_query += self._q_set_sess_database.format(**self.conArgs) + " "
         if self.conArgs["schema"]:
             reset_query += self._q_set_sess_schema.format(**self.conArgs) + " "
-
-        print("Resetting session context")
-        #print(reset_query)
         self.execute_snowflake_query(reset_query)
 
     def reset_query_tag(self, extra_tag=None):
