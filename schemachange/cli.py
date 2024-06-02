@@ -887,6 +887,22 @@ def get_schemachange_config(
 
     return config
 
+def get_snowflake_identifier_string(input_value:str, input_type:str) -> str:
+    pattern = re.compile(r'^[\w]+$') # Words with alphanumeric characters and underscores only.
+    result = ""
+
+    if pattern.match(input_value):
+        result = input_value.upper()
+    elif input_value.startswith('"') and input_value.endswith('"'):
+        result = input_value
+    elif input_value.startswith('"') and not input_value.endswith('"'):
+        raise ValueError(f"Invalid {input_type}: {input_value}. Missing ending double quote")
+    elif not input_value.startswith('"') and input_value.endswith('"'):
+        raise ValueError(f"Invalid {input_type}: {input_value}. Missing beginning double quote")
+    else:
+        result = f'"{input_value}"'
+
+    return result
 
 def get_all_scripts_recursively(root_directory, verbose):
     all_files = dict()
