@@ -1,4 +1,4 @@
 use database {{ database_name }};
 use schema {{ schema_name }};
 
-use role IDENTIFIER({{ snowflake_role }});
+SELECT CURRENT_ROLE() TESTING_ONLY;
