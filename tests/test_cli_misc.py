@@ -135,7 +135,8 @@ def test_get_change_history_table_details_given__unacceptable_values_raises_erro
 
 @pytest.mark.parametrize(
     "input_value, input_type, expected_value",[
-        ('valid_value_123', 'role', 'VALID_VALUE_123'),
+        (None, 'role', None),
+        ('valid_value_123', 'role', 'valid_value_123'),
         ('valid-value-123', 'role', '"valid-value-123"'),
         ('"valid-value-123"', 'role', '"valid-value-123"')
     ]

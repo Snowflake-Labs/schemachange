@@ -812,11 +812,11 @@ def get_schemachange_config(
         "root_folder": root_folder,
         "modules_folder": modules_folder,
         "snowflake_account": snowflake_account,
-        "snowflake_user": snowflake_user,
-        "snowflake_role": snowflake_role,
-        "snowflake_warehouse": snowflake_warehouse,
-        "snowflake_database": snowflake_database,
-        "snowflake_schema": snowflake_schema,
+        "snowflake_user": get_snowflake_identifier_string(snowflake_user, 'snowflake_user'),
+        "snowflake_role": get_snowflake_identifier_string(snowflake_role, 'snowflake_role'),
+        "snowflake_warehouse": get_snowflake_identifier_string(snowflake_warehouse,'snowflake_warehouse'),
+        "snowflake_database": get_snowflake_identifier_string(snowflake_database,'snowflake_database'),
+        "snowflake_schema": get_snowflake_identifier_string(snowflake_schema,'snowflake_schema'),
         "change_history_table": change_history_table,
         "vars": vars,
         "create_change_history_table": create_change_history_table,
@@ -891,8 +891,10 @@ def get_snowflake_identifier_string(input_value:str, input_type:str) -> str:
     pattern = re.compile(r'^[\w]+$') # Words with alphanumeric characters and underscores only.
     result = ""
 
-    if pattern.match(input_value):
-        result = input_value.upper()
+    if input_value is None:
+        result = None
+    elif pattern.match(input_value):
+        result = input_value
     elif input_value.startswith('"') and input_value.endswith('"'):
         result = input_value
     elif input_value.startswith('"') and not input_value.endswith('"'):
