@@ -281,13 +281,13 @@ class SnowflakeSchemachangeSession:
         self.autocommit = config["autocommit"]
         self.verbose = config["verbose"]
         if self.set_connection_args():
-            self.con = snowflake.connector.connect(**self.conArgs)
-            print(_log_current_session_id.format(current_session_id=self.con.session_id))
-            # Setting session context
             print(self._q_set_sess_role.format(**self.conArgs))
             print(self._q_set_sess_warehouse.format(**self.conArgs))
             print(self._q_set_sess_database.format(**self.conArgs))
             print(self._q_set_sess_schema.format(**self.conArgs))
+            self.con = snowflake.connector.connect(**self.conArgs)
+            print(_log_current_session_id.format(current_session_id=self.con.session_id))
+            # Setting session context
 
             if not self.autocommit:
                 self.con.autocommit(False)
@@ -522,6 +522,8 @@ class SnowflakeSchemachangeSession:
         if self.conArgs["schema"]:
             reset_query += self._q_set_sess_schema.format(**self.conArgs) + " "
 
+        print("Resetting session context")
+        #print(reset_query)
         self.execute_snowflake_query(reset_query)
 
     def reset_query_tag(self, extra_tag=None):
