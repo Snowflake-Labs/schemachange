@@ -5,12 +5,15 @@ The contents of this Demo serves two audiences - Consumers and Contributors. For
 ## Prequisite
 
 - You will need your own snowflake Account to test the Demo. 
+- You will need to review and run statements in the provision folder or setup your own database and schema.
+  - [initialize.sql](provision/initialize.sql): Contains the SQL variables to initialize your environment.
+  - [setup_schemachange_schema.sql](provision/setup_schemachange_schema.sql)
 
 ### Contributors
-- If you are a Contributor, you will have to set up scehamchange demo database and schemachange schema (See Initialize and Setup scripts below). Alongthen set up the following Secrets in your forked repository 
-    - SCHEMACHANGE_SNOWFLAKE_PASSWORD
-    - SCHEMACHANGE_SNOWFLAKE_USER
-    - SCHEMACHANGE_SNOWFLAKE_ACCOUNT
+As a contributor, you will have to set up scehamchange demo database and schemachange schema (See Initialize and Setup scripts below). Alongthen set up the following Secrets in your forked repository so that when the github actions tries 
+- SCHEMACHANGE_SNOWFLAKE_PASSWORD
+- SCHEMACHANGE_SNOWFLAKE_USER
+- SCHEMACHANGE_SNOWFLAKE_ACCOUNT
 
 ### Consumers
 - If you are consumer who is installing schemachange and wants to test-run the demo, then you will have to set the following environment variables.
