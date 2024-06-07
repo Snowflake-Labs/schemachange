@@ -1,7 +1,6 @@
 -- Use Demo Database if it doesn't exist
-USE DATABASE SCHEMACHANGE_DEMO;
--- Set the database and schema context
-USE SCHEMA SCHEMACHANGE_DEMO.CITIBIKE_DEMO;
+use database {{ database_name }};
+use schema {{ schema_name }};
 
 -- Create the file formats
 CREATE OR REPLACE FILE FORMAT CSV_NO_HEADER

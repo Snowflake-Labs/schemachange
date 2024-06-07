@@ -3,9 +3,16 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
-## [3.6.2] - 2023-12-07
+## [3.6.2] - 2024-05-03 (TBD)
 ### Changed
-- Aligning with snowflake [identifier requirements](https://docs.snowflake.com/en/sql-reference/identifiers-syntax). 
+- Aligning with snowflake [identifier requirements](https://docs.snowflake.com/en/sql-reference/identifiers-syntax) in the configuration settings
+- Added Session ID as part of the initial connection successful message to be visible in the logs
+- Removed pandas library dependency to improve schemachange install footprint
+- Fixed the bug with `Missing default warehouse`
+- Fixed Demo examples resulting from change in public data set location
+- Improved unit test coverage
+- Updated Github Actions Workflow to check PRs and Merges does not break the demo examples.
+- Updated Docs related to latest Demo content included in schemachange
 
 ## [3.6.1] - 2023-11-15
 ### Added

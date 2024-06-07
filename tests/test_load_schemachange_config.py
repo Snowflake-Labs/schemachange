@@ -10,7 +10,6 @@ from schemachange.cli import load_schemachange_config
 
 
 def test__load_schemachange_config__simple_config_file(tmp_path: pathlib.Path):
-
     config_contents = """
 config-version: 1
 root-folder: scripts
@@ -33,7 +32,6 @@ vars:
 def test__load_schemachange_config__with_env_var_should_populate_value(
     tmp_path: pathlib.Path,
 ):
-
     config_contents = """
 config-version: 1.1
 root-folder: {{env_var('TEST_VAR')}}
@@ -52,7 +50,6 @@ vars:
 def test__load_schemachange_config__requiring_env_var_but_env_var_not_set_should_raise_exception(
     tmp_path: pathlib.Path,
 ):
-
     config_contents = """
 config-version: 1.1
 root-folder: {{env_var('TEST_VAR')}}

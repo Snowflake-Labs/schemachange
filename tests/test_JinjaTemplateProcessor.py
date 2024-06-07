@@ -47,7 +47,6 @@ def test_JinjaTemplateProcessor_render_simple_string_expecting_variable():
 
 
 def test_JinjaTemplateProcessor_render_from_subfolder(tmp_path: pathlib.Path):
-
     root_folder = tmp_path / "MORE2"
 
     root_folder.mkdir()

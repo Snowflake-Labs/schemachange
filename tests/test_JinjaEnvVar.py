@@ -8,7 +8,6 @@ from schemachange.cli import JinjaEnvVar
 
 @mock.patch.dict(os.environ, {}, clear=True)
 def test_env_var_with_no_default_and_no_environmental_variables_should_raise_exception():
-
     assert ("SF_DATABASE" in os.environ) is False
 
     with pytest.raises(ValueError) as e:
@@ -21,7 +20,6 @@ def test_env_var_with_no_default_and_no_environmental_variables_should_raise_exc
 
 @mock.patch.dict(os.environ, {}, clear=True)
 def test_env_var_with_default_and_no_environmental_variables_should_return_default():
-
     print(os.environ)
     assert ("SF_DATABASE" in os.environ) is False
 
@@ -31,14 +29,12 @@ def test_env_var_with_default_and_no_environmental_variables_should_return_defau
 
 @mock.patch.dict(os.environ, {"SF_DATABASE": "SCHEMACHANGE_DEMO_2"}, clear=True)
 def test_env_var_with_default_and_environmental_variables_should_return_environmental_variable_value():
-
     result = JinjaEnvVar.env_var("SF_DATABASE", "SCHEMACHANGE_DEMO")
     assert result == "SCHEMACHANGE_DEMO_2"
 
 
 @mock.patch.dict(os.environ, {"SF_DATABASE": "SCHEMACHANGE_DEMO_3"}, clear=True)
 def test_JinjaEnvVar_with_jinja_template():
-
     template = jinja2.Template(
         "{{env_var('SF_DATABASE', 'SCHEMACHANGE_DEMO')}}", extensions=[JinjaEnvVar]
     )

@@ -1,0 +1,16 @@
+config-version: 1
+
+root-folder: ./demo/setup/{{ env_var('SCENARIO_NAME')}}
+
+snowflake-user: {{ env_var('SNOWFLAKE_USER')}}
+snowflake-account: {{ env_var('SNOWFLAKE_ACCOUNT')}}
+snowflake-role: {{ env_var('SNOWFLAKE_ROLE')}}
+snowflake-warehouse: {{ env_var('SNOWFLAKE_WAREHOUSE')}}
+snowflake-database: {{ env_var('SNOWFLAKE_DATABASE')}}
+# tracking the setup step in a different change history table to use schemachange setup and teardown separate from deployment.
+change-history-table: "{{ env_var('SNOWFLAKE_DATABASE')}}.SCHEMACHANGE.{{ env_var('SCENARIO_NAME')}}_CHANGE_HISTORY"
+create-change-history-table: true
+
+vars:
+  database_name: {{env_var('SNOWFLAKE_DATABASE')}}
+  schema_name: {{env_var('MY_TARGET_SCHEMA')}}
