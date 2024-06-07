@@ -4,13 +4,13 @@ The contents of this Demo serves two audiences - Consumers and Contributors. For
 
 ## Prequisite
 
-- You will need your own snowflake Account to test the Demo. 
+- You will need your own snowflake Account to test the Demo.
 - You will need to review and run statements in the provision folder or setup your own database and schema.
   - [initialize.sql](provision/initialize.sql): Contains the SQL variables to initialize your environment.
   - [setup_schemachange_schema.sql](provision/setup_schemachange_schema.sql): Contains the SQL variables to track the individual demo scenarios in its own change history table.
 
 ### Contributors
-As a contributor, you will have to set up schemachange demo database and schemachange schema (See Initialize and Setup scripts below). Along with that you will also set up the following Secrets in your forked repository so that when the github actions can setup, test and teardown the temporary schema it creates to test the changes to your code. 
+As a contributor, you will have to set up schemachange demo database and schemachange schema (See Initialize and Setup scripts below). Along with that you will also set up the following Secrets in your forked repository so that when the github actions can setup, test and teardown the temporary schema it creates to test the changes to your code.
 - SCHEMACHANGE_SNOWFLAKE_PASSWORD
 - SCHEMACHANGE_SNOWFLAKE_USER
 - SCHEMACHANGE_SNOWFLAKE_ACCOUNT
@@ -24,9 +24,9 @@ As a contributor, you will have to set up schemachange demo database and schemac
     - SNOWFLAKE_WAREHOUSE: This will be the warehouse you setup for the demo. Default setup is SCHEMACHANGE_DEMO_WH
     - SNOWFLAKE_DATABASE Keyed to SCHEMACHANGE_DEMO
     - SNOWFLAKE_ROLE Keyed to SCHEMACHANGE_DEMO-DEPLOY
-    
+
 The scripts in the `provision` folder are to be used to setup up your demo database along with a schema in that database that will house the change tracking tables needed to setup and teardown the schemas used to test a working version of the demo DDL scripts.
-The [initialize](provision/initialize.sql) script setups the database, warehouse and account level access roles that will be used on the 
+The [initialize](provision/initialize.sql) script setups the database, warehouse and account level access roles that will be used on the
 The [setup](provision/setup_schemachange_schema.sql) script creates the `SCHEMACHANGE` schema in the database that you created in the initialize step.
 
 # Setup
@@ -34,7 +34,7 @@ The [setup](provision/setup_schemachange_schema.sql) script creates the `SCHEMAC
 
 # Teardown
 
-# 
+#
 # citibike
 
 # citibike jinja

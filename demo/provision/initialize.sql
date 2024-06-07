@@ -1,4 +1,4 @@
--- This script is provided as a sample setup to use database roles, warehouse, admin role, deploy role as an example. 
+-- This script is provided as a sample setup to use database roles, warehouse, admin role, deploy role as an example.
 -- YOu may choose to have your own RBAC and SCHEMACHANGE database setup depending on your organization objectives.
 -- Set these to personalize your deployment
 SET SERVICE_USER_PASSWORD = 'CHANGEME';

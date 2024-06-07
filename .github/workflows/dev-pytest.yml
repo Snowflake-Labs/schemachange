@@ -5,7 +5,7 @@ defaults:
     shell: bash
 
 on:
-  workflow_dispatch: 
+  workflow_dispatch:
 
   pull_request:
     branches:
@@ -15,7 +15,7 @@ on:
       - '**/*.MD'
       - '*.md'
       - '**.MD'
-      
+
   push:
     paths-ignore:
       - '**/*.md'
@@ -36,7 +36,7 @@ jobs:
         os: ["ubuntu-latest"]
         python-version: ["3.11"]
     runs-on: ${{ matrix.os }}
-    
+
     env:
       SNOWFLAKE_PASSWORD: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_PASSWORD }}
       SNOWFLAKE_USER: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_USER }}

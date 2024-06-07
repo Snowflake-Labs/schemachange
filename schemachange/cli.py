@@ -286,7 +286,9 @@ class SnowflakeSchemachangeSession:
             print(self._q_set_sess_database.format(**self.conArgs))
             print(self._q_set_sess_schema.format(**self.conArgs))
             self.con = snowflake.connector.connect(**self.conArgs)
-            print(_log_current_session_id.format(current_session_id=self.con.session_id))
+            print(
+                _log_current_session_id.format(current_session_id=self.con.session_id)
+            )
             # Setting session context
 
             if not self.autocommit:
@@ -299,7 +301,6 @@ class SnowflakeSchemachangeSession:
             self.con.close()
 
     def get_snowflake_params(self, config):
-
         session_parameters = {"QUERY_TAG": "schemachange %s" % _schemachange_version}
         if config["query_tag"]:
             session_parameters["QUERY_TAG"] += ";%s" % config["query_tag"]
@@ -307,10 +308,18 @@ class SnowflakeSchemachangeSession:
         return {
             "user": config["snowflake_user"],
             "account": config["snowflake_account"],
-            "role": get_snowflake_identifier_string(config["snowflake_role"],'snowflake_role'),
-            "warehouse": get_snowflake_identifier_string(config["snowflake_warehouse"],'snowflake_warehouse'),
-            "database": get_snowflake_identifier_string(config["snowflake_database"],'snowflake_database'),
-            "schema": get_snowflake_identifier_string(config["snowflake_schema"],'snowflake_schema'),
+            "role": get_snowflake_identifier_string(
+                config["snowflake_role"], "snowflake_role"
+            ),
+            "warehouse": get_snowflake_identifier_string(
+                config["snowflake_warehouse"], "snowflake_warehouse"
+            ),
+            "database": get_snowflake_identifier_string(
+                config["snowflake_database"], "snowflake_database"
+            ),
+            "schema": get_snowflake_identifier_string(
+                config["snowflake_schema"], "snowflake_schema"
+            ),
             "application": _snowflake_application_name,
             "session_parameters": session_parameters,
         }
@@ -372,10 +381,9 @@ class SnowflakeSchemachangeSession:
                 self.conArgs["authenticator"] = "externalbrowser"
                 if self.verbose:
                     print(_log_auth_type % "External Browser")
-            
+
             # IDP based Authentication, limited to Okta
             elif snowflake_authenticator.lower()[:8] == "https://":
-
                 if self.verbose:
                     print(_log_auth_type % "Okta")
                     print(_log_okta_ep % snowflake_authenticator)
@@ -803,7 +811,6 @@ def get_schemachange_config(
     oauth_config,
     **kwargs,
 ):
-
     # create cli override dictionary
     # Could refactor to just pass Args as a dictionary?
     # **kwargs inlcuded to avoid complaints about unexpect arguments from arg parser eg:subcommand
@@ -886,8 +893,11 @@ def get_schemachange_config(
 
     return config
 
-def get_snowflake_identifier_string(input_value:str, input_type:str) -> str:
-    pattern = re.compile(r'^[\w]+$') # Words with alphanumeric characters and underscores only.
+
+def get_snowflake_identifier_string(input_value: str, input_type: str) -> str:
+    pattern = re.compile(
+        r"^[\w]+$"
+    )  # Words with alphanumeric characters and underscores only.
     result = ""
 
     if input_value is None:
@@ -897,13 +907,18 @@ def get_snowflake_identifier_string(input_value:str, input_type:str) -> str:
     elif input_value.startswith('"') and input_value.endswith('"'):
         result = input_value
     elif input_value.startswith('"') and not input_value.endswith('"'):
-        raise ValueError(f"Invalid {input_type}: {input_value}. Missing ending double quote")
+        raise ValueError(
+            f"Invalid {input_type}: {input_value}. Missing ending double quote"
+        )
     elif not input_value.startswith('"') and input_value.endswith('"'):
-        raise ValueError(f"Invalid {input_type}: {input_value}. Missing beginning double quote")
+        raise ValueError(
+            f"Invalid {input_type}: {input_value}. Missing beginning double quote"
+        )
     else:
         result = f'"{input_value}"'
 
     return result
+
 
 def get_all_scripts_recursively(root_directory, verbose):
     all_files = dict()
@@ -911,7 +926,6 @@ def get_all_scripts_recursively(root_directory, verbose):
     # Walk the entire directory structure recursively
     for directory_path, directory_names, file_names in os.walk(root_directory):
         for file_name in file_names:
-
             file_full_path = os.path.join(directory_path, file_name)
             script_name_parts = re.search(
                 r"^([V])(.+?)__(.+?)\.(?:sql|sql.jinja)$",

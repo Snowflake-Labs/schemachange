@@ -102,13 +102,15 @@ DEFAULT_CONFIG = {
 def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
     args, expected
 ):
-
     with mock.patch("schemachange.cli.deploy_command") as mock_deploy_command:
         schemachange.cli.main(args)
         mock_deploy_command.assert_called_once()
-        [
-            config,
-        ], _call_kwargs = mock_deploy_command.call_args
+        (
+            [
+                config,
+            ],
+            _call_kwargs,
+        ) = mock_deploy_command.call_args
         assert config == expected
 
 
@@ -133,7 +135,6 @@ def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
 def test_main_render_subcommand_given_arguments_make_sure_arguments_set_on_call(
     args, expected
 ):
-
     with mock.patch("schemachange.cli.render_command") as mock_render_command:
         schemachange.cli.main(args)
         mock_render_command.assert_called_once()
@@ -158,7 +159,7 @@ def test_main_render_subcommand_given_arguments_make_sure_arguments_set_on_call(
 )
 def test_main_deploy_config_folder(args, to_mock, expected_args):
     with tempfile.TemporaryDirectory() as d:
-        with open(os.path.join(d, "schemachange-config.yml"), "wt") as f:
+        with open(os.path.join(d, "schemachange-config.yml"), "w") as f:
             f.write(
                 dedent(
                     """
@@ -193,7 +194,6 @@ def test_main_deploy_config_folder(args, to_mock, expected_args):
 )
 def test_main_deploy_modules_folder(args, to_mock, expected_args):
     with tempfile.TemporaryDirectory() as d:
-
         args[args.index("DUMMY")] = d
         expected_args[0]["modules_folder"] = d
 

@@ -14,4 +14,3 @@ create-change-history-table: true
 vars:
   database_name: {{env_var('SNOWFLAKE_DATABASE')}}
   schema_name: {{env_var('MY_TARGET_SCHEMA')}}
-
