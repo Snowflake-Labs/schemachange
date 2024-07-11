@@ -20,7 +20,7 @@ from jinja2.loaders import BaseLoader
 
 # region Global Variables
 # metadata
-_schemachange_version = "3.6.2"
+_schemachange_version = "3.6.3"
 _config_file_name = "schemachange-config.yml"
 _metadata_database_name = "METADATA"
 _metadata_schema_name = "SCHEMACHANGE"
@@ -245,7 +245,7 @@ class SnowflakeSchemachangeSession:
         "SELECT COUNT(1) FROM {database_name}.INFORMATION_SCHEMA.SCHEMATA"
         + " WHERE SCHEMA_NAME = REPLACE('{schema_name}','\"','')"
     )
-    _q_ch_ddl_schema = "CREATE SCHEMA {schema_name}"
+    _q_ch_ddl_schema = "CREATE SCHEMA IF NOT EXISTS {schema_name}"
     _q_ch_ddl_table = (
         "CREATE TABLE IF NOT EXISTS {database_name}.{schema_name}.{table_name} (VERSION VARCHAR, "
         + "DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR,"
