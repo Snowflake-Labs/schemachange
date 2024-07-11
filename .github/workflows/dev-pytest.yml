@@ -26,7 +26,7 @@ jobs:
         python-version: ["3.11"]
     runs-on: ${{ matrix.os }}
     if: ${{ github.event.pull_request.labels.name == 'ci-run-tests' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }} 
-    
+
     env:
       SNOWFLAKE_PASSWORD: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_PASSWORD }}
       SNOWFLAKE_USER: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_USER }}
@@ -38,7 +38,7 @@ jobs:
       SCENARIO_NAME: ${{ matrix.scenario-name }}
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python 3.11
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
