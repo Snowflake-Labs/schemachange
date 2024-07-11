@@ -24,6 +24,7 @@ For the complete list of changes made to schemachange check out the [CHANGELOG](
    1. [Versioned Script Naming](#versioned-script-naming)
    1. [Repeatable Script Naming](#repeatable-script-naming)
    1. [Always Script Naming](#always-script-naming)
+   1. [Always First Script Naming](#always-first-script-naming)
    1. [Script Requirements](#script-requirements)
    1. [Using Variables in Scripts](#using-variables-in-scripts)
       1. [Secrets filtering](#secrets-filtering)
@@ -38,7 +39,7 @@ For the complete list of changes made to schemachange check out the [CHANGELOG](
    1. [Okta Authentication](#okta-authentication)
 1. [Configuration](#configuration)
    1. [YAML Config File](#yaml-config-file)
-      1. [Yaml Jinja support](#yaml-jinja-support)
+      1. [YAML Jinja support](#yaml-jinja-support)
    1. [Command Line Arguments](#command-line-arguments)
 1. [Running schemachange](#running-schemachange)
    1. [Prerequisites](#prerequisites)
@@ -65,10 +66,12 @@ schemachange expects a directory structure like the following to exist:
     |-- V1.1.2__second_change.sql
     |-- R__sp_add_sales.sql
     |-- R__fn_get_timezone.sql
+    |-- F__clone_to_qa.sql
 |-- folder_2
     |-- folder_3
         |-- V1.1.3__third_change.sql
         |-- R__fn_sort_ascii.sql
+        |-- A__permissions.sql
 ```
 
 The schemachange folder structure is very flexible. The `project_root` folder is specified with the `-f` or `--root-folder` argument. schemachange only pays attention to the filenames, not the paths. Therefore, under the `project_root` folder you are free to arrange the change scripts any way you see fit. You can have as many subfolders (and nested subfolders) as you would like.
@@ -128,6 +131,20 @@ e.g.
 * A__assign_roles.sql
 
 This type of change script is useful for an environment set up after cloning. Always scripts are applied always last.
+
+### Always First Script Naming
+
+Always First change scripts are executed with every run of schemachange if the configuration option is set to `True`; the default is `False`. This is an addition to the implementation of [Flyway Versioned Migrations](https://flywaydb.org/documentation/concepts/migrations.html#repeatable-migrations).
+The script name must following pattern:
+
+`F__Some_description.sql`
+
+e.g.
+
+* F__QA_Clone.sql
+* F__STG_Clone.sql
+
+This type of change script is useful for cloning an environment at the start of the CI/CD process. When a release is created, the first step is to recreate the QA clone off production, so the change scripts are applied to the most current version of the production environment. After QA approves the release, the cloning action is not needed, so the configuration option is set to `False` and the Always First scripts are skipped. Always First scripts are applied first when the configuration option is set to `True`.
 
 ### Script Requirements
 
@@ -329,6 +346,9 @@ autocommit: false
 # Display verbose debugging details during execution (the default is False)
 verbose: false
 
+# Execute Always First scripts which are executed before other script types (the default is False)
+always-first: false
+
 # Run schemachange in dry run mode (the default is False)
 dry-run: false
 
@@ -396,6 +416,7 @@ Parameter | Description
 --create-change-history-table | Create the change history table if it does not exist. The default is 'False'.
 -ac, --autocommit | Enable autocommit feature for DML commands. The default is 'False'.
 -v, --verbose | Display verbose debugging details during execution. The default is 'False'.
+-af, --always-first | Enable to execute Always First scripts. These will be executed before all other script types. The default is 'False'.
 --dry-run | Run schemachange in dry run mode. The default is 'False'.
 --query-tag | A string to include in the QUERY_TAG that is attached to every SQL statement executed.
 --oauth-config | Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })'
@@ -403,7 +424,7 @@ Parameter | Description
 #### render
 This subcommand is used to render a single script to the console. It is intended to support the development and troubleshooting of script that use features from the jinja template engine.
 
-`usage: schemachange render [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [--vars VARS] [-v] script`
+`usage: schemachange render [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [--vars VARS] [-v] [-af] script`
 
 Parameter | Description
 --- | ---
@@ -412,6 +433,7 @@ Parameter | Description
 -m MODULES_FOLDER, --modules-folder MODULES_FOLDER | The modules folder for jinja macros and templates to be used across multiple scripts
 --vars VARS | Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})
 -v, --verbose | Display verbose debugging details during execution (the default is False)
+-af, --always-first | Enable to execute Always First scripts. These will be executed before all other script types. The default is 'False'.
 
 
 ## Running schemachange
