@@ -4,7 +4,7 @@ The contents of this Demo serves two audiences - Consumers and Contributors. For
 
 ## Prequisite
 
-- You will need your own snowflake Account to test the Demo.
+- You will need your own snowflake Account to test the Demo - Both as a contributor and consumer.
 - You will need to review and run statements in the provision folder or setup your own database and schema.
   - [initialize.sql](provision/initialize.sql): Contains the SQL variables to initialize your environment.
   - [setup_schemachange_schema.sql](provision/setup_schemachange_schema.sql): Contains the SQL variables to track the individual demo scenarios in its own change history table.

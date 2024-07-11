@@ -1,7 +1,7 @@
 -- This script is provided as a sample setup to use database roles, warehouse, admin role, deploy role as an example.
 -- YOu may choose to have your own RBAC and SCHEMACHANGE database setup depending on your organization objectives.
 -- Set these to personalize your deployment
-SET SERVICE_USER_PASSWORD = 'CHANGEME';
+SET SERVICE_USER_PASSWORD = 'CHANGEME'; -- Password for the service user that will be logging 
 SET ADMIN_USER = 'CHANGEME';
 SET TARGET_DB_NAME = 'SCHEMACHANGE_DEMO'; -- Name of database that will have the SCHEMACHANGE Schema for change tracking.
 
