@@ -25,7 +25,8 @@ jobs:
         os: ["ubuntu-latest"]
         python-version: ["3.11"]
     runs-on: ${{ matrix.os }}
-
+    if: ${{ github.event.pull_request.labels.name == 'ci-run-tests' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }} 
+    
     env:
       SNOWFLAKE_PASSWORD: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_PASSWORD }}
       SNOWFLAKE_USER: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_USER }}
