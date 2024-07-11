@@ -5,24 +5,21 @@ defaults:
     shell: bash
 
 on:
+  workflow_dispatch:
+
   pull_request:
+    types:
+      - opened
+      - reopened
+      - labeled
+      - edited
     branches:
       - main
-    paths-ignore:
-      - '**/*.md'
-      - '**/*.MD'
-      - '*.md'
-      - '*.MD'
+
   push:
     tags:
       - "v*" # Push events to matching v*, i.e. v3.6.2, v4.0.0
-    branches:
-      - main
-    paths-ignore:
-      - '**/*.md'
-      - '**/*.MD'
-      - '*.md'
-      - '*.MD'
+
 
 jobs:
   build:
@@ -33,6 +30,7 @@ jobs:
         os: ["ubuntu-latest", "macos-latest", "windows-latest"]
         python-version: ["3.8", "3.9", "3.10", "3.11"]
     runs-on: ${{ matrix.os }}
+    if: ${{  }} 
     env:
       SNOWFLAKE_PASSWORD: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_PASSWORD }}
       SNOWFLAKE_USER: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_USER }}
