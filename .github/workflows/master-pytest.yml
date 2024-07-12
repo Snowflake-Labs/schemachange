@@ -9,10 +9,7 @@ on:
 
   pull_request:
     types:
-      - opened
-      - reopened
       - labeled
-      - edited
     branches:
       - main
 
