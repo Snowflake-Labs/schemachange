@@ -3,11 +3,10 @@ import pytest
 
 
 def test_cli_given__schemachange_version_change_updated_in_setup_config_file():
-    assert schemachange.cli._schemachange_version == "3.6.2"
+    assert schemachange.cli._schemachange_version == "3.7.0"
 
 
 def test_cli_given__constants_exist():
-
     assert schemachange.cli._config_file_name == "schemachange-config.yml"
     assert schemachange.cli._metadata_database_name == "METADATA"
     assert schemachange.cli._metadata_schema_name == "SCHEMACHANGE"
@@ -132,3 +131,34 @@ def test_get_change_history_table_details_given__unacceptable_values_raises_erro
         schemachange.cli.get_change_history_table_details(cht)
 
     assert str(e.value).startswith("Invalid change history table name: ")
+
+
+@pytest.mark.parametrize(
+    "input_value, input_type, expected_value",
+    [
+        (None, "role", None),
+        ("valid_value_123", "role", "valid_value_123"),
+        ("valid-value-123", "role", '"valid-value-123"'),
+        ('"valid-value-123"', "role", '"valid-value-123"'),
+    ],
+)
+def test__get_snowflake_identifier_string_given__acceptable_values_produces_properly_quoted_snowflake_identifier(
+    input_value, input_type, expected_value
+):
+    assert (
+        schemachange.cli.get_snowflake_identifier_string(input_value, input_type)
+        == expected_value
+    )
+
+
+@pytest.mark.parametrize(
+    "input_value, input_type",
+    [('"valid-value-123', "role"), ('valid-value-123"', "role")],
+)
+def test__get_snowflake_identifier_string_given__unacceptable_values_raises_error(
+    input_value, input_type
+):
+    with pytest.raises(ValueError) as e:
+        schemachange.cli.get_snowflake_identifier_string(input_value, input_type)
+
+    assert str(e.value).startswith(f"Invalid {input_type}: ")

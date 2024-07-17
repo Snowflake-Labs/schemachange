@@ -1,14 +1,10 @@
 import os
 import unittest.mock as mock
-
 import pytest
-
 from schemachange.cli import get_all_scripts_recursively
 
-#######################
-#### Generic tests ####
-#######################
 
+# Generic tests
 
 def test_get_all_scripts_recursively__given_empty_folder_should_return_empty():
     with mock.patch("os.walk") as mockwalk:
@@ -30,10 +26,7 @@ def test_get_all_scripts_recursively__given_just_non_change_files_should_return_
     assert result == dict()
 
 
-############################
-#### Version file tests ####
-############################
-
+# Version file tests
 
 def test_get_all_scripts_recursively__given_Version_files_should_return_version_files():
     with mock.patch("os.walk") as mockwalk:
@@ -115,10 +108,7 @@ def test_get_all_scripts_recursively__given_same_version_file_with_and_without_j
         )
 
 
-###########################
-#### Always file tests ####
-###########################
-
+# Always file tests
 
 def test_get_all_scripts_recursively__given_Always_files_should_return_always_files():
     with mock.patch("os.walk") as mockwalk:
@@ -199,10 +189,7 @@ def test_get_all_scripts_recursively__given_same_Always_file_with_and_without_ji
         )
 
 
-###############################
-#### Repeatable file tests ####
-###############################
-
+# Repeatable file tests
 
 def test_get_all_scripts_recursively__given_Repeatable_files_should_return_repeatable_files():
     with mock.patch("os.walk") as mockwalk:

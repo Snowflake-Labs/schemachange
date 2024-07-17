@@ -1,7 +1,6 @@
 from schemachange.cli import SecretManager
 
 
-##### test Class #####
 def test_SecretManager_given_no_secrets_when_redact_then_return_original_value():
     sm = SecretManager()
     result = sm.redact("My string")
@@ -68,7 +67,7 @@ def test_SecretManager_given_one_secrets_when_add_range_with_two_secrets_then_co
     assert "two" in sm._SecretManager__secrets
 
 
-##### test static methods #####
+# test static methods
 
 
 def test_SecretManager_check_global_assignment_round_trip():

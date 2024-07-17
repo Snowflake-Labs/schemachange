@@ -20,7 +20,7 @@ from jinja2.loaders import BaseLoader
 
 # region Global Variables
 # metadata
-_schemachange_version = "3.6.2"
+_schemachange_version = "3.7.0"
 _config_file_name = "schemachange-config.yml"
 _metadata_database_name = "METADATA"
 _metadata_schema_name = "SCHEMACHANGE"
@@ -245,7 +245,7 @@ class SnowflakeSchemachangeSession:
         "SELECT COUNT(1) FROM {database_name}.INFORMATION_SCHEMA.SCHEMATA"
         + " WHERE SCHEMA_NAME = REPLACE('{schema_name}','\"','')"
     )
-    _q_ch_ddl_schema = "CREATE SCHEMA {schema_name}"
+    _q_ch_ddl_schema = "CREATE SCHEMA IF NOT EXISTS {schema_name}"
     _q_ch_ddl_table = (
         "CREATE TABLE IF NOT EXISTS {database_name}.{schema_name}.{table_name} (VERSION VARCHAR, "
         + "DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR,"
@@ -281,13 +281,15 @@ class SnowflakeSchemachangeSession:
         self.autocommit = config["autocommit"]
         self.verbose = config["verbose"]
         if self.set_connection_args():
-            self.con = snowflake.connector.connect(**self.conArgs)
-            print(_log_current_session_id.format(current_session_id=self.con.session_id))
-            # Setting session context
             print(self._q_set_sess_role.format(**self.conArgs))
             print(self._q_set_sess_warehouse.format(**self.conArgs))
             print(self._q_set_sess_database.format(**self.conArgs))
             print(self._q_set_sess_schema.format(**self.conArgs))
+            self.con = snowflake.connector.connect(**self.conArgs)
+            print(
+                _log_current_session_id.format(current_session_id=self.con.session_id)
+            )
+            # Setting session context
 
             if not self.autocommit:
                 self.con.autocommit(False)
@@ -299,7 +301,6 @@ class SnowflakeSchemachangeSession:
             self.con.close()
 
     def get_snowflake_params(self, config):
-
         session_parameters = {"QUERY_TAG": "schemachange %s" % _schemachange_version}
         if config["query_tag"]:
             session_parameters["QUERY_TAG"] += ";%s" % config["query_tag"]
@@ -307,10 +308,18 @@ class SnowflakeSchemachangeSession:
         return {
             "user": config["snowflake_user"],
             "account": config["snowflake_account"],
-            "role": config["snowflake_role"],
-            "warehouse": config["snowflake_warehouse"],
-            "database": config["snowflake_database"],
-            "schema": config["snowflake_schema"],
+            "role": get_snowflake_identifier_string(
+                config["snowflake_role"], "snowflake_role"
+            ),
+            "warehouse": get_snowflake_identifier_string(
+                config["snowflake_warehouse"], "snowflake_warehouse"
+            ),
+            "database": get_snowflake_identifier_string(
+                config["snowflake_database"], "snowflake_database"
+            ),
+            "schema": get_snowflake_identifier_string(
+                config["snowflake_schema"], "snowflake_schema"
+            ),
             "application": _snowflake_application_name,
             "session_parameters": session_parameters,
         }
@@ -372,10 +381,9 @@ class SnowflakeSchemachangeSession:
                 self.conArgs["authenticator"] = "externalbrowser"
                 if self.verbose:
                     print(_log_auth_type % "External Browser")
-            
+
             # IDP based Authentication, limited to Okta
             elif snowflake_authenticator.lower()[:8] == "https://":
-
                 if self.verbose:
                     print(_log_auth_type % "Okta")
                     print(_log_okta_ep % snowflake_authenticator)
@@ -521,7 +529,6 @@ class SnowflakeSchemachangeSession:
             reset_query += self._q_set_sess_database.format(**self.conArgs) + " "
         if self.conArgs["schema"]:
             reset_query += self._q_set_sess_schema.format(**self.conArgs) + " "
-
         self.execute_snowflake_query(reset_query)
 
     def reset_query_tag(self, extra_tag=None):
@@ -804,7 +811,6 @@ def get_schemachange_config(
     oauth_config,
     **kwargs,
 ):
-
     # create cli override dictionary
     # Could refactor to just pass Args as a dictionary?
     # **kwargs inlcuded to avoid complaints about unexpect arguments from arg parser eg:subcommand
@@ -888,13 +894,38 @@ def get_schemachange_config(
     return config
 
 
+def get_snowflake_identifier_string(input_value: str, input_type: str) -> str:
+    pattern = re.compile(
+        r"^[\w]+$"
+    )  # Words with alphanumeric characters and underscores only.
+    result = ""
+
+    if input_value is None:
+        result = None
+    elif pattern.match(input_value):
+        result = input_value
+    elif input_value.startswith('"') and input_value.endswith('"'):
+        result = input_value
+    elif input_value.startswith('"') and not input_value.endswith('"'):
+        raise ValueError(
+            f"Invalid {input_type}: {input_value}. Missing ending double quote"
+        )
+    elif not input_value.startswith('"') and input_value.endswith('"'):
+        raise ValueError(
+            f"Invalid {input_type}: {input_value}. Missing beginning double quote"
+        )
+    else:
+        result = f'"{input_value}"'
+
+    return result
+
+
 def get_all_scripts_recursively(root_directory, verbose):
     all_files = dict()
     all_versions = list()
     # Walk the entire directory structure recursively
     for directory_path, directory_names, file_names in os.walk(root_directory):
         for file_name in file_names:
-
             file_full_path = os.path.join(directory_path, file_name)
             script_name_parts = re.search(
                 r"^([V])(.+?)__(.+?)\.(?:sql|sql.jinja)$",
@@ -1041,7 +1072,8 @@ def extract_config_secrets(config: Dict[str, Any]) -> Set[str]:
 def main(argv=sys.argv):
     parser = argparse.ArgumentParser(
         prog="schemachange",
-        description="Apply schema changes to a Snowflake account. Full readme at https://github.com/Snowflake-Labs/schemachange",
+        description="""Apply schema changes to a Snowflake account.
+        Full readme at https://github.com/Snowflake-Labs/schemachange""",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     subcommands = parser.add_subparsers(dest="subcommand")
@@ -1114,13 +1146,15 @@ def main(argv=sys.argv):
         "-c",
         "--change-history-table",
         type=str,
-        help="Used to override the default name of the change history table (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)",
+        help="""Used to override the default name of the change history table
+        (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)""",
         required=False,
     )
     parser_deploy.add_argument(
         "--vars",
         type=json.loads,
-        help='Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})',
+        help="""Define values for the variables to be replaced in change scripts, given in JSON format
+        (e.g. {"variable1": "value1", "variable2": "value2"})""",
         required=False,
     )
     parser_deploy.add_argument(
@@ -1158,7 +1192,8 @@ def main(argv=sys.argv):
     parser_deploy.add_argument(
         "--oauth-config",
         type=json.loads,
-        help='Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })',
+        help="""Define values for the variables to Make Oauth Token requests
+        (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })""",
         required=False,
     )
     # TODO test CLI passing of args
@@ -1191,7 +1226,8 @@ def main(argv=sys.argv):
     parser_render.add_argument(
         "--vars",
         type=json.loads,
-        help='Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})',
+        help="""Define values for the variables to be replaced in change scripts, given in JSON format
+        (e.g. {"variable1": "value1", "variable2": "value2"})""",
         required=False,
     )
     parser_render.add_argument(
