@@ -1,8 +1,7 @@
--- Create the database if it doesn't exist
-CREATE DATABASE IF NOT EXISTS SCHEMACHANGE_DEMO;
-
+-- Use Demo Database if it doesn't exist
+USE DATABASE SCHEMACHANGE_DEMO;
 -- Set the database and schema context
-USE SCHEMA SCHEMACHANGE_DEMO.PUBLIC;
+USE SCHEMA SCHEMACHANGE_DEMO.CITIBIKE_DEMO;
 
 -- Create the file formats
 CREATE OR REPLACE FILE FORMAT CSV_NO_HEADER

@@ -1,9 +1,9 @@
 {% from 'modules/create_stage.j2' import create_stage-%}
 -- Create the database if it doesn't exist
-CREATE DATABASE IF NOT EXISTS {{database_name}};
+USE DATABASE {{database_name}};
 
 -- Set the database and schema context
-USE SCHEMA {{database_name}}.PUBLIC;
+USE SCHEMA {{database_name}}.{{schema_name}};
 
 -- Create the file formats
 CREATE OR REPLACE FILE FORMAT CSV_NO_HEADER
