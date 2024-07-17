@@ -1072,7 +1072,8 @@ def extract_config_secrets(config: Dict[str, Any]) -> Set[str]:
 def main(argv=sys.argv):
     parser = argparse.ArgumentParser(
         prog="schemachange",
-        description="Apply schema changes to a Snowflake account. Full readme at https://github.com/Snowflake-Labs/schemachange",
+        description="""Apply schema changes to a Snowflake account. 
+        Full readme at https://github.com/Snowflake-Labs/schemachange""",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     subcommands = parser.add_subparsers(dest="subcommand")
@@ -1151,7 +1152,8 @@ def main(argv=sys.argv):
     parser_deploy.add_argument(
         "--vars",
         type=json.loads,
-        help='Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})',
+        help="""Define values for the variables to be replaced in change scripts, given in JSON format 
+        (e.g. {"variable1": "value1", "variable2": "value2"})""",
         required=False,
     )
     parser_deploy.add_argument(
@@ -1189,7 +1191,8 @@ def main(argv=sys.argv):
     parser_deploy.add_argument(
         "--oauth-config",
         type=json.loads,
-        help='Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })',
+        help="""Define values for the variables to Make Oauth Token requests  
+        (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })""",
         required=False,
     )
     # TODO test CLI passing of args
@@ -1222,7 +1225,8 @@ def main(argv=sys.argv):
     parser_render.add_argument(
         "--vars",
         type=json.loads,
-        help='Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"})',
+        help="""Define values for the variables to be replaced in change scripts, given in JSON format 
+        (e.g. {"variable1": "value1", "variable2": "value2"})""",
         required=False,
     )
     parser_render.add_argument(
