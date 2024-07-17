@@ -1,8 +1,6 @@
 import os
 import unittest.mock as mock
-
 import pytest
-
 from schemachange.cli import get_all_scripts_recursively
 
 
@@ -28,10 +26,7 @@ def test_get_all_scripts_recursively__given_just_non_change_files_should_return_
     assert result == dict()
 
 
-
 # Version file tests
-
-
 
 def test_get_all_scripts_recursively__given_Version_files_should_return_version_files():
     with mock.patch("os.walk") as mockwalk:
@@ -111,7 +106,6 @@ def test_get_all_scripts_recursively__given_same_version_file_with_and_without_j
         assert str(e.value).startswith(
             "The script name V1.1.1__intial.sql exists more than once (first_instance"
         )
-
 
 
 # Always file tests
@@ -195,10 +189,7 @@ def test_get_all_scripts_recursively__given_same_Always_file_with_and_without_ji
         )
 
 
-#
 # Repeatable file tests
-
-
 
 def test_get_all_scripts_recursively__given_Repeatable_files_should_return_repeatable_files():
     with mock.patch("os.walk") as mockwalk:

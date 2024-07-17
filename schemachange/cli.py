@@ -1072,7 +1072,7 @@ def extract_config_secrets(config: Dict[str, Any]) -> Set[str]:
 def main(argv=sys.argv):
     parser = argparse.ArgumentParser(
         prog="schemachange",
-        description="""Apply schema changes to a Snowflake account. 
+        description="""Apply schema changes to a Snowflake account.
         Full readme at https://github.com/Snowflake-Labs/schemachange""",
         formatter_class=argparse.RawTextHelpFormatter,
     )
@@ -1146,13 +1146,14 @@ def main(argv=sys.argv):
         "-c",
         "--change-history-table",
         type=str,
-        help="Used to override the default name of the change history table (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)",
+        help="""Used to override the default name of the change history table
+        (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)""",
         required=False,
     )
     parser_deploy.add_argument(
         "--vars",
         type=json.loads,
-        help="""Define values for the variables to be replaced in change scripts, given in JSON format 
+        help="""Define values for the variables to be replaced in change scripts, given in JSON format
         (e.g. {"variable1": "value1", "variable2": "value2"})""",
         required=False,
     )
@@ -1191,7 +1192,7 @@ def main(argv=sys.argv):
     parser_deploy.add_argument(
         "--oauth-config",
         type=json.loads,
-        help="""Define values for the variables to Make Oauth Token requests  
+        help="""Define values for the variables to Make Oauth Token requests
         (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })""",
         required=False,
     )
@@ -1225,7 +1226,7 @@ def main(argv=sys.argv):
     parser_render.add_argument(
         "--vars",
         type=json.loads,
-        help="""Define values for the variables to be replaced in change scripts, given in JSON format 
+        help="""Define values for the variables to be replaced in change scripts, given in JSON format
         (e.g. {"variable1": "value1", "variable2": "value2"})""",
         required=False,
     )

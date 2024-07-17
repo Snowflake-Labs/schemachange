@@ -67,7 +67,7 @@ def test_SecretManager_given_one_secrets_when_add_range_with_two_secrets_then_co
     assert "two" in sm._SecretManager__secrets
 
 
-##### test static methods #####
+# test static methods
 
 
 def test_SecretManager_check_global_assignment_round_trip():
