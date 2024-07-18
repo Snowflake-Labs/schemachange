@@ -105,9 +105,12 @@ def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
     with mock.patch("schemachange.cli.deploy_command") as mock_deploy_command:
         schemachange.cli.main(args)
         mock_deploy_command.assert_called_once()
-        [
-            config,
-        ], _call_kwargs = mock_deploy_command.call_args
+        (
+            [
+                config,
+            ],
+            _call_kwargs,
+        ) = mock_deploy_command.call_args
         assert config == expected
 
 
@@ -156,7 +159,7 @@ def test_main_render_subcommand_given_arguments_make_sure_arguments_set_on_call(
 )
 def test_main_deploy_config_folder(args, to_mock, expected_args):
     with tempfile.TemporaryDirectory() as d:
-        with open(os.path.join(d, "schemachange-config.yml"), "wt") as f:
+        with open(os.path.join(d, "schemachange-config.yml"), "w") as f:
             f.write(
                 dedent(
                     """

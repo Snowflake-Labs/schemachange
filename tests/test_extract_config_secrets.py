@@ -2,13 +2,13 @@ import pytest
 from schemachange.cli import extract_config_secrets
 
 
-def test_extract_config_secrets_given_empty_config_should_not_error():
+def test_extract_config_secrets_given_empty_config_should_produce_empty_set():
     config = {}
-    extract_config_secrets(config)
+    assert len(extract_config_secrets(config)) == 0
 
 
-def test_extract_config_secrets_given_None_should_not_error():
-    extract_config_secrets(None)
+def test_extract_config_secrets_given_None_should_produce_empty_set():
+    assert len(extract_config_secrets(None)) == 0
 
 
 @pytest.mark.parametrize(

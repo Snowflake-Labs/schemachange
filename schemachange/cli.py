@@ -17,11 +17,10 @@ import yaml
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from jinja2.loaders import BaseLoader
-from pandas import DataFrame
 
 # region Global Variables
 # metadata
-_schemachange_version = "3.6.1"
+_schemachange_version = "3.7.0"
 _config_file_name = "schemachange-config.yml"
 _metadata_database_name = "METADATA"
 _metadata_schema_name = "SCHEMACHANGE"
@@ -62,7 +61,7 @@ _err_env_missing = (
 _log_config_details = (
     "Using Snowflake account {snowflake_account}\nUsing default role "
     + "{snowflake_role}\nUsing default warehouse {snowflake_warehouse}\nUsing default "
-    + "database {snowflake_database}"
+    + "database {snowflake_database}\n"
     + "schema {snowflake_schema}"
 )
 _log_ch_use = (
@@ -109,6 +108,7 @@ _err_invalid_cht = "Invalid change history table name: %s"
 _log_auth_type = "Proceeding with %s authentication"
 _log_pk_enc = "No private key passphrase provided. Assuming the key is not encrypted."
 _log_okta_ep = "Okta Endpoint: %s"
+_log_current_session_id = "Current session ID: {current_session_id}"
 
 # endregion Global Variables
 
@@ -169,7 +169,7 @@ class JinjaTemplateProcessor:
         # to make unit testing easier
         self.__environment = jinja2.Environment(loader=loader, **self._env_args)
 
-    def render(self, script: str, vars: Optional[Dict[str, Any]], verbose: bool) -> str:
+    def render(self, script: str, vars: Dict[str, Any], verbose: bool) -> str:
         if not vars:
             vars = {}
         # jinja needs posix path
@@ -216,11 +216,11 @@ class SecretManager:
         if secret:
             self.__secrets.add(secret)
 
-    def add_range(self, secrets: Optional[Set[str]]):
+    def add_range(self, secrets: Set[str]):
         if secrets:
             self.__secrets = self.__secrets | secrets
 
-    def redact(self, context: Optional[str]) -> str:
+    def redact(self, context: str) -> str:
         """
         redacts any text that has been classified a secret
         """
@@ -245,7 +245,7 @@ class SnowflakeSchemachangeSession:
         "SELECT COUNT(1) FROM {database_name}.INFORMATION_SCHEMA.SCHEMATA"
         + " WHERE SCHEMA_NAME = REPLACE('{schema_name}','\"','')"
     )
-    _q_ch_ddl_schema = "CREATE SCHEMA {schema_name}"
+    _q_ch_ddl_schema = "CREATE SCHEMA IF NOT EXISTS {schema_name}"
     _q_ch_ddl_table = (
         "CREATE TABLE IF NOT EXISTS {database_name}.{schema_name}.{table_name} (VERSION VARCHAR, "
         + "DESCRIPTION VARCHAR, SCRIPT VARCHAR, SCRIPT_TYPE VARCHAR, CHECKSUM VARCHAR,"
@@ -267,34 +267,30 @@ class SnowflakeSchemachangeSession:
         + "'{script_description}','{script_name}','{script_type}','{checksum}',{execution_time},"
         + "'{status}','{user}',CURRENT_TIMESTAMP);"
     )
-    _q_set_sess_role = "USE ROLE {role};"
-    _q_set_sess_database = "USE DATABASE {database};"
-    _q_set_sess_schema = "USE SCHEMA {schema};"
-    _q_set_sess_warehouse = "USE WAREHOUSE {warehouse};"
+    _q_set_sess_role = "USE ROLE IDENTIFIER('{role}');"
+    _q_set_sess_database = "USE DATABASE IDENTIFIER('{database}');"
+    _q_set_sess_schema = "USE SCHEMA IDENTIFIER('{schema}');"
+    _q_set_sess_warehouse = "USE WAREHOUSE IDENTIFIER('{warehouse}');"
     # endregion Query Templates
 
     def __init__(self, config):
-        session_parameters = {"QUERY_TAG": "schemachange %s" % _schemachange_version}
-        if config["query_tag"]:
-            session_parameters["QUERY_TAG"] += ";%s" % config["query_tag"]
-
         # Retreive Connection info from config dictionary
-        self.conArgs = {
-            "user": config["snowflake_user"],
-            "account": config["snowflake_account"],
-            "role": config["snowflake_role"],
-            "warehouse": config["snowflake_warehouse"],
-            "database": config["snowflake_database"],
-            "schema": config["snowflake_schema"],
-            "application": _snowflake_application_name,
-            "session_parameters": session_parameters,
-        }
+        self.conArgs = self.get_snowflake_params(config)
 
         self.oauth_config = config["oauth_config"]
         self.autocommit = config["autocommit"]
         self.verbose = config["verbose"]
         if self.set_connection_args():
+            print(self._q_set_sess_role.format(**self.conArgs))
+            print(self._q_set_sess_warehouse.format(**self.conArgs))
+            print(self._q_set_sess_database.format(**self.conArgs))
+            print(self._q_set_sess_schema.format(**self.conArgs))
             self.con = snowflake.connector.connect(**self.conArgs)
+            print(
+                _log_current_session_id.format(current_session_id=self.con.session_id)
+            )
+            # Setting session context
+
             if not self.autocommit:
                 self.con.autocommit(False)
         else:
@@ -303,6 +299,30 @@ class SnowflakeSchemachangeSession:
     def __del__(self):
         if hasattr(self, "con"):
             self.con.close()
+
+    def get_snowflake_params(self, config):
+        session_parameters = {"QUERY_TAG": "schemachange %s" % _schemachange_version}
+        if config["query_tag"]:
+            session_parameters["QUERY_TAG"] += ";%s" % config["query_tag"]
+
+        return {
+            "user": config["snowflake_user"],
+            "account": config["snowflake_account"],
+            "role": get_snowflake_identifier_string(
+                config["snowflake_role"], "snowflake_role"
+            ),
+            "warehouse": get_snowflake_identifier_string(
+                config["snowflake_warehouse"], "snowflake_warehouse"
+            ),
+            "database": get_snowflake_identifier_string(
+                config["snowflake_database"], "snowflake_database"
+            ),
+            "schema": get_snowflake_identifier_string(
+                config["snowflake_schema"], "snowflake_schema"
+            ),
+            "application": _snowflake_application_name,
+            "session_parameters": session_parameters,
+        }
 
     def get_oauth_token(self):
         req_info = {
@@ -353,6 +373,7 @@ class SnowflakeSchemachangeSession:
 
                 if self.verbose:
                     print(_log_auth_type % "Oauth Access Token")
+
                 self.conArgs["token"] = oauth_token
                 self.conArgs["authenticator"] = "oauth"
             # External Browswer based SSO
@@ -360,6 +381,7 @@ class SnowflakeSchemachangeSession:
                 self.conArgs["authenticator"] = "externalbrowser"
                 if self.verbose:
                     print(_log_auth_type % "External Browser")
+
             # IDP based Authentication, limited to Okta
             elif snowflake_authenticator.lower()[:8] == "https://":
                 if self.verbose:
@@ -368,6 +390,7 @@ class SnowflakeSchemachangeSession:
 
                 self.conArgs["password"] = snowflake_password
                 self.conArgs["authenticator"] = snowflake_authenticator.lower()
+
             elif snowflake_authenticator.lower() == "snowflake":
                 self.conArgs["authenticator"] = default_authenticator
             # if authenticator is not a supported method or the authenticator variable is defined but not specified
@@ -466,21 +489,21 @@ class SnowflakeSchemachangeSession:
         query = self._q_ch_ddl_table.format(**change_history_table)
         self.execute_snowflake_query(query)
 
-    def fetch_r_scripts_checksum(self, change_history_table):
+    def fetch_r_scripts_checksum(self, change_history_table) -> Dict[str, str]:
+        """
+        Fetches the checksum of the last executed R script from the change history table.
+        return: a dictionary with the script name as key and the last successfully installed script checksum as value
+        """
+        # Note: Query only fetches last successfully installed checksum for R scripts
         query = self._q_ch_r_checksum.format(**change_history_table)
         results = self.execute_snowflake_query(query)
 
         # Collect all the results into a dict
-        d_script_checksum = DataFrame(columns=["script_name", "checksum"])
-        script_names = []
-        checksums = []
+        d_script_checksum = {}
         for cursor in results:
             for row in cursor:
-                script_names.append(row[0])
-                checksums.append(row[1])
+                d_script_checksum[row[0]] = row[1]
 
-        d_script_checksum["script_name"] = script_names
-        d_script_checksum["checksum"] = checksums
         return d_script_checksum
 
     def fetch_change_history(self, change_history_table):
@@ -506,7 +529,6 @@ class SnowflakeSchemachangeSession:
             reset_query += self._q_set_sess_database.format(**self.conArgs) + " "
         if self.conArgs["schema"]:
             reset_query += self._q_set_sess_schema.format(**self.conArgs) + " "
-
         self.execute_snowflake_query(reset_query)
 
     def reset_query_tag(self, extra_tag=None):
@@ -567,7 +589,7 @@ def deploy_command(config):
         "SNOWFLAKE_PRIVATE_KEY_PATH",
         "SNOWFLAKE_AUTHENTICATOR",
     }
-    if len((req_env_var - dict(os.environ).keys())) == len(req_env_var):
+    if len(req_env_var - dict(os.environ).keys()) == len(req_env_var):
         raise ValueError(_err_env_missing)
 
     # Log some additional details
@@ -596,7 +618,7 @@ def deploy_command(config):
             )
         )
     elif config["create_change_history_table"]:
-        # Create the change history table (and containing objects) if it doesn't exist.
+        # Create the change history table (and containing objects) if it don't exist.
         if not config["dry_run"]:
             session.create_change_history_table_if_missing(change_history_table)
         print(_log_ch_create.format(**change_history_table))
@@ -637,6 +659,8 @@ def deploy_command(config):
         )
     )
 
+    checksum_current = None
+    checksum_last = None
     # Loop through each script in order and apply any required changes
     for script_name in all_script_names_sorted:
         script = all_scripts[script_name]
@@ -670,24 +694,18 @@ def deploy_command(config):
             # Compute the checksum for the script
             checksum_current = hashlib.sha224(content.encode("utf-8")).hexdigest()
 
-            # check if R file was already executed
-            if (r_scripts_checksum is not None) and script_name in list(
-                r_scripts_checksum["script_name"]
-            ):
-                checksum_last = list(
-                    r_scripts_checksum.loc[
-                        r_scripts_checksum["script_name"] == script_name, "checksum"
-                    ]
-                )[0]
-            else:
-                checksum_last = ""
+        # check if R file was already executed
+        if r_scripts_checksum and (script_name in r_scripts_checksum):
+            checksum_last = r_scripts_checksum[script_name]
+        else:
+            checksum_last = ""
 
-            # check if there is a change of the checksum in the script
-            if checksum_current == checksum_last:
-                if config["verbose"]:
-                    print(_log_skip_r.format(**script))
-                scripts_skipped += 1
-                continue
+        # check if there is a change of the checksum in the script
+        if checksum_current == checksum_last:
+            if config["verbose"]:
+                print(_log_skip_r.format(**script))
+            scripts_skipped += 1
+            continue
 
         print(_log_apply.format(**script))
         if not config["dry_run"]:
@@ -727,15 +745,21 @@ def render_command(config, script_path):
     print(content)
 
 
+def alphanum_convert(text: str):
+    result = None
+    if text.isdigit():
+        result = int(text)
+    else:
+        result = text.lower()
+    return result
+
+
 # This function will return a list containing the parts of the key (split by number parts)
 # Each number is converted to and integer and string parts are left as strings
 # This will enable correct sorting in python when the lists are compared
 # e.g. get_alphanum_key('1.2.2') results in ['', 1, '.', 2, '.', 2, '']
 def get_alphanum_key(key):
-    def convert(text):
-        return int(text) if text.isdigit() else text.lower()
-
-    alphanum_key = [convert(c) for c in re.split("([0-9]+)", key)]
+    alphanum_key = [alphanum_convert(c) for c in re.split("([0-9]+)", key)]
     return alphanum_key
 
 
@@ -860,7 +884,7 @@ def get_schemachange_config(
             )
     if config["vars"]:
         # if vars is configured wrong in the config file it will come through as a string
-        if type(config["vars"]) is not dict:
+        if not isinstance(config["vars"], dict):
             raise ValueError(_err_vars_config)
 
         # the variable schema change has been reserved
@@ -868,6 +892,32 @@ def get_schemachange_config(
             raise ValueError(_err_vars_reserved)
 
     return config
+
+
+def get_snowflake_identifier_string(input_value: str, input_type: str) -> str:
+    pattern = re.compile(
+        r"^[\w]+$"
+    )  # Words with alphanumeric characters and underscores only.
+    result = ""
+
+    if input_value is None:
+        result = None
+    elif pattern.match(input_value):
+        result = input_value
+    elif input_value.startswith('"') and input_value.endswith('"'):
+        result = input_value
+    elif input_value.startswith('"') and not input_value.endswith('"'):
+        raise ValueError(
+            f"Invalid {input_type}: {input_value}. Missing ending double quote"
+        )
+    elif not input_value.startswith('"') and input_value.endswith('"'):
+        raise ValueError(
+            f"Invalid {input_type}: {input_value}. Missing beginning double quote"
+        )
+    else:
+        result = f'"{input_value}"'
+
+    return result
 
 
 def get_all_scripts_recursively(root_directory, verbose):
@@ -893,18 +943,18 @@ def get_all_scripts_recursively(root_directory, verbose):
             if script_name_parts is not None:
                 script_type = "V"
                 if verbose:
-                    print(f"Found Versioned file {file_full_path}")
+                    print("Found Versioned file " + file_full_path)
             elif repeatable_script_name_parts is not None:
                 script_type = "R"
                 if verbose:
-                    print(f"Found Repeatable file {file_full_path}")
+                    print("Found Repeatable file " + file_full_path)
             elif always_script_name_parts is not None:
                 script_type = "A"
                 if verbose:
-                    print(f"Found Always file {file_full_path}")
+                    print("Found Always file " + file_full_path)
             else:
                 if verbose:
-                    print(f"Ignoring non-change file {file_full_path}")
+                    print("Ignoring non-change file " + file_full_path)
                 continue
 
             # script name is the filename without any jinja extension
@@ -979,7 +1029,7 @@ def get_change_history_table_details(change_history_table):
     return {k: v if '"' in v else v.upper() for (k, v) in details.items()}
 
 
-def extract_config_secrets(config: Optional[Dict[str, Any]]) -> Set[str]:
+def extract_config_secrets(config: Dict[str, Any]) -> Set[str]:
     """
     Extracts all secret values from the vars attributes in config
     """
@@ -1022,8 +1072,8 @@ def extract_config_secrets(config: Optional[Dict[str, Any]]) -> Set[str]:
 def main(argv=sys.argv):
     parser = argparse.ArgumentParser(
         prog="schemachange",
-        description="Apply schema changes to a Snowflake account. Full readme at "
-        "https://github.com/Snowflake-Labs/schemachange",
+        description="""Apply schema changes to a Snowflake account.
+        Full readme at https://github.com/Snowflake-Labs/schemachange""",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     subcommands = parser.add_subparsers(dest="subcommand")
@@ -1033,8 +1083,7 @@ def main(argv=sys.argv):
         "--config-folder",
         type=str,
         default=".",
-        help="The folder to look in for the schemachange-config.yml file "
-        "(the default is the current working directory)",
+        help="The folder to look in for the schemachange-config.yml file (the default is the current working directory)",
         required=False,
     )
     parser_deploy.add_argument(
@@ -1097,15 +1146,15 @@ def main(argv=sys.argv):
         "-c",
         "--change-history-table",
         type=str,
-        help="Used to override the default name of the change history table (the default is "
-        "METADATA.SCHEMACHANGE.CHANGE_HISTORY)",
+        help="""Used to override the default name of the change history table
+        (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)""",
         required=False,
     )
     parser_deploy.add_argument(
         "--vars",
         type=json.loads,
-        help='Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": '
-        '"value1", "variable2": "value2"})',
+        help="""Define values for the variables to be replaced in change scripts, given in JSON format
+        (e.g. {"variable1": "value1", "variable2": "value2"})""",
         required=False,
     )
     parser_deploy.add_argument(
@@ -1143,8 +1192,8 @@ def main(argv=sys.argv):
     parser_deploy.add_argument(
         "--oauth-config",
         type=json.loads,
-        help='Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": '
-        '"https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })',
+        help="""Define values for the variables to Make Oauth Token requests
+        (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })""",
         required=False,
     )
     # TODO test CLI passing of args
@@ -1157,8 +1206,7 @@ def main(argv=sys.argv):
         "--config-folder",
         type=str,
         default=".",
-        help="The folder to look in for the schemachange-config.yml file "
-        "(the default is the current working directory)",
+        help="The folder to look in for the schemachange-config.yml file (the default is the current working directory)",
         required=False,
     )
     parser_render.add_argument(
@@ -1178,8 +1226,8 @@ def main(argv=sys.argv):
     parser_render.add_argument(
         "--vars",
         type=json.loads,
-        help='Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": '
-        '"value1", "variable2": "value2"})',
+        help="""Define values for the variables to be replaced in change scripts, given in JSON format
+        (e.g. {"variable1": "value1", "variable2": "value2"})""",
         required=False,
     )
     parser_render.add_argument(
@@ -1229,7 +1277,7 @@ def main(argv=sys.argv):
         schemachange_args.update(renderoveride)
     config = get_schemachange_config(**schemachange_args)
 
-    # set up a secret manager and assign to global scope
+    # setup a secret manager and assign to global scope
     sm = SecretManager()
     SecretManager.set_global_manager(sm)
     # Extract all secrets for --vars

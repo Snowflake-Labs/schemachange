@@ -1,0 +1,88 @@
+name: dev-pytest
+
+defaults:
+  run:
+    shell: bash
+
+on:
+  workflow_dispatch:
+
+  pull_request:
+    types:
+      - labeled
+    branches:
+      - dev
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario-name: [ 'basics_demo', 'citibike_demo', 'citibike_demo_jinja']
+        os: ["ubuntu-latest"]
+        python-version: ["3.11"]
+    runs-on: ${{ matrix.os }}
+    if: ${{ github.event.label.name == 'ci-run-tests' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }} 
+
+    env:
+      SNOWFLAKE_PASSWORD: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_PASSWORD }}
+      SNOWFLAKE_USER: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_USER }}
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_DATABASE: SCHEMACHANGE_DEMO
+      SNOWFLAKE_WAREHOUSE: SCHEMACHANGE_DEMO_WH
+      SNOWFLAKE_ROLE: '"SCHEMACHANGE_DEMO-DEPLOY"'
+      MY_TARGET_SCHEMA: ${{ matrix.scenario-name }}_${{ github.run_number }}_${{ strategy.job-index }}
+      SCENARIO_NAME: ${{ matrix.scenario-name }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      # The next few steps (Install dependencies, Lint with Flake8, Test with Pytest) will install Python dependencies, 
+      # run tests and lint with a variety of Python versions
+      # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install flake8 pytest
+          python -m pip install -e .[dev]
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Lint with flake8
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      - name: Test with pytest
+        id: pytest
+        run: |
+          pytest
+      # Testing Schemachange demo projects
+      - name: Test Schemachange on ${{ matrix.os }} targeting ${{ env.SNOWFLAKE_DATABASE }}.${{ env.MY_TARGET_SCHEMA }} schema
+        run: |
+          echo "::group::Setting up ${MY_TARGET_SCHEMA}"
+          schemachange deploy --config-folder ./demo/setup/${SCENARIO_NAME}
+          echo "::endgroup::"
+          echo "::group::Testing Rendering to ${MY_TARGET_SCHEMA}"
+          schemachange render --config-folder ./demo/${SCENARIO_NAME} ./demo/${SCENARIO_NAME}/A__render.sql
+          schemachange render --config-folder ./demo/${SCENARIO_NAME} ./demo/${SCENARIO_NAME}/R__render.sql
+          schemachange render --config-folder ./demo/${SCENARIO_NAME} ./demo/${SCENARIO_NAME}/V1.0.0__render.sql
+          echo "::endgroup::"
+          echo "::group::Testing Deployment using ${MY_TARGET_SCHEMA}"
+          set +e
+          schemachange deploy --config-folder ./demo/${SCENARIO_NAME}
+          RESULT=$?
+          if [ $RESULT -eq 0 ]; then
+            echo "Deployment Completed!"
+          else
+            echo "Deployment Failed. Proceeding to Teardown."
+          fi
+          echo "::endgroup::"
+          set -e
+          echo "::group::Tearing down up ${MY_TARGET_SCHEMA}"
+          schemachange deploy --config-folder ./demo/teardown/${SCENARIO_NAME}
+          echo "::endgroup::"
+          if [ $RESULT -ne 0 ]; then
+            exit 1
+          fi
