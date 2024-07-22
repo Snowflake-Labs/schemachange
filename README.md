@@ -3,7 +3,7 @@
 
 *Looking for snowchange? You've found the right spot. snowchange has been renamed to schemachange.*
 
-[![pytest](https://github.com/Snowflake-Labs/schemachange/actions/workflows/pytest.yml/badge.svg)](https://github.com/Snowflake-Labs/schemachange/actions/workflows/pytest.yml)
+[![pytest](https://github.com/Snowflake-Labs/schemachange/actions/workflows/master-pytest.yml/badge.svg)](https://github.com/Snowflake-Labs/schemachange/actions/workflows/master-pytest.yml)
 [![PyPI](https://img.shields.io/pypi/v/schemachange.svg)](https://pypi.org/project/schemachange)
 ## Overview
 
