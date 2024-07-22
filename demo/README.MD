@@ -31,8 +31,7 @@ The scripts in the `provision` folder can be used to setup up your demo database
 - The [setup](provision/setup_schemachange_schema.sql) script creates the `SCHEMACHANGE` schema in the database that you created in the initialize step.
 
 # Setup
-The setup scripts are included to build the schema needed by the GitHub Actions Workflow to avoid conflict across jobs when tested in parallel. The Setup script will create a new schema to run the schemachange script for the corresponding scenario. 
+The setup scripts are included to build the schema needed by the GitHub Actions Workflow to avoid conflict across jobs when tested in parallel. The Setup script will create a new schema to run the schemachange script for the corresponding scenario.
 
 # Teardown
 The Teardown scripts are the bookend pairing of the Setup script for each scenario so that when the build process is done using github actions, you will have a log of the testing done to ensure that schemachange is working as expected.
-
