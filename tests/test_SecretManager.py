@@ -1,7 +1,6 @@
 from schemachange.cli import SecretManager
 
 
-##### test Class #####
 def test_SecretManager_given_no_secrets_when_redact_then_return_original_value():
     sm = SecretManager()
     result = sm.redact("My string")
@@ -43,6 +42,7 @@ def test_SecretManager_given_one_secrets_when_add_range_with_None_then_Count_sho
 
     assert len(sm._SecretManager__secrets) == 1
 
+
 def test_SecretManager_given_one_secrets_when_add_range_with_empty_set_then_Count_should_remain_one():
     sm = SecretManager()
     sm.add("world")
@@ -51,6 +51,7 @@ def test_SecretManager_given_one_secrets_when_add_range_with_empty_set_then_Coun
     sm.add_range(range)
 
     assert len(sm._SecretManager__secrets) == 1
+
 
 def test_SecretManager_given_one_secrets_when_add_range_with_two_secrets_then_count_of_secrets_three():
     sm = SecretManager()
@@ -66,7 +67,8 @@ def test_SecretManager_given_one_secrets_when_add_range_with_two_secrets_then_co
     assert "two" in sm._SecretManager__secrets
 
 
-##### test static methods #####
+# test static methods
+
 
 def test_SecretManager_check_global_assignment_round_trip():
     sm = SecretManager()

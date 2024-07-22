@@ -2,7 +2,7 @@ import json
 import pathlib
 
 import pytest
-from jinja2 import  DictLoader
+from jinja2 import DictLoader
 from jinja2.exceptions import UndefinedError
 from schemachange.cli import JinjaTemplateProcessor
 
@@ -27,7 +27,7 @@ def test_JinjaTemplateProcessor_render_simple_string_expecting_variable_that_doe
     processor.override_loader(DictLoader(templates))
 
     with pytest.raises(UndefinedError) as e:
-        context = processor.render("test.sql", None, True)
+        processor.render("test.sql", None, True)
 
     assert str(e.value) == "'myvar' is undefined"
 
@@ -47,11 +47,10 @@ def test_JinjaTemplateProcessor_render_simple_string_expecting_variable():
 
 
 def test_JinjaTemplateProcessor_render_from_subfolder(tmp_path: pathlib.Path):
-
     root_folder = tmp_path / "MORE2"
 
     root_folder.mkdir()
-    script_folder = root_folder/ "SQL"
+    script_folder = root_folder / "SQL"
     script_folder.mkdir()
     script_file = script_folder / "1.0.0_my_test.sql"
     script_file.write_text("Hello world!")

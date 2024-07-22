@@ -1,5 +1,3 @@
 Jinja2~=3.0
-numpy=>=1.23.2,<2
-pandas>=1.5.3,<3
 PyYAML~=6.0
 snowflake-connector-python>=2.8,<4.0

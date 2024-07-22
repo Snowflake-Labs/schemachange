@@ -1,13 +1,10 @@
 import os
 import unittest.mock as mock
-
 import pytest
-
 from schemachange.cli import get_all_scripts_recursively
 
-#######################
-#### Generic tests ####
-#######################
+
+# Generic tests
 
 
 def test_get_all_scripts_recursively__given_empty_folder_should_return_empty():
@@ -30,9 +27,7 @@ def test_get_all_scripts_recursively__given_just_non_change_files_should_return_
     assert result == dict()
 
 
-############################
-#### Version file tests ####
-############################
+# Version file tests
 
 
 def test_get_all_scripts_recursively__given_Version_files_should_return_version_files():
@@ -60,7 +55,7 @@ def test_get_all_scripts_recursively__given_same_Version_twice_should_raise_exce
         ]
 
         with pytest.raises(ValueError) as e:
-            result = get_all_scripts_recursively("scripts", False)
+            get_all_scripts_recursively("scripts", False)
         assert str(e.value).startswith(
             "The script version 1.1.1 exists more than once (second instance"
         )
@@ -103,20 +98,19 @@ def test_get_all_scripts_recursively__given_single_Version_jinja_file_should_ext
 
 
 def test_get_all_scripts_recursively__given_same_version_file_with_and_without_jinja_extension_should_raise_exception():
- with mock.patch("os.walk") as mockwalk:
+    with mock.patch("os.walk") as mockwalk:
         mockwalk.return_value = [
             ("", (""), ("V1.1.1__intial.sql", "V1.1.1__intial.sql.jinja")),
         ]
 
         with pytest.raises(ValueError) as e:
-            result = get_all_scripts_recursively("scripts", False)
+            get_all_scripts_recursively("scripts", False)
         assert str(e.value).startswith(
             "The script name V1.1.1__intial.sql exists more than once (first_instance"
         )
 
-###########################
-#### Always file tests ####
-###########################
+
+# Always file tests
 
 
 def test_get_all_scripts_recursively__given_Always_files_should_return_always_files():
@@ -143,7 +137,7 @@ def test_get_all_scripts_recursively__given_same_Always_file_should_raise_except
         ]
 
         with pytest.raises(ValueError) as e:
-            result = get_all_scripts_recursively("scripts", False)
+            get_all_scripts_recursively("scripts", False)
         assert str(e.value).startswith(
             "The script name A__intial.sql exists more than once (first_instance "
         )
@@ -186,20 +180,19 @@ def test_get_all_scripts_recursively__given_single_Always_jinja_file_should_extr
 
 
 def test_get_all_scripts_recursively__given_same_Always_file_with_and_without_jinja_extension_should_raise_exception():
- with mock.patch("os.walk") as mockwalk:
+    with mock.patch("os.walk") as mockwalk:
         mockwalk.return_value = [
             ("", (""), ("A__intial.sql", "A__intial.sql.jinja")),
         ]
 
         with pytest.raises(ValueError) as e:
-            result = get_all_scripts_recursively("scripts", False)
+            get_all_scripts_recursively("scripts", False)
         assert str(e.value).startswith(
             "The script name A__intial.sql exists more than once (first_instance "
         )
 
-###############################
-#### Repeatable file tests ####
-###############################
+
+# Repeatable file tests
 
 
 def test_get_all_scripts_recursively__given_Repeatable_files_should_return_repeatable_files():
@@ -226,7 +219,7 @@ def test_get_all_scripts_recursively__given_same_Repeatable_file_should_raise_ex
         ]
 
         with pytest.raises(ValueError) as e:
-            result = get_all_scripts_recursively("scripts", False)
+            get_all_scripts_recursively("scripts", False)
         assert str(e.value).startswith(
             "The script name R__intial.sql exists more than once (first_instance "
         )
@@ -269,13 +262,13 @@ def test_get_all_scripts_recursively__given_single_Repeatable_jinja_file_should_
 
 
 def test_get_all_scripts_recursively__given_same_Repeatable_file_with_and_without_jinja_extension_should_raise_exception():
- with mock.patch("os.walk") as mockwalk:
+    with mock.patch("os.walk") as mockwalk:
         mockwalk.return_value = [
             ("", (""), ("R__intial.sql", "R__intial.sql.jinja")),
         ]
 
         with pytest.raises(ValueError) as e:
-            result = get_all_scripts_recursively("scripts", False)
+            get_all_scripts_recursively("scripts", False)
         assert str(e.value).startswith(
             "The script name R__intial.sql exists more than once (first_instance "
         )
