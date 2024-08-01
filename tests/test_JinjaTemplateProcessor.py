@@ -1,63 +1,105 @@
+from __future__ import annotations
+
 import json
+import os
 import pathlib
 
 import pytest
 from jinja2 import DictLoader
 from jinja2.exceptions import UndefinedError
-from schemachange.cli import JinjaTemplateProcessor
+
+from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
 
 
-def test_JinjaTemplateProcessor_render_simple_string():
-    processor = JinjaTemplateProcessor("", None)
-
-    # overide the default loader
-    templates = {"test.sql": "some text"}
-    processor.override_loader(DictLoader(templates))
-
-    context = processor.render("test.sql", None, True)
-
-    assert context == "some text"
+@pytest.fixture()
+def processor() -> JinjaTemplateProcessor:
+    return JinjaTemplateProcessor(pathlib.Path("."), None)
 
 
-def test_JinjaTemplateProcessor_render_simple_string_expecting_variable_that_does_not_exist_should_raise_exception():
-    processor = JinjaTemplateProcessor("", None)
+class TestJinjaTemplateProcessor:
+    def test_render_simple_string(self, processor: JinjaTemplateProcessor):
+        # override the default loader
+        templates = {"test.sql": "some text"}
+        processor.override_loader(DictLoader(templates))
 
-    # overide the default loader
-    templates = {"test.sql": "some text {{ myvar }}"}
-    processor.override_loader(DictLoader(templates))
+        context = processor.render("test.sql", None)
 
-    with pytest.raises(UndefinedError) as e:
-        processor.render("test.sql", None, True)
+        assert context == "some text"
 
-    assert str(e.value) == "'myvar' is undefined"
+    def test_render_simple_string_expecting_variable_that_does_not_exist_should_raise_exception(
+        self, processor: JinjaTemplateProcessor
+    ):
+        # overide the default loader
+        templates = {"test.sql": "some text {{ myvar }}"}
+        processor.override_loader(DictLoader(templates))
 
+        with pytest.raises(UndefinedError) as e:
+            processor.render("test.sql", None)
 
-def test_JinjaTemplateProcessor_render_simple_string_expecting_variable():
-    processor = JinjaTemplateProcessor("", None)
+        assert str(e.value) == "'myvar' is undefined"
 
-    # overide the default loader
-    templates = {"test.sql": "Hello {{ myvar }}!"}
-    processor.override_loader(DictLoader(templates))
+    def test_render_simple_string_expecting_variable(
+        self, processor: JinjaTemplateProcessor
+    ):
+        # overide the default loader
+        templates = {"test.sql": "Hello {{ myvar }}!"}
+        processor.override_loader(DictLoader(templates))
 
-    vars = json.loads('{"myvar" : "world"}')
+        variables = json.loads('{"myvar" : "world"}')
 
-    context = processor.render("test.sql", vars, True)
+        context = processor.render("test.sql", variables)
 
-    assert context == "Hello world!"
+        assert context == "Hello world!"
 
+    def test_render_from_subfolder(self, tmp_path: pathlib.Path):
+        root_folder = tmp_path / "MORE2"
 
-def test_JinjaTemplateProcessor_render_from_subfolder(tmp_path: pathlib.Path):
-    root_folder = tmp_path / "MORE2"
+        root_folder.mkdir()
+        script_folder = root_folder / "SQL"
+        script_folder.mkdir()
+        script_file = script_folder / "1.0.0_my_test.sql"
+        script_file.write_text("Hello world!")
 
-    root_folder.mkdir()
-    script_folder = root_folder / "SQL"
-    script_folder.mkdir()
-    script_file = script_folder / "1.0.0_my_test.sql"
-    script_file.write_text("Hello world!")
+        processor = JinjaTemplateProcessor(root_folder, None)
+        template_path = processor.relpath(script_file)
 
-    processor = JinjaTemplateProcessor(str(root_folder), None)
-    template_path = processor.relpath(str(script_file))
+        context = processor.render(template_path, {})
 
-    context = processor.render(template_path, {}, True)
+        assert context == "Hello world!"
 
-    assert context == "Hello world!"
+    def test_from_environ_not_set(self, processor: JinjaTemplateProcessor):
+        # overide the default loader
+        templates = {"test.sql": "some text {{ env_var('MYVAR') }}"}
+        processor.override_loader(DictLoader(templates))
+
+        with pytest.raises(ValueError) as e:
+            processor.render("test.sql", None)
+
+        assert (
+            str(e.value)
+            == "Could not find environmental variable MYVAR and no default value was provided"
+        )
+
+    def test_from_environ_set(self, processor: JinjaTemplateProcessor):
+        # set MYVAR env variable
+        os.environ["MYVAR"] = "myvar_from_environment"
+
+        # overide the default loader
+        templates = {"test.sql": "some text {{ env_var('MYVAR') }}"}
+        processor.override_loader(DictLoader(templates))
+
+        context = processor.render("test.sql", None)
+
+        # unset MYVAR env variable
+        del os.environ["MYVAR"]
+
+        assert context == "some text myvar_from_environment"
+
+    def test_from_environ_not_set_default(self, processor: JinjaTemplateProcessor):
+        # overide the default loader
+        templates = {"test.sql": "some text {{ env_var('MYVAR', 'myvar_default') }}"}
+        processor.override_loader(DictLoader(templates))
+
+        context = processor.render("test.sql", None)
+
+        assert context == "some text myvar_default"

@@ -31,12 +31,6 @@ repos:
         args: [ --fix ]
       # Run the formatter.
       - id: ruff-format
-  - repo: git@github.com:GitGuardian/ggshield.git
-    rev: v1.28.0
-    hooks:
-      - id: ggshield
-        language_version: python3
-        stages: [ commit ]
   - repo: https://github.com/PyCQA/flake8
     rev: '6.0.0'
     hooks:
