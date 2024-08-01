@@ -101,7 +101,7 @@ Thanks for your interest in contributing code to schemachange!
 
 4. Test your contribution
    ```bash
-   python -m pytest 
+   python -m pytest
    ```
 
 5. To submit your contribution
