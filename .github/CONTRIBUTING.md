@@ -67,14 +67,14 @@ Thanks for your interest in contributing code to schemachange!
     2. Activate your virtual environment. The following table is a replication
        of [this](https://docs.python.org/3/library/venv.html#how-venvs-work) table:
 
-       | Platform 	| Shell      	| Command                               	|
-                                   |----------	|------------	|---------------------------------------	|
-       | POSIX    	| bash/zsh   	| `$ source <venv>/bin/activate`        	|
-       | POSIX    	| fish       	| `$ source <venv>/bin/activate.fish`   	|
-       | POSIX    	| csh/tcsh   	| `$ source <venv>/bin/activate.csh`    	|
-       | POSIX    	| PowerShell 	| `$ <venv>/bin/Activate.ps1`           	|
-       | Windows  	| cmd.exe    	| `C:\> <venv>\Scripts\activate.bat`    	|
-       | Windows  	| PowerShell 	| `PS C:\> <venv>\Scripts\Activate.ps1` 	|
+       | Platform | Shell      | Command                               |
+                                   |----------|------------|---------------------------------------|
+       | POSIX    | bash/zsh   | `$ source <venv>/bin/activate`        |
+       | POSIX    | fish       | `$ source <venv>/bin/activate.fish`   |
+       | POSIX    | csh/tcsh   | `$ source <venv>/bin/activate.csh`    |
+       | POSIX    | PowerShell | `$ <venv>/bin/Activate.ps1`           |
+       | Windows  | cmd.exe    | `C:\> <venv>\Scripts\activate.bat`    |
+       | Windows  | PowerShell | `PS C:\> <venv>\Scripts\Activate.ps1` |
 
     3. With your virtual environment activated, upgrade pip
        ```bash
@@ -85,7 +85,6 @@ Thanks for your interest in contributing code to schemachange!
        ```bash
        pip install -e .[dev]
        ```
-
 
 3. Develop your contribution
     + Create a branch for the features you want to work on. Since the branch name will appear in the merge message, use
@@ -114,5 +113,5 @@ Thanks for your interest in contributing code to schemachange!
 
     + Go to GitHub. The new branch will show up with a
       green [Pull Request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests#initiating-the-pull-request)
-      button. Make sure the title and message are clear, concise and self explanatory. Then click the button to submit
+      button. Make sure the title and message are clear, concise and self-explanatory. Then click the button to submit
       it.
