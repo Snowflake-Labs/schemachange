@@ -251,7 +251,8 @@ def deploy_command(config):
         if script_name[0] == 'R':
             # Compute the checksum for the script
             checksum_current = hashlib.sha224(content.encode('utf-8')).hexdigest()
-
+            print("New checksum value to be updated on history table -> ", checksum_current)
+            
             # check if R file was already executed
             if (r_scripts_checksum is not None) and script_name in list(r_scripts_checksum['script_name']):
                 checksum_last = \
