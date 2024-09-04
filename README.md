@@ -403,7 +403,7 @@ snowflake-account: 'xy12345.east-us-2.azure'
 # The name of the snowflake user
 snowflake-user: 'user'
 
-# The name of the default role to use. Can be overrideen in the change scripts.
+# The name of the default role to use. Can be overridden in the change scripts.
 snowflake-role: 'role'
 
 # The name of the default warehouse to use. Can be overridden in the change scripts.
