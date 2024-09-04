@@ -566,6 +566,23 @@ class SnowflakeSchemachangeSession:
         query = self._q_ch_log.format(**frmt_args)
         self.execute_snowflake_query(query)
 
+    def baseline_change_script(self, script, script_content, change_history_table):
+        """
+        Baselines the change history table with the provided script
+        """
+        checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
+
+        frmt_args = script.copy()
+        frmt_args.update(change_history_table)
+        frmt_args["checksum"] = checksum
+        frmt_args["execution_time"] = 0
+        frmt_args["status"] = "Baseline"
+        frmt_args["user"] = self.conArgs["user"]
+
+        # Compose and execute the insert statement to the log file
+        query = self._q_ch_log.format(**frmt_args)
+        self.execute_snowflake_query(query)
+
 
 def deploy_command(config):
     # Make sure we have the required connection info, all of the below needs to be present.
@@ -596,6 +613,11 @@ def deploy_command(config):
     if config["dry_run"]:
         print("Running in dry-run mode")
     print(_log_config_details.format(**config))
+
+    if config["baseline_change_history"]:
+        print(
+            f"Baselining change history table at version [{config['baseline_change_history']}]"
+        )
 
     # connect to snowflake and maintain connection
     session = SnowflakeSchemachangeSession(config)
@@ -636,6 +658,10 @@ def deploy_command(config):
 
     if change_history:
         max_published_version = change_history[0]
+        if config["baseline_change_history"]:
+            raise ValueError(
+                "Cannot baseline the change history table if records already exist"
+            )
     max_published_version_display = max_published_version
     if max_published_version_display == "":
         max_published_version_display = "None"
@@ -667,9 +693,17 @@ def deploy_command(config):
 
         # Apply a versioned-change script only if the version is newer than the most recent change in the database
         # Apply any other scripts, i.e. repeatable scripts, irrespective of the most recent change in the database
-        if script_name[0] == "V" and get_alphanum_key(
-            script["script_version"]
-        ) <= get_alphanum_key(max_published_version):
+        if (
+            script_name[0] == "V"
+            and (
+                get_alphanum_key(script["script_version"])
+                <= get_alphanum_key(max_published_version)
+            )
+            or (
+                get_alphanum_key(script["script_version"])
+                <= get_alphanum_key(config["baseline_change_history"])
+            )
+        ):
             if config["verbose"]:
                 print(
                     _log_skip_v.format(
@@ -677,7 +711,10 @@ def deploy_command(config):
                     )
                 )
             scripts_skipped += 1
-            continue
+
+            # Skip to the next script unless we are building change history baseline
+            if not config["baseline_change_history"]:
+                continue
 
         # Always process with jinja engine
         jinja_processor = JinjaTemplateProcessor(
@@ -709,6 +746,13 @@ def deploy_command(config):
 
         print(_log_apply.format(**script))
         if not config["dry_run"]:
+            if config["baseline_change_history"] and (
+                get_alphanum_key(script["script_version"])
+                <= get_alphanum_key(config["baseline_change_history"])
+            ):
+                # Apply baseline history records and skip to next script
+                session.baseline_change_script(script, content, change_history_table)
+                continue
             session.apply_change_script(script, content, change_history_table)
 
         scripts_applied += 1
@@ -804,6 +848,7 @@ def get_schemachange_config(
     change_history_table,
     vars,
     create_change_history_table,
+    baseline_change_history,
     autocommit,
     verbose,
     dry_run,
@@ -826,6 +871,7 @@ def get_schemachange_config(
         "change_history_table": change_history_table,
         "vars": vars,
         "create_change_history_table": create_change_history_table,
+        "baseline_change_history": baseline_change_history,
         "autocommit": autocommit,
         "verbose": verbose,
         "dry_run": dry_run,
@@ -855,6 +901,7 @@ def get_schemachange_config(
         "change_history_table": None,
         "vars": {},
         "create_change_history_table": False,
+        "baseline_change_history": "",
         "autocommit": False,
         "verbose": False,
         "dry_run": False,
@@ -1151,6 +1198,13 @@ def main(argv=sys.argv):
         required=False,
     )
     parser_deploy.add_argument(
+        "-b",
+        "--baseline-change-history",
+        type=str,
+        help="Migrate existing DB to use schemachange and provide starting version number",
+        required=False,
+    )
+    parser_deploy.add_argument(
         "--vars",
         type=json.loads,
         help="""Define values for the variables to be replaced in change scripts, given in JSON format
@@ -1269,6 +1323,7 @@ def main(argv=sys.argv):
             "change_history_table": None,
             "snowflake_schema": None,
             "create_change_history_table": None,
+            "baseline_change_history": None,
             "autocommit": None,
             "dry_run": None,
             "query_tag": None,
