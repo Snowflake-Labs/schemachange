@@ -17,8 +17,12 @@ import yaml
 import logging
 import logging.config
 import rich
+from rich import pretty
 from sqlglot import parse, parse_one, exp
 from sqlglot.optimizer.scope import build_scope
+import networkx as nx
+
+import matplotlib.pyplot as plt
 from rich_argparse import RawTextRichHelpFormatter
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -120,6 +124,19 @@ _log_okta_ep = "Okta Endpoint: %s"
 _log_current_session_id = "Current session ID: {current_session_id}"
 
 # endregion Global Variables
+
+
+class SQLGraph:
+    def __init__(self):
+        self.graph = {}
+
+    def add_edge(self, source, target):
+        if source not in self.graph:
+            self.graph[source] = []
+        self.graph[source].append(target)
+
+    def get_edges(self, source):
+        return self.graph.get(source, [])
 
 
 class JinjaEnvVar(jinja2.ext.Extension):
@@ -696,6 +713,12 @@ def deploy_command(config):
         max_published_version,
     ) = common_command_init(config)
 
+    # Configure graph for R scripts
+    if config["r_script_graph"]:
+        # table_graph = nx.Graph()
+        table_graph = nx.DiGraph()
+        changed_r_scripts = []
+
     scripts_skipped = 0
     scripts_applied = 0
 
@@ -730,6 +753,19 @@ def deploy_command(config):
 
         # Apply only R scripts where the checksum changed compared to the last execution of snowchange
         if script_name[0] == "R":
+            if config["r_script_graph"]:
+                log.info("table graph")
+                # edges = get_script_table_graph_edges(content)
+                # log.info(edges)
+                get_script_table_graph_edges(content, table_graph, script_name)
+                # table_graph.add_edges_from = get_script_table_graph_edges(content)
+                # table_graph.add_edges_from(edges, script=script_name)
+                # table_graph.add_nodes_from(edges, script=script_name)
+
+            #        nx.write_network_text(table_graph)
+            #        print(f"Edges: {table_graph.number_of_edges()}")
+            #        print(f"Nodes: {table_graph.number_of_nodes()}")
+
             # Compute the checksum for the script
             checksum_current = hashlib.sha224(content.encode("utf-8")).hexdigest()
 
@@ -745,6 +781,12 @@ def deploy_command(config):
             log.debug("Current Checksum %s" % checksum_current)
             scripts_skipped += 1
             continue
+        else:
+            log.info("Checksum changed for script %s" % script_name)
+            log.debug("Current Checksum %s" % checksum_current)
+            log.debug("Last Checksum %s" % checksum_last)
+            if config["r_script_graph"]:
+                changed_r_scripts.append(script_name)
 
         log.info(_log_apply.format(**script))
         if not config["dry_run"]:
@@ -757,6 +799,69 @@ def deploy_command(config):
             scripts_applied=scripts_applied, scripts_skipped=scripts_skipped
         )
     )
+
+    if config["r_script_graph"]:
+        log.info("Changed scripts: %s" % changed_r_scripts)
+        log.info("Script Graph")
+        print(f"Edges: {table_graph.number_of_edges()}")
+        print(f"Nodes: {table_graph.number_of_nodes()}")
+        nx.write_network_text(table_graph)
+
+        # print(nx.dfs_successors(table_graph, "SILVER.DIM_ENTITIES"))
+        # print(nx.dfs_predecessors(table_graph, source="SILVER.DIM_ENTITIES"))
+
+        # print("SILVER.DIM_ENTITIES" in table_graph)
+
+        # print(table_graph.successors("SILVER.DIM_ENTITIES"))
+        for script in changed_r_scripts:
+            nodes = table_graph.nodes(data=True)
+            #            for successor in table_graph.successors(script):
+            #                print(successor)
+            #                print(nodes[successor])
+            #                # print(successor)
+            #                # print(successor["script"])
+            for node in nodes:
+                if node[1].get("script", "") == script:
+                    print(node[0])
+                    print(node[1].get("script", ""))
+                    for successor in table_graph.successors(node[0]):
+                        print(f" |- {successor}")
+                        print(f" |- {nodes[successor]}")
+                        # print(successor)
+                        # print(successor["script"])
+
+
+#                print(node[1].get("script", ""))
+#                # if node["script"] == script:
+#                #    print(node)
+
+# for successor in table_graph.predecessors("SILVER.DIM_ENTITIES"):
+#    print(predecessor)
+
+# print(table_graph.successors("SILVER.DIM_ENTITIES"))
+
+#        for script in changed_r_scripts:
+#            print("Successors for: %s" % script)
+#            print(nx.dfs_successors(table_graph, script))
+
+#       nodesAt5 = []
+#        edgesAt5 = []
+#        # for (p, d) in P.nodes(data=True):
+#        # for p, d in table_graph.edges(data=True):
+#        for edge in table_graph.edges(data=True):
+#            for script in changed_r_scripts:
+#                if edge["script"] == script:
+#                    edgesAt5.append(p)
+#
+#        print(edgesAt5)
+
+# files = nx.get_edge_attributes(table_graph, "script")
+# files = nx.get_node_attributes(table_graph, "script")
+# print(files)
+
+#        print(nx.write_network_text(table_graph))
+# nx.draw(table_graph, with_labels=True)
+# plt.show()
 
 
 def baseline_command(config):
@@ -829,6 +934,60 @@ def baseline_command(config):
         scripts_baselined += 1
 
     log.info("Wrote %s baseline scripts to change history table" % scripts_baselined)
+
+
+def get_script_table_graph_edges(
+    script_content: str, graph, script_name
+) -> list[tuple[str, str]]:
+    parsed_statements = parse(script_content, dialect="snowflake")
+
+    # Only process statements which create dynamic tables or views
+    for statement in parsed_statements:
+        if isinstance(statement, exp.Create):
+            #            formatted_sql_query = statement.sql(
+            #               normalize=False, pad=4, indent=4, dialect="snowflake", pretty=True
+            #           )
+            #            print(formatted_sql_query)
+
+            #            print(statement)
+
+            # Get the table/dynamic table/view name we're creating
+            child_object = str(statement.this)
+
+            root = build_scope(statement)
+
+            # Stolen from the sqlglot documentation
+            # https://github.com/tobymao/sqlglot/blob/main/posts/ast_primer.md#scope
+            tables = [
+                source
+                # Traverse the Scope tree, not the AST
+                for scope in root.traverse()
+                # `selected_sources` contains sources that have been selected in this scope, e.g. in a FROM or JOIN clause.
+                # `alias` is the name of this source in this particular scope.
+                # `node` is the AST node instance
+                # if the selected source is a subquery (including common table expressions),
+                #     then `source` will be the Scope instance for that subquery.
+                # if the selected source is a table,
+                #     then `source` will be a Table instance.
+                for alias, (node, source) in scope.selected_sources.items()
+                if isinstance(source, exp.Table)
+            ]
+
+            table_strings = []
+            for table in tables:
+                table_strings.append(str(table.db) + "." + str(table.this))
+
+            # Now make the list of tables unique
+            uniq_tables = list(set(table_strings))
+            # print(uniq_tables)
+
+            table_graph_edges = [(table, child_object) for table in uniq_tables]
+            # table_graph_edges = [(child_object, table) for table in uniq_tables]
+            #            return table_graph_edges
+            graph.add_node(child_object, script=script_name, table=child_object)
+            graph.add_edges_from(
+                table_graph_edges, script=script_name, table=child_object
+            )
 
 
 def get_dynamic_table_depends(sql: str) -> list[str]:
@@ -1006,6 +1165,7 @@ def get_schemachange_config(
     change_history_table,
     vars,
     create_change_history_table,
+    r_script_graph,
     baseline_version,
     no_unversioned_checksum,
     pretty,
@@ -1033,6 +1193,7 @@ def get_schemachange_config(
         "snowflake_schema": snowflake_schema,
         "change_history_table": change_history_table,
         "vars": vars,
+        "r_script_graph": r_script_graph,
         "create_change_history_table": create_change_history_table,
         "no_unversioned_checksum": no_unversioned_checksum,
         "baseline_version": baseline_version,
@@ -1068,6 +1229,7 @@ def get_schemachange_config(
         "snowflake_schema": None,
         "change_history_table": None,
         "vars": {},
+        "r_script_graph": False,
         "create_change_history_table": False,
         "baseline_version": "",
         "pretty": False,
@@ -1399,6 +1561,13 @@ def main(argv=sys.argv):
             required=False,
         )
 
+    parser_deploy.add_argument(
+        "--r-script-graph",
+        action="store_true",
+        help="Check dependencies for repeatable scripts and re-run all parent scripts in graph (default: %(default)s)",
+        required=False,
+    )
+
     # Initialize common subparser arguments for deploy and baseline
     for common_subparser in [parser_deploy, parser_baseline]:
         common_subparser.add_argument(
@@ -1538,10 +1707,8 @@ def main(argv=sys.argv):
         logging.basicConfig(level=loglevel, format=format, datefmt="[%X]")
         log = logging.getLogger(__name__)
 
-    # Quiet the snowflake connector logging
-    logger_blocklist = [
-        "snowflake.connector",
-    ]
+    # Quiet the snowflake connector, matplotlib, PIL logging
+    logger_blocklist = ["snowflake.connector", "matplotlib", "PIL"]
 
     for module in logger_blocklist:
         logging.getLogger(module).setLevel(logging.WARNING)
@@ -1565,6 +1732,7 @@ def main(argv=sys.argv):
             "snowflake_database": None,
             "change_history_table": None,
             "snowflake_schema": None,
+            "r_script_graph": None,
             "create_change_history_table": None,
             "no_unversioned_checksum": None,
             "baseline_version": None,
