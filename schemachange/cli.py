@@ -17,6 +17,8 @@ import yaml
 import logging
 import logging.config
 import rich
+from sqlglot import parse, parse_one, exp
+from sqlglot.optimizer.scope import build_scope
 from rich_argparse import RawTextRichHelpFormatter
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -829,11 +831,65 @@ def baseline_command(config):
     log.info("Wrote %s baseline scripts to change history table" % scripts_baselined)
 
 
+def get_dynamic_table_depends(sql: str) -> list[str]:
+    """
+    Get the list of tables that the provided SQL depends on.
+    Typically used to determine dependencies for a dynamic table or view.
+    """
+
+    parsed_statements = parse(sql, dialect="snowflake")
+
+    # Only process statements which create dynamic tables or views
+    for statement in parsed_statements:
+        # if statement.find_all(exp.Create):
+        if isinstance(statement, exp.Create):
+            #            formatted_sql_query = statement.sql(
+            #               normalize=False, pad=4, indent=4, dialect="snowflake", pretty=True
+            #           )
+            #            print(formatted_sql_query)
+
+            #            print(statement)
+
+            # Get the table name we're creating
+            #            print(repr(statement))
+            print(statement.this)
+
+            root = build_scope(statement)
+
+            #            for scope in root.traverse():
+            #                print(scope)
+
+            # Taken from the sqlglot documentation
+            tables = [
+                source
+                # Traverse the Scope tree, not the AST
+                for scope in root.traverse()
+                # `selected_sources` contains sources that have been selected in this scope, e.g. in a FROM or JOIN clause.
+                # `alias` is the name of this source in this particular scope.
+                # `node` is the AST node instance
+                # if the selected source is a subquery (including common table expressions),
+                #     then `source` will be the Scope instance for that subquery.
+                # if the selected source is a table,
+                #     then `source` will be a Table instance.
+                for alias, (node, source) in scope.selected_sources.items()
+                if isinstance(source, exp.Table)
+            ]
+
+            table_strings = []
+            for table in tables:
+                table_strings.append(str(table.db) + "." + str(table.this))
+                # print(repr(table))
+
+            # Now make the list of tables unique
+            uniq_tables = list(set(table_strings))
+            print(uniq_tables)
+
+
 def format_sql(content):
     """
     Parses and formats the provided SQL content.
     """
-    from sqlglot import parse
+    #    from sqlglot import parse
 
     parsed_statements = parse(content, dialect="snowflake")
     formatted_sql_queries = ""
@@ -876,17 +932,19 @@ def render_command(config, script_path):
     log.info("Checksum %s" % checksum)
 
     if config["format_sql"]:
-        content = format_sql(content)
+        #        content = format_sql(content)
+        get_dynamic_table_depends(content)
 
-    if config["pretty"]:
-        from rich.console import Console
-        from rich.syntax import Syntax
 
-        console = Console()
-        syntax = Syntax(code=content, lexer="sql")
-        console.print(syntax)
-    else:
-        print(content)
+#    if config["pretty"]:
+#        from rich.console import Console
+#        from rich.syntax import Syntax
+#
+#        console = Console()
+#        syntax = Syntax(code=content, lexer="sql")
+#        console.print(syntax)
+#    else:
+#        print(content)
 
 
 def alphanum_convert(text: str):
@@ -1232,7 +1290,7 @@ def main(argv=sys.argv):
         prog="schemachange",
         description="""Apply schema changes to a Snowflake account.
         Full readme at https://github.com/Snowflake-Labs/schemachange""",
-        #        formatter_class=argparse.RawTextHelpFormatter,
+        # formatter_class=argparse.RawTextHelpFormatter,
         # formatter_class=RichHelpFormatter,
         formatter_class=RawTextRichHelpFormatter,
     )
