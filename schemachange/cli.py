@@ -14,9 +14,21 @@ import jinja2.ext
 import requests
 import snowflake.connector
 import yaml
+import logging
+import logging.config
+import rich
+from sqlglot import parse, exp
+from sqlglot.optimizer.scope import build_scope
+import networkx as nx
+
+# import matplotlib.pyplot as plt
+from rich_argparse import RawTextRichHelpFormatter
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from jinja2.loaders import BaseLoader
+
+log = logging.getLogger(__name__)
+
 
 # region Global Variables
 # metadata
@@ -281,12 +293,12 @@ class SnowflakeSchemachangeSession:
         self.autocommit = config["autocommit"]
         self.verbose = config["verbose"]
         if self.set_connection_args():
-            print(self._q_set_sess_role.format(**self.conArgs))
-            print(self._q_set_sess_warehouse.format(**self.conArgs))
-            print(self._q_set_sess_database.format(**self.conArgs))
-            print(self._q_set_sess_schema.format(**self.conArgs))
+            log.info(self._q_set_sess_role.format(**self.conArgs))
+            log.info(self._q_set_sess_warehouse.format(**self.conArgs))
+            log.info(self._q_set_sess_database.format(**self.conArgs))
+            log.info(self._q_set_sess_schema.format(**self.conArgs))
             self.con = snowflake.connector.connect(**self.conArgs)
-            print(
+            log.info(
                 _log_current_session_id.format(current_session_id=self.con.session_id)
             )
             # Setting session context
@@ -294,7 +306,7 @@ class SnowflakeSchemachangeSession:
             if not self.autocommit:
                 self.con.autocommit(False)
         else:
-            print(_err_env_missing)
+            log.error(_err_env_missing)
 
     def __del__(self):
         if hasattr(self, "con"):
@@ -371,22 +383,19 @@ class SnowflakeSchemachangeSession:
             if snowflake_authenticator.lower() == "oauth":
                 oauth_token = self.get_oauth_token()
 
-                if self.verbose:
-                    print(_log_auth_type % "Oauth Access Token")
+                log.debug(_log_auth_type % "Oauth Access Token")
 
                 self.conArgs["token"] = oauth_token
                 self.conArgs["authenticator"] = "oauth"
             # External Browswer based SSO
             elif snowflake_authenticator.lower() == "externalbrowser":
                 self.conArgs["authenticator"] = "externalbrowser"
-                if self.verbose:
-                    print(_log_auth_type % "External Browser")
+                log.debug(_log_auth_type % "External Browser")
 
             # IDP based Authentication, limited to Okta
             elif snowflake_authenticator.lower()[:8] == "https://":
-                if self.verbose:
-                    print(_log_auth_type % "Okta")
-                    print(_log_okta_ep % snowflake_authenticator)
+                log.debug(_log_auth_type % "Okta")
+                log.debug(_log_okta_ep % snowflake_authenticator)
 
                 self.conArgs["password"] = snowflake_password
                 self.conArgs["authenticator"] = snowflake_authenticator.lower()
@@ -396,12 +405,11 @@ class SnowflakeSchemachangeSession:
             # if authenticator is not a supported method or the authenticator variable is defined but not specified
             else:
                 # defaulting to snowflake as authenticator
-                if self.verbose:
-                    print(
-                        _err_unsupported_auth_mthd.format(
-                            unsupported_authenticator=snowflake_authenticator
-                        )
+                log.debug(
+                    _err_unsupported_auth_mthd.format(
+                        unsupported_authenticator=snowflake_authenticator
                     )
+                )
                 self.conArgs["authenticator"] = default_authenticator
         else:
             # default authenticator to snowflake
@@ -410,21 +418,18 @@ class SnowflakeSchemachangeSession:
         if self.conArgs["authenticator"].lower() == default_authenticator:
             # Giving preference to password based authentication when both private key and password are specified.
             if snowflake_password:
-                if self.verbose:
-                    print(_log_auth_type % "password")
+                log.debug(_log_auth_type % "password")
                 self.conArgs["password"] = snowflake_password
 
             elif os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH", ""):
-                if self.verbose:
-                    print(_log_auth_type % "private key")
+                log.debug(_log_auth_type % "private key")
 
                 private_key_password = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE", "")
                 if private_key_password:
                     private_key_password = private_key_password.encode()
                 else:
                     private_key_password = None
-                    if self.verbose:
-                        print(_log_pk_enc)
+                    log.debug(_log_pk_enc)
                 with open(os.environ["SNOWFLAKE_PRIVATE_KEY_PATH"], "rb") as key:
                     p_key = serialization.load_pem_private_key(
                         key.read(),
@@ -445,8 +450,7 @@ class SnowflakeSchemachangeSession:
         return True
 
     def execute_snowflake_query(self, query):
-        if self.verbose:
-            print(SecretManager.global_redact("SQL query: %s" % query))
+        log.debug(SecretManager.global_redact("SQL query: %s" % query))
         try:
             res = self.con.execute_string(query)
             if not self.autocommit:
@@ -566,8 +570,26 @@ class SnowflakeSchemachangeSession:
         query = self._q_ch_log.format(**frmt_args)
         self.execute_snowflake_query(query)
 
+    def baseline_change_script(self, script, checksum, change_history_table):
+        """
+        Baselines the change history table with the provided script and checksum
+        """
+        frmt_args = script.copy()
+        frmt_args.update(change_history_table)
+        frmt_args["checksum"] = checksum
+        frmt_args["execution_time"] = 0
+        frmt_args["status"] = "Baseline"
+        frmt_args["user"] = self.conArgs["user"]
 
-def deploy_command(config):
+        # Compose and execute the insert statement to the log file
+        query = self._q_ch_log.format(**frmt_args)
+        self.execute_snowflake_query(query)
+
+
+def common_command_init(config):
+    """
+    Common initialization for both the deploy and baseline commands
+    """
     # Make sure we have the required connection info, all of the below needs to be present.
     req_args = {
         "snowflake_account",
@@ -594,14 +616,11 @@ def deploy_command(config):
 
     # Log some additional details
     if config["dry_run"]:
-        print("Running in dry-run mode")
-    print(_log_config_details.format(**config))
+        log.info("Running in dry-run mode")
+    log.info(_log_config_details.format(**config))
 
     # connect to snowflake and maintain connection
     session = SnowflakeSchemachangeSession(config)
-
-    scripts_skipped = 0
-    scripts_applied = 0
 
     # Deal with the change history table (create if specified)
     change_history_table = get_change_history_table_details(
@@ -611,7 +630,7 @@ def deploy_command(config):
         change_history_table
     )
     if change_history_metadata:
-        print(
+        log.info(
             _log_ch_use.format(
                 last_altered=change_history_metadata["last_altered"],
                 **change_history_table,
@@ -621,7 +640,7 @@ def deploy_command(config):
         # Create the change history table (and containing objects) if it don't exist.
         if not config["dry_run"]:
             session.create_change_history_table_if_missing(change_history_table)
-        print(_log_ch_create.format(**change_history_table))
+        log.info(_log_ch_create.format(**change_history_table))
     else:
         raise ValueError(_err_ch_missing.format(**change_history_table))
 
@@ -639,7 +658,7 @@ def deploy_command(config):
     max_published_version_display = max_published_version
     if max_published_version_display == "":
         max_published_version_display = "None"
-    print(
+    log.info(
         _log_ch_max_version.format(
             max_published_version_display=max_published_version_display
         )
@@ -659,6 +678,37 @@ def deploy_command(config):
         )
     )
 
+    return (
+        session,
+        change_history_table,
+        all_scripts,
+        all_script_names_sorted,
+        r_scripts_checksum,
+        max_published_version,
+    )
+
+
+def deploy_command(config):
+    # Run the common command initialization
+    (
+        session,
+        change_history_table,
+        all_scripts,
+        all_script_names_sorted,
+        r_scripts_checksum,
+        max_published_version,
+    ) = common_command_init(config)
+
+    # Configure graph for R scripts
+    if config["script_deps"]:
+        script_graph = nx.DiGraph()
+        changed_r_scripts = []
+        new_v_scripts = []
+
+    scripts_skipped = 0
+    scripts_applied = 0
+    scripts_applied_names = []
+
     checksum_current = None
     checksum_last = None
     # Loop through each script in order and apply any required changes
@@ -670,12 +720,11 @@ def deploy_command(config):
         if script_name[0] == "V" and get_alphanum_key(
             script["script_version"]
         ) <= get_alphanum_key(max_published_version):
-            if config["verbose"]:
-                print(
-                    _log_skip_v.format(
-                        max_published_version=max_published_version, **script
-                    )
+            log.debug(
+                _log_skip_v.format(
+                    max_published_version=max_published_version, **script
                 )
+            )
             scripts_skipped += 1
             continue
 
@@ -691,8 +740,20 @@ def deploy_command(config):
 
         # Apply only R scripts where the checksum changed compared to the last execution of snowchange
         if script_name[0] == "R":
+            if config["script_deps"]:
+                log.info("Building Repeatable script graph")
+                build_script_graph(content, script_graph, script_name)
+
             # Compute the checksum for the script
             checksum_current = hashlib.sha224(content.encode("utf-8")).hexdigest()
+        elif script_name[0] == "V":
+            if config["script_deps"]:
+                new_v_scripts.append(script_name)
+
+                log.info("Building Versioned script graph")
+                # Even though we will not re-run versioned scripts/tables,
+                # we still need to add them to the graph to analyze dependencies
+                build_script_graph(content, script_graph, script_name)
 
         # check if R file was already executed
         if r_scripts_checksum and (script_name in r_scripts_checksum):
@@ -702,22 +763,231 @@ def deploy_command(config):
 
         # check if there is a change of the checksum in the script
         if checksum_current == checksum_last:
-            if config["verbose"]:
-                print(_log_skip_r.format(**script))
+            log.debug(_log_skip_r.format(**script))
+            log.debug("Current Checksum %s" % checksum_current)
             scripts_skipped += 1
             continue
+        elif checksum_current != checksum_last and script_name[0] == "R":
+            log.info("Checksum changed for script %s" % script_name)
+            log.debug("Current Checksum %s" % checksum_current)
+            log.debug("Last Checksum %s" % checksum_last)
+            if config["script_deps"]:
+                changed_r_scripts.append(script_name)
 
-        print(_log_apply.format(**script))
+        log.info(_log_apply.format(**script))
         if not config["dry_run"]:
             session.apply_change_script(script, content, change_history_table)
 
         scripts_applied += 1
+        scripts_applied_names.append(script_name)
 
-    print(
+    log.info(
         _log_apply_set_complete.format(
             scripts_applied=scripts_applied, scripts_skipped=scripts_skipped
         )
     )
+
+    if config["script_deps"]:
+        log.info("Determining dependent scripts")
+        log.debug("Scripts already applied: %s" % scripts_applied_names)
+        log.debug("Changed repeatable scripts: %s" % changed_r_scripts)
+        log.debug("New versioned scripts: %s" % new_v_scripts)
+
+        # Loop through all nodes corresponding to changed repeatable scripts
+        # and new versioned scripts to determine dependent scripts
+        dependent_scripts = []
+        for script in changed_r_scripts + new_v_scripts:
+            nodes = script_graph.nodes(data=True)
+            for node in nodes:
+                if node[1].get("script", "") == script:
+                    log.info(f"Checking dependencies for script {script}")
+                    lines = "\n"
+                    for line in nx.generate_network_text(
+                        graph=script_graph,
+                        sources=[
+                            node[0],
+                        ],
+                        vertical_chains=True,
+                    ):
+                        lines += line + "\n"
+
+                    log.debug(f"[{node[0]}] Object Dependency Hierarchy: {lines}")
+
+                    # Get ALL the successors of the node
+                    successors = nx.nodes(nx.dfs_tree(script_graph, node[0]))
+
+                    for successor in successors:
+                        dependent_script = nodes[successor].get("script", "")
+                        if dependent_script:
+                            dependent_scripts.append(dependent_script)
+
+        # Remove duplicates and sort the list
+        dependent_scripts = set(sorted_alphanumeric(set(dependent_scripts)))
+
+        # Subtract applied scripts from dependent scripts
+        dependent_scripts.difference_update(set(scripts_applied_names))
+        dependent_scripts = sorted_alphanumeric(dependent_scripts)
+        log.info(
+            f"{len(dependent_scripts)} Final dependent scripts to apply: {dependent_scripts}"
+        )
+
+        for script_name in dependent_scripts:
+            log.info(f"Applying dependent script {script_name}")
+            script = all_scripts[script_name]
+            content = jinja_processor.render(
+                jinja_processor.relpath(script["script_full_path"]),
+                config["vars"],
+                config["verbose"],
+            )
+            if not config["dry_run"]:
+                session.apply_change_script(script, content, change_history_table)
+
+        # Example for printing the graph via matplotlib chart
+        # nx.draw(script_graph, with_labels=True)
+        # plt.show()
+
+
+def baseline_command(config):
+    # Run the common initialization
+    (
+        session,
+        change_history_table,
+        all_scripts,
+        all_script_names_sorted,
+        r_scripts_checksum,
+        max_published_version,
+    ) = common_command_init(config)
+
+    if max_published_version != "":
+        raise ValueError(
+            "Cannot baseline the change history table if records already exist"
+        )
+
+    # Remove prefix 'V' from baseline version if present
+    if config["baseline_version"] and config["baseline_version"][0].upper() == "V":
+        config["baseline_version"] = config["baseline_version"][1:]
+
+    log.info(
+        f"Baselining change history table at version [{config['baseline_version']}]"
+    )
+
+    scripts_baselined = 0
+
+    for script_name in all_script_names_sorted:
+        script = all_scripts[script_name]
+
+        # Create a baseline for versioned scripts that are older than or
+        # equal to the baseline version
+        script_version = get_alphanum_key(script["script_version"])
+        baseline_version = get_alphanum_key(config["baseline_version"])
+        if script_name[0] == "V" and (script_version <= baseline_version):
+            log.debug("Creating baseline for script %s" % script_name)
+        elif script_name[0] == "V" and (script_version > baseline_version):
+            log.debug("Skipping script newer than baseline %s" % script_name)
+
+            # Skip to the next script
+            continue
+
+        # Always process with jinja engine
+        jinja_processor = JinjaTemplateProcessor(
+            project_root=config["root_folder"], modules_folder=config["modules_folder"]
+        )
+        content = jinja_processor.render(
+            jinja_processor.relpath(script["script_full_path"]),
+            config["vars"],
+            config["verbose"],
+        )
+
+        if not config["dry_run"]:
+            if script_name[0] == "R" and config["no_unversioned_checksum"]:
+                # Do not compute the checksum for the script
+                checksum = ""
+            else:
+                # Compute the checksum for the script
+                checksum = hashlib.sha224(content.encode("utf-8")).hexdigest()
+
+            # Write baseline history records
+            session.baseline_change_script(script, checksum, change_history_table)
+        else:
+            log.info(
+                "Dry-run, Skipping change history table update for %s " % script_name
+            )
+            continue
+
+        scripts_baselined += 1
+
+    log.info("Wrote %s baseline scripts to change history table" % scripts_baselined)
+
+
+def build_script_graph(
+    script_content: str, graph, script_name
+) -> list[tuple[str, str]]:
+    parsed_statements = parse(script_content, dialect="snowflake")
+
+    """
+    Builds a graph of all of the DB objects created or altered in the script.
+    """
+
+    # Only process statements which create or alter
+    for statement in parsed_statements:
+        if isinstance(statement, exp.Create) or isinstance(statement, exp.Alter):
+            # Get the table/dynamic table/view name we're creating/altering
+            node_name = str(statement.this)
+
+            root = build_scope(statement)
+
+            if not root:
+                # Just add the node to the graph if it's a standalone object
+                graph.add_node(node_name, script=script_name, object=node_name)
+                continue
+            else:
+                # Find all the tables/dynamic tables/views that are being referenced in the statement
+
+                # Stolen from the sqlglot documentation
+                # https://github.com/tobymao/sqlglot/blob/main/posts/ast_primer.md#scope
+                edge_names = [
+                    source
+                    for scope in root.traverse()
+                    for alias, (node, source) in scope.selected_sources.items()
+                    if isinstance(source, exp.Table)
+                ]
+
+                # Store related tables/dynamic tables/views (edges) in the graph
+                edge_strings = []
+                for edge in edge_names:
+                    edge_strings.append(str(edge.db) + "." + str(edge.this))
+
+                # Now make the list of edges unique
+                uniq_edges = list(set(edge_strings))
+
+                # Add the node to the graph
+                graph.add_node(node_name, script=script_name, object=node_name)
+
+                # Add the edges to the graph
+                graph_edges = [(edge, node_name) for edge in uniq_edges]
+                graph.add_edges_from(graph_edges, script=script_name, object=node_name)
+
+
+def format_sql(content):
+    """
+    Parses and formats the provided SQL content.
+    """
+
+    parsed_statements = parse(content, dialect="snowflake")
+    formatted_sql_queries = ""
+
+    for statement in parsed_statements:
+        formatted_sql_query = statement.sql(
+            normalize=False, pad=4, indent=4, dialect="snowflake", pretty=True
+        )
+
+        # Add additional whitespace around multi-line queries
+        if formatted_sql_query.count("\n") > 1:
+            formatted_sql_queries += "\n" + formatted_sql_query + ";\n\n"
+        else:
+            formatted_sql_queries += formatted_sql_query + ";\n"
+
+    return formatted_sql_queries
 
 
 def render_command(config, script_path):
@@ -741,8 +1011,22 @@ def render_command(config, script_path):
     )
 
     checksum = hashlib.sha224(content.encode("utf-8")).hexdigest()
-    print("Checksum %s" % checksum)
-    print(content)
+    log.info("Checksum %s" % checksum)
+
+    if config["format_sql"]:
+        #        content = format_sql(content)
+        get_dynamic_table_depends(content)
+
+
+#    if config["pretty"]:
+#        from rich.console import Console
+#        from rich.syntax import Syntax
+#
+#        console = Console()
+#        syntax = Syntax(code=content, lexer="sql")
+#        console.print(syntax)
+#    else:
+#        print(content)
 
 
 def alphanum_convert(text: str):
@@ -787,7 +1071,7 @@ def load_schemachange_config(config_file_path: str) -> Dict[str, Any]:
 
             # The FullLoader parameter handles the conversion from YAML scalar values to Python the dictionary format
             config = yaml.load(config_template.render(), Loader=yaml.FullLoader)
-        print("Using config file: %s" % config_file_path)
+        log.info("Using config file: %s" % config_file_path)
     return config
 
 
@@ -804,8 +1088,15 @@ def get_schemachange_config(
     change_history_table,
     vars,
     create_change_history_table,
+    script_deps,
+    baseline_version,
+    no_unversioned_checksum,
+    pretty,
+    format_sql,
+    log_format,
     autocommit,
     verbose,
+    silent,
     dry_run,
     query_tag,
     oauth_config,
@@ -825,9 +1116,16 @@ def get_schemachange_config(
         "snowflake_schema": snowflake_schema,
         "change_history_table": change_history_table,
         "vars": vars,
+        "script_deps": script_deps,
         "create_change_history_table": create_change_history_table,
+        "no_unversioned_checksum": no_unversioned_checksum,
+        "baseline_version": baseline_version,
+        "pretty": pretty,
+        "format_sql": format_sql,
+        "log_format": log_format,
         "autocommit": autocommit,
         "verbose": verbose,
+        "silent": silent,
         "dry_run": dry_run,
         "query_tag": query_tag,
         "oauth_config": oauth_config,
@@ -854,9 +1152,16 @@ def get_schemachange_config(
         "snowflake_schema": None,
         "change_history_table": None,
         "vars": {},
+        "script_deps": False,
         "create_change_history_table": False,
+        "baseline_version": "",
+        "pretty": False,
+        "format_sql": False,
+        "log_format": "basic",
+        "no_unversioned_checksum": False,
         "autocommit": False,
         "verbose": False,
+        "silent": False,
         "dry_run": False,
         "query_tag": None,
         "oauth_config": None,
@@ -942,19 +1247,15 @@ def get_all_scripts_recursively(root_directory, verbose):
             # Set script type depending on whether it matches the versioned file naming format
             if script_name_parts is not None:
                 script_type = "V"
-                if verbose:
-                    print("Found Versioned file " + file_full_path)
+                log.debug("Found Versioned file " + file_full_path)
             elif repeatable_script_name_parts is not None:
                 script_type = "R"
-                if verbose:
-                    print("Found Repeatable file " + file_full_path)
+                log.debug("Found Repeatable file " + file_full_path)
             elif always_script_name_parts is not None:
                 script_type = "A"
-                if verbose:
-                    print("Found Always file " + file_full_path)
+                log.debug("Found Always file " + file_full_path)
             else:
-                if verbose:
-                    print("Ignoring non-change file " + file_full_path)
+                log.debug("Ignoring non-change file " + file_full_path)
                 continue
 
             # script name is the filename without any jinja extension
@@ -1074,182 +1375,266 @@ def main(argv=sys.argv):
         prog="schemachange",
         description="""Apply schema changes to a Snowflake account.
         Full readme at https://github.com/Snowflake-Labs/schemachange""",
-        formatter_class=argparse.RawTextHelpFormatter,
+        formatter_class=RawTextRichHelpFormatter,
     )
-    subcommands = parser.add_subparsers(dest="subcommand")
-
-    parser_deploy = subcommands.add_parser("deploy")
-    parser_deploy.add_argument(
-        "--config-folder",
-        type=str,
-        default=".",
-        help="The folder to look in for the schemachange-config.yml file (the default is the current working directory)",
-        required=False,
+    subcommands = parser.add_subparsers(
+        dest="subcommand", description="Available Schemachange operations"
     )
-    parser_deploy.add_argument(
-        "-f",
-        "--root-folder",
-        type=str,
-        help="The root folder for the database change scripts",
-        required=False,
-    )
-    parser_deploy.add_argument(
-        "-m",
-        "--modules-folder",
-        type=str,
-        help="The modules folder for jinja macros and templates to be used across multiple scripts",
-        required=False,
-    )
-    parser_deploy.add_argument(
-        "-a",
-        "--snowflake-account",
-        type=str,
-        help="The name of the snowflake account (e.g. xy12345.east-us-2.azure)",
-        required=False,
-    )
-    parser_deploy.add_argument(
-        "-u",
-        "--snowflake-user",
-        type=str,
-        help="The name of the snowflake user",
-        required=False,
-    )
-    parser_deploy.add_argument(
-        "-r",
-        "--snowflake-role",
-        type=str,
-        help="The name of the default role to use",
-        required=False,
-    )
-    parser_deploy.add_argument(
-        "-w",
-        "--snowflake-warehouse",
-        type=str,
-        help="The name of the default warehouse to use. Can be overridden in the change scripts.",
-        required=False,
-    )
-    parser_deploy.add_argument(
-        "-d",
-        "--snowflake-database",
-        type=str,
-        help="The name of the default database to use. Can be overridden in the change scripts.",
-        required=False,
-    )
-    parser_deploy.add_argument(
-        "-s",
-        "--snowflake-schema",
-        type=str,
-        help="The name of the default schema to use. Can be overridden in the change scripts.",
-        required=False,
-    )
-    parser_deploy.add_argument(
-        "-c",
-        "--change-history-table",
-        type=str,
-        help="""Used to override the default name of the change history table
-        (the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY)""",
-        required=False,
-    )
-    parser_deploy.add_argument(
-        "--vars",
-        type=json.loads,
-        help="""Define values for the variables to be replaced in change scripts, given in JSON format
-        (e.g. {"variable1": "value1", "variable2": "value2"})""",
-        required=False,
-    )
-    parser_deploy.add_argument(
-        "--create-change-history-table",
-        action="store_true",
-        help="Create the change history schema and table, if they do not exist (the default is False)",
-        required=False,
-    )
-    parser_deploy.add_argument(
-        "-ac",
-        "--autocommit",
-        action="store_true",
-        help="Enable autocommit feature for DML commands (the default is False)",
-        required=False,
-    )
-    parser_deploy.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Display verbose debugging details during execution (the default is False)",
-        required=False,
-    )
-    parser_deploy.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Run schemachange in dry run mode (the default is False)",
-        required=False,
-    )
-    parser_deploy.add_argument(
-        "--query-tag",
-        type=str,
-        help="The string to add to the Snowflake QUERY_TAG session value for each query executed",
-        required=False,
-    )
-    parser_deploy.add_argument(
-        "--oauth-config",
-        type=json.loads,
-        help="""Define values for the variables to Make Oauth Token requests
-        (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })""",
-        required=False,
-    )
-    # TODO test CLI passing of args
 
     parser_render = subcommands.add_parser(
         "render",
+        help="Renders a script to the console",
         description="Renders a script to the console, used to check and verify jinja output from scripts.",
+        formatter_class=parser.formatter_class,
     )
-    parser_render.add_argument(
-        "--config-folder",
-        type=str,
-        default=".",
-        help="The folder to look in for the schemachange-config.yml file (the default is the current working directory)",
-        required=False,
+    parser_deploy = subcommands.add_parser(
+        "deploy",
+        help="Apply and log schema changes",
+        description="Apply and log schema changes",
+        formatter_class=parser.formatter_class,
     )
-    parser_render.add_argument(
-        "-f",
-        "--root-folder",
-        type=str,
-        help="The root folder for the database change scripts",
-        required=False,
+    parser_baseline = subcommands.add_parser(
+        "baseline",
+        help="Set baseline version and history",
+        description="Set baseline version and history for existing DB to use schemachange",
+        formatter_class=parser.formatter_class,
     )
-    parser_render.add_argument(
-        "-m",
-        "--modules-folder",
-        type=str,
-        help="The modules folder for jinja macros and templates to be used across multiple scripts",
-        required=False,
-    )
-    parser_render.add_argument(
-        "--vars",
-        type=json.loads,
-        help="""Define values for the variables to be replaced in change scripts, given in JSON format
-        (e.g. {"variable1": "value1", "variable2": "value2"})""",
-        required=False,
-    )
-    parser_render.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Display verbose debugging details during execution (the default is False)",
-        required=False,
-    )
+
+    ### Render subcommand
     parser_render.add_argument("script", type=str, help="The script to render")
+
+    ### Baseline Schema Version subcommand
+    parser_baseline.add_argument(
+        "--baseline-version",
+        type=str,
+        help="Version number for baseline",
+        required=False,
+    )
+    parser_baseline.add_argument(
+        "--no-unversioned-checksum",
+        action="store_true",
+        help="""Do not generate checksums for unversioned R__ scripts, causing them to be applied on subsequent run""",
+        required=False,
+    )
+
+    # Initialize common subparser arguments for ALL subcommands
+    for all_subparser in [parser_render, parser_deploy, parser_baseline]:
+        all_subparser.add_argument(
+            "-v",
+            "--verbose",
+            action="store_true",
+            help="Display verbose debugging details during execution (default: %(default)s)",
+            required=False,
+        )
+        all_subparser.add_argument(
+            "--silent",
+            action="store_true",
+            help="Silence all output except critical errors (default: %(default)s)",
+            required=False,
+        )
+        all_subparser.add_argument(
+            "--pretty",
+            action="store_true",
+            help="Pretty print output using Rich library (default: %(default)s)",
+            required=False,
+        )
+        all_subparser.add_argument(
+            "--format-sql",
+            action="store_true",
+            help="Format the SQL output using sqlparse library",
+            required=False,
+        )
+        all_subparser.add_argument(
+            "--log-format",
+            type=str,
+            nargs="?",
+            choices=["basic", "levels", "detailed"],
+            help="The format of the log output (default: %(default)s)",
+            const="basic",
+            default="basic",
+        )
+        all_subparser.add_argument(
+            "--vars",
+            type=json.loads,
+            help="""Define values for the variables to be replaced in change scripts, given in JSON format
+            (e.g. {"variable1": "value1", "variable2": "value2"})""",
+            required=False,
+        )
+        all_subparser.add_argument(
+            "-m",
+            "--modules-folder",
+            type=str,
+            help="The modules folder for jinja macros and templates to be used across multiple scripts",
+            required=False,
+        )
+        all_subparser.add_argument(
+            "-f",
+            "--root-folder",
+            type=str,
+            help="The root folder for the database change scripts",
+            required=False,
+        )
+        all_subparser.add_argument(
+            "--config-folder",
+            type=str,
+            default=".",
+            help="The folder to look in for the schemachange-config.yml file (default: %(default)s)",
+            required=False,
+        )
+
+    parser_deploy.add_argument(
+        "--script-deps",
+        action="store_true",
+        help="Check dependencies for repeatable scripts and re-run all affected scripts (default: %(default)s)",
+        required=False,
+    )
+
+    # Initialize common subparser arguments for deploy and baseline
+    for common_subparser in [parser_deploy, parser_baseline]:
+        common_subparser.add_argument(
+            "-a",
+            "--snowflake-account",
+            type=str,
+            help="The name of the snowflake account (e.g. xy12345.east-us-2.azure)",
+            required=False,
+        )
+        common_subparser.add_argument(
+            "-u",
+            "--snowflake-user",
+            type=str,
+            help="The name of the snowflake user",
+            required=False,
+        )
+        common_subparser.add_argument(
+            "-r",
+            "--snowflake-role",
+            type=str,
+            help="The name of the default role to use",
+            required=False,
+        )
+        common_subparser.add_argument(
+            "-w",
+            "--snowflake-warehouse",
+            type=str,
+            help="The name of the default warehouse to use. Can be overridden in the change scripts.",
+            required=False,
+        )
+        common_subparser.add_argument(
+            "-d",
+            "--snowflake-database",
+            type=str,
+            help="The name of the default database to use. Can be overridden in the change scripts.",
+            required=False,
+        )
+        common_subparser.add_argument(
+            "-s",
+            "--snowflake-schema",
+            type=str,
+            help="The name of the default schema to use. Can be overridden in the change scripts.",
+            required=False,
+        )
+        common_subparser.add_argument(
+            "-c",
+            "--change-history-table",
+            type=str,
+            default="METADATA.SCHEMACHANGE.CHANGE_HISTORY",
+            help="""Used to override the default name of the change history table
+            (default: %(default)s)""",
+            required=False,
+        )
+        common_subparser.add_argument(
+            "--create-change-history-table",
+            action="store_true",
+            help="Create the change history schema and table, if they do not exist (default: %(default)s)",
+            required=False,
+        )
+        common_subparser.add_argument(
+            "-ac",
+            "--autocommit",
+            action="store_true",
+            help="Enable autocommit feature for DML commands (default: %(default)s)",
+            required=False,
+        )
+        common_subparser.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="Run schemachange in dry run mode (default: %(default)s)",
+            required=False,
+        )
+        common_subparser.add_argument(
+            "--query-tag",
+            type=str,
+            help="The string to add to the Snowflake QUERY_TAG session value for each query executed",
+            required=False,
+        )
+        common_subparser.add_argument(
+            "--oauth-config",
+            type=json.loads,
+            help="""Define values for the variables to Make Oauth Token requests
+            (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })""",
+            required=False,
+        )
+        # TODO test CLI passing of args
 
     # The original parameters did not support subcommands. Check if a subcommand has been supplied
     # if not default to deploy to match original behaviour.
     args = argv[1:]
-    if len(args) == 0 or not any(
-        subcommand in args[0].upper() for subcommand in ["DEPLOY", "RENDER"]
+    if len(args) == 0 or (
+        ("--help" not in args and "-h" not in args)
+        and not any(
+            subcommand in args[0].upper()
+            for subcommand in ["DEPLOY", "RENDER", "BASELINE"]
+        )
     ):
         args = ["deploy"] + args
 
     args = parser.parse_args(args)
 
-    print("schemachange version: %s" % _schemachange_version)
+    # Set the log format
+    if args.log_format == "basic":
+        format = "%(message)s"
+    if args.log_format == "levels":
+        format = "%(levelname)s:%(message)s"
+    elif args.log_format == "detailed":
+        format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+    # Set the log level
+    if args.verbose:
+        loglevel = logging.DEBUG
+    elif args.silent:
+        loglevel = logging.CRITICAL
+    else:
+        loglevel = logging.INFO
+
+    if args.pretty:
+        from rich.logging import RichHandler
+
+        # Install rich.traceback as the default traceback handler
+        from rich.traceback import install
+
+        # Setup logging
+        logging.basicConfig(
+            level=loglevel,
+            format=format,
+            datefmt="[%X]",
+            handlers=[RichHandler(rich_tracebacks=True, markup=False)],
+        )
+
+        log = logging.getLogger("rich")
+
+        # Enable local variable debugging in traceback
+        install(show_locals=True)
+    else:
+        logging.basicConfig(level=loglevel, format=format, datefmt="[%X]")
+        log = logging.getLogger(__name__)
+
+    # Quiet the snowflake connector, matplotlib, PIL logging
+    logger_blocklist = ["snowflake.connector", "matplotlib", "PIL"]
+
+    for module in logger_blocklist:
+        logging.getLogger(module).setLevel(logging.WARNING)
+
+    log.info("schemachange version: %s" % _schemachange_version)
 
     # First get the config values
     config_file_path = os.path.join(args.config_folder, _config_file_name)
@@ -1268,13 +1653,22 @@ def main(argv=sys.argv):
             "snowflake_database": None,
             "change_history_table": None,
             "snowflake_schema": None,
+            "script_deps": None,
             "create_change_history_table": None,
+            "no_unversioned_checksum": None,
+            "baseline_version": None,
             "autocommit": None,
             "dry_run": None,
             "query_tag": None,
             "oauth_config": None,
         }
         schemachange_args.update(renderoveride)
+    if args.subcommand == "deploy":
+        deployoveride = {
+            "no_unversioned_checksum": None,
+            "baseline_version": None,
+        }
+        schemachange_args.update(deployoveride)
     config = get_schemachange_config(**schemachange_args)
 
     # setup a secret manager and assign to global scope
@@ -1284,16 +1678,16 @@ def main(argv=sys.argv):
     sm.add_range(extract_config_secrets(config))
 
     # Then log some details
-    print("Using root folder %s" % config["root_folder"])
+    log.info("Using root folder %s" % config["root_folder"])
     if config["modules_folder"]:
-        print("Using Jinja modules folder %s" % config["modules_folder"])
+        log.info("Using Jinja modules folder %s" % config["modules_folder"])
 
     # pretty print the variables in yaml style
     if config["vars"] == {}:
-        print("Using variables: {}")
+        log.info("Using variables: {}")
     else:
-        print("Using variables:")
-        print(
+        log.info("Using variables:")
+        log.info(
             textwrap.indent(
                 SecretManager.global_redact(
                     yaml.dump(config["vars"], sort_keys=False, default_flow_style=False)
@@ -1303,10 +1697,18 @@ def main(argv=sys.argv):
         )
 
     # Finally, execute the command
-    if args.subcommand == "render":
-        render_command(config, args.script)
-    else:
-        deploy_command(config)
+    try:
+        if args.subcommand == "render":
+            render_command(config, args.script)
+        elif args.subcommand == "baseline":
+            baseline_command(config)
+        else:
+            deploy_command(config)
+    except Exception:
+        log.error("An error occurred", exc_info=True)
+        print("\n----------------------------------------\n")
+        parser.print_help()
+        sys.exit(1)
 
 
 if __name__ == "__main__":
