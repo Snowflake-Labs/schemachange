@@ -4,3 +4,4 @@ snowflake-connector-python>=2.8,<4.0
 rich>=13.0
 rich-argparse>=1.5
 sqlglot>=25.0
+networkx>=3.0
