@@ -16,12 +16,9 @@ import snowflake.connector
 import yaml
 import logging
 import logging.config
-import rich
 from sqlglot import parse, exp
 from sqlglot.optimizer.scope import build_scope
 import networkx as nx
-
-# import matplotlib.pyplot as plt
 from rich_argparse import RawTextRichHelpFormatter
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -842,10 +839,6 @@ def deploy_command(config):
             if not config["dry_run"]:
                 session.apply_change_script(script, content, change_history_table)
 
-        # Example for printing the graph via matplotlib chart
-        # nx.draw(script_graph, with_labels=True)
-        # plt.show()
-
 
 def baseline_command(config):
     # Run the common initialization
@@ -1014,19 +1007,17 @@ def render_command(config, script_path):
     log.info("Checksum %s" % checksum)
 
     if config["format_sql"]:
-        #        content = format_sql(content)
-        get_dynamic_table_depends(content)
+        content = format_sql(content)
 
+    if config["pretty"]:
+        from rich.console import Console
+        from rich.syntax import Syntax
 
-#    if config["pretty"]:
-#        from rich.console import Console
-#        from rich.syntax import Syntax
-#
-#        console = Console()
-#        syntax = Syntax(code=content, lexer="sql")
-#        console.print(syntax)
-#    else:
-#        print(content)
+        console = Console()
+        syntax = Syntax(code=content, lexer="sql")
+        console.print(syntax)
+    else:
+        print(content)
 
 
 def alphanum_convert(text: str):
