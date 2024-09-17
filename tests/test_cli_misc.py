@@ -3,7 +3,7 @@ import pytest
 
 
 def test_cli_given__schemachange_version_change_updated_in_setup_config_file():
-    assert schemachange.cli._schemachange_version == "3.7.0"
+    assert schemachange.cli._schemachange_version == "3.8.0"
 
 
 def test_cli_given__constants_exist():
