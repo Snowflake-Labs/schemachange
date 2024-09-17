@@ -381,11 +381,14 @@ Schemachange supports a few subcommands. If the subcommand is not provided it de
 #### deploy
 This is the main command that runs the deployment process.
 
-`usage: schemachange deploy [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-s SNOWFLAKE_SCHEMA] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG]`
+`usage: schemachange deploy [-h] [-v] [--silent] [--pretty] [--format-sql] [--log-format [{basic,levels,detailed}]] [--vars VARS] [-m MODULES_FOLDER] [-f ROOT_FOLDER] [--config-folder CONFIG_FOLDER] [--script-deps] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-s SNOWFLAKE_SCHEMA] [-c CHANGE_HISTORY_TABLE] [--create-change-history-table] [-ac] [--dry-run] [--query-tag QUERY_TAG] [--oauth-config OAUTH_CONFIG]`
 
 | Parameter                                                            | Description                                                                                                                                                             |
 |----------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | -h, --help                                                           | Show the help message and exit                                                                                                                                          |
+| --silent                                                             | Silence all output except critical errors (default: False)                                                                                                              |
+| --pretty                                                             | Pretty print output using Rich library (default: False)                                                                                                                 |
+| --format-sql                                                         | Format the SQL output using SQLGlot library (default: False)                                                                                                            |
 | --config-folder CONFIG_FOLDER                                        | The folder to look in for the schemachange-config.yml file (the default is the current working directory)                                                               |
 | -f ROOT_FOLDER, --root-folder ROOT_FOLDER                            | The root folder for the database change scripts. The default is the current directory.                                                                                  |
 | -m MODULES_FOLDER, --modules-folder MODULES_FOLDER                   | The modules folder for jinja macros and templates to be used across mutliple scripts                                                                                    |
@@ -407,15 +410,53 @@ This is the main command that runs the deployment process.
 #### render
 This subcommand is used to render a single script to the console. It is intended to support the development and troubleshooting of script that use features from the jinja template engine.
 
-`usage: schemachange render [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [--vars VARS] [-v] script`
+`usage: schemachange render [-h] [-v] [--silent] [--pretty] [--format-sql] [--log-format [{basic,levels,detailed}]] [--vars VARS] [-m MODULES_FOLDER] [-f ROOT_FOLDER] [--config-folder CONFIG_FOLDER] script`
 
 | Parameter                                          | Description                                                                                                                               |
 |----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| -h, --help                                         | Show the help message and exit                                                                                                            |
 | --config-folder CONFIG_FOLDER                      | The folder to look in for the schemachange-config.yml file (the default is the current working directory)                                 |
 | -f ROOT_FOLDER, --root-folder ROOT_FOLDER          | The root folder for the database change scripts                                                                                           |
 | -m MODULES_FOLDER, --modules-folder MODULES_FOLDER | The modules folder for jinja macros and templates to be used across multiple scripts                                                      |
 | --vars VARS                                        | Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"}) |
 | -v, --verbose                                      | Display verbose debugging details during execution (the default is False)                                                                 |
+| --silent                                           | Silence all output except critical errors (default: False)                                                                                |
+| --pretty                                           | Pretty print output using Rich library (default: False)                                                                                   |
+| --format-sql                                       | Format the SQL output using SQLGlot library                                                                                               |
+| --log-format {basic,levels,detailed}               | The format of the log output (default: basic)                                                                                             |
+
+#### baseline
+
+This subcommand is used to set baseline version and history for an existing DB to migrate to using schemachange. It supports many of the same options as the `deploy` subcommand.
+
+`usage: schemachange baseline [-h] [--baseline-version BASELINE_VERSION] [--no-unversioned-checksum] [-v] [--silent] [--pretty] [--format-sql] [--log-format [{basic,levels,detailed}]] [--vars VARS] [-m MODULES_FOLDER] [-f ROOT_FOLDER] [--config-folder CONFIG_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-s SNOWFLAKE_SCHEMA] [-c CHANGE_HISTORY_TABLE] [--create-change-history-table] [-ac] [--dry-run] [--query-tag QUERY_TAG] [--oauth-config OAUTH_CONFIG]`
+
+| Parameter                                                             | Description                                                                                                                                                           |
+|-----------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| -h, --help                                                            | Show the help message and exit                                                                                                                                        |
+| --baseline-version BASELINE_VERSION                                   | Version number for baseline                                                                                                                                           |
+| --no-unversioned-checksum                                             | Do not generate checksums for unversioned R__ scripts, causing them to be applied on subsequent run (default: False)                                                  |
+| -v, --verbose                                                         | Display verbose debugging details during execution (default: False)                                                                                                   |
+| --silent                                                              | Silence all output except critical errors (default: False)                                                                                                            |
+| --pretty                                                              | Pretty print output using Rich library (default: False)                                                                                                               |
+| --format-sql                                                          | Format the SQL output using SQLGlot library (default: False)                                                                                                          |
+| --log-format [{basic,levels,detailed}]                                | The format of the log output (default: basic)                                                                                                                         |
+| --vars VARS                                                           | Define values for the variables to be replaced in change scripts, given in JSON format (e.g. {"var1": "val1", "var2": "val2"})                                        |
+| -m MODULES_FOLDER, --modules-folder MODULES_FOLDER                    | The modules folder for jinja macros and templates to be used across multiple scripts                                                                                  |
+| -f ROOT_FOLDER, --root-folder ROOT_FOLDER                             | The root folder for the database change scripts                                                                                                                       |
+| --config-folder CONFIG_FOLDER                                         | The folder to look in for the schemachange-config.yml file (default: .)                                                                                               |
+| -a SNOWFLAKE_ACCOUNT, --snowflake-account SNOWFLAKE_ACCOUNT           | The name of the snowflake account (e.g. xy12345.east-us-2.azure)                                                                                                      |
+| -u SNOWFLAKE_USER, --snowflake-user SNOWFLAKE_USER                    | The name of the snowflake user                                                                                                                                        |
+| -r SNOWFLAKE_ROLE, --snowflake-role SNOWFLAKE_ROLE                    | The name of the default role to use                                                                                                                                   |
+| -w SNOWFLAKE_WAREHOUSE, --snowflake-warehouse SNOWFLAKE_WAREHOUSE     | The name of the default warehouse to use. Can be overridden in the change scripts.                                                                                    |
+| -d SNOWFLAKE_DATABASE, --snowflake-database SNOWFLAKE_DATABASE        | The name of the default database to use. Can be overridden in the change scripts.                                                                                     |
+| -s SNOWFLAKE_SCHEMA, --snowflake-schema SNOWFLAKE_SCHEMA              | The name of the default schema to use. Can be overridden in the change scripts.                                                                                       |
+| -c CHANGE_HISTORY_TABLE, --change-history-table CHANGE_HISTORY_TABLE  | Used to override the default name of the change history table (default: METADATA.SCHEMACHANGE.CHANGE_HISTORY)                                                         |
+| --create-change-history-table                                         | Create the change history schema and table, if they do not exist (default: False)                                                                                     |
+| -ac, --autocommit                                                     | Enable autocommit feature for DML commands (default: False)                                                                                                           |
+| --dry-run                                                             | Run schemachange in dry run mode (default: False)                                                                                                                     |
+| --query-tag QUERY_TAG                                                 | The string to add to the Snowflake QUERY_TAG session value for each query executed                                                                                    |
+| --oauth-config OAUTH_CONFIG                                           | Define values for the variables to Make Oauth Token requests (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... }) |
 
 ## Running schemachange
 
@@ -492,6 +533,53 @@ docker run -it --rm \
 
 Either way, don't forget to set the `SNOWFLAKE_PASSWORD` environment variable if using password authentication!
 
+## Baseline Existing Snowflake Database
+
+If you are adapting an existing Snowflake database for management with Schemachange, you can utilize the `baseline` subcommand to build a simulated change history and set the current DB history version.
+
+NOTE: The `baseline` command is solely used to build a simulated change history and set the current DB version. It will not deploy any scripts. If `baseline` is run inadvertantly against a database with a pre-existing version history it will exit with an error.
+
+Given a project with the following folder and file structure:
+
+```bash
+baseline_demo
+├── Schema_A
+│   └── V1.0.0__InitialTables.sql
+├── Schema_B
+│   ├── V1.0.1__InitialTables.sql
+│   └── V1.0.4__NewTable.sql
+└── Schema_C
+    ├── R__DynamicTables.sql
+    ├── V1.0.3__InitialTables.sql
+    └── V1.0.5__ModifyingATable.sql
+```
+
+In this example, the current Snowflake database contains schema elements that have been previously applied manually and correspond to the versioned scripts V1.0.0 through V1.0.3. The dynamic table defined in `R__DynamicTables.sql` has also already been created in the database.
+
+Our desired outcome is to build a change history representing all of the versioned scripts through V1.0.3 whose contents have already been applied to the existing database. We also want to re-run the `R__DynamicTables.sql` repeatable script when we run our first deployment
+after baselining the database as it depends on some of the table changes in the V1.0.4 and V1.0.5 scripts.
+
+ * Desired Version: V1.0.3
+ * Re-run Repeatable Scripts: True
+
+The following simplified command will set the database version and simulate a version history by "replaying" the files in the `baseline_demo` directory up through the `V1.0.3__InitialTables.sql` script. Snowflake connection options have been omitted for clarity.
+Checksums are generated for all scripts unless the `--no-unversioned-checksum` option is set. In that case, the checksum for R__ prefix scripts will be left blank to trigger a re-run during initial deployment.
+
+```bash
+schemachange baseline -f ./baseline_demo --baseline-version "1.0.3" --no-unversioned-checksum --create-change-history-table
+```
+
+If the baseline is succesful, you can then run a regular deployment like this:
+
+```bash
+schemachange deploy -f ./baseline_demo
+```
+
+During this deployment, scripts V1.0.4 and V1.0.5 will be applied as well as the `R__DynamicTables.sql` script since a blank checksum was set due to the `--no-unversioned-checksum` option. If you do not want to re-run all repeatable during the initial deployment, simply omit
+this option during baselining.
+
+If all deployments are successful, the database will now be at V1.0.5 and current checksums will be set for all scripts. This database can now be managed with Schemachange going forward.
+
 ## Maintainers
 
 - James Weakley (@jamesweakley)
@@ -509,6 +597,9 @@ The current functionality in schemachange would not be possible without the foll
 | pandas                     | BSD License             | The Pandas Development Team                                                                                      | https://pandas.pydata.org            |
 | pytest                     | MIT License             | Holger Krekel, Bruno Oliveira, Ronny Pfannschmidt, Floris Bruynooghe, Brianna Laugher, Florian Bruhin and others | https://docs.pytest.org/en/latest/   |
 | snowflake-connector-python | Apache Software License | Snowflake, Inc                                                                                                   | https://www.snowflake.com/           |
+| SQLGlot                    | MIT License             | Toby Mao                                                                                                         | https://sqlglot.com/sqlglot.html     |
+| NetworkX                   | BSD License             | NetworkX Development Team                                                                                        | https://networkx.org/                |
+| Rich                       | MIT License             | Will McGugan                                                                                                     | https://github.com/Textualize/rich   | 
 
 ## Legal
 

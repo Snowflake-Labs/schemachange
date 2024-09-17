@@ -1366,7 +1366,8 @@ def main(argv=sys.argv):
         prog="schemachange",
         description="""Apply schema changes to a Snowflake account.
         Full readme at https://github.com/Snowflake-Labs/schemachange""",
-        formatter_class=RawTextRichHelpFormatter,
+        #        formatter_class=RawTextRichHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     subcommands = parser.add_subparsers(
         dest="subcommand", description="Available Schemachange operations"
@@ -1404,7 +1405,7 @@ def main(argv=sys.argv):
     parser_baseline.add_argument(
         "--no-unversioned-checksum",
         action="store_true",
-        help="""Do not generate checksums for unversioned R__ scripts, causing them to be applied on subsequent run""",
+        help="""Do not generate checksums for unversioned R__ scripts, causing them to be applied on subsequent run (default: %(default)s)""",
         required=False,
     )
 
@@ -1432,7 +1433,7 @@ def main(argv=sys.argv):
         all_subparser.add_argument(
             "--format-sql",
             action="store_true",
-            help="Format the SQL output using sqlparse library",
+            help="Format the SQL output using SQLGlot library (default: %(default)s)",
             required=False,
         )
         all_subparser.add_argument(
@@ -1529,8 +1530,7 @@ def main(argv=sys.argv):
             "--change-history-table",
             type=str,
             default="METADATA.SCHEMACHANGE.CHANGE_HISTORY",
-            help="""Used to override the default name of the change history table
-            (default: %(default)s)""",
+            help="""Used to override the default name of the change history table (default: %(default)s)""",
             required=False,
         )
         common_subparser.add_argument(
