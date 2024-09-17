@@ -7,3 +7,6 @@ This software includes the following python packages:
  pytest                      MIT License              Holger Krekel, Bruno Oliveira, Ronny Pfannschmidt,                  https://docs.pytest.org/en/latest/
                                                       Floris Bruynooghe, Brianna Laugher, Florian Bruhin and others
  snowflake-connector-python  Apache Software License  Snowflake, Inc                                                      https://www.snowflake.com/
+ SQLGlot                     MIT License              Toby Mao                                                            https://sqlglot.com/sqlglot.html
+ NetworkX                    BSD License              NetworkX Development Team                                           https://networkx.org/
+ Rich                        MIT License              Will McGugan                                                        https://github.com/Textualize/rich
