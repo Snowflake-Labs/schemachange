@@ -3,6 +3,18 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [3.8.0] - 2024-09-16
+### Added
+- DB Baselining feature for pre-existing Snowflake DB's
+- Basic script dependency generator using SQLGlot for SQL parsing and NetworkX to generate and navigate dependency graphs
+- Added support for Rich formatted output
+- Added SQL formatting option to render. 
+- Added a '--silent' rendering option to allow passing of raw SQL to other processes or files via STDOUT without logging.
+### Changed
+- Migrated from print statements logging to Python logging module
+- Refactored argument parsing configuration to share common args between similar tasks (deploy, baseline)
+- Fixed issue with backwards compatible deploy subcommand not supporting main script help args (-h, --help)
+
 ## [3.7.0] - 2024-07-22
 ### Added
 - Improved unit test coverage

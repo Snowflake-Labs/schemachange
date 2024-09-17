@@ -16,12 +16,9 @@ import snowflake.connector
 import yaml
 import logging
 import logging.config
-import rich
 from sqlglot import parse, exp
 from sqlglot.optimizer.scope import build_scope
 import networkx as nx
-
-# import matplotlib.pyplot as plt
 from rich_argparse import RawTextRichHelpFormatter
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
@@ -32,7 +29,7 @@ log = logging.getLogger(__name__)
 
 # region Global Variables
 # metadata
-_schemachange_version = "3.7.0"
+_schemachange_version = "3.8.0"
 _config_file_name = "schemachange-config.yml"
 _metadata_database_name = "METADATA"
 _metadata_schema_name = "SCHEMACHANGE"
@@ -842,10 +839,6 @@ def deploy_command(config):
             if not config["dry_run"]:
                 session.apply_change_script(script, content, change_history_table)
 
-        # Example for printing the graph via matplotlib chart
-        # nx.draw(script_graph, with_labels=True)
-        # plt.show()
-
 
 def baseline_command(config):
     # Run the common initialization
@@ -1014,19 +1007,17 @@ def render_command(config, script_path):
     log.info("Checksum %s" % checksum)
 
     if config["format_sql"]:
-        #        content = format_sql(content)
-        get_dynamic_table_depends(content)
+        content = format_sql(content)
 
+    if config["pretty"]:
+        from rich.console import Console
+        from rich.syntax import Syntax
 
-#    if config["pretty"]:
-#        from rich.console import Console
-#        from rich.syntax import Syntax
-#
-#        console = Console()
-#        syntax = Syntax(code=content, lexer="sql")
-#        console.print(syntax)
-#    else:
-#        print(content)
+        console = Console()
+        syntax = Syntax(code=content, lexer="sql")
+        console.print(syntax)
+    else:
+        print(content)
 
 
 def alphanum_convert(text: str):
@@ -1375,7 +1366,8 @@ def main(argv=sys.argv):
         prog="schemachange",
         description="""Apply schema changes to a Snowflake account.
         Full readme at https://github.com/Snowflake-Labs/schemachange""",
-        formatter_class=RawTextRichHelpFormatter,
+        #        formatter_class=RawTextRichHelpFormatter,
+        formatter_class=argparse.RawTextHelpFormatter,
     )
     subcommands = parser.add_subparsers(
         dest="subcommand", description="Available Schemachange operations"
@@ -1413,7 +1405,7 @@ def main(argv=sys.argv):
     parser_baseline.add_argument(
         "--no-unversioned-checksum",
         action="store_true",
-        help="""Do not generate checksums for unversioned R__ scripts, causing them to be applied on subsequent run""",
+        help="""Do not generate checksums for unversioned R__ scripts, causing them to be applied on subsequent run (default: %(default)s)""",
         required=False,
     )
 
@@ -1441,7 +1433,7 @@ def main(argv=sys.argv):
         all_subparser.add_argument(
             "--format-sql",
             action="store_true",
-            help="Format the SQL output using sqlparse library",
+            help="Format the SQL output using SQLGlot library (default: %(default)s)",
             required=False,
         )
         all_subparser.add_argument(
@@ -1537,9 +1529,8 @@ def main(argv=sys.argv):
             "-c",
             "--change-history-table",
             type=str,
-            default="METADATA.SCHEMACHANGE.CHANGE_HISTORY",
-            help="""Used to override the default name of the change history table
-            (default: %(default)s)""",
+            help="""Used to override the default name of the change history table 
+            (default: 'METADATA.SCHEMACHANGE.CHANGE_HISTORY')""",
             required=False,
         )
         common_subparser.add_argument(
