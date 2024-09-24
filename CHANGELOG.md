@@ -3,6 +3,23 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [3.7.0] - 2024-07-22
+### Added
+- Improved unit test coverage
+- Added Session ID as part of the initial connection successful message to be visible in the logs
+### Changed
+- Aligning with snowflake [identifier requirements](https://docs.snowflake.com/en/sql-reference/identifiers-syntax) in the configuration settings
+- Fixed the bug with `Missing default warehouse`
+- Fixed Demo examples resulting from change in public data set location
+- Removed pandas library dependency to improve schemachange install footprint
+- Updated Github Actions Workflow to check PRs and Merges does not break the demo examples.
+- Updated Docs related to latest Demo content included in schemachange
+
+## [3.6.2] - 2024-07-10
+### Changed
+- Updated pandas version dependency
+- Pinned NumPy version dependency
+
 ## [3.6.1] - 2023-11-15
 ### Added
 - Allow passing snowflake schema as config or CLI parameter
@@ -88,12 +105,12 @@ All notable changes to this project will be documented in this file.
 ## [3.2.2] - 2021-11-06
 ### Added
 - Restored CLI tests, hopefully less fragile now.
-- Added Github CI workflow to run unit tests and a basic execution test.
+- Added GitHub CI workflow to run unit tests and a basic execution test.
 - `schemachange.cli.main` is now defined as `def main(argv: List[str]=sys.argv)`, to allow consumers to pass a list of arguments easily.
 
 ## [3.2.1] - 2021-11-04
 ### Fixed
-- Jinja Template Engine was not recognising scripts in subfolders on windows machines. Jinja was expecting the paths to follow a unix style ie SQL/V2.0.0__ADHOC_SCRIPT.sql but on windows machines this was being passed through as SQL\V2.0.0__ADHOC_SCRIPT.sql.
+- Jinja Template Engine was not recognising scripts in subfolders on Windows machines. Jinja was expecting the paths to follow a unix style ie SQL/V2.0.0__ADHOC_SCRIPT.sql but on Windows machines this was being passed through as SQL\V2.0.0__ADHOC_SCRIPT.sql.
 
 ### Removed
 - Removed fragile unit tests in test_main.py.
@@ -227,7 +244,7 @@ All notable changes to this project will be documented in this file.
 - Add the Snowflake account name to the script output to provide more log context
 
 ### Removed
-- Removed the deprecated `--snowflake-region` parameter. Instead use the `-a` or `--snowflake-account` account parameter. See [Usage Notes for the account Parameter (for the connect Method)](https://docs.snowflake.com/en/user-guide/python-connector-api.html#label-account-format-info) for more details on how to structure the account name.
+- Removed the deprecated `--snowflake-region` parameter. Instead, use the `-a` or `--snowflake-account` account parameter. See [Usage Notes for the account Parameter (for the connect Method)](https://docs.snowflake.com/en/user-guide/python-connector-api.html#label-account-format-info) for more details on how to structure the account name.
 
 
 ## [2.1.0] - 2020-05-26

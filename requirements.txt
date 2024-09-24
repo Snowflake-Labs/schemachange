@@ -1,4 +1,3 @@
-Jinja2~=3.0
-pandas~=1.3
-PyYAML~=6.0
+Jinja2<4.0
+PyYAML<7.0
 snowflake-connector-python>=2.8,<4.0

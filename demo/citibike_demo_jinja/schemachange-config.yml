@@ -1,0 +1,21 @@
+config-version: 1
+
+root-folder: "./demo/{{ env_var('SCENARIO_NAME')}}"
+modules-folder: "./demo/{{ env_var('SCENARIO_NAME')}}/modules"
+
+snowflake-user: "{{ env_var('SNOWFLAKE_USER')}}"
+snowflake-account: "{{ env_var('SNOWFLAKE_ACCOUNT')}}"
+snowflake-role: "{{ env_var('SNOWFLAKE_ROLE')}}"
+snowflake-warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE')}}"
+snowflake-database: "{{ env_var('SNOWFLAKE_DATABASE')}}"
+snowflake-schema: "{{ env_var('MY_TARGET_SCHEMA')}}"
+change-history-table: "{{ env_var('SNOWFLAKE_DATABASE')}}.{{ env_var('MY_TARGET_SCHEMA')}}.CHANGE_HISTORY"
+create-change-history-table: true
+
+vars:
+  database_name: "{{env_var('SNOWFLAKE_DATABASE')}}"
+  schema_name: "{{env_var('MY_TARGET_SCHEMA')}}"
+  secrets:
+    # not a good example of secrets, just here to demo the secret filtering
+    trips_s3_bucket: s3://snowflake-workshop-lab/citibike-trips
+    weather_s3_bucket: s3://snowflake-workshop-lab/weather-nyc
