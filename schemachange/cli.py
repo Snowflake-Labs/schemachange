@@ -281,7 +281,9 @@ class SnowflakeSchemachangeSession:
         self.oauth_config = config["oauth_config"]
         self.autocommit = config["autocommit"]
         self.verbose = config["verbose"]
+        logger = logging.getLogger(__name__)
         if self.set_connection_args():
+            logging.info("Connecting to Snowflake with the following parameters: %s" % self.conArgs)
             print(self._q_set_sess_role.format(**self.conArgs))
             print(self._q_set_sess_warehouse.format(**self.conArgs))
             print(self._q_set_sess_database.format(**self.conArgs))
@@ -323,6 +325,7 @@ class SnowflakeSchemachangeSession:
             ),
             "application": _snowflake_application_name,
             "session_parameters": session_parameters,
+            "insecure_mode": True,
         }
 
     def get_oauth_token(self):
@@ -802,6 +805,7 @@ def get_schemachange_config(
     snowflake_warehouse,
     snowflake_database,
     snowflake_schema,
+    snowflake_host,
     change_history_table,
     vars,
     create_change_history_table,
@@ -824,6 +828,7 @@ def get_schemachange_config(
         "snowflake_warehouse": snowflake_warehouse,
         "snowflake_database": snowflake_database,
         "snowflake_schema": snowflake_schema,
+        "snowflake_host": snowflake_host,
         "change_history_table": change_history_table,
         "vars": vars,
         "create_change_history_table": create_change_history_table,
@@ -853,6 +858,7 @@ def get_schemachange_config(
         "snowflake_warehouse": None,
         "snowflake_database": None,
         "snowflake_schema": None,
+        "snowflake_host": None,
         "change_history_table": None,
         "vars": {},
         "create_change_history_table": False,
@@ -1144,6 +1150,12 @@ def main(argv=sys.argv):
         required=False,
     )
     parser_deploy.add_argument(
+        "--snowflake-host",
+        type = str,
+        help = 'The name of the snowflake host (e.g. snowflake.prod.us-west-2.aws.snowflakecomputing.com)',
+        required = False,
+    )
+    parser_deploy.add_argument(
         "-c",
         "--change-history-table",
         type=str,
@@ -1269,6 +1281,7 @@ def main(argv=sys.argv):
             "snowflake_database": None,
             "change_history_table": None,
             "snowflake_schema": None,
+            "snowflake_host": None,
             "create_change_history_table": None,
             "autocommit": None,
             "dry_run": None,
