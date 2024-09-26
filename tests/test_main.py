@@ -40,6 +40,8 @@ default_deploy_config = {
     "dry_run": False,
     "query_tag": None,
     "oauth_config": None,
+    "version_number_validation_regex": None,
+    "raise_exception_on_ignored_versioned_script": False,
 }
 
 required_args = [

@@ -21,6 +21,7 @@ def test_parse_args_defaults():
     assert parsed_args["create_change_history_table"] is None
     assert parsed_args["autocommit"] is None
     assert parsed_args["dry_run"] is None
+    assert parsed_args["raise_exception_on_ignored_versioned_script"] is None
     assert parsed_args["subcommand"] == "deploy"
 
 
@@ -46,6 +47,7 @@ def test_parse_args_deploy_names():
         ("--change-history-table", "some_history_table", "some_history_table"),
         ("--query-tag", "some_query_tag", "some_query_tag"),
         ("--oauth-config", json.dumps({"some": "values"}), {"some": "values"}),
+        ("--version_number_validation_regex", "some_regex", "some_regex"),
     ]
 
     for arg, value, expected_value in valued_test_args:
@@ -58,6 +60,7 @@ def test_parse_args_deploy_names():
         ("--create-change-history-table", True),
         ("--autocommit", True),
         ("--dry-run", True),
+        ("--raise-exception-on-ignored-versioned-script", True),
     ]
 
     for arg, expected_value in valueless_test_args:

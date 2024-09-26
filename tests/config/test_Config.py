@@ -35,6 +35,8 @@ def yaml_config(_) -> DeployConfig:
         dry_run=True,
         query_tag="yaml_query_tag",
         oauth_config={"oauth": "yaml_oauth"},
+        version_number_validation_regex="yaml_version_number_validation_regex",
+        raise_exception_on_ignored_versioned_script=True,
     )
 
 
@@ -204,6 +206,7 @@ class TestConfig:
                 change_history_table="some_history_table",
                 query_tag="some_query_tag",
                 oauth_config={"some": "values"},
+                version_number_validation_regex="some_regex",
             )
         e_info_value = str(e_info.value)
         assert "Path is not valid directory: some_root_folder_name" in e_info_value
@@ -225,6 +228,7 @@ class TestConfig:
                 change_history_table="some_history_table",
                 query_tag="some_query_tag",
                 oauth_config={"some": "values"},
+                version_number_validation_regex="some_regex",
             )
         e_info_value = str(e_info.value)
         assert "Path is not valid directory: some_modules_folder_name" in e_info_value

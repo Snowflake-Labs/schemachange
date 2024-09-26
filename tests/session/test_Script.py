@@ -141,12 +141,32 @@ class TestGetAllScriptsRecursively:
                 [],
             ]
 
-            result = get_all_scripts_recursively(Path("scripts"))
+            result = get_all_scripts_recursively(
+                Path("scripts"),
+                version_number_regex=r"\d\.\d\.\d",  # noqa: W605
+            )
 
         assert len(result) == 3
         assert "v1.1.1__initial.sql" in result
         assert "v1.1.2__update.sql" in result
         assert "v1.1.3__update.sql" in result
+
+    def test_version_number_regex_numeric_exception(self):
+        with mock.patch("pathlib.Path.rglob") as mock_rglob:
+            mock_rglob.side_effect = [
+                [
+                    Path("V1.10.1__initial.sql"),
+                ],
+                [],
+            ]
+            with pytest.raises(ValueError) as e:
+                get_all_scripts_recursively(
+                    Path("scripts"),
+                    version_number_regex=r"\d\.\d\.\d",  # noqa: W605
+                )
+            assert str(e.value).startswith(
+                "change script version doesn't match the supplied regular expression"
+            )
 
     def test_version_number_regex_text_happy_path(self):
         with mock.patch("pathlib.Path.rglob") as mock_rglob:
@@ -156,9 +176,29 @@ class TestGetAllScriptsRecursively:
                 ],
                 [],
             ]
-            result = get_all_scripts_recursively(Path("scripts"))
+            result = get_all_scripts_recursively(
+                Path("scripts"),
+                version_number_regex=r"[a-z]\.[a-z]\.[a-z]",  # noqa: W605
+            )
         assert len(result) == 1
         assert "va.b.c__initial.sql" in result
+
+    def test_version_number_regex_text_exception(self):
+        with mock.patch("pathlib.Path.rglob") as mock_rglob:
+            mock_rglob.side_effect = [
+                [
+                    Path("V1.10.1__initial.sql"),
+                ],
+                [],
+            ]
+            with pytest.raises(ValueError) as e:
+                get_all_scripts_recursively(
+                    Path("scripts"),
+                    version_number_regex=r"[a-z]\.[a-z]\.[a-z]",  # noqa: W605
+                )
+            assert str(e.value).startswith(
+                "change script version doesn't match the supplied regular expression"
+            )
 
     def test_given_version_files_should_return_version_files(self):
         with mock.patch("pathlib.Path.rglob") as mock_rglob:

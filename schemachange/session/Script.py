@@ -53,11 +53,20 @@ class VersionedScript(Script):
         r"^(V)(?P<version>.+?)?__(?P<description>.+?)\.", re.IGNORECASE
     )
     type: ClassVar[Literal["V"]] = "V"
+    version_number_regex: ClassVar[str | None] = None
     version: str
 
     @classmethod
     def from_path(cls: T, file_path: Path, **kwargs) -> T:
         name_parts = cls.pattern.search(file_path.name.strip())
+
+        if cls.version_number_regex:
+            version = name_parts.group("version")
+            if re.search(cls.version_number_regex, version, re.IGNORECASE) is None:
+                raise ValueError(
+                    f"change script version doesn't match the supplied regular expression: "
+                    f"{cls.version_number_regex}\n{str(file_path)}"
+                )
 
         return super().from_path(
             file_path=file_path, version=name_parts.group("version")
@@ -95,7 +104,11 @@ def script_factory(
     logger.debug("ignoring non-change file", file_path=str(file_path))
 
 
-def get_all_scripts_recursively(root_directory: Path):
+def get_all_scripts_recursively(
+    root_directory: Path, version_number_regex: str | None = None
+):
+    VersionedScript.version_number_regex = version_number_regex
+
     all_files: dict[str, T] = dict()
     all_versions = list()
     # Walk the entire directory structure recursively
