@@ -44,6 +44,24 @@ class TestScript:
                 ),
             ),
             (
+                Path("nested/file/V1.2.3__something.sql.jinja"),
+                VersionedScript(
+                    name="V1.2.3__something.sql",
+                    file_path=Path("nested/file/V1.2.3__something.sql.jinja"),
+                    description="Something",
+                    version="1.2.3",
+                ),
+            ),
+            (
+                Path("nested/file/V1_2_3__something.sql.jinja"),
+                VersionedScript(
+                    name="V1_2_3__something.sql",
+                    file_path=Path("nested/file/V1_2_3__something.sql.jinja"),
+                    description="Something",
+                    version="1_2_3",
+                ),
+            ),
+            (
                 Path("nested/file/R__something.sql.jinja"),
                 RepeatableScript(
                     name="R__something.sql",
@@ -66,6 +84,24 @@ class TestScript:
                     file_path=Path("nested/file/V123__something.sql"),
                     description="Something",
                     version="123",
+                ),
+            ),
+            (
+                Path("nested/file/V1_2_3__something.sql"),
+                VersionedScript(
+                    name="V1_2_3__something.sql",
+                    file_path=Path("nested/file/V1_2_3__something.sql"),
+                    description="Something",
+                    version="1_2_3",
+                ),
+            ),
+            (
+                Path("nested/file/V1.2.3__something.sql"),
+                VersionedScript(
+                    name="V1.2.3__something.sql",
+                    file_path=Path("nested/file/V1.2.3__something.sql"),
+                    description="Something",
+                    version="1.2.3",
                 ),
             ),
             (
@@ -99,6 +135,29 @@ class TestScript:
     def test_script_factory(self, file_path: Path, expected: Script):
         result = script_factory(file_path)
         assert result == expected
+
+    @pytest.mark.parametrize(
+        "file_path",
+        [
+            (Path("nested/file/V123_something.sql.jinja")),
+            (Path("nested/file/V1_2_3_something.sql.jinja")),
+            (Path("nested/file/V1.2.3_something.sql.jinja")),
+            (Path("nested/file/R_something.sql.jinja")),
+            (Path("nested/file/A_something.sql.jinja")),
+        ],
+    )
+    def test_single_underscore_should_raise_exception(self, file_path: Path):
+        with pytest.raises(ValueError) as e:
+            script_factory(file_path)
+        assert str(file_path) in str(e.value) and "two underscores" in str(e.value)
+
+    def test_missing_version_should_raise_exception(self):
+        file_path = Path("nested/file/V__something.sql.jinja")
+        with pytest.raises(ValueError) as e:
+            script_factory(file_path)
+        assert str(file_path) in str(
+            e.value
+        ) and "Versioned migrations must be prefixed with a version" in str(e.value)
 
 
 class TestGetAllScriptsRecursively:
