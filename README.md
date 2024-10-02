@@ -340,7 +340,7 @@ dry-run: false
 query-tag: 'QUERY_TAG'
 
 # Information for Oauth token requests
-oauthconfig:
+oauth_config:
   # url Where token request are posted to
   token-provider-url: 'https://login.microsoftonline.com/{{ env_var('AZURE_ORG_GUID', 'default') }}/oauth2/v2.0/token'
   # name of Json entity returned by request
