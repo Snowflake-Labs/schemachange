@@ -31,11 +31,6 @@ def get_yaml_config_kwargs(config_file_path: Optional[Path]) -> dict:
 
 def get_merged_config() -> Union[DeployConfig, RenderConfig]:
     cli_kwargs = parse_cli_args(sys.argv[1:])
-
-    if "verbose" in cli_kwargs and cli_kwargs["verbose"]:
-        cli_kwargs["log_level"] = logging.DEBUG
-        cli_kwargs.pop("verbose")
-
     cli_config_vars = cli_kwargs.pop("config_vars", None)
     if cli_config_vars is None:
         cli_config_vars = {}
