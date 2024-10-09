@@ -27,6 +27,8 @@ class DeployConfig(BaseConfig):
     dry_run: bool = False
     query_tag: str | None = None
     oauth_config: dict | None = None
+    version_number_validation_regex: str | None = None
+    raise_exception_on_ignored_versioned_script: bool = False
 
     @classmethod
     def factory(

@@ -44,6 +44,24 @@ class TestScript:
                 ),
             ),
             (
+                Path("nested/file/V1.2.3__something.sql.jinja"),
+                VersionedScript(
+                    name="V1.2.3__something.sql",
+                    file_path=Path("nested/file/V1.2.3__something.sql.jinja"),
+                    description="Something",
+                    version="1.2.3",
+                ),
+            ),
+            (
+                Path("nested/file/V1_2_3__something.sql.jinja"),
+                VersionedScript(
+                    name="V1_2_3__something.sql",
+                    file_path=Path("nested/file/V1_2_3__something.sql.jinja"),
+                    description="Something",
+                    version="1_2_3",
+                ),
+            ),
+            (
                 Path("nested/file/R__something.sql.jinja"),
                 RepeatableScript(
                     name="R__something.sql",
@@ -66,6 +84,24 @@ class TestScript:
                     file_path=Path("nested/file/V123__something.sql"),
                     description="Something",
                     version="123",
+                ),
+            ),
+            (
+                Path("nested/file/V1_2_3__something.sql"),
+                VersionedScript(
+                    name="V1_2_3__something.sql",
+                    file_path=Path("nested/file/V1_2_3__something.sql"),
+                    description="Something",
+                    version="1_2_3",
+                ),
+            ),
+            (
+                Path("nested/file/V1.2.3__something.sql"),
+                VersionedScript(
+                    name="V1.2.3__something.sql",
+                    file_path=Path("nested/file/V1.2.3__something.sql"),
+                    description="Something",
+                    version="1.2.3",
                 ),
             ),
             (
@@ -99,6 +135,29 @@ class TestScript:
     def test_script_factory(self, file_path: Path, expected: Script):
         result = script_factory(file_path)
         assert result == expected
+
+    @pytest.mark.parametrize(
+        "file_path",
+        [
+            (Path("nested/file/V123_something.sql.jinja")),
+            (Path("nested/file/V1_2_3_something.sql.jinja")),
+            (Path("nested/file/V1.2.3_something.sql.jinja")),
+            (Path("nested/file/R_something.sql.jinja")),
+            (Path("nested/file/A_something.sql.jinja")),
+        ],
+    )
+    def test_single_underscore_should_raise_exception(self, file_path: Path):
+        with pytest.raises(ValueError) as e:
+            script_factory(file_path)
+        assert str(file_path) in str(e.value) and "two underscores" in str(e.value)
+
+    def test_missing_version_should_raise_exception(self):
+        file_path = Path("nested/file/V__something.sql.jinja")
+        with pytest.raises(ValueError) as e:
+            script_factory(file_path)
+        assert str(file_path) in str(
+            e.value
+        ) and "Versioned migrations must be prefixed with a version" in str(e.value)
 
 
 class TestGetAllScriptsRecursively:
@@ -141,12 +200,32 @@ class TestGetAllScriptsRecursively:
                 [],
             ]
 
-            result = get_all_scripts_recursively(Path("scripts"))
+            result = get_all_scripts_recursively(
+                Path("scripts"),
+                version_number_regex=r"\d\.\d\.\d",  # noqa: W605
+            )
 
         assert len(result) == 3
         assert "v1.1.1__initial.sql" in result
         assert "v1.1.2__update.sql" in result
         assert "v1.1.3__update.sql" in result
+
+    def test_version_number_regex_numeric_exception(self):
+        with mock.patch("pathlib.Path.rglob") as mock_rglob:
+            mock_rglob.side_effect = [
+                [
+                    Path("V1.10.1__initial.sql"),
+                ],
+                [],
+            ]
+            with pytest.raises(ValueError) as e:
+                get_all_scripts_recursively(
+                    Path("scripts"),
+                    version_number_regex=r"\d\.\d\.\d",  # noqa: W605
+                )
+            assert str(e.value).startswith(
+                "change script version doesn't match the supplied regular expression"
+            )
 
     def test_version_number_regex_text_happy_path(self):
         with mock.patch("pathlib.Path.rglob") as mock_rglob:
@@ -156,9 +235,29 @@ class TestGetAllScriptsRecursively:
                 ],
                 [],
             ]
-            result = get_all_scripts_recursively(Path("scripts"))
+            result = get_all_scripts_recursively(
+                Path("scripts"),
+                version_number_regex=r"[a-z]\.[a-z]\.[a-z]",  # noqa: W605
+            )
         assert len(result) == 1
         assert "va.b.c__initial.sql" in result
+
+    def test_version_number_regex_text_exception(self):
+        with mock.patch("pathlib.Path.rglob") as mock_rglob:
+            mock_rglob.side_effect = [
+                [
+                    Path("V1.10.1__initial.sql"),
+                ],
+                [],
+            ]
+            with pytest.raises(ValueError) as e:
+                get_all_scripts_recursively(
+                    Path("scripts"),
+                    version_number_regex=r"[a-z]\.[a-z]\.[a-z]",  # noqa: W605
+                )
+            assert str(e.value).startswith(
+                "change script version doesn't match the supplied regular expression"
+            )
 
     def test_given_version_files_should_return_version_files(self):
         with mock.patch("pathlib.Path.rglob") as mock_rglob:

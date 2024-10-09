@@ -180,6 +180,20 @@ def parse_cli_args(args) -> dict:
         '"https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })',
         required=False,
     )
+    parser_deploy.add_argument(
+        "--version_number_validation_regex",
+        type=str,
+        help="If supplied, version numbers will be validated with this regular expression.",
+        required=False,
+    )
+    parser_deploy.add_argument(
+        "--raise-exception-on-ignored-versioned-script",
+        action="store_const",
+        const=True,
+        default=None,
+        help="Raise an exception if an un-applied versioned script is ignored (the default is False)",
+        required=False,
+    )
 
     parser_render = subcommands.add_parser(
         "render",
