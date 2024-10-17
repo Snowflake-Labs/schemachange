@@ -40,7 +40,6 @@ class PrivateKeyCredential(Credential):
 @dataclasses.dataclass(kw_only=True, frozen=True)
 class ExternalBrowserCredential(Credential):
     authenticator: Literal["externalbrowser"] = "externalbrowser"
-    password: str | None = None
 
 
 @dataclasses.dataclass(kw_only=True, frozen=True)

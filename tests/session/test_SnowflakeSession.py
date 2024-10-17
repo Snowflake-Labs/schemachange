@@ -12,7 +12,7 @@ from schemachange.session.SnowflakeSession import SnowflakeSession
 
 @pytest.fixture
 def session() -> SnowflakeSession:
-    credential = ExternalBrowserCredential(password="password")
+    credential = ExternalBrowserCredential()
     change_history_table = ChangeHistoryTable()
     logger = structlog.testing.CapturingLogger()
 
