@@ -67,7 +67,10 @@ def credential_factory(
     # OAuth based authentication
     if snowflake_authenticator.lower() == "oauth":
         logger.debug("Proceeding with Oauth Access Token authentication")
-        return OauthCredential(token=get_oauth_token(oauth_config))
+        token = os.getenv("SNOWFLAKE_TOKEN")
+        if token is None:
+            token = get_oauth_token(oauth_config)
+        return OauthCredential(token=token)
 
     # External Browser based SSO
     if snowflake_authenticator.lower() == "externalbrowser":

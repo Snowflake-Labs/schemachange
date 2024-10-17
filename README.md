@@ -322,20 +322,26 @@ the script. Schemachange will fail if the `SNOWFLAKE_PRIVATE_KEY_PATH` is not se
 
 ### Oauth Authentication
 
-An Oauth Configuration can be made in the [YAML Config File](#yaml-config-file) or passing an equivalent json dictionary
-to the switch `--oauth-config`. Invoke this method by setting the environment variable `SNOWFLAKE_AUTHENTICATOR` to the
-value `oauth` prior to calling schemachange. Since different Oauth providers may require different information the Oauth
-configuration uses four named variables that are fed into a POST request to obtain a token. Azure is shown in the
-example YAML but other providers should use a similar pattern and request payload contents.
+Set the environment variable `SNOWFLAKE_AUTHENTICATOR` to the value `oauth` prior to calling schemachange to
+authenticate via Oauth. The token can be supplied or fetched by `schemachange` at runtime.
 
-* token-provider-url
-  The URL of the authenticator resource that will receive the POST request.
-* token-response-name
-  The Expected name of the JSON element containing the Token in the return response from the authenticator resource.
-* token-request-payload
-  The Set of variables passed as a dictionary to the `data` element of the request.
-* token-request-headers
-  The Set of variables passed as a dictionary to the `headers` element of the request.
+- You can supply an existing token via the `SNOWFLAKE_TOKEN` variable.
+- To cause `schemachange` to fetch the token at runtime, supply an Oauth Configuration in
+  the [YAML Config File](#yaml-config-file) or pass an equivalent json dictionary
+  to the switch `--oauth-config`.
+
+  Since different Oauth providers may require different information, the Oauth configuration uses four named variables
+  that are fed into a POST request to obtain a token. Azure is shown in the example YAML but other providers should use
+  a similar pattern and request payload contents.
+
+    * token-provider-url
+      The URL of the authenticator resource that will receive the POST request.
+    * token-response-name
+      The Expected name of the JSON element containing the Token in the return response from the authenticator resource.
+    * token-request-payload
+      The Set of variables passed as a dictionary to the `data` element of the request.
+    * token-request-headers
+      The Set of variables passed as a dictionary to the `headers` element of the request.
 
 It is recomended to use the YAML file and pass oauth secrets into the configuration using the templating engine instead
 of the command line option.

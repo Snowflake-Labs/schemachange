@@ -58,6 +58,14 @@ from schemachange.session.Credential import (
         ),
         (
             {
+                "SNOWFLAKE_AUTHENTICATOR": "oauth",
+                "SNOWFLAKE_TOKEN": "my-token",
+            },
+            None,
+            OauthCredential(token="my-token"),
+        ),
+        (
+            {
                 "SNOWFLAKE_AUTHENTICATOR": "externalbrowser",
             },
             None,
