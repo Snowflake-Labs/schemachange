@@ -135,6 +135,18 @@ def parse_cli_args(args) -> dict:
         required=False,
     )
     parser_deploy.add_argument(
+        "--connections-file-path",
+        type=str,
+        help="Override the default connections file path at snowflake.connector.constants.CONNECTIONS_FILE (OS specific)",
+        required=False,
+    )
+    parser_deploy.add_argument(
+        "--connection-name",
+        type=str,
+        help="Override the default connection name. Other connection-related values will override these connection values.",
+        required=False,
+    )
+    parser_deploy.add_argument(
         "-c",
         "--change-history-table",
         type=str,

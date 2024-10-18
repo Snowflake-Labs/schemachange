@@ -43,6 +43,12 @@ def test_parse_args_deploy_names():
         ),
         ("--snowflake-database", "some_snowflake_database", "some_snowflake_database"),
         ("--snowflake-schema", "some_snowflake_schema", "some_snowflake_schema"),
+        (
+            "--connections-file-path",
+            "some_connections_file_path",
+            "some_connections_file_path",
+        ),
+        ("--connection-name", "some_connection_name", "some_connection_name"),
         ("--change-history-table", "some_history_table", "some_history_table"),
         ("--query-tag", "some_query_tag", "some_query_tag"),
         ("--oauth-config", json.dumps({"some": "values"}), {"some": "values"}),
