@@ -14,8 +14,6 @@ Choose the appropriate issue template to contribute to the repository.
 
 Thanks for your interest in contributing code to schemachange!
 
-+ If this is your first time contributing to a project on GitHub, please read through
-  our [guide to contributing to schemachange](guide-to-contributing-to-schemachange).
 + There are many online tutorials to help you [learn git](https://try.github.io/). For discussions of specific git
   workflows, see these discussions
   on [linux git workflow](https://www.mail-archive.com/dri-devel@lists.sourceforge.net/msg39091.html),
@@ -52,8 +50,8 @@ Thanks for your interest in contributing code to schemachange!
     + [Pull](https://github.com/git-guides/git-pull) the latest changes from upstream, including tags:
 
     ```shell
-    git checkout main
-    git pull upstream main --tags
+    git checkout master
+    git pull upstream master --tags
 
     ```
 
@@ -68,7 +66,7 @@ Thanks for your interest in contributing code to schemachange!
        of [this](https://docs.python.org/3/library/venv.html#how-venvs-work) table:
 
        | Platform | Shell      | Command                               |
-                                   |----------|------------|---------------------------------------|
+       |----------|------------|---------------------------------------|
        | POSIX    | bash/zsh   | `$ source <venv>/bin/activate`        |
        | POSIX    | fish       | `$ source <venv>/bin/activate.fish`   |
        | POSIX    | csh/tcsh   | `$ source <venv>/bin/activate.csh`    |
@@ -98,12 +96,18 @@ Thanks for your interest in contributing code to schemachange!
       and [git commit](https://github.com/git-guides/git-commit) ). Use a properly formatted commit message. Be sure to
       document any changed behavior.
 
-4. Test your contribution
+4. Test your contribution locally
    ```bash
    python -m pytest
    ```
 
-5. To submit your contribution
+5. Perform integration tests on your branch from your fork
+    - Follow the `Contributors` instructions [here](../demo/README.MD#contributors) to configure your Snowflake account.
+    - Follow [these](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-workflow-runs/manually-running-a-workflow)
+   instructions to manually run the `master-pytest` workflow on your fork of the repo, targeting your feature branch.
+
+
+6. To submit your contribution
     + [Push](https://github.com/git-guides/git-push) your changes back to your fork on GitHub
 
     ```shell
