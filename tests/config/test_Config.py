@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 from unittest import mock
 
@@ -9,7 +10,10 @@ from schemachange.config.BaseConfig import BaseConfig
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.DeployConfig import DeployConfig
 from schemachange.config.RenderConfig import RenderConfig
-from schemachange.config.utils import get_config_secrets
+from schemachange.config.utils import (
+    get_config_secrets,
+    get_snowflake_identifier_string,
+)
 
 
 @pytest.fixture
@@ -228,6 +232,206 @@ class TestConfig:
             )
         e_info_value = str(e_info.value)
         assert "Path is not valid directory: some_modules_folder_name" in e_info_value
+
+    @mock.patch("pathlib.Path.is_dir", side_effect=[True, True])
+    @mock.patch("pathlib.Path.is_file", side_effect=[False])
+    def test_invalid_snowflake_private_key_path(self, _, __):
+        with pytest.raises(Exception) as e_info:
+            DeployConfig.factory(
+                config_file_path=Path("some_config_file_name"),
+                root_folder="some_root_folder_name",
+                modules_folder="some_modules_folder_name",
+                config_vars={"some": "config_vars"},
+                snowflake_account="some_snowflake_account",
+                snowflake_user="some_snowflake_user",
+                snowflake_role="some_snowflake_role",
+                snowflake_warehouse="some_snowflake_warehouse",
+                snowflake_database="some_snowflake_database",
+                snowflake_schema="some_snowflake_schema",
+                snowflake_private_key_path="invalid_snowflake_private_key_path",
+                snowflake_token_path="invalid_snowflake_token_path",
+                connections_file_path="invalid_connections_file_path",
+                connection_name="invalid_connection_name",
+                change_history_table="some_history_table",
+                query_tag="some_query_tag",
+                oauth_config={"some": "values"},
+            )
+        e_info_value = str(e_info.value)
+        assert "invalid file path: invalid_snowflake_private_key_path" in e_info_value
+
+    @mock.patch("pathlib.Path.is_dir", side_effect=[True, True])
+    @mock.patch("pathlib.Path.is_file", side_effect=[True, False])
+    def test_invalid_snowflake_token_path(self, _, __):
+        with pytest.raises(Exception) as e_info:
+            DeployConfig.factory(
+                config_file_path=Path("some_config_file_name"),
+                root_folder="some_root_folder_name",
+                modules_folder="some_modules_folder_name",
+                config_vars={"some": "config_vars"},
+                snowflake_account="some_snowflake_account",
+                snowflake_user="some_snowflake_user",
+                snowflake_role="some_snowflake_role",
+                snowflake_warehouse="some_snowflake_warehouse",
+                snowflake_database="some_snowflake_database",
+                snowflake_schema="some_snowflake_schema",
+                snowflake_private_key_path="valid_snowflake_private_key_path",
+                snowflake_token_path="invalid_snowflake_token_path",
+                connections_file_path="invalid_connections_file_path",
+                connection_name="invalid_connection_name",
+                change_history_table="some_history_table",
+                query_tag="some_query_tag",
+                oauth_config={"some": "values"},
+            )
+        e_info_value = str(e_info.value)
+        assert "invalid file path: invalid_snowflake_token_path" in e_info_value
+
+    @mock.patch("pathlib.Path.is_dir", side_effect=[True, True])
+    @mock.patch("pathlib.Path.is_file", side_effect=[True, True, False])
+    def test_invalid_connections_file_path(self, _, __):
+        with pytest.raises(Exception) as e_info:
+            DeployConfig.factory(
+                config_file_path=Path("some_config_file_name"),
+                root_folder="some_root_folder_name",
+                modules_folder="some_modules_folder_name",
+                config_vars={"some": "config_vars"},
+                snowflake_account="some_snowflake_account",
+                snowflake_user="some_snowflake_user",
+                snowflake_role="some_snowflake_role",
+                snowflake_warehouse="some_snowflake_warehouse",
+                snowflake_database="some_snowflake_database",
+                snowflake_schema="some_snowflake_schema",
+                snowflake_private_key_path="valid_snowflake_private_key_path",
+                snowflake_token_path="valid_snowflake_token_path",
+                connections_file_path="invalid_connections_file_path",
+                connection_name="invalid_connection_name",
+                change_history_table="some_history_table",
+                query_tag="some_query_tag",
+                oauth_config={"some": "values"},
+            )
+        e_info_value = str(e_info.value)
+        assert "invalid file path: invalid_connections_file_path" in e_info_value
+
+    @mock.patch("pathlib.Path.is_dir", side_effect=[True, True])
+    def test_invalid_connection_name(self, _):
+        with pytest.raises(Exception) as e_info:
+            DeployConfig.factory(
+                config_file_path=Path("some_config_file_name"),
+                root_folder="some_root_folder_name",
+                modules_folder="some_modules_folder_name",
+                config_vars={"some": "config_vars"},
+                snowflake_account="some_snowflake_account",
+                snowflake_user="some_snowflake_user",
+                snowflake_role="some_snowflake_role",
+                snowflake_warehouse="some_snowflake_warehouse",
+                snowflake_database="some_snowflake_database",
+                snowflake_schema="some_snowflake_schema",
+                connections_file_path=str(Path(__file__).parent / "connections.toml"),
+                connection_name="invalid_connection_name",
+                change_history_table="some_history_table",
+                query_tag="some_query_tag",
+                oauth_config={"some": "values"},
+            )
+        e_info_value = str(e_info.value)
+        assert "Invalid connection_name 'invalid_connection_name'" in e_info_value
+
+    @mock.patch("pathlib.Path.is_dir", side_effect=[True, True])
+    @mock.patch("pathlib.Path.is_file", side_effect=[True, True, True])
+    def test_connection_happy_path(self, _, __):
+        connections_file_path = Path(__file__).parent / "connections.toml"
+        connection_name = "myconnection"
+        with connections_file_path.open("rb") as f:
+            connection_data = tomllib.load(f)
+
+        config = DeployConfig.factory(
+            config_file_path=Path("some_config_file_name"),
+            root_folder="some_root_folder_name",
+            modules_folder="some_modules_folder_name",
+            config_vars={"some": "config_vars"},
+            connections_file_path=str(connections_file_path),
+            connection_name=connection_name,
+            change_history_table="some_history_table",
+            query_tag="some_query_tag",
+            oauth_config={"some": "values"},
+        )
+        assert connection_data is not None
+        assert config.connection_name == connection_name
+        assert config.connections_file_path == connections_file_path
+        assert config.snowflake_account == connection_data[connection_name]["account"]
+        assert config.snowflake_user == connection_data[connection_name]["user"]
+        assert config.snowflake_role == get_snowflake_identifier_string(
+            connection_data[connection_name]["role"], "placeholder"
+        )
+        assert config.snowflake_warehouse == get_snowflake_identifier_string(
+            connection_data[connection_name]["warehouse"], "placeholder"
+        )
+        assert config.snowflake_database == get_snowflake_identifier_string(
+            connection_data[connection_name]["database"], "placeholder"
+        )
+        assert config.snowflake_schema == get_snowflake_identifier_string(
+            connection_data[connection_name]["schema"], "placeholder"
+        )
+        assert (
+            config.snowflake_authenticator
+            == connection_data[connection_name]["authenticator"]
+        )
+        assert config.snowflake_password == connection_data[connection_name]["password"]
+        assert config.snowflake_private_key_path == Path(
+            connection_data[connection_name]["private-key"]
+        )
+        assert config.snowflake_token_path == Path(
+            connection_data[connection_name]["token-file-path"]
+        )
+
+    @mock.patch("pathlib.Path.is_dir", side_effect=[True, True])
+    @mock.patch("pathlib.Path.is_file", side_effect=[True, True, True])
+    def test_connection_overrides(self, _, __):
+        connections_file_path = Path(__file__).parent / "connections.toml"
+        connection_name = "myconnection"
+        snowflake_account = "some_snowflake_account"
+        snowflake_user = "some_snowflake_user"
+        snowflake_role = "some_snowflake_role"
+        snowflake_warehouse = "some_snowflake_warehouse"
+        snowflake_database = "some_snowflake_database"
+        snowflake_schema = "some_snowflake_schema"
+        snowflake_authenticator = "some_snowflake_authenticator"
+        snowflake_password = "some_snowflake_password"
+        snowflake_private_key_path = "some_snowflake_private_key_path"
+        snowflake_token_path = "some_snowflake_token_path"
+
+        config = DeployConfig.factory(
+            config_file_path=Path("some_config_file_name"),
+            root_folder="some_root_folder_name",
+            modules_folder="some_modules_folder_name",
+            config_vars={"some": "config_vars"},
+            snowflake_account=snowflake_account,
+            snowflake_user=snowflake_user,
+            snowflake_role=snowflake_role,
+            snowflake_warehouse=snowflake_warehouse,
+            snowflake_database=snowflake_database,
+            snowflake_schema=snowflake_schema,
+            snowflake_authenticator=snowflake_authenticator,
+            snowflake_password=snowflake_password,
+            snowflake_private_key_path=snowflake_private_key_path,
+            snowflake_token_path=snowflake_token_path,
+            connections_file_path=str(connections_file_path),
+            connection_name=connection_name,
+            change_history_table="some_history_table",
+            query_tag="some_query_tag",
+            oauth_config={"some": "values"},
+        )
+
+        assert config.connection_name == connection_name
+        assert config.connections_file_path == connections_file_path
+        assert config.snowflake_account == snowflake_account
+        assert config.snowflake_user == snowflake_user
+        assert config.snowflake_role == snowflake_role
+        assert config.snowflake_warehouse == snowflake_warehouse
+        assert config.snowflake_database == snowflake_database
+        assert config.snowflake_schema == snowflake_schema
+        assert config.snowflake_authenticator == snowflake_authenticator
+        assert config.snowflake_password == snowflake_password
+        assert config.snowflake_private_key_path == Path(snowflake_private_key_path)
+        assert config.snowflake_token_path == Path(snowflake_token_path)
 
     def test_config_vars_not_a_dict(self):
         with pytest.raises(Exception) as e_info:

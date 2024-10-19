@@ -44,6 +44,21 @@ def test_parse_args_deploy_names():
         ("--snowflake-database", "some_snowflake_database", "some_snowflake_database"),
         ("--snowflake-schema", "some_snowflake_schema", "some_snowflake_schema"),
         (
+            "--snowflake-authenticator",
+            "some_snowflake_authenticator",
+            "some_snowflake_authenticator",
+        ),
+        (
+            "--snowflake-private-key-path",
+            "some_snowflake_private_key_path",
+            "some_snowflake_private_key_path",
+        ),
+        (
+            "--snowflake-token-path",
+            "some_snowflake_token_path",
+            "some_snowflake_token_path",
+        ),
+        (
             "--connections-file-path",
             "some_connections_file_path",
             "some_connections_file_path",
@@ -107,6 +122,24 @@ def test_parse_args_deploy_flags():
             "some_snowflake_database",
         ),
         ("-s", "snowflake_schema", "some_snowflake_schema", "some_snowflake_schema"),
+        (
+            "-A",
+            "snowflake_authenticator",
+            "some_snowflake_authenticator",
+            "some_snowflake_authenticator",
+        ),
+        (
+            "-k",
+            "snowflake_private_key_path",
+            "some_snowflake_private_key_path",
+            "some_snowflake_private_key_path",
+        ),
+        (
+            "-t",
+            "snowflake_token_path",
+            "some_snowflake_token_path",
+            "some_snowflake_token_path",
+        ),
         ("-c", "change_history_table", "some_history_table", "some_history_table"),
     ]
 

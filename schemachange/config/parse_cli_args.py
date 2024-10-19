@@ -135,6 +135,27 @@ def parse_cli_args(args) -> dict:
         required=False,
     )
     parser_deploy.add_argument(
+        "-A",
+        "--snowflake-authenticator",
+        type=str,
+        help="The Snowflake Authenticator to use. One of snowflake, oauth, externalbrowser, or https://<okta_account_name>.okta.com",
+        required=False,
+    )
+    parser_deploy.add_argument(
+        "-k",
+        "--snowflake-private-key-path",
+        type=str,
+        help="Path to file containing private key.",
+        required=False,
+    )
+    parser_deploy.add_argument(
+        "-t",
+        "--snowflake-token-path",
+        type=str,
+        help="Path to the file containing the OAuth token to be used when authenticating with Snowflake.",
+        required=False,
+    )
+    parser_deploy.add_argument(
         "--connections-file-path",
         type=str,
         help="Override the default connections file path at snowflake.connector.constants.CONNECTIONS_FILE (OS specific)",

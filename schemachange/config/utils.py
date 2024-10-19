@@ -8,7 +8,7 @@ import jinja2
 import jinja2.ext
 import structlog
 import yaml
-
+from snowflake.connector.config_manager import CONFIG_MANAGER
 from schemachange.JinjaEnvVar import JinjaEnvVar
 
 logger = structlog.getLogger(__name__)
@@ -130,3 +130,34 @@ def load_yaml_config(config_file_path: Path | None) -> dict[str, Any]:
             config = yaml.load(config_template.render(), Loader=yaml.FullLoader)
         logger.info("Using config file", config_file_path=str(config_file_path))
     return config
+
+
+def set_connections_toml_path(connections_file_path: Path) -> None:
+    # Change config file path and force update cache
+    for i, s in enumerate(CONFIG_MANAGER._slices):
+        if s.section == "connections":
+            CONFIG_MANAGER._slices[i] = s._replace(path=connections_file_path)
+            CONFIG_MANAGER.read_config()
+            break
+
+
+def get_connection_kwargs(connection_name: str) -> dict:
+    connections = CONFIG_MANAGER["connections"]
+    connection = connections.get(connection_name)
+    if connection is None:
+        raise Exception(
+            f"Invalid connection_name '{connection_name}',"
+            f" known ones are {list(connections.keys())}"
+        )
+    return {
+        "snowflake_account": connection.get("account"),
+        "snowflake_user": connection.get("user"),
+        "snowflake_role": connection.get("role"),
+        "snowflake_warehouse": connection.get("warehouse"),
+        "snowflake_database": connection.get("database"),
+        "snowflake_schema": connection.get("schema"),
+        "snowflake_authenticator": connection.get("authenticator"),
+        "snowflake_password": connection.get("password"),
+        "snowflake_private_key_path": connection.get("private-key"),
+        "snowflake_token_path": connection.get("token-file-path"),
+    }
