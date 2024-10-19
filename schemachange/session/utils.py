@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 
 import requests
 import structlog
@@ -24,9 +25,9 @@ def get_private_key_password() -> bytes | None:
     return None
 
 
-def get_private_key_bytes() -> bytes:
+def get_private_key_bytes(snowflake_private_key_path: Path) -> bytes:
     private_key_password = get_private_key_password()
-    with open(os.environ["SNOWFLAKE_PRIVATE_KEY_PATH"], "rb") as key:
+    with snowflake_private_key_path.open("rb") as key:
         p_key = serialization.load_pem_private_key(
             key.read(),
             password=private_key_password,

@@ -391,6 +391,13 @@ class TestConfig:
 
     @mock.patch("pathlib.Path.is_dir", side_effect=[True, True])
     @mock.patch("pathlib.Path.is_file", side_effect=[True, True, True])
+    @mock.patch.dict(
+        os.environ,
+        {
+            "SNOWFLAKE_PASSWORD": "some_snowflake_password",
+            "SNOWFLAKE_PRIVATE_KEY_PATH": "some_snowflake_private_key_path",
+        },
+    )
     def test_connection_overrides(self, _, __):
         connections_file_path = Path(__file__).parent / "connections.toml"
         connection_name = "myconnection"
@@ -401,10 +408,7 @@ class TestConfig:
         snowflake_database = "some_snowflake_database"
         snowflake_schema = "some_snowflake_schema"
         snowflake_authenticator = "some_snowflake_authenticator"
-        snowflake_password = "some_snowflake_password"
-        snowflake_private_key_path = "some_snowflake_private_key_path"
         snowflake_token_path = "some_snowflake_token_path"
-        os.environ["SNOWFLAKE_PASSWORD"] = snowflake_password
 
         config = DeployConfig.factory(
             config_file_path=Path("some_config_file_name"),
@@ -418,7 +422,6 @@ class TestConfig:
             snowflake_database=snowflake_database,
             snowflake_schema=snowflake_schema,
             snowflake_authenticator=snowflake_authenticator,
-            snowflake_private_key_path=snowflake_private_key_path,
             snowflake_token_path=snowflake_token_path,
             connections_file_path=str(connections_file_path),
             connection_name=connection_name,
@@ -436,8 +439,10 @@ class TestConfig:
         assert config.snowflake_database == snowflake_database
         assert config.snowflake_schema == snowflake_schema
         assert config.snowflake_authenticator == snowflake_authenticator
-        assert config.snowflake_password == snowflake_password
-        assert config.snowflake_private_key_path == Path(snowflake_private_key_path)
+        assert config.snowflake_password == "some_snowflake_password"
+        assert config.snowflake_private_key_path == Path(
+            "some_snowflake_private_key_path"
+        )
         assert config.snowflake_token_path == Path(snowflake_token_path)
 
     def test_config_vars_not_a_dict(self):

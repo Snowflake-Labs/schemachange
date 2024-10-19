@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -53,6 +54,10 @@ class DeployConfig(BaseConfig):
             kwargs.pop("subcommand")
 
         kwargs["snowflake_password"] = get_snowflake_password()
+        if os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH") is not None:
+            kwargs["snowflake_private_key_path"] = os.getenv(
+                "SNOWFLAKE_PRIVATE_KEY_PATH"
+            )
 
         if connections_file_path is not None:
             connections_file_path = validate_file_path(file_path=connections_file_path)
@@ -80,7 +85,7 @@ class DeployConfig(BaseConfig):
             "snowflake_private_key_path",
             "snowflake_token_path",
         ]:
-            if sf_path_input in kwargs:
+            if sf_path_input in kwargs and kwargs[sf_path_input] is not None:
                 kwargs[sf_path_input] = validate_file_path(
                     file_path=kwargs[sf_path_input]
                 )
