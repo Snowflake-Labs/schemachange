@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tomllib
 from pathlib import Path
 from unittest import mock
@@ -234,8 +235,11 @@ class TestConfig:
         assert "Path is not valid directory: some_modules_folder_name" in e_info_value
 
     @mock.patch("pathlib.Path.is_dir", side_effect=[True, True])
-    @mock.patch("pathlib.Path.is_file", side_effect=[False])
+    @mock.patch("pathlib.Path.is_file", side_effect=[True, False])
     def test_invalid_snowflake_private_key_path(self, _, __):
+        connections_file_path = Path(__file__).parent / "connections.toml"
+        connection_name = "myconnection"
+
         with pytest.raises(Exception) as e_info:
             DeployConfig.factory(
                 config_file_path=Path("some_config_file_name"),
@@ -250,8 +254,8 @@ class TestConfig:
                 snowflake_schema="some_snowflake_schema",
                 snowflake_private_key_path="invalid_snowflake_private_key_path",
                 snowflake_token_path="invalid_snowflake_token_path",
-                connections_file_path="invalid_connections_file_path",
-                connection_name="invalid_connection_name",
+                connections_file_path=str(connections_file_path),
+                connection_name=connection_name,
                 change_history_table="some_history_table",
                 query_tag="some_query_tag",
                 oauth_config={"some": "values"},
@@ -260,8 +264,11 @@ class TestConfig:
         assert "invalid file path: invalid_snowflake_private_key_path" in e_info_value
 
     @mock.patch("pathlib.Path.is_dir", side_effect=[True, True])
-    @mock.patch("pathlib.Path.is_file", side_effect=[True, False])
+    @mock.patch("pathlib.Path.is_file", side_effect=[True, True, False])
     def test_invalid_snowflake_token_path(self, _, __):
+        connections_file_path = Path(__file__).parent / "connections.toml"
+        connection_name = "myconnection"
+
         with pytest.raises(Exception) as e_info:
             DeployConfig.factory(
                 config_file_path=Path("some_config_file_name"),
@@ -276,8 +283,8 @@ class TestConfig:
                 snowflake_schema="some_snowflake_schema",
                 snowflake_private_key_path="valid_snowflake_private_key_path",
                 snowflake_token_path="invalid_snowflake_token_path",
-                connections_file_path="invalid_connections_file_path",
-                connection_name="invalid_connection_name",
+                connections_file_path=str(connections_file_path),
+                connection_name=connection_name,
                 change_history_table="some_history_table",
                 query_tag="some_query_tag",
                 oauth_config={"some": "values"},
@@ -286,7 +293,7 @@ class TestConfig:
         assert "invalid file path: invalid_snowflake_token_path" in e_info_value
 
     @mock.patch("pathlib.Path.is_dir", side_effect=[True, True])
-    @mock.patch("pathlib.Path.is_file", side_effect=[True, True, False])
+    @mock.patch("pathlib.Path.is_file", side_effect=[False])
     def test_invalid_connections_file_path(self, _, __):
         with pytest.raises(Exception) as e_info:
             DeployConfig.factory(
@@ -397,6 +404,7 @@ class TestConfig:
         snowflake_password = "some_snowflake_password"
         snowflake_private_key_path = "some_snowflake_private_key_path"
         snowflake_token_path = "some_snowflake_token_path"
+        os.environ["SNOWFLAKE_PASSWORD"] = snowflake_password
 
         config = DeployConfig.factory(
             config_file_path=Path("some_config_file_name"),
@@ -410,7 +418,6 @@ class TestConfig:
             snowflake_database=snowflake_database,
             snowflake_schema=snowflake_schema,
             snowflake_authenticator=snowflake_authenticator,
-            snowflake_password=snowflake_password,
             snowflake_private_key_path=snowflake_private_key_path,
             snowflake_token_path=snowflake_token_path,
             connections_file_path=str(connections_file_path),

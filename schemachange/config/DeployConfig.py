@@ -11,6 +11,7 @@ from schemachange.config.utils import (
     validate_file_path,
     set_connections_toml_path,
     get_connection_kwargs,
+    get_snowflake_password,
 )
 
 
@@ -51,13 +52,18 @@ class DeployConfig(BaseConfig):
         if "subcommand" in kwargs:
             kwargs.pop("subcommand")
 
+        kwargs["snowflake_password"] = get_snowflake_password()
+
         if connections_file_path is not None:
             connections_file_path = validate_file_path(file_path=connections_file_path)
             set_connections_toml_path(connections_file_path=connections_file_path)
 
         if connection_name is not None:
             connection_kwargs = get_connection_kwargs(connection_name=connection_name)
-            kwargs = {**connection_kwargs, **kwargs}
+            kwargs = {
+                **connection_kwargs,
+                **{k: v for k, v in kwargs.items() if v is not None},
+            }
 
         for sf_input in [
             "snowflake_role",

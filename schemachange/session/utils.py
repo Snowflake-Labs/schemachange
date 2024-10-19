@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import warnings
 
 import requests
 import structlog
@@ -10,30 +9,6 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 
 logger = structlog.getLogger(__name__)
-
-
-def get_snowflake_password() -> str | None:
-    snowflake_password = None
-    if os.getenv("SNOWFLAKE_PASSWORD") is not None and os.getenv("SNOWFLAKE_PASSWORD"):
-        snowflake_password = os.getenv("SNOWFLAKE_PASSWORD")
-
-    # Check legacy/deprecated env variable
-    if os.getenv("SNOWSQL_PWD") is not None and os.getenv("SNOWSQL_PWD"):
-        if snowflake_password:
-            warnings.warn(
-                "Environment variables SNOWFLAKE_PASSWORD and SNOWSQL_PWD "
-                "are both present, using SNOWFLAKE_PASSWORD",
-                DeprecationWarning,
-            )
-        else:
-            warnings.warn(
-                "The SNOWSQL_PWD environment variable is deprecated and "
-                "will be removed in a later version of schemachange. "
-                "Please use SNOWFLAKE_PASSWORD instead.",
-                DeprecationWarning,
-            )
-            snowflake_password = os.getenv("SNOWSQL_PWD")
-    return snowflake_password
 
 
 def get_private_key_password() -> bytes | None:

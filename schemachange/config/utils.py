@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,7 @@ import structlog
 import yaml
 from snowflake.connector.config_manager import CONFIG_MANAGER
 from schemachange.JinjaEnvVar import JinjaEnvVar
+import warnings
 
 logger = structlog.getLogger(__name__)
 
@@ -161,3 +163,34 @@ def get_connection_kwargs(connection_name: str) -> dict:
         "snowflake_private_key_path": connection.get("private-key"),
         "snowflake_token_path": connection.get("token-file-path"),
     }
+
+
+def get_snowsql_pwd() -> str | None:
+    snowsql_pwd = os.getenv("SNOWSQL_PWD")
+    if snowsql_pwd is not None and snowsql_pwd:
+        warnings.warn(
+            "The SNOWSQL_PWD environment variable is deprecated and "
+            "will be removed in a later version of schemachange. "
+            "Please use SNOWFLAKE_PASSWORD instead.",
+            DeprecationWarning,
+        )
+    return snowsql_pwd
+
+
+def get_snowflake_password() -> str | None:
+    snowflake_password = os.getenv("SNOWFLAKE_PASSWORD")
+    snowsql_pwd = get_snowsql_pwd()
+
+    if snowflake_password is not None and snowflake_password:
+        # Check legacy/deprecated env variable
+        if snowsql_pwd is not None and snowsql_pwd:
+            warnings.warn(
+                "Environment variables SNOWFLAKE_PASSWORD and SNOWSQL_PWD "
+                "are both present, using SNOWFLAKE_PASSWORD",
+                DeprecationWarning,
+            )
+        return snowflake_password
+    elif snowsql_pwd is not None and snowsql_pwd:
+        return snowsql_pwd
+    else:
+        return None
