@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from enum import Enum
 
 import structlog
@@ -56,6 +57,14 @@ def parse_cli_args(args) -> dict:
         default=".",
         help="The folder to look in for the schemachange-config.yml file "
         "(the default is the current working directory)",
+        required=False,
+    )
+    parent_parser.add_argument(
+        "--config-file-name",
+        type=str,
+        default="schemachange-config.yml",
+        help="The schemachange config YAML file name. Must be in the directory supplied as the config-folder "
+        "(Default: schemachange-config.yml)",
         required=False,
     )
     parent_parser.add_argument(
@@ -237,7 +246,16 @@ def parse_cli_args(args) -> dict:
     if "log_level" in parsed_kwargs and isinstance(parsed_kwargs["log_level"], Enum):
         parsed_kwargs["log_level"] = parsed_kwargs["log_level"].value
 
+    parsed_kwargs["config_vars"] = {}
     if "vars" in parsed_kwargs:
-        parsed_kwargs["config_vars"] = parsed_kwargs.pop("vars")
+        config_vars = parsed_kwargs.pop("vars")
+        if config_vars is not None:
+            parsed_kwargs["config_vars"] = config_vars
 
-    return parsed_kwargs
+    if "verbose" in parsed_kwargs:
+        parsed_kwargs["log_level"] = (
+            logging.DEBUG if parsed_kwargs["verbose"] else logging.INFO
+        )
+        parsed_kwargs.pop("verbose")
+
+    return {k: v for k, v in parsed_kwargs.items() if v is not None}

@@ -7,7 +7,11 @@ from schemachange.config.parse_cli_args import parse_cli_args
 
 def test_parse_args_defaults():
     args: list[str] = []
-    test_args = [("--config-folder", None, ".")]
+    test_args = [
+        ("--config-folder", None, "."),
+        ("--config-file-name", None, "schemachange-config.yml"),
+        ("--config-vars", None, {}),
+    ]
     expected: dict[str, str | int | None] = {}
     for arg, value, expected_value in test_args:
         if value:
@@ -18,9 +22,6 @@ def test_parse_args_defaults():
     parsed_args = parse_cli_args(args)
     for expected_arg, expected_value in expected.items():
         assert parsed_args[expected_arg] == expected_value
-    assert parsed_args["create_change_history_table"] is None
-    assert parsed_args["autocommit"] is None
-    assert parsed_args["dry_run"] is None
     assert parsed_args["subcommand"] == "deploy"
 
 
@@ -30,6 +31,7 @@ def test_parse_args_deploy_names():
 
     valued_test_args: list[tuple[str, str, str]] = [
         ("--config-folder", "some_config_folder_name", "some_config_folder_name"),
+        ("--config-file-name", "some_config_file_name", "some_config_file_name"),
         ("--root-folder", "some_root_folder_name", "some_root_folder_name"),
         ("--modules-folder", "some_modules_folder_name", "some_modules_folder_name"),
         ("--vars", json.dumps({"some": "vars"}), {"some": "vars"}),

@@ -5,6 +5,9 @@ import re
 from pathlib import Path
 from typing import Any
 
+import json
+
+import requests
 import jinja2
 import jinja2.ext
 import structlog
@@ -18,16 +21,14 @@ logger = structlog.getLogger(__name__)
 snowflake_identifier_pattern = re.compile(r"^[\w]+$")
 
 
-def get_snowflake_identifier_string(input_value: str, input_type: str) -> str:
+def get_snowflake_identifier_string(input_value: str, input_type: str) -> str | None:
     # Words with alphanumeric characters and underscores only.
-    result = ""
-
     if input_value is None:
-        result = None
+        return None
     elif snowflake_identifier_pattern.match(input_value):
-        result = input_value
+        return input_value
     elif input_value.startswith('"') and input_value.endswith('"'):
-        result = input_value
+        return input_value
     elif input_value.startswith('"') and not input_value.endswith('"'):
         raise ValueError(
             f"Invalid {input_type}: {input_value}. Missing ending double quote"
@@ -37,9 +38,7 @@ def get_snowflake_identifier_string(input_value: str, input_type: str) -> str:
             f"Invalid {input_type}: {input_value}. Missing beginning double quote"
         )
     else:
-        result = f'"{input_value}"'
-
-    return result
+        return f'"{input_value}"'
 
 
 def get_config_secrets(config_vars: dict[str, dict | str] | None) -> set[str]:
@@ -136,14 +135,25 @@ def load_yaml_config(config_file_path: Path | None) -> dict[str, Any]:
 
 def set_connections_toml_path(connections_file_path: Path) -> None:
     # Change config file path and force update cache
+    # noinspection PyProtectedMember
     for i, s in enumerate(CONFIG_MANAGER._slices):
         if s.section == "connections":
+            # noinspection PyProtectedMember
             CONFIG_MANAGER._slices[i] = s._replace(path=connections_file_path)
             CONFIG_MANAGER.read_config()
             break
 
 
-def get_connection_kwargs(connection_name: str) -> dict:
+def get_connection_kwargs(
+    connections_file_path: Path | None = None, connection_name: str | None = None
+) -> dict:
+    if connections_file_path is not None:
+        connections_file_path = validate_file_path(file_path=connections_file_path)
+        set_connections_toml_path(connections_file_path=connections_file_path)
+
+    if connection_name is None:
+        return {}
+
     connections = CONFIG_MANAGER["connections"]
     connection = connections.get(connection_name)
     if connection is None:
@@ -151,7 +161,8 @@ def get_connection_kwargs(connection_name: str) -> dict:
             f"Invalid connection_name '{connection_name}',"
             f" known ones are {list(connections.keys())}"
         )
-    return {
+
+    connection_kwargs = {
         "snowflake_account": connection.get("account"),
         "snowflake_user": connection.get("user"),
         "snowflake_role": connection.get("role"),
@@ -163,6 +174,8 @@ def get_connection_kwargs(connection_name: str) -> dict:
         "snowflake_private_key_path": connection.get("private-key"),
         "snowflake_token_path": connection.get("token-file-path"),
     }
+
+    return {k: v for k, v in connection_kwargs.items() if v is not None}
 
 
 def get_snowsql_pwd() -> str | None:
@@ -194,3 +207,33 @@ def get_snowflake_password() -> str | None:
         return snowsql_pwd
     else:
         return None
+
+
+def get_env_kwargs() -> dict[str, str]:
+    env_kwargs = {
+        "snowflake_password": get_snowflake_password(),
+        "snowflake_private_key_path": os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH"),
+        "snowflake_authenticator": os.getenv("SNOWFLAKE_AUTHENTICATOR"),
+        "snowflake_oauth_token": os.getenv("SNOWFLAKE_TOKEN"),
+    }
+    return {k: v for k, v in env_kwargs.items() if v is not None}
+
+
+def get_oauth_token(oauth_config: dict):
+    req_info = {
+        "url": oauth_config["token-provider-url"],
+        "headers": oauth_config["token-request-headers"],
+        "data": oauth_config["token-request-payload"],
+    }
+    token_name = oauth_config["token-response-name"]
+    response = requests.post(**req_info)
+    response_dict = json.loads(response.text)
+    try:
+        return response_dict[token_name]
+    except KeyError:
+        keys = ", ".join(response_dict.keys())
+        errormessage = f"Response Json contains keys: {keys} \n but not {token_name}"
+        # if there is an error passed with the response include that
+        if "error_description" in response_dict.keys():
+            errormessage = f"{errormessage}\n error description: {response_dict['error_description']}"
+        raise KeyError(errormessage)
