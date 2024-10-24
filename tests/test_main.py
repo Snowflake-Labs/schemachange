@@ -433,7 +433,7 @@ deploy_snowflake_oauth_file = pytest.param(
         "snowflake_warehouse": "warehouse",
         "snowflake_role": "role",
         "snowflake_authenticator": "oauth",
-        "snowflake_oauth_token": "my-oauth-token",
+        "snowflake_oauth_token": "my-oauth-token\n",
     },
     None,
     id="deploy: oauth file",
