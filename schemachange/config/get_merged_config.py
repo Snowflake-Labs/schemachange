@@ -26,7 +26,8 @@ def get_yaml_config_kwargs(config_file_path: Optional[Path]) -> dict:
     }
 
     if "verbose" in kwargs:
-        kwargs["log_level"] = logging.DEBUG
+        if kwargs["verbose"]:
+            kwargs["log_level"] = logging.DEBUG
         kwargs.pop("verbose")
 
     if "vars" in kwargs:

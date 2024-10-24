@@ -108,7 +108,6 @@ class DeployConfig(BaseConfig):
 
         # OAuth based authentication
         if self.snowflake_authenticator.lower() == "oauth":
-            # TODO: defer to an existing token or fetch one here?
             req_args["snowflake_oauth_token"] = self.snowflake_oauth_token
 
         # External Browser based SSO
