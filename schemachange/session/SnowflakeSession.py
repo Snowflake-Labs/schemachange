@@ -13,6 +13,7 @@ from schemachange.session.Script import VersionedScript, RepeatableScript, Alway
 
 
 class SnowflakeSession:
+    account: str
     user: str | None
     role: str | None
     warehouse: str | None
@@ -34,6 +35,7 @@ class SnowflakeSession:
         application: str,
         change_history_table: ChangeHistoryTable,
         logger: structlog.BoundLogger,
+        account: str | None = None,
         user: str | None = None,
         role: str | None = None,
         warehouse: str | None = None,
@@ -43,6 +45,7 @@ class SnowflakeSession:
         autocommit: bool = False,
         **kwargs,
     ):
+        self.account = account
         self.user = user
         self.role = role
         self.warehouse = warehouse
@@ -57,7 +60,7 @@ class SnowflakeSession:
             self.session_parameters["QUERY_TAG"] += f";{query_tag}"
 
         self.con = snowflake.connector.connect(
-            account=kwargs["account"],
+            account=self.account,
             user=self.user,
             database=kwargs.get("database"),
             schema=kwargs.get("schema"),
