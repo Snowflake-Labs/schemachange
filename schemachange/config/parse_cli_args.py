@@ -181,7 +181,7 @@ def parse_cli_args(args) -> dict:
         required=False,
     )
     parser_deploy.add_argument(
-        "--version_number_validation_regex",
+        "--version-number-validation-regex",
         type=str,
         help="If supplied, version numbers will be validated with this regular expression.",
         required=False,

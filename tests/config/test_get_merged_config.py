@@ -128,7 +128,7 @@ class TestGetMergedConfig:
                 "query-tag-from-cli",
                 "--oauth-config",
                 '{"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz"} }',
-                "--version_number_validation_regex",
+                "--version-number-validation-regex",
                 "version_number_validation_regex-from-cli",
                 "--raise-exception-on-ignored-versioned-script",
             ],

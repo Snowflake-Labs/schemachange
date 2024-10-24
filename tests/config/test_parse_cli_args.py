@@ -47,7 +47,7 @@ def test_parse_args_deploy_names():
         ("--change-history-table", "some_history_table", "some_history_table"),
         ("--query-tag", "some_query_tag", "some_query_tag"),
         ("--oauth-config", json.dumps({"some": "values"}), {"some": "values"}),
-        ("--version_number_validation_regex", "some_regex", "some_regex"),
+        ("--version-number-validation-regex", "some_regex", "some_regex"),
     ]
 
     for arg, value, expected_value in valued_test_args:
