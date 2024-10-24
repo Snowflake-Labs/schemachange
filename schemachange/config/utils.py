@@ -74,7 +74,9 @@ def get_config_secrets(config_vars: dict[str, dict | str] | None) -> set[str]:
     return inner_extract_dictionary_secrets(config_vars)
 
 
-def validate_file_path(file_path: Path | str) -> Path:
+def validate_file_path(file_path: Path | str | None) -> Path | None:
+    if file_path is None:
+        return None
     if isinstance(file_path, str):
         file_path = Path(file_path)
     if not file_path.is_file():
@@ -84,7 +86,7 @@ def validate_file_path(file_path: Path | str) -> Path:
 
 def validate_directory(path: Path | str | None) -> Path | None:
     if path is None:
-        return path
+        return None
     if isinstance(path, str):
         path = Path(path)
     if not path.is_dir():

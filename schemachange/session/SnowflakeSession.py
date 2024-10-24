@@ -3,26 +3,21 @@ from __future__ import annotations
 import hashlib
 import time
 from collections import defaultdict
-from dataclasses import asdict
 from textwrap import dedent, indent
 
 import snowflake.connector
 import structlog
 
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
-from schemachange.config.DeployConfig import DeployConfig
-from schemachange.session.Credential import SomeCredential, credential_factory
 from schemachange.session.Script import VersionedScript, RepeatableScript, AlwaysScript
 
 
 class SnowflakeSession:
-    user: str
-    account: str
-    role: str
-    warehouse: str
+    user: str | None
+    role: str | None
+    warehouse: str | None
     database: str | None
     schema: str | None
-    query_tag: str | None
     autocommit: bool
     change_history_table: ChangeHistoryTable
     logger: structlog.BoundLogger
@@ -35,28 +30,26 @@ class SnowflakeSession:
 
     def __init__(
         self,
-        snowflake_user: str,
-        snowflake_account: str,
-        snowflake_role: str,
-        snowflake_warehouse: str,
         schemachange_version: str,
         application: str,
-        credential: SomeCredential,
         change_history_table: ChangeHistoryTable,
         logger: structlog.BoundLogger,
-        autocommit: bool = False,
-        snowflake_database: str | None = None,
-        snowflake_schema: str | None = None,
+        user: str | None = None,
+        role: str | None = None,
+        warehouse: str | None = None,
+        database: str | None = None,
+        schema: str | None = None,
         query_tag: str | None = None,
+        autocommit: bool = False,
+        **kwargs,
     ):
-        self.user = snowflake_user
-        self.account = snowflake_account
-        self.role = snowflake_role
-        self.warehouse = snowflake_warehouse
-        self.database = snowflake_database
-        self.schema = snowflake_schema
-        self.autocommit = autocommit
+        self.user = user
+        self.role = role
+        self.warehouse = warehouse
+        self.database = database
+        self.schema = schema
         self.change_history_table = change_history_table
+        self.autocommit = autocommit
         self.logger = logger
 
         self.session_parameters = {"QUERY_TAG": f"schemachange {schemachange_version}"}
@@ -64,15 +57,22 @@ class SnowflakeSession:
             self.session_parameters["QUERY_TAG"] += f";{query_tag}"
 
         self.con = snowflake.connector.connect(
+            account=kwargs["account"],
             user=self.user,
-            account=self.account,
+            database=kwargs.get("database"),
+            schema=kwargs.get("schema"),
             role=self.role,
             warehouse=self.warehouse,
-            database=self.database,
-            schema=self.schema,
+            private_key=kwargs.get("private_key"),
+            private_key_file=kwargs.get("private_key_path"),
+            private_key_file_pwd=kwargs.get("private_key_path_password"),
+            token=kwargs.get("oauth_token"),
+            password=kwargs.get("password"),
+            authenticator=kwargs.get("authenticator"),
+            connection_name=kwargs.get("connection_name"),
+            connections_file_path=kwargs.get("connections_file_path"),
             application=application,
             session_parameters=self.session_parameters,
-            **asdict(credential),
         )
         print(f"Current session ID: {self.con.session_id}")
 
@@ -210,9 +210,9 @@ class SnowflakeSession:
         self.logger.info(
             "Max applied change script version %(max_published_version)s"
             % {
-                "max_published_version": max_published_version
-                if max_published_version != ""
-                else "None"
+                "max_published_version": (
+                    max_published_version if max_published_version != "" else "None"
+                )
             }
         )
         return change_history, r_scripts_checksum, max_published_version
@@ -261,6 +261,7 @@ class SnowflakeSession:
                     "checksum": checksum,
                 }
 
+        # noinspection PyTypeChecker
         return versioned_scripts, versions[0] if versions else None
 
     def reset_session(self, logger: structlog.BoundLogger):
@@ -298,6 +299,7 @@ class SnowflakeSession:
             return
         logger.info("Applying change script")
         # Define a few other change related variables
+        # noinspection PyTypeChecker
         checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
         execution_time = 0
         status = "Success"
@@ -341,27 +343,3 @@ class SnowflakeSession:
             );
         """
         self.execute_snowflake_query(dedent(query), logger=logger)
-
-
-def get_session_from_config(
-    config: DeployConfig,
-    logger: structlog.BoundLogger,
-    schemachange_version: str,
-    snowflake_application_name: str,
-) -> SnowflakeSession:
-    credential = credential_factory(logger=logger, oauth_config=config.oauth_config)
-    return SnowflakeSession(
-        snowflake_user=config.snowflake_user,
-        snowflake_account=config.snowflake_account,
-        snowflake_role=config.snowflake_role,
-        snowflake_warehouse=config.snowflake_warehouse,
-        schemachange_version=schemachange_version,
-        application=snowflake_application_name,
-        credential=credential,
-        change_history_table=config.change_history_table,
-        logger=logger,
-        autocommit=config.autocommit,
-        snowflake_database=config.snowflake_database,
-        snowflake_schema=config.snowflake_schema,
-        query_tag=config.query_tag,
-    )

@@ -172,7 +172,7 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "snowflake_password": "connection_snowflake_password",
                 "snowflake_private_key_path": "yaml_snowflake_private_key_path",
                 "snowflake_token_path": "yaml_snowflake_token_path",
-                "connections_file_path": "yaml_connections_file_path",
+                "connections_file_path": Path("yaml_connections_file_path"),
                 "connection_name": "yaml_connection_name",
                 "change_history_table": "yaml_change_history_table",
                 "create_change_history_table": True,
@@ -277,7 +277,7 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "snowflake_password": "connection_snowflake_password",
                 "snowflake_private_key_path": "cli_snowflake_private_key_path",
                 "snowflake_token_path": "cli_snowflake_token_path",
-                "connections_file_path": "cli_connections_file_path",
+                "connections_file_path": Path("cli_connections_file_path"),
                 "connection_name": "cli_connection_name",
                 "change_history_table": "cli_change_history_table",
                 "create_change_history_table": False,
@@ -382,7 +382,7 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "snowflake_password": "env_snowflake_password",
                 "snowflake_private_key_path": "env_snowflake_private_key_path",
                 "snowflake_token_path": "cli_snowflake_token_path",
-                "connections_file_path": "cli_connections_file_path",
+                "connections_file_path": Path("cli_connections_file_path"),
                 "connection_name": "cli_connection_name",
                 "change_history_table": "cli_change_history_table",
                 "create_change_history_table": False,
@@ -396,6 +396,7 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
     ],
 )
 @mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("pathlib.Path.is_file", return_value=True)
 @mock.patch("schemachange.config.get_merged_config.get_env_kwargs")
 @mock.patch("schemachange.config.get_merged_config.parse_cli_args")
 @mock.patch("schemachange.config.get_merged_config.get_yaml_config_kwargs")
@@ -408,6 +409,7 @@ def test_get_merged_config_inheritance(
     mock_parse_cli_args,
     mock_get_env_kwargs,
     _,
+    __,
     env_kwargs,
     cli_kwargs,
     yaml_kwargs,
@@ -523,7 +525,7 @@ param_full_cli_and_connection = pytest.param(
         "query_tag": "query-tag-from-cli",
         "oauth_config": {"oauth_config_variable": "cli_oauth_config_value"},
         "connection_name": "myaltconnection",
-        "connections_file_path": str(assets_path / "alt-connections.toml"),
+        "connections_file_path": assets_path / "alt-connections.toml",
         "snowflake_password": alt_connection["password"],
     },
     id="Deploy: full cli and connections.toml",
@@ -586,6 +588,7 @@ param_full_yaml_and_connection = pytest.param(
         "config_file_path": assets_path / "schemachange-config-full.yml",
         "snowflake_password": my_connection["password"],
         "log_level": logging.INFO,
+        "connections_file_path": assets_path / "connections.toml",
         **{
             k: v
             for k, v in schemachange_config_full.items()
@@ -612,7 +615,6 @@ param_full_yaml_and_connection = pytest.param(
                 "query_tag",
                 "oauth_config",
                 "connection_name",
-                "connections_file_path",
             ]
         },
     },
@@ -693,7 +695,7 @@ param_full_yaml_and_connection_and_cli = pytest.param(
         "query_tag": "query-tag-from-cli",
         "oauth_config": {"oauth_config_variable": "cli_oauth_config_value"},
         "connection_name": "myaltconnection",
-        "connections_file_path": str(assets_path / "alt-connections.toml"),
+        "connections_file_path": assets_path / "alt-connections.toml",
         "snowflake_password": alt_connection["password"],
     },
     id="Deploy: full yaml, connections.toml, and cli",
@@ -704,6 +706,7 @@ param_full_yaml_and_connection_and_cli_and_env = pytest.param(
         "SNOWFLAKE_PASSWORD": "env_snowflake_password",
         "SNOWFLAKE_PRIVATE_KEY_PATH": "env_snowflake_private_key_path",
         "SNOWFLAKE_AUTHENTICATOR": "env_snowflake_authenticator",
+        "SNOWFLAKE_TOKEN": "env_snowflake_token",
     },  # env_kwargs
     [  # cli_args
         "schemachange",
@@ -775,9 +778,10 @@ param_full_yaml_and_connection_and_cli_and_env = pytest.param(
         "log_level": logging.INFO,
         "dry_run": True,
         "query_tag": "query-tag-from-cli",
+        "snowflake_oauth_token": "env_snowflake_token",
         "oauth_config": {"oauth_config_variable": "cli_oauth_config_value"},
         "connection_name": "myaltconnection",
-        "connections_file_path": str(assets_path / "alt-connections.toml"),
+        "connections_file_path": assets_path / "alt-connections.toml",
         "snowflake_password": "env_snowflake_password",
     },
     id="Deploy: full yaml, connections.toml, cli, and env",
@@ -797,7 +801,7 @@ param_connection_no_yaml = pytest.param(
     ],
     {  # expected
         "subcommand": "deploy",
-        "connections_file_path": str(assets_path / "connections.toml"),
+        "connections_file_path": assets_path / "connections.toml",
         "connection_name": "myconnection",
         "config_file_path": assets_path / "schemachange-config.yml",
         "config_version": 1,
@@ -841,6 +845,7 @@ param_partial_yaml_and_connection = pytest.param(
         "snowflake_token_path": my_connection["token-file-path"],
         "log_level": logging.INFO,
         "snowflake_password": my_connection["password"],
+        "connections_file_path": assets_path / "connections.toml",
         **{
             k: v
             for k, v in schemachange_config_partial_with_connection.items()
@@ -857,7 +862,6 @@ param_partial_yaml_and_connection = pytest.param(
                 "query_tag",
                 "oauth_config",
                 "connection_name",
-                "connections_file_path",
             ]
         },
     },

@@ -70,10 +70,10 @@ class DeployConfig(BaseConfig):
         # If set by an environment variable, pop snowflake_token_path from kwargs
         if "snowflake_oauth_token" in kwargs:
             kwargs.pop("snowflake_token_path", None)
-            kwargs.pop("oauthconfig", None)
+            kwargs.pop("oauth_config", None)
         # Load it from a file, if provided
         elif "snowflake_token_path" in kwargs:
-            kwargs.pop("oauthconfig", None)
+            kwargs.pop("oauth_config", None)
             oauth_token_path = kwargs.pop("snowflake_token_path")
             with open(oauth_token_path) as f:
                 kwargs["snowflake_oauth_token"] = f.read()
@@ -140,3 +140,23 @@ class DeployConfig(BaseConfig):
         raise ValueError(
             f"Missing config values. The following config values are required: {missing_args}"
         )
+
+    def get_session_kwargs(self) -> dict:
+        session_kwargs = {
+            "account": self.snowflake_account,
+            "user": self.snowflake_user,
+            "role": self.snowflake_role,
+            "warehouse": self.snowflake_warehouse,
+            "database": self.snowflake_database,
+            "schema": self.snowflake_schema,
+            "authenticator": self.snowflake_authenticator,
+            "password": self.snowflake_password,
+            "oauth_token": self.snowflake_oauth_token,
+            "private_key_path": self.snowflake_private_key_path,
+            "connections_file_path": self.connections_file_path,
+            "connection_name": self.connection_name,
+            "change_history_table": self.change_history_table,
+            "autocommit": self.autocommit,
+            "query_tag": self.query_tag,
+        }
+        return {k: v for k, v in session_kwargs.items() if v is not None}

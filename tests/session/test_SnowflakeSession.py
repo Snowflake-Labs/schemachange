@@ -6,26 +6,23 @@ import pytest
 import structlog
 
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
-from schemachange.session.Credential import ExternalBrowserCredential
 from schemachange.session.SnowflakeSession import SnowflakeSession
 
 
 @pytest.fixture
 def session() -> SnowflakeSession:
-    credential = ExternalBrowserCredential(password="password")
     change_history_table = ChangeHistoryTable()
     logger = structlog.testing.CapturingLogger()
 
     with mock.patch("snowflake.connector.connect"):
         # noinspection PyTypeChecker
         return SnowflakeSession(
-            snowflake_user="user",
-            snowflake_account="account",
-            snowflake_role="role",
-            snowflake_warehouse="warehouse",
+            user="user",
+            account="account",
+            role="role",
+            warehouse="warehouse",
             schemachange_version="3.6.1.dev",
             application="schemachange",
-            credential=credential,
             change_history_table=change_history_table,
             logger=logger,
         )
