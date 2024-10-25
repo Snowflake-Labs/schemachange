@@ -30,7 +30,11 @@ def test_alphanum_convert_given__lowercase():
 
 
 def test_get_alphanum_key_given__empty_string():
-    assert get_alphanum_key("") == [""]
+    assert get_alphanum_key("") == []
+
+
+def test_get_alphanum_key_given__none():
+    assert get_alphanum_key(None) == []
 
 
 def test_get_alphanum_key_given__numbers_only():
