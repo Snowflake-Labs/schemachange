@@ -1,3 +1,5 @@
+use database {{ database_name }};
+use schema {{ schema_name }};
 -- This block of code executes in Visual Studio Code but fails in Schemachange.
 -- Use the $$ ... $$ to mark the block and execute the code block successfully.
 -- The comment from a community user help find the root cause.
