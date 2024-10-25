@@ -106,7 +106,7 @@ class TestGetConnectionKwargs:
             "snowflake_account": "connections.toml-account",
             "snowflake_authenticator": "connections.toml-authenticator",
             "snowflake_database": "connections.toml-database",
-            "snowflake_token_path": "connections.toml-token-file-path",
+            "snowflake_token_path": "connections.toml-token_file_path",
             "snowflake_password": "connections.toml-password",
             "snowflake_private_key_path": "connections.toml-private-key",
             "snowflake_role": "connections.toml-role",

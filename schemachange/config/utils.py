@@ -174,7 +174,7 @@ def get_connection_kwargs(
         "snowflake_authenticator": connection.get("authenticator"),
         "snowflake_password": connection.get("password"),
         "snowflake_private_key_path": connection.get("private-key"),
-        "snowflake_token_path": connection.get("token-file-path"),
+        "snowflake_token_path": connection.get("token_file_path"),
     }
 
     return {k: v for k, v in connection_kwargs.items() if v is not None}
