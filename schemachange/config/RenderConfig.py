@@ -8,10 +8,10 @@ from schemachange.config.BaseConfig import BaseConfig
 from schemachange.config.utils import validate_file_path
 
 
-@dataclasses.dataclass(frozen=True, kw_only=True)
+@dataclasses.dataclass(frozen=True)
 class RenderConfig(BaseConfig):
+    script_path: Path | None = None
     subcommand: Literal["render"] = "render"
-    script_path: Path
 
     @classmethod
     def factory(
@@ -31,3 +31,9 @@ class RenderConfig(BaseConfig):
             script_path=validate_file_path(file_path=script_path),
             **kwargs,
         )
+
+    def __post_init__(self):
+        if self.script_path is None:
+            raise TypeError(
+                "RenderConfig is missing 1 required argument: 'script_path'"
+            )
