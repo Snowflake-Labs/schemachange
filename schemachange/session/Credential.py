@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import dataclasses
 import os
-from abc import ABC
 from typing import Literal, Union
 
 import structlog
@@ -14,37 +13,32 @@ from schemachange.session.utils import (
 )
 
 
-@dataclasses.dataclass(kw_only=True, frozen=True)
-class Credential(ABC):
-    authenticator: str
-
-
-@dataclasses.dataclass(kw_only=True, frozen=True)
-class OauthCredential(Credential):
-    authenticator: Literal["oauth"] = "oauth"
+@dataclasses.dataclass(frozen=True)
+class OauthCredential:
     token: str
+    authenticator: Literal["oauth"] = "oauth"
 
 
-@dataclasses.dataclass(kw_only=True, frozen=True)
-class PasswordCredential(Credential):
-    authenticator: Literal["snowflake"] = "snowflake"
+@dataclasses.dataclass(frozen=True)
+class PasswordCredential:
     password: str
-
-
-@dataclasses.dataclass(kw_only=True, frozen=True)
-class PrivateKeyCredential(Credential):
     authenticator: Literal["snowflake"] = "snowflake"
+
+
+@dataclasses.dataclass(frozen=True)
+class PrivateKeyCredential:
     private_key: bytes
+    authenticator: Literal["snowflake"] = "snowflake"
 
 
-@dataclasses.dataclass(kw_only=True, frozen=True)
-class ExternalBrowserCredential(Credential):
-    authenticator: Literal["externalbrowser"] = "externalbrowser"
+@dataclasses.dataclass(frozen=True)
+class ExternalBrowserCredential:
     password: str | None = None
+    authenticator: Literal["externalbrowser"] = "externalbrowser"
 
 
-@dataclasses.dataclass(kw_only=True, frozen=True)
-class OktaCredential(Credential):
+@dataclasses.dataclass(frozen=True)
+class OktaCredential:
     authenticator: str
     password: str
 

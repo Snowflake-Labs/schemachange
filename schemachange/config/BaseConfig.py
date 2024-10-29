@@ -18,7 +18,7 @@ logger = structlog.getLogger(__name__)
 T = TypeVar("T", bound="BaseConfig")
 
 
-@dataclasses.dataclass(frozen=True, kw_only=True)
+@dataclasses.dataclass(frozen=True)
 class BaseConfig(ABC):
     default_config_file_name: ClassVar[str] = "schemachange-config.yml"
 
