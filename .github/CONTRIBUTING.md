@@ -22,7 +22,7 @@ Thank you for your interest in contributing code to schemachange!
 
 ### Guide to contributing to schemachange
 
-> **IMPORTANT** : You will need to follow the [provisioning and schemachange setup instructions](../demo/README.MD) to ensure you can run github actions against your snowflake account before placing a PR with main schemachange repository so that your PR can be merged into schemachange master branch.
+> **IMPORTANT** : You will need to follow the [provisioning and schemachange setup instructions](../demo/README.MD) to ensure you can run GitHub actions against your Snowflake account before placing a PR with main schemachange repository so that your PR can be merged into schemachange master branch.
 
 1. If you are a first-time contributor
     + Go to [Snowflake-Labs/Schemachange](https://github.com/Snowflake-Labs/schemachange) and click the "fork" button to
