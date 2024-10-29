@@ -13,8 +13,8 @@ included [issue templates](https://github.com/Snowflake-Labs/schemachange/issues
 
 Thank you for your interest in contributing code to schemachange!
 
-+ If this is your first time contributing to a project on GitHub, please read through
-  our [guide to contributing to schemachange](guide-to-contributing-to-schemachange).
++ If this is your first time contributing to a project on GitHub, please continue reading through
+  [our guide to contributing to schemachange](#guide-to-contributing-to-schemachange).
 + There are many online tutorials to help you [learn git](https://try.github.io/). For discussions of specific git
   workflows, see these discussions
   on [linux git workflow](https://www.mail-archive.com/dri-devel@lists.sourceforge.net/msg39091.html),
@@ -115,7 +115,7 @@ Thank you for your interest in contributing code to schemachange!
     git push origin update-build-library-dependencies
     ```
 
-6.
+6. Raise a Pull Request to merge your contribution into the a Schemachange Release
     + Go to GitHub. The new branch will show up with a
       green [Pull Request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests#initiating-the-pull-request)
       button. Make sure the title and message are clear, concise and self-explanatory. Then click the button to submit
