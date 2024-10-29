@@ -29,14 +29,16 @@ dev branches respectively.
 - If you are consumer who is installing schemachange and wants to test-run the demo, then you will have to set the
   following environment variables.
     - SNOWFLAKE_ACCOUNT: This will be the account identifier for your snowflake account.
-    - SNOWFLAKE_USER: This will be the user that will connect to you snowflake account.
-    - SNOWFLAKE_PASSWORD: This is the password for the user (SNOWFLAKE_USER) that will connect to the snowflake account.
+    - SNOWFLAKE_USER: This will be the user that will connect to your snowflake account (`SNOWFLAKE_ACCOUNT`).
+    - SNOWFLAKE_PASSWORD: This is the password for the user (`SNOWFLAKE_USER`) that will connect to your snowflake account (`SNOWFLAKE_ACCOUNT`).
     - SCENARIO_NAME: This will be demo folder you intend to experiment with. For
       starters, `basics_demo`, `citibike_demo` or `citibike_demo_jinja` are included with the repo that will set the
       root folder value in the respective schemachange-config.yml file.
-    - SNOWFLAKE_WAREHOUSE: This will be the warehouse you set up for the demo. Default setup is SCHEMACHANGE_DEMO_WH
-    - SNOWFLAKE_DATABASE Keyed to SCHEMACHANGE_DEMO
-    - SNOWFLAKE_ROLE Keyed to SCHEMACHANGE_DEMO-DEPLOY
+    - SNOWFLAKE_WAREHOUSE: This will be the warehouse you set up for the demo. Default setup is SCHEMACHANGE_DEMO_WH. You can update this to your warehouse in your snowflake account (`SNOWFLAKE_ACCOUNT`).
+    - SNOWFLAKE_DATABASE Keyed to SCHEMACHANGE_DEMO. You can update this to the database in your snowflake account (`SNOWFLAKE_ACCOUNT`)
+    - SNOWFLAKE_ROLE Keyed to SCHEMACHANGE_DEMO-DEPLOY. This particular role name was chosen to test hyphenated roles in schemachange. You can update this value to match the role you have setup in your snowflake account (`SNOWFLAKE_ACCOUNT`).
+
+Either you setup Warehouse, Database and role to match the demo defaults and run the demo as is pointing to your account (`SNOWFLAKE_ACCOUNT`) or update the schemachange-config.yml file keys to match values you have setup in your local snowflake account and run the demo scenarios to get a feel for how schemachange works.
 
 The scripts in the `provision` folder can be used to set up up your demo database along with a schema in that database
 that will house the change tracking tables needed to set up and teardown the schemas used to test a working version of
