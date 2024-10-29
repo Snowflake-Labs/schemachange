@@ -30,7 +30,7 @@ dev branches respectively.
   following environment variables.
     - SNOWFLAKE_ACCOUNT: This will be the account identifier for your Snowflake account.
     - SNOWFLAKE_USER: This will be the user that will connect to your snowflake account (`SNOWFLAKE_ACCOUNT`).
-    - SNOWFLAKE_PASSWORD: This is the password for the user (`SNOWFLAKE_USER`) that will connect to your snowflake account (`SNOWFLAKE_ACCOUNT`).
+    - SNOWFLAKE_PASSWORD: This is the password for the user (`SNOWFLAKE_USER`) that will connect to your Snowflake account (`SNOWFLAKE_ACCOUNT`).
     - SCENARIO_NAME: This will be demo folder you intend to experiment with. For
       starters, `basics_demo`, `citibike_demo` or `citibike_demo_jinja` are included with the repo that will set the
       root folder value in the respective schemachange-config.yml file.
