@@ -34,7 +34,7 @@ dev branches respectively.
     - SCENARIO_NAME: This will be demo folder you intend to experiment with. For
       starters, `basics_demo`, `citibike_demo` or `citibike_demo_jinja` are included with the repo that will set the
       root folder value in the respective schemachange-config.yml file.
-    - SNOWFLAKE_WAREHOUSE: This will be the warehouse you set up for the demo. Default setup is SCHEMACHANGE_DEMO_WH. You can update this to your warehouse in your snowflake account (`SNOWFLAKE_ACCOUNT`).
+    - SNOWFLAKE_WAREHOUSE: This will be the warehouse you set up for the demo. Default setup is SCHEMACHANGE_DEMO_WH. You can update this to your warehouse in your Snowflake account (`SNOWFLAKE_ACCOUNT`).
     - SNOWFLAKE_DATABASE Keyed to SCHEMACHANGE_DEMO. You can update this to the database in your snowflake account (`SNOWFLAKE_ACCOUNT`)
     - SNOWFLAKE_ROLE Keyed to SCHEMACHANGE_DEMO-DEPLOY. This particular role name was chosen to test hyphenated roles in schemachange. You can update this value to match the role you have setup in your snowflake account (`SNOWFLAKE_ACCOUNT`).
 
