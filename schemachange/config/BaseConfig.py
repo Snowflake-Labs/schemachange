@@ -4,7 +4,7 @@ import dataclasses
 import logging
 from abc import ABC
 from pathlib import Path
-from typing import Literal, ClassVar, TypeVar
+from typing import Literal, TypeVar
 
 import structlog
 
@@ -20,8 +20,6 @@ T = TypeVar("T", bound="BaseConfig")
 
 @dataclasses.dataclass(frozen=True)
 class BaseConfig(ABC):
-    default_config_file_name: ClassVar[str] = "schemachange-config.yml"
-
     subcommand: Literal["deploy", "render"]
     config_version: int | None = None
     config_file_path: Path | None = None
@@ -40,10 +38,13 @@ class BaseConfig(ABC):
         modules_folder: Path | str | None = None,
         config_vars: str | dict | None = None,
         log_level: int = logging.INFO,
+        connection_secrets: set[str] | None = None,
         **kwargs,
     ):
         try:
             secrets = get_config_secrets(config_vars)
+            if connection_secrets is not None:
+                secrets.update(connection_secrets)
         except Exception as e:
             raise Exception(
                 "config_vars did not parse correctly, please check its configuration"
