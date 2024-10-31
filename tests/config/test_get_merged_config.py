@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+
+import structlog
 import tomlkit
 from pathlib import Path
 from unittest import mock
@@ -405,7 +407,9 @@ def test_get_merged_config_inheritance(
     mock_parse_cli_args.return_value = {**cli_kwargs}
     mock_get_yaml_config_kwargs.return_value = {**yaml_kwargs}
     mock_get_connection_kwargs.return_value = {**connection_kwargs}
-    get_merged_config()
+    logger = structlog.testing.CapturingLogger()
+    # noinspection PyTypeChecker
+    get_merged_config(logger=logger)
     factory_kwargs = mock_deploy_config_factory.call_args.kwargs
     for actual_key, actual_value in factory_kwargs.items():
         assert expected[actual_key] == actual_value
@@ -419,8 +423,10 @@ def test_invalid_config_folder(mock_parse_cli_args, _):
         **default_cli_kwargs,
     }
     mock_parse_cli_args.return_value = {**cli_kwargs}
+    logger = structlog.testing.CapturingLogger()
     with pytest.raises(Exception) as e_info:
-        get_merged_config()
+        # noinspection PyTypeChecker
+        get_merged_config(logger=logger)
     assert f"Path is not valid directory: {cli_kwargs['config_folder']}" in str(
         e_info.value
     )
@@ -877,9 +883,11 @@ def test_integration_get_merged_config_inheritance(
     cli_args,
     expected,
 ):
+    logger = structlog.testing.CapturingLogger()
     with mock.patch.dict(os.environ, env_vars, clear=True):
         with mock.patch("sys.argv", cli_args):
-            get_merged_config()
+            # noinspection PyTypeChecker
+            get_merged_config(logger=logger)
             factory_kwargs = mock_deploy_config_factory.call_args.kwargs
             for actual_key, actual_value in factory_kwargs.items():
                 assert expected[actual_key] == actual_value
