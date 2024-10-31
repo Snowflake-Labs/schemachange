@@ -217,6 +217,7 @@ def get_env_kwargs() -> dict[str, str]:
         "snowflake_private_key_path": os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH"),
         "snowflake_authenticator": os.getenv("SNOWFLAKE_AUTHENTICATOR"),
         "snowflake_oauth_token": os.getenv("SNOWFLAKE_TOKEN"),
+        "connection_name": os.getenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME"),
     }
     return {k: v for k, v in env_kwargs.items() if v is not None}
 

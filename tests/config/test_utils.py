@@ -57,6 +57,10 @@ def test_get_snowflake_password(env_vars: dict, expected: str):
             {"SNOWFLAKE_AUTHENTICATOR": "my_snowflake_authenticator"},
             {"snowflake_authenticator": "my_snowflake_authenticator"},
         ),
+        (
+            {"SNOWFLAKE_DEFAULT_CONNECTION_NAME": "my_connection_name"},
+            {"connection_name": "my_connection_name"},
+        ),
     ],
 )
 def test_get_env_kwargs(env_vars: dict, expected: str):

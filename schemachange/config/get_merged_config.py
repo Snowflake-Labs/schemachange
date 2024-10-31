@@ -38,6 +38,7 @@ def get_yaml_config_kwargs(config_file_path: Optional[Path]) -> dict:
 
 def get_merged_config() -> Union[DeployConfig, RenderConfig]:
     env_kwargs: dict[str, str] = get_env_kwargs()
+    connection_name = env_kwargs.pop("connection_name", None)
 
     cli_kwargs = parse_cli_args(sys.argv[1:])
 
@@ -46,7 +47,10 @@ def get_merged_config() -> Union[DeployConfig, RenderConfig]:
     connections_file_path = validate_file_path(
         file_path=cli_kwargs.pop("connections_file_path", None)
     )
-    connection_name = cli_kwargs.pop("connection_name", None)
+
+    if connection_name is None:
+        connection_name = cli_kwargs.pop("connection_name", None)
+
     config_folder = validate_directory(path=cli_kwargs.pop("config_folder", "."))
     config_file_name = cli_kwargs.pop("config_file_name")
     config_file_path = Path(config_folder) / config_file_name
@@ -61,6 +65,7 @@ def get_merged_config() -> Union[DeployConfig, RenderConfig]:
     if connections_file_path is None:
         connections_file_path = yaml_kwargs.pop("connections_file_path", None)
         if config_folder is not None and connections_file_path is not None:
+            # noinspection PyTypeChecker
             connections_file_path = config_folder / connections_file_path
 
         connections_file_path = validate_file_path(file_path=connections_file_path)

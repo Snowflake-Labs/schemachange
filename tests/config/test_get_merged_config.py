@@ -52,11 +52,7 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
     "env_kwargs, cli_kwargs, yaml_kwargs, connection_kwargs, expected",
     [
         pytest.param(
-            {  # env_kwargs
-                "snowflake_password": None,
-                "snowflake_private_key_path": None,
-                "snowflake_authenticator": None,
-            },
+            {},  # env_kwargs
             {**default_cli_kwargs},  # cli_kwargs
             {},  # yaml_kwargs
             {},  # connection_kwargs
@@ -68,11 +64,7 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
             id="Deploy: Only required arguments",
         ),
         pytest.param(
-            {  # env_kwargs
-                "snowflake_password": None,
-                "snowflake_private_key_path": None,
-                "snowflake_authenticator": None,
-            },
+            {},  # env_kwargs
             {**default_cli_kwargs},  # cli_kwargs
             {},  # yaml_kwargs
             {  # connection_kwargs
@@ -106,11 +98,7 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
             id="Deploy: all connection_kwargs",
         ),
         pytest.param(
-            {  # env_kwargs
-                "snowflake_password": None,
-                "snowflake_private_key_path": None,
-                "snowflake_authenticator": None,
-            },
+            {},  # env_kwargs
             {**default_cli_kwargs},  # cli_kwargs
             {  # yaml_kwargs
                 "root_folder": "yaml_root_folder",
@@ -184,11 +172,7 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
             id="Deploy: all yaml, all connection_kwargs",
         ),
         pytest.param(
-            {  # env_kwargs
-                "snowflake_password": None,
-                "snowflake_private_key_path": None,
-                "snowflake_authenticator": None,
-            },
+            {},  # env_kwargs
             {  # cli_kwargs
                 **default_cli_kwargs,
                 "config_folder": "cli_config_folder",
@@ -293,6 +277,7 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "snowflake_password": "env_snowflake_password",
                 "snowflake_private_key_path": "env_snowflake_private_key_path",
                 "snowflake_authenticator": "env_snowflake_authenticator",
+                "connection_name": "env_connection_name",
             },
             {  # cli_kwargs
                 **default_cli_kwargs,
@@ -383,7 +368,7 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "snowflake_private_key_path": "env_snowflake_private_key_path",
                 "snowflake_token_path": "cli_snowflake_token_path",
                 "connections_file_path": Path("cli_connections_file_path"),
-                "connection_name": "cli_connection_name",
+                "connection_name": "env_connection_name",
                 "change_history_table": "cli_change_history_table",
                 "create_change_history_table": False,
                 "autocommit": False,
@@ -707,6 +692,7 @@ param_full_yaml_and_connection_and_cli_and_env = pytest.param(
         "SNOWFLAKE_PRIVATE_KEY_PATH": "env_snowflake_private_key_path",
         "SNOWFLAKE_AUTHENTICATOR": "env_snowflake_authenticator",
         "SNOWFLAKE_TOKEN": "env_snowflake_token",
+        "SNOWFLAKE_DEFAULT_CONNECTION_NAME": "anotherconnection",
     },  # env_kwargs
     [  # cli_args
         "schemachange",
@@ -780,7 +766,7 @@ param_full_yaml_and_connection_and_cli_and_env = pytest.param(
         "query_tag": "query-tag-from-cli",
         "snowflake_oauth_token": "env_snowflake_token",
         "oauth_config": {"oauth_config_variable": "cli_oauth_config_value"},
-        "connection_name": "myaltconnection",
+        "connection_name": "anotherconnection",
         "connections_file_path": assets_path / "alt-connections.toml",
         "snowflake_password": "env_snowflake_password",
     },
