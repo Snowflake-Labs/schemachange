@@ -42,7 +42,7 @@ def main():
         % {"schemachange_version": SCHEMACHANGE_VERSION}
     )
 
-    config = get_merged_config()
+    config = get_merged_config(logger=module_logger)
     redact_config_secrets(config_secrets=config.secrets)
 
     structlog.configure(

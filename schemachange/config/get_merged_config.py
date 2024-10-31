@@ -3,6 +3,8 @@ import sys
 from pathlib import Path
 from typing import Union, Optional
 
+import structlog
+
 from schemachange.config.DeployConfig import DeployConfig
 from schemachange.config.RenderConfig import RenderConfig
 from schemachange.config.parse_cli_args import parse_cli_args
@@ -36,11 +38,16 @@ def get_yaml_config_kwargs(config_file_path: Optional[Path]) -> dict:
     return {k: v for k, v in kwargs.items() if v is not None}
 
 
-def get_merged_config() -> Union[DeployConfig, RenderConfig]:
+def get_merged_config(
+    logger: structlog.BoundLogger,
+) -> Union[DeployConfig, RenderConfig]:
     env_kwargs: dict[str, str] = get_env_kwargs()
+    logger.info("env_kwargs", **env_kwargs)
+
     connection_name = env_kwargs.pop("connection_name", None)
 
     cli_kwargs = parse_cli_args(sys.argv[1:])
+    logger.info("cli_kwargs", **cli_kwargs)
 
     cli_config_vars = cli_kwargs.pop("config_vars")
 
@@ -58,6 +65,8 @@ def get_merged_config() -> Union[DeployConfig, RenderConfig]:
     yaml_kwargs = get_yaml_config_kwargs(
         config_file_path=config_file_path,
     )
+    logger.info("yaml_kwargs", **yaml_kwargs)
+
     yaml_config_vars = yaml_kwargs.pop("config_vars", None)
     if yaml_config_vars is None:
         yaml_config_vars = {}
@@ -77,6 +86,7 @@ def get_merged_config() -> Union[DeployConfig, RenderConfig]:
         connections_file_path=connections_file_path,
         connection_name=connection_name,
     )
+    logger.info("connection_kwargs", **connection_kwargs)
 
     config_vars = {
         **yaml_config_vars,
@@ -96,6 +106,8 @@ def get_merged_config() -> Union[DeployConfig, RenderConfig]:
         kwargs["connections_file_path"] = connections_file_path
     if connection_name is not None:
         kwargs["connection_name"] = connection_name
+
+    logger.info("final kwargs", **kwargs)
 
     if cli_kwargs["subcommand"] == "deploy":
         return DeployConfig.factory(**kwargs)
