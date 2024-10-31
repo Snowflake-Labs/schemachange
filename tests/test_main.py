@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-import tomllib
+import tomlkit
 import tempfile
 import unittest.mock as mock
 from dataclasses import asdict
@@ -21,7 +21,7 @@ assets_path = Path(__file__).parent / "config"
 
 def get_connection_from_toml(file_path: Path, connection_name: str) -> dict:
     with file_path.open("rb") as f:
-        connections = tomllib.load(f)
+        connections = tomlkit.load(f)
         return connections[connection_name]
 
 
@@ -603,6 +603,7 @@ def test_main_deploy_config_folder(
                     )
                 )
 
+            # noinspection PyTypeChecker
             args[args.index("DUMMY")] = d
             expected_config["config_file_path"] = Path(d) / "schemachange-config.yml"
 
@@ -654,6 +655,7 @@ def test_main_deploy_modules_folder(
 ):
     with mock.patch.dict(os.environ, {"SNOWFLAKE_PASSWORD": "password"}, clear=True):
         with tempfile.TemporaryDirectory() as d:
+            # noinspection PyTypeChecker
             args[args.index("DUMMY")] = d
             expected_config["modules_folder"] = Path(d)
 

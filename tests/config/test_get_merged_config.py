@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-import tomllib
+import tomlkit
 from pathlib import Path
 from unittest import mock
 
@@ -23,7 +23,7 @@ assets_path = Path(__file__).parent
 
 def get_connection_from_toml(file_path: Path, connection_name: str) -> dict:
     with file_path.open("rb") as f:
-        connections = tomllib.load(f)
+        connections = tomlkit.load(f)
         return connections[connection_name]
 
 
