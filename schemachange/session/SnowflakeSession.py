@@ -59,24 +59,24 @@ class SnowflakeSession:
         if query_tag:
             self.session_parameters["QUERY_TAG"] += f";{query_tag}"
 
-        self.con = snowflake.connector.connect(
-            account=self.account,
-            user=self.user,
-            database=kwargs.get("database"),
-            schema=kwargs.get("schema"),
-            role=self.role,
-            warehouse=self.warehouse,
-            private_key=kwargs.get("private_key"),
-            private_key_file=kwargs.get("private_key_path"),
-            private_key_file_pwd=kwargs.get("private_key_path_password"),
-            token=kwargs.get("oauth_token"),
-            password=kwargs.get("password"),
-            authenticator=kwargs.get("authenticator"),
-            connection_name=kwargs.get("connection_name"),
-            connections_file_path=kwargs.get("connections_file_path"),
-            application=application,
-            session_parameters=self.session_parameters,
-        )
+        connect_kwargs = {
+            "account": self.account,
+            "user": self.user,
+            "database": kwargs.get("database"),
+            "schema": kwargs.get("schema"),
+            "role": self.role,
+            "warehouse": self.warehouse,
+            "private_key_file": kwargs.get("private_key_path"),
+            "token": kwargs.get("oauth_token"),
+            "password": kwargs.get("password"),
+            "authenticator": kwargs.get("authenticator"),
+            "connection_name": kwargs.get("connection_name"),
+            "connections_file_path": kwargs.get("connections_file_path"),
+            "application": application,
+            "session_parameters": self.session_parameters,
+        }
+        self.logger.info("snowflake.connector.connect kwargs", **connect_kwargs)
+        self.con = snowflake.connector.connect(**connect_kwargs)
         print(f"Current session ID: {self.con.session_id}")
 
         if not self.autocommit:

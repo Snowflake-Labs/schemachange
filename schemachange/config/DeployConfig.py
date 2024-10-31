@@ -89,10 +89,20 @@ class DeployConfig(BaseConfig):
             table_str=change_history_table
         )
 
+        connection_secrets = {
+            secret
+            for secret in [
+                kwargs.get("snowflake_password"),
+                kwargs.get("snowflake_oauth_token"),
+            ]
+            if secret is not None
+        }
+
         return super().factory(
             subcommand="deploy",
             config_file_path=config_file_path,
             change_history_table=change_history_table,
+            connection_secrets=connection_secrets,
             **kwargs,
         )
 
