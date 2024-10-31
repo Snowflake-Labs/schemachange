@@ -168,4 +168,6 @@ class DeployConfig(BaseConfig):
             "autocommit": self.autocommit,
             "query_tag": self.query_tag,
         }
+        print("get_session_kwargs")
+        print(session_kwargs)
         return {k: v for k, v in session_kwargs.items() if v is not None}
