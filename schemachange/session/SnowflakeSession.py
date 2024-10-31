@@ -62,8 +62,8 @@ class SnowflakeSession:
         connect_kwargs = {
             "account": self.account,
             "user": self.user,
-            "database": kwargs.get("database"),
-            "schema": kwargs.get("schema"),
+            "database": self.database,
+            "schema": self.schema,
             "role": self.role,
             "warehouse": self.warehouse,
             "private_key_file": kwargs.get("private_key_path"),
@@ -75,7 +75,7 @@ class SnowflakeSession:
             "application": application,
             "session_parameters": self.session_parameters,
         }
-        self.logger.info("snowflake.connector.connect kwargs", **connect_kwargs)
+        self.logger.debug("snowflake.connector.connect kwargs", **connect_kwargs)
         self.con = snowflake.connector.connect(**connect_kwargs)
         print(f"Current session ID: {self.con.session_id}")
 

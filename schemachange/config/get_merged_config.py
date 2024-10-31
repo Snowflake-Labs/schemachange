@@ -42,12 +42,12 @@ def get_merged_config(
     logger: structlog.BoundLogger,
 ) -> Union[DeployConfig, RenderConfig]:
     env_kwargs: dict[str, str] = get_env_kwargs()
-    logger.info("env_kwargs", **env_kwargs)
+    logger.debug("env_kwargs", **env_kwargs)
 
     connection_name = env_kwargs.pop("connection_name", None)
 
     cli_kwargs = parse_cli_args(sys.argv[1:])
-    logger.info("cli_kwargs", **cli_kwargs)
+    logger.debug("cli_kwargs", **cli_kwargs)
 
     cli_config_vars = cli_kwargs.pop("config_vars")
 
@@ -65,7 +65,7 @@ def get_merged_config(
     yaml_kwargs = get_yaml_config_kwargs(
         config_file_path=config_file_path,
     )
-    logger.info("yaml_kwargs", **yaml_kwargs)
+    logger.debug("yaml_kwargs", **yaml_kwargs)
 
     yaml_config_vars = yaml_kwargs.pop("config_vars", None)
     if yaml_config_vars is None:
@@ -86,7 +86,7 @@ def get_merged_config(
         connections_file_path=connections_file_path,
         connection_name=connection_name,
     )
-    logger.info("connection_kwargs", **connection_kwargs)
+    logger.debug("connection_kwargs", **connection_kwargs)
 
     config_vars = {
         **yaml_config_vars,
@@ -107,7 +107,7 @@ def get_merged_config(
     if connection_name is not None:
         kwargs["connection_name"] = connection_name
 
-    logger.info("final kwargs", **kwargs)
+    logger.debug("final kwargs", **kwargs)
 
     if cli_kwargs["subcommand"] == "deploy":
         return DeployConfig.factory(**kwargs)
