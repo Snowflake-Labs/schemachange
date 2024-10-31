@@ -189,6 +189,8 @@ script_path = Path(__file__).parent.parent / "demo" / "basics_demo" / "A__basic0
                 "schemachange",
                 "deploy",
                 *required_args,
+                "--log-level",
+                "INFO",
             ],
             {
                 **default_deploy_config,
