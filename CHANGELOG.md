@@ -3,6 +3,17 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [4.0.0] - TBD
+### Added
+- Use of `structlog~=24.1.0` for standard log outputs
+- Verified Schemachange against Python 3.12
+
+### Changed
+- Refactored the main cli.py into multiple modules - config, session.
+- Updated contributing guidelines and demo readme content to help contributors setup local snowflake account to run the github actions in their fork before pushing the PR to upstream repository.
+- Removed tests against Python 3.8 [End of Life on 2024-10-07](https://devguide.python.org/versions/#supported-versions)
+
+
 ## [3.7.0] - 2024-07-22
 ### Added
 - Improved unit test coverage

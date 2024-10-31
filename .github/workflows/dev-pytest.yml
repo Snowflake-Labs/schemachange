@@ -20,7 +20,7 @@ jobs:
       matrix:
         scenario-name: [ 'basics_demo', 'citibike_demo', 'citibike_demo_jinja']
         os: ["ubuntu-latest"]
-        python-version: ["3.11"]
+        python-version: ["3.12"]
     runs-on: ${{ matrix.os }}
     if: ${{ github.event.label.name == 'ci-run-tests' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
 

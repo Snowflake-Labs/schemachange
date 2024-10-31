@@ -212,11 +212,7 @@ class SnowflakeSession:
 
         self.logger.info(
             "Max applied change script version %(max_published_version)s"
-            % {
-                "max_published_version": (
-                    max_published_version if max_published_version != "" else "None"
-                )
-            }
+            % {"max_published_version": max_published_version}
         )
         return change_history, r_scripts_checksum, max_published_version
 
@@ -254,10 +250,10 @@ class SnowflakeSession:
 
         # Collect all the results into a list
         versioned_scripts: dict[str, dict[str, str | int]] = defaultdict(dict)
-        versions: list[str | int] = []
+        versions: list[str | int | None] = []
         for cursor in results:
             for version, script, checksum in cursor:
-                versions.append(version)
+                versions.append(version if version != "" else None)
                 versioned_scripts[script] = {
                     "version": version,
                     "script": script,

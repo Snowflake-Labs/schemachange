@@ -13,7 +13,7 @@ from schemachange.config.utils import (
 )
 
 
-@dataclasses.dataclass(frozen=True, kw_only=True)
+@dataclasses.dataclass(frozen=True)
 class DeployConfig(BaseConfig):
     subcommand: Literal["deploy"] = "deploy"
     snowflake_account: str | None = None
