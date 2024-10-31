@@ -891,7 +891,7 @@ def test_integration_get_merged_config_inheritance(
     cli_args,
     expected,
 ):
-    with mock.patch.dict(os.environ, env_vars):
+    with mock.patch.dict(os.environ, env_vars, clear=True):
         with mock.patch("sys.argv", cli_args):
             get_merged_config()
             factory_kwargs = mock_deploy_config_factory.call_args.kwargs
