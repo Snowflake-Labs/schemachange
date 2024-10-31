@@ -7,7 +7,8 @@ operating environment, schemachange version and python version. Whenever possibl
 also include a brief, self-contained code example that demonstrates the problem.
 
 We have
-included [issue templates](https://github.com/Snowflake-Labs/schemachange/issues/new/choose) for reporting bugs, requesting features and seeking clarifications. Choose the appropriate issue template to contribute to the repository.
+included [issue templates](https://github.com/Snowflake-Labs/schemachange/issues/new/choose) for reporting bugs,
+requesting features and seeking clarifications. Choose the appropriate issue template to contribute to the repository.
 
 ## Contributing code
 
@@ -96,19 +97,22 @@ Thank you for your interest in contributing code to schemachange!
 
     + Commit locally as you progress ( [git add](https://github.com/git-guides/git-add)
       and [git commit](https://github.com/git-guides/git-commit) ). Use a properly formatted commit message. Be sure to
-      document any changed behavior in the [CHANGELOG.md](../CHANGELOG.md) file to help us collate the changes for a specific release.
+      document any changed behavior in the [CHANGELOG.md](../CHANGELOG.md) file to help us collate the changes for a
+      specific release.
 
 4. Test your contribution locally
 
    ```bash
    python -m pytest
    ```
-   PS: Please add test cases to the features you are developing so that over time, we can capture any lapse in functionality changes.
+   PS: Please add test cases to the features you are developing so that over time, we can capture any lapse in
+   functionality changes.
 
 5. Perform integration tests on your branch from your fork
-    - Follow the [provisioning and schemachange setup instructions](../demo/README.MD) to configure your Snowflake account for testing.
+    - Follow the [provisioning and schemachange setup instructions](../demo/README.MD) to configure your Snowflake
+      account for testing.
     - Follow [these](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-workflow-runs/manually-running-a-workflow)
-   instructions to manually run the `master-pytest` workflow on your fork of the repo, targeting your feature branch.
+      instructions to manually run the `master-pytest` workflow on your fork of the repo, targeting your feature branch.
 
 6. Push your contribution to GitHub
 
