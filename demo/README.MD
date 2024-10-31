@@ -5,7 +5,7 @@ to see how schemachange works with the main feature set. For the contributor, wh
 codebase, this will serve as a basis to test the PR against your own snowflake account to ensure your code change does
 not break any existing functionality.
 
-## Prerequisite
+## Prerequisites
 
 - You will need your own snowflake Account to test the Demo - Both as a contributor and consumer.
 - You will need to review and run statements in the provision folder or set up your own database and schema.
@@ -43,14 +43,19 @@ the demo DDL scripts.
 
 ### Contributors
 
-As a contributor, you will have to set up schemachange demo database and schemachange schema (See Initialize and Setup
-scripts below). Along with that you will also set up the following Secrets in your forked repository so that the GitHub
-actions can set up, test and teardown the temporary schema it creates to test the changes to your code in the master and
-dev branches respectively.
+1. Execute the [initialize.sql](provision/initialize.sql)
+   and [setup_schemachange_schema.sql](provision/setup_schemachange_schema.sql) scripts to create up a
+   `SCHEMACHANGE_DEMO`
+   database and `SCHEMACHANGE` schema (See [Prerequisites](#prerequisites)).
 
-- SCHEMACHANGE_SNOWFLAKE_PASSWORD
-- SCHEMACHANGE_SNOWFLAKE_USER
-- SCHEMACHANGE_SNOWFLAKE_ACCOUNT
+2. Create the
+   following [GitHub Action Secrets](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions)
+   in your forked repository. GitHub will use these actions to set up and teardown the temporary schema(s) it creates to
+   test your code.
+
+    - `SCHEMACHANGE_SNOWFLAKE_PASSWORD`
+    - `SCHEMACHANGE_SNOWFLAKE_USER`
+    - `SCHEMACHANGE_SNOWFLAKE_ACCOUNT`
 
 # Setup
 
