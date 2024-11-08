@@ -18,13 +18,9 @@ from schemachange.config.utils import (
 
 
 def get_yaml_config_kwargs(config_file_path: Optional[Path]) -> dict:
-    # TODO: I think the configuration key for oauthconfig should be oauth-config.
-    #  This looks like a bug in the current state of the repo to me
-
     # load YAML inputs and convert kebabs to snakes
     kwargs = {
-        k.replace("-", "_").replace("oauthconfig", "oauth_config"): v
-        for (k, v) in load_yaml_config(config_file_path).items()
+        k.replace("-", "_"): v for (k, v) in load_yaml_config(config_file_path).items()
     }
 
     if "verbose" in kwargs:

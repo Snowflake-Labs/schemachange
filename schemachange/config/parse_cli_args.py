@@ -215,14 +215,6 @@ def parse_cli_args(args) -> dict:
         help="The string to add to the Snowflake QUERY_TAG session value for each query executed",
         required=False,
     )
-    parser_deploy.add_argument(
-        "--oauth-config",
-        type=json.loads,
-        help='Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": '
-        '"https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })',
-        required=False,
-    )
-
     parser_render = subcommands.add_parser(
         "render",
         description="Renders a script to the console, used to check and verify jinja output from scripts.",

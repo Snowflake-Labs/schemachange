@@ -331,28 +331,12 @@ token will need to be supplied or acquired in one of the following ways:
     1. The `--snowflake-token-path` [command-line argument](#commands)
     2. Setting a `snowflake-token-path` in the [schemachange-config.yml](#yaml-config-file) file
     3. Setting a `token_file_path` in the [connections.toml](#connectionstoml-file) file
-3. Supply an "OAuth config" in one of the following ways (in order of priority):
 
-    1. The `--oauth-config` [command-line argument](#commands)
-    2. Setting an `oauthconfig` in the [schemachange-config.yml](#yaml-config-file) file
-
-   Since different Oauth providers may require different information the Oauth
-   configuration uses four named variables that are fed into a POST request to obtain a token. Azure is shown in the
-   example YAML but other providers should use a similar pattern and request payload contents.
-
-    * token-provider-url
-      The URL of the authenticator resource that will receive the POST request.
-    * token-response-name
-      The Expected name of the JSON element containing the Token in the return response from the authenticator resource.
-    * token-request-payload
-      The Set of variables passed as a dictionary to the `data` element of the request.
-    * token-request-headers
-      The Set of variables passed as a dictionary to the `headers` element of the request.
-
-   It is recommended to use the YAML file and pass oauth secrets into the configuration using the templating engine
-   instead of the command line option.
-
-   The OAuth POST call will only be made if a token or token filepath isn't discovered.
+**Schemachange no longer supports the `--oauth-config` option.**  Prior to the 4.0 release, this library supported
+supplying an `--oauth-config` that would be used to fetch an OAuth token via the `requests` library. This required
+Schemachange to keep track of connection arguments that could otherwise be passed directly to the Snowflake Python
+connector. Maintaining this logic in Schemachange added unnecessary complication to the repo and prevented access to
+recent connector parameterization features offered by the Snowflake connector.
 
 ### External Browser Authentication
 
@@ -460,13 +444,13 @@ snowflake-schema: null
 # The Snowflake Authenticator to use. One of snowflake, oauth, externalbrowser, or https://<okta_account_name>.okta.com
 snowflake-authenticator: null
 
-# Path to file containing private key. 
+# Path to file containing private key.
 snowflake-private-key-path: null
 
 # Path to the file containing the OAuth token to be used when authenticating with Snowflake.
 snowflake-token-path: null
 
-# Override the default connections.toml file path at snowflake.connector.constants.CONNECTIONS_FILE (OS specific) 
+# Override the default connections.toml file path at snowflake.connector.constants.CONNECTIONS_FILE (OS specific)
 connections-file-path: null
 
 # Override the default connections.toml connection name. Other connection-related values will override these connection values.
@@ -496,24 +480,6 @@ dry-run: false
 
 # A string to include in the QUERY_TAG that is attached to every SQL statement executed
 query-tag: 'QUERY_TAG'
-
-# Information for Oauth token requests
-oauth-config:
-  # url Where token request are posted to
-  token-provider-url: 'https://login.microsoftonline.com/{{ env_var('AZURE_ORG_GUID', 'default') }}/oauth2/v2.0/token'
-  # name of Json entity returned by request
-  token-response-name: 'access_token'
-  # Headers needed for successful post or other security markings ( multiple labeled items permitted
-  token-request-headers:
-    Content-Type: "application/x-www-form-urlencoded"
-    User-Agent: "python/schemachange"
-  # Request Payload for Token (it is recommended pass
-  token-request-payload:
-    client_id: '{{ env_var('CLIENT_ID', 'default') }}'
-    username: '{{ env_var('USER_ID', 'default') }}'
-    password: '{{ env_var('USER_PASSWORD', 'default') }}'
-    grant_type: 'password'
-    scope: '{{ env_var('SESSION_SCOPE', 'default') }}'
 ```
 
 #### Yaml Jinja support
@@ -610,7 +576,6 @@ usage: schemachange deploy [-h] [--config-folder CONFIG_FOLDER] [--config-file-n
 | -v, --verbose                                                                          | Display verbose debugging details during execution. The default is 'False'.                                                                                                                                                                                         |
 | --dry-run                                                                              | Run schemachange in dry run mode. The default is 'False'.                                                                                                                                                                                                           |
 | --query-tag                                                                            | A string to include in the QUERY_TAG that is attached to every SQL statement executed.                                                                                                                                                                              |
-| --oauth-config                                                                         | Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": "https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })'                                                                                             |
 
 ### render
 
@@ -657,13 +622,13 @@ schemachange is a single python script located at [schemachange/cli.py](schemach
 follows:
 
 ```
-python schemachange/cli.py [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-s SNOWFLAKE_SCHEMA] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--oauth-config OUATH_CONFIG]
+python schemachange/cli.py [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-s SNOWFLAKE_SCHEMA] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG]
 ```
 
 Or if installed via `pip`, it can be executed as follows:
 
 ```
-schemachange [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-s SNOWFLAKE_SCHEMA] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--oauth-config OUATH_CONFIG]
+schemachange [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-s SNOWFLAKE_SCHEMA] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG]
 ```
 
 The [demo](demo) folder in this project repository contains three schemachange demo projects for you to try out. These
@@ -702,7 +667,7 @@ If your build agent has a recent version of python 3 installed, the script can b
 
 ```bash
 pip install schemachange --upgrade
-schemachange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-s SNOWFLAKE_SCHEMA] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--oauth-config OUATH_CONFIG]
+schemachange [-h] [-f ROOT_FOLDER] -a SNOWFLAKE_ACCOUNT -u SNOWFLAKE_USER -r SNOWFLAKE_ROLE -w SNOWFLAKE_WAREHOUSE [-d SNOWFLAKE_DATABASE] [-s SNOWFLAKE_SCHEMA] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG]
 ```
 
 Or if you prefer docker, set the environment variables and run like so:

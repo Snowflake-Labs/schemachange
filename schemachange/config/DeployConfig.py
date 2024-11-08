@@ -9,7 +9,6 @@ from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import (
     get_snowflake_identifier_string,
     validate_file_path,
-    get_oauth_token,
 )
 
 
@@ -70,20 +69,11 @@ class DeployConfig(BaseConfig):
         # If set by an environment variable, pop snowflake_token_path from kwargs
         if "snowflake_oauth_token" in kwargs:
             kwargs.pop("snowflake_token_path", None)
-            kwargs.pop("oauth_config", None)
         # Load it from a file, if provided
         elif "snowflake_token_path" in kwargs:
-            kwargs.pop("oauth_config", None)
             oauth_token_path = kwargs.pop("snowflake_token_path")
             with open(oauth_token_path) as f:
                 kwargs["snowflake_oauth_token"] = f.read()
-        # Make the oauth call if authenticator == "oauth"
-
-        elif "oauth_config" in kwargs:
-            oauth_config = kwargs.pop("oauth_config")
-            authenticator = kwargs.get("snowflake_authenticator")
-            if authenticator is not None and authenticator.lower() == "oauth":
-                kwargs["snowflake_oauth_token"] = get_oauth_token(oauth_config)
 
         change_history_table = ChangeHistoryTable.from_str(
             table_str=change_history_table

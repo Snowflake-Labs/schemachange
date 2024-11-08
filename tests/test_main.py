@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 import os
 import tomlkit
@@ -147,8 +146,6 @@ deploy_all_cli_arg_names = pytest.param(
         "--dry-run",
         "--query-tag",
         "query-tag-from-cli",
-        "--oauth-config",
-        json.dumps({"oauth_config_variable": "cli_oauth_config_value"}),
     ],
     {  # expected
         "subcommand": "deploy",
@@ -240,8 +237,6 @@ deploy_all_cli_arg_flags = pytest.param(
         "--dry-run",
         "--query-tag",
         "query-tag-from-cli",
-        "--oauth-config",
-        json.dumps({"oauth_config_variable": "cli_oauth_config_value"}),
     ],
     {  # expected
         "subcommand": "deploy",
@@ -338,8 +333,6 @@ deploy_all_env_all_cli = pytest.param(
         "--dry-run",
         "--query-tag",
         "query-tag-from-cli",
-        "--oauth-config",
-        json.dumps({"oauth_config_variable": "cli_oauth_config_value"}),
     ],
     {  # expected
         "subcommand": "deploy",
@@ -396,8 +389,6 @@ deploy_snowflake_oauth_env_var = pytest.param(
         "oauth",
         "--snowflake-token-path",
         str(assets_path / "oauth_token_path.txt"),
-        "--oauth-config",
-        json.dumps({"oauth_config_variable": "cli_oauth_config_value"}),
     ],
     {
         **default_deploy_config,
@@ -423,8 +414,6 @@ deploy_snowflake_oauth_file = pytest.param(
         "oauth",
         "--snowflake-token-path",
         str(assets_path / "oauth_token_path.txt"),
-        "--oauth-config",
-        json.dumps({"oauth_config_variable": "cli_oauth_config_value"}),
     ],
     {
         **default_deploy_config,
@@ -437,31 +426,6 @@ deploy_snowflake_oauth_file = pytest.param(
     },
     None,
     id="deploy: oauth file",
-)
-
-deploy_snowflake_oauth_request = pytest.param(
-    "schemachange.cli.deploy",
-    {},
-    [
-        "schemachange",
-        "deploy",
-        *required_args,
-        "--snowflake-authenticator",
-        "oauth",
-        "--oauth-config",
-        json.dumps({"oauth_config_variable": "cli_oauth_config_value"}),
-    ],
-    {
-        **default_deploy_config,
-        "snowflake_account": "account",
-        "snowflake_user": "user",
-        "snowflake_warehouse": "warehouse",
-        "snowflake_role": "role",
-        "snowflake_authenticator": "oauth",
-        "snowflake_oauth_token": "requested_oauth_token",
-    },
-    None,
-    id="deploy: oauth request",
 )
 
 render_only_required = pytest.param(
@@ -511,19 +475,13 @@ render_all_cli_arg_names = pytest.param(
         deploy_all_env_all_cli,
         deploy_snowflake_oauth_env_var,
         deploy_snowflake_oauth_file,
-        deploy_snowflake_oauth_request,
         render_only_required,
         render_all_cli_arg_names,
     ],
 )
-@mock.patch(
-    "schemachange.config.DeployConfig.get_oauth_token",
-    return_value="requested_oauth_token",
-)
 @mock.patch("schemachange.session.SnowflakeSession.snowflake.connector.connect")
 def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
     _,
-    __,
     to_mock: str,
     env_vars: dict[str, str],
     cli_args: list[str],

@@ -26,7 +26,6 @@ complete_deploy_config_kwargs: dict = {
     "snowflake_schema": "some_snowflake_schema",
     "change_history_table": "some_history_table",
     "query_tag": "some_query_tag",
-    "oauth_config": {"some": "values"},
 }
 
 
@@ -134,22 +133,6 @@ def test_check_for_deploy_args_oauth_with_file_happy_path(_):
         )
         config.check_for_deploy_args()
         assert config.snowflake_oauth_token == "my-oauth-token-from-a-file"
-
-
-@mock.patch("schemachange.config.DeployConfig.get_oauth_token")
-def test_check_for_deploy_args_oauth_with_request_happy_path(mock_get_oauth_token):
-    oauth_token = "my-oauth-token-from-a-request"
-    mock_get_oauth_token.return_value = oauth_token
-    oauth_config = {"my_oauth_config": "values"}
-    config = DeployConfig.factory(
-        **minimal_deploy_config_kwargs,
-        snowflake_authenticator="oauth",
-        oauth_config=oauth_config,
-        config_file_path=Path("."),
-    )
-    config.check_for_deploy_args()
-    assert config.snowflake_oauth_token == oauth_token
-    mock_get_oauth_token.call_args.args[0] == oauth_config
 
 
 def test_check_for_deploy_args_externalbrowser_happy_path():

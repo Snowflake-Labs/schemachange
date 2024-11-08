@@ -94,18 +94,3 @@ def test_get_yaml_config(_):
     assert yaml_config["dry_run"] is False
 
     assert yaml_config["config_vars"] == {"var1": "from_yaml", "var2": "also_from_yaml"}
-    assert yaml_config["oauth_config"] == {
-        "token-provider-url": "token-provider-url-from-yaml",
-        "token-request-headers": {
-            "Content-Type": "Content-Type-from-yaml",
-            "User-Agent": "User-Agent-from-yaml",
-        },
-        "token-request-payload": {
-            "client_id": "id-from-yaml",
-            "grant_type": "type-from-yaml",
-            "password": "password-from-yaml",
-            "scope": "scope-from-yaml",
-            "username": "username-from-yaml",
-        },
-        "token-response-name": "token-response-name-from-yaml",
-    }

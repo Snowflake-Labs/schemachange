@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 
@@ -127,7 +126,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "autocommit": True,
                 "dry_run": True,
                 "query_tag": "yaml_query_tag",
-                "oauth_config": {"oauth_config_variable": "yaml_oauth_config_value"},
             },
             {  # connection_kwargs
                 "snowflake_account": "connection_snowflake_account",
@@ -169,7 +167,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "autocommit": True,
                 "dry_run": True,
                 "query_tag": "yaml_query_tag",
-                "oauth_config": {"oauth_config_variable": "yaml_oauth_config_value"},
             },
             id="Deploy: all yaml, all connection_kwargs",
         ),
@@ -201,7 +198,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "autocommit": False,
                 "dry_run": False,
                 "query_tag": "cli_query_tag",
-                "oauth_config": {"oauth_config_variable": "cli_oauth_config_value"},
             },
             {  # yaml_kwargs
                 "root_folder": "yaml_root_folder",
@@ -228,7 +224,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "autocommit": True,
                 "dry_run": True,
                 "query_tag": "yaml_query_tag",
-                "oauth_config": {"oauth_config_variable": "yaml_oauth_config_value"},
             },
             {  # connection_kwargs
                 "snowflake_account": "connection_snowflake_account",
@@ -270,7 +265,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "autocommit": False,
                 "dry_run": False,
                 "query_tag": "cli_query_tag",
-                "oauth_config": {"oauth_config_variable": "cli_oauth_config_value"},
             },
             id="Deploy: all cli, all yaml, all connection_kwargs",
         ),
@@ -307,7 +301,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "autocommit": False,
                 "dry_run": False,
                 "query_tag": "cli_query_tag",
-                "oauth_config": {"oauth_config_variable": "cli_oauth_config_value"},
             },
             {  # yaml_kwargs
                 "root_folder": "yaml_root_folder",
@@ -334,7 +327,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "autocommit": True,
                 "dry_run": True,
                 "query_tag": "yaml_query_tag",
-                "oauth_config": {"oauth_config_variable": "yaml_oauth_config_value"},
             },
             {  # connection_kwargs
                 "snowflake_account": "connection_snowflake_account",
@@ -376,7 +368,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "autocommit": False,
                 "dry_run": False,
                 "query_tag": "cli_query_tag",
-                "oauth_config": {"oauth_config_variable": "cli_oauth_config_value"},
             },
             id="Deploy: all env, all cli, all yaml, all connection_kwargs",
         ),
@@ -486,8 +477,6 @@ param_full_cli_and_connection = pytest.param(
         "--dry-run",
         "--query-tag",
         "query-tag-from-cli",
-        "--oauth-config",
-        json.dumps({"oauth_config_variable": "cli_oauth_config_value"}),
     ],
     {  # expected
         "subcommand": "deploy",
@@ -514,7 +503,6 @@ param_full_cli_and_connection = pytest.param(
         "log_level": logging.INFO,
         "dry_run": True,
         "query_tag": "query-tag-from-cli",
-        "oauth_config": {"oauth_config_variable": "cli_oauth_config_value"},
         "connection_name": "myaltconnection",
         "connections_file_path": assets_path / "alt-connections.toml",
         "snowflake_password": alt_connection["password"],
@@ -558,7 +546,6 @@ param_full_yaml_no_connection = pytest.param(
                 "autocommit",
                 "dry_run",
                 "query_tag",
-                "oauth_config",
             ]
         },
     },
@@ -604,7 +591,6 @@ param_full_yaml_and_connection = pytest.param(
                 "autocommit",
                 "dry_run",
                 "query_tag",
-                "oauth_config",
                 "connection_name",
             ]
         },
@@ -655,8 +641,6 @@ param_full_yaml_and_connection_and_cli = pytest.param(
         "--dry-run",
         "--query-tag",
         "query-tag-from-cli",
-        "--oauth-config",
-        json.dumps({"oauth_config_variable": "cli_oauth_config_value"}),
     ],
     {  # expected
         "subcommand": "deploy",
@@ -684,7 +668,6 @@ param_full_yaml_and_connection_and_cli = pytest.param(
         "log_level": logging.INFO,
         "dry_run": True,
         "query_tag": "query-tag-from-cli",
-        "oauth_config": {"oauth_config_variable": "cli_oauth_config_value"},
         "connection_name": "myaltconnection",
         "connections_file_path": assets_path / "alt-connections.toml",
         "snowflake_password": alt_connection["password"],
@@ -741,8 +724,6 @@ param_full_yaml_and_connection_and_cli_and_env = pytest.param(
         "--dry-run",
         "--query-tag",
         "query-tag-from-cli",
-        "--oauth-config",
-        json.dumps({"oauth_config_variable": "cli_oauth_config_value"}),
     ],
     {  # expected
         "subcommand": "deploy",
@@ -771,7 +752,6 @@ param_full_yaml_and_connection_and_cli_and_env = pytest.param(
         "dry_run": True,
         "query_tag": "query-tag-from-cli",
         "snowflake_oauth_token": "env_snowflake_token",
-        "oauth_config": {"oauth_config_variable": "cli_oauth_config_value"},
         "connection_name": "myaltconnection",
         "connections_file_path": assets_path / "alt-connections.toml",
         "snowflake_password": "env_snowflake_password",
@@ -852,7 +832,6 @@ param_partial_yaml_and_connection = pytest.param(
                 "autocommit",
                 "dry_run",
                 "query_tag",
-                "oauth_config",
                 "connection_name",
             ]
         },

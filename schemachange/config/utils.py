@@ -5,9 +5,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-import json
 
-import requests
 import jinja2
 import jinja2.ext
 import structlog
@@ -220,23 +218,3 @@ def get_env_kwargs() -> dict[str, str]:
         "connection_name": os.getenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME"),
     }
     return {k: v for k, v in env_kwargs.items() if v is not None}
-
-
-def get_oauth_token(oauth_config: dict):
-    req_info = {
-        "url": oauth_config["token-provider-url"],
-        "headers": oauth_config["token-request-headers"],
-        "data": oauth_config["token-request-payload"],
-    }
-    token_name = oauth_config["token-response-name"]
-    response = requests.post(**req_info)
-    response_dict = json.loads(response.text)
-    try:
-        return response_dict[token_name]
-    except KeyError:
-        keys = ", ".join(response_dict.keys())
-        errormessage = f"Response Json contains keys: {keys} \n but not {token_name}"
-        # if there is an error passed with the response include that
-        if "error_description" in response_dict.keys():
-            errormessage = f"{errormessage}\n error description: {response_dict['error_description']}"
-        raise KeyError(errormessage)

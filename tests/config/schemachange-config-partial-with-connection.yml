@@ -12,15 +12,3 @@ autocommit: false
 verbose: false
 dry-run: false
 query-tag: 'query-tag-from-yaml'
-oauthconfig:
-  token-provider-url: 'token-provider-url-from-yaml'
-  token-response-name: 'token-response-name-from-yaml'
-  token-request-headers:
-    Content-Type: 'Content-Type-from-yaml'
-    User-Agent: 'User-Agent-from-yaml'
-  token-request-payload:
-    client_id: 'id-from-yaml'
-    username: 'username-from-yaml'
-    password: 'password-from-yaml'
-    grant_type: 'type-from-yaml'
-    scope: 'scope-from-yaml'

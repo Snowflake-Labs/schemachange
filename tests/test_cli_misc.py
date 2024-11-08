@@ -3,7 +3,6 @@ from dataclasses import asdict
 import pytest
 
 from schemachange.cli import SCHEMACHANGE_VERSION, SNOWFLAKE_APPLICATION_NAME
-from schemachange.config.BaseConfig import BaseConfig
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import get_snowflake_identifier_string
 from schemachange.deploy import alphanum_convert, get_alphanum_key, sorted_alphanumeric
