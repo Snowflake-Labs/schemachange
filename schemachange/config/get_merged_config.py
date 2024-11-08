@@ -99,8 +99,8 @@ def get_merged_config(
         "config_vars": config_vars,
         **{k: v for k, v in connection_kwargs.items() if v is not None},
         **{k: v for k, v in yaml_kwargs.items() if v is not None},
-        **{k: v for k, v in cli_kwargs.items() if v is not None},
         **{k: v for k, v in env_kwargs.items() if v is not None},
+        **{k: v for k, v in cli_kwargs.items() if v is not None},
     }
     if connections_file_path is not None:
         kwargs["connections_file_path"] = connections_file_path
