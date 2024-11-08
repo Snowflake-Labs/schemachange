@@ -361,8 +361,8 @@ deploy_all_env_all_cli = pytest.param(
         "snowflake_schema": get_snowflake_identifier_string(
             "snowflake-schema-from-cli", "placeholder"
         ),
-        "snowflake_authenticator": "snowflake_jwt",
-        "snowflake_private_key_path": assets_path / "alt_private_key.txt",
+        "snowflake_authenticator": "externalbrowser",
+        "snowflake_private_key_path": assets_path / "private_key.txt",
         "change_history_table": ChangeHistoryTable(
             database_name="db",
             schema_name="schema",

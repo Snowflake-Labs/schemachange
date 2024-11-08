@@ -44,8 +44,6 @@ def get_merged_config(
     env_kwargs: dict[str, str] = get_env_kwargs()
     logger.debug("env_kwargs", **env_kwargs)
 
-    connection_name = env_kwargs.pop("connection_name", None)
-
     cli_kwargs = parse_cli_args(sys.argv[1:])
     logger.debug("cli_kwargs", **cli_kwargs)
 
@@ -55,8 +53,9 @@ def get_merged_config(
         file_path=cli_kwargs.pop("connections_file_path", None)
     )
 
+    connection_name = cli_kwargs.pop("connection_name", None)
     if connection_name is None:
-        connection_name = cli_kwargs.pop("connection_name", None)
+        connection_name = env_kwargs.pop("connection_name", None)
 
     config_folder = validate_directory(path=cli_kwargs.pop("config_folder", "."))
     config_file_name = cli_kwargs.pop("config_file_name")
