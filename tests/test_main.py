@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import os
-import tomlkit
 import tempfile
 import unittest.mock as mock
 from dataclasses import asdict
@@ -17,20 +16,9 @@ from schemachange.config.utils import get_snowflake_identifier_string
 
 assets_path = Path(__file__).parent / "config"
 
-
-def get_connection_from_toml(file_path: Path, connection_name: str) -> dict:
-    with file_path.open("rb") as f:
-        connections = tomlkit.load(f)
-        return connections[connection_name]
-
-
-alt_connection = get_connection_from_toml(
-    file_path=assets_path / "alt-connections.toml",
-    connection_name="myaltconnection",
-)
 default_base_config = {
     # Shared configuration options
-    "config_file_path": Path(".") / "schemachange-config.yml",
+    "config_file_path": assets_path / "schemachange-config.yml",
     "root_folder": Path("."),
     "modules_folder": None,
     "config_vars": {},
@@ -45,10 +33,6 @@ default_deploy_config = {
     "snowflake_warehouse": None,
     "snowflake_database": None,
     "snowflake_schema": None,
-    "snowflake_authenticator": "snowflake",
-    "snowflake_password": None,
-    "snowflake_oauth_token": None,
-    "snowflake_private_key_path": None,
     "connections_file_path": None,
     "connection_name": None,
     "change_history_table": ChangeHistoryTable(
@@ -63,6 +47,8 @@ default_deploy_config = {
 }
 
 required_args = [
+    "--config-folder",
+    str(assets_path),
     "--snowflake-account",
     "account",
     "--snowflake-user",
@@ -74,17 +60,16 @@ required_args = [
 ]
 
 required_config = {
+    "config_file_path": assets_path / "schemachange-config.yml",
     "snowflake_account": "account",
     "snowflake_user": "user",
     "snowflake_warehouse": "warehouse",
     "snowflake_role": "role",
-    "snowflake_password": "password",
 }
 script_path = Path(__file__).parent.parent / "demo" / "basics_demo" / "A__basic001.sql"
 
 no_command = pytest.param(
     "schemachange.cli.deploy",
-    {"SNOWFLAKE_PASSWORD": "password"},
     ["schemachange", *required_args],
     {**default_deploy_config, **required_config},
     None,
@@ -93,7 +78,6 @@ no_command = pytest.param(
 
 deploy_only_required = pytest.param(
     "schemachange.cli.deploy",
-    {"SNOWFLAKE_PASSWORD": "password"},
     ["schemachange", "deploy", *required_args],
     {**default_deploy_config, **required_config},
     None,
@@ -102,7 +86,6 @@ deploy_only_required = pytest.param(
 
 deploy_all_cli_arg_names = pytest.param(
     "schemachange.cli.deploy",
-    {},
     [
         "schemachange",
         "deploy",
@@ -129,12 +112,6 @@ deploy_all_cli_arg_names = pytest.param(
         "snowflake-database-from-cli",
         "--snowflake-schema",
         "snowflake-schema-from-cli",
-        "--snowflake-authenticator",
-        "externalbrowser",
-        "--snowflake-private-key-path",
-        str(assets_path / "private_key.txt"),
-        "--snowflake-token-path",
-        str(assets_path / "oauth_token_path.txt"),
         "--connections-file-path",
         str(assets_path / "alt-connections.toml"),
         "--connection-name",
@@ -167,8 +144,6 @@ deploy_all_cli_arg_names = pytest.param(
         "snowflake_schema": get_snowflake_identifier_string(
             "snowflake-schema-from-cli", "placeholder"
         ),
-        "snowflake_authenticator": "externalbrowser",
-        "snowflake_private_key_path": assets_path / "private_key.txt",
         "change_history_table": ChangeHistoryTable(
             database_name="db",
             schema_name="schema",
@@ -185,7 +160,6 @@ deploy_all_cli_arg_names = pytest.param(
         "query_tag": "query-tag-from-cli",
         "connection_name": "myaltconnection",
         "connections_file_path": assets_path / "alt-connections.toml",
-        "snowflake_password": alt_connection["password"],
     },
     None,
     id="deploy: all cli argument names",
@@ -193,7 +167,6 @@ deploy_all_cli_arg_names = pytest.param(
 
 deploy_all_cli_arg_flags = pytest.param(
     "schemachange.cli.deploy",
-    {},
     [
         "schemachange",
         "deploy",
@@ -220,12 +193,6 @@ deploy_all_cli_arg_flags = pytest.param(
         "snowflake-database-from-cli",
         "-s",
         "snowflake-schema-from-cli",
-        "-A",
-        "externalbrowser",
-        "-k",
-        str(assets_path / "private_key.txt"),
-        "-t",
-        str(assets_path / "oauth_token_path.txt"),
         "--connections-file-path",
         str(assets_path / "alt-connections.toml"),
         "--connection-name",
@@ -258,8 +225,6 @@ deploy_all_cli_arg_flags = pytest.param(
         "snowflake_schema": get_snowflake_identifier_string(
             "snowflake-schema-from-cli", "placeholder"
         ),
-        "snowflake_authenticator": "externalbrowser",
-        "snowflake_private_key_path": assets_path / "private_key.txt",
         "change_history_table": ChangeHistoryTable(
             database_name="db",
             schema_name="schema",
@@ -276,7 +241,6 @@ deploy_all_cli_arg_flags = pytest.param(
         "query_tag": "query-tag-from-cli",
         "connection_name": "myaltconnection",
         "connections_file_path": assets_path / "alt-connections.toml",
-        "snowflake_password": alt_connection["password"],
     },
     None,
     id="deploy: all cli argument flags",
@@ -284,12 +248,6 @@ deploy_all_cli_arg_flags = pytest.param(
 
 deploy_all_env_all_cli = pytest.param(
     "schemachange.cli.deploy",
-    {
-        "SNOWFLAKE_PASSWORD": "env_snowflake_password",
-        "SNOWFLAKE_PRIVATE_KEY_PATH": str(assets_path / "alt_private_key.txt"),
-        "SNOWFLAKE_AUTHENTICATOR": "snowflake_jwt",
-        "SNOWFLAKE_TOKEN": "env_snowflake_oauth_token",
-    },
     [
         "schemachange",
         "deploy",
@@ -316,12 +274,6 @@ deploy_all_env_all_cli = pytest.param(
         "snowflake-database-from-cli",
         "--snowflake-schema",
         "snowflake-schema-from-cli",
-        "--snowflake-authenticator",
-        "externalbrowser",
-        "--snowflake-private-key-path",
-        str(assets_path / "private_key.txt"),
-        "--snowflake-token-path",
-        str(assets_path / "oauth_token_path.txt"),
         "--connections-file-path",
         str(assets_path / "alt-connections.toml"),
         "--connection-name",
@@ -354,8 +306,6 @@ deploy_all_env_all_cli = pytest.param(
         "snowflake_schema": get_snowflake_identifier_string(
             "snowflake-schema-from-cli", "placeholder"
         ),
-        "snowflake_authenticator": "externalbrowser",
-        "snowflake_private_key_path": assets_path / "private_key.txt",
         "change_history_table": ChangeHistoryTable(
             database_name="db",
             schema_name="schema",
@@ -372,7 +322,6 @@ deploy_all_env_all_cli = pytest.param(
         "query_tag": "query-tag-from-cli",
         "connection_name": "myaltconnection",
         "connections_file_path": assets_path / "alt-connections.toml",
-        "snowflake_password": "env_snowflake_password",
     },
     None,
     id="deploy: all env_vars and all cli argument names",
@@ -380,15 +329,10 @@ deploy_all_env_all_cli = pytest.param(
 
 deploy_snowflake_oauth_env_var = pytest.param(
     "schemachange.cli.deploy",
-    {"SNOWFLAKE_TOKEN": "env_snowflake_oauth_token"},
     [
         "schemachange",
         "deploy",
         *required_args,
-        "--snowflake-authenticator",
-        "oauth",
-        "--snowflake-token-path",
-        str(assets_path / "oauth_token_path.txt"),
     ],
     {
         **default_deploy_config,
@@ -396,8 +340,6 @@ deploy_snowflake_oauth_env_var = pytest.param(
         "snowflake_user": "user",
         "snowflake_warehouse": "warehouse",
         "snowflake_role": "role",
-        "snowflake_authenticator": "oauth",
-        "snowflake_oauth_token": "env_snowflake_oauth_token",
     },
     None,
     id="deploy: oauth env var",
@@ -405,15 +347,10 @@ deploy_snowflake_oauth_env_var = pytest.param(
 
 deploy_snowflake_oauth_file = pytest.param(
     "schemachange.cli.deploy",
-    {},
     [
         "schemachange",
         "deploy",
         *required_args,
-        "--snowflake-authenticator",
-        "oauth",
-        "--snowflake-token-path",
-        str(assets_path / "oauth_token_path.txt"),
     ],
     {
         **default_deploy_config,
@@ -421,8 +358,6 @@ deploy_snowflake_oauth_file = pytest.param(
         "snowflake_user": "user",
         "snowflake_warehouse": "warehouse",
         "snowflake_role": "role",
-        "snowflake_authenticator": "oauth",
-        "snowflake_oauth_token": "my-oauth-token\n",
     },
     None,
     id="deploy: oauth file",
@@ -430,11 +365,12 @@ deploy_snowflake_oauth_file = pytest.param(
 
 render_only_required = pytest.param(
     "schemachange.cli.render",
-    {},
     [
         "schemachange",
         "render",
         str(script_path),
+        "--config-folder",
+        str(assets_path),
     ],
     {**default_base_config},
     script_path,
@@ -443,7 +379,6 @@ render_only_required = pytest.param(
 
 render_all_cli_arg_names = pytest.param(
     "schemachange.cli.render",
-    {},
     [
         "schemachange",
         "render",
@@ -453,6 +388,8 @@ render_all_cli_arg_names = pytest.param(
         '{"var1": "val"}',
         "--verbose",
         str(script_path),
+        "--config-folder",
+        str(assets_path),
     ],
     {
         **default_base_config,
@@ -466,7 +403,7 @@ render_all_cli_arg_names = pytest.param(
 
 
 @pytest.mark.parametrize(
-    "to_mock, env_vars, cli_args, expected_config, expected_script_path",
+    "to_mock, cli_args, expected_config, expected_script_path",
     [
         no_command,
         deploy_only_required,
@@ -479,29 +416,29 @@ render_all_cli_arg_names = pytest.param(
         render_all_cli_arg_names,
     ],
 )
+@mock.patch("pathlib.Path.is_file", return_value=True)
 @mock.patch("schemachange.session.SnowflakeSession.snowflake.connector.connect")
 def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
     _,
+    __,
     to_mock: str,
-    env_vars: dict[str, str],
     cli_args: list[str],
     expected_config: dict,
     expected_script_path: Path | None,
 ):
-    with mock.patch.dict(os.environ, env_vars, clear=True):
-        with mock.patch("sys.argv", cli_args):
-            with mock.patch(to_mock) as mock_command:
-                cli.main()
-                mock_command.assert_called_once()
-                _, call_kwargs = mock_command.call_args
-                for expected_arg, expected_value in expected_config.items():
-                    actual_value = getattr(call_kwargs["config"], expected_arg)
-                    if hasattr(actual_value, "table_name"):
-                        assert asdict(actual_value) == asdict(expected_value)
-                    else:
-                        assert actual_value == expected_value
-                if expected_script_path is not None:
-                    assert call_kwargs["script_path"] == expected_script_path
+    with mock.patch("sys.argv", cli_args):
+        with mock.patch(to_mock) as mock_command:
+            cli.main()
+            mock_command.assert_called_once()
+            _, call_kwargs = mock_command.call_args
+            for expected_arg, expected_value in expected_config.items():
+                actual_value = getattr(call_kwargs["config"], expected_arg)
+                if hasattr(actual_value, "table_name"):
+                    assert asdict(actual_value) == asdict(expected_value)
+                else:
+                    assert actual_value == expected_value
+            if expected_script_path is not None:
+                assert call_kwargs["script_path"] == expected_script_path
 
 
 @pytest.mark.parametrize(
@@ -521,7 +458,6 @@ def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
                 "snowflake_warehouse": "warehouse",
                 "snowflake_role": "role",
                 "snowflake_account": "account",
-                "snowflake_password": "password",
             },
             None,
         ),
@@ -547,37 +483,36 @@ def test_main_deploy_config_folder(
     expected_config: dict,
     expected_script_path: Path | None,
 ):
-    with mock.patch.dict(os.environ, {"SNOWFLAKE_PASSWORD": "password"}, clear=True):
-        with tempfile.TemporaryDirectory() as d:
-            with open(os.path.join(d, "schemachange-config.yml"), "w") as f:
-                f.write(
-                    dedent(
-                        """
-                        snowflake_account: account
-                        snowflake_user: user
-                        snowflake_warehouse: warehouse
-                        snowflake_role: role
-                        """
-                    )
+    with tempfile.TemporaryDirectory() as d:
+        with open(os.path.join(d, "schemachange-config.yml"), "w") as f:
+            f.write(
+                dedent(
+                    """
+                    snowflake_account: account
+                    snowflake_user: user
+                    snowflake_warehouse: warehouse
+                    snowflake_role: role
+                    """
                 )
+            )
 
-            # noinspection PyTypeChecker
-            args[args.index("DUMMY")] = d
-            expected_config["config_file_path"] = Path(d) / "schemachange-config.yml"
+        # noinspection PyTypeChecker
+        args[args.index("DUMMY")] = d
+        expected_config["config_file_path"] = Path(d) / "schemachange-config.yml"
 
-            with mock.patch(to_mock) as mock_command:
-                with mock.patch("sys.argv", args):
-                    cli.main()
-                    mock_command.assert_called_once()
-                    _, call_kwargs = mock_command.call_args
-                    for expected_arg, expected_value in expected_config.items():
-                        actual_value = getattr(call_kwargs["config"], expected_arg)
-                        if hasattr(actual_value, "table_name"):
-                            assert asdict(actual_value) == asdict(expected_value)
-                        else:
-                            assert actual_value == expected_value
-                    if expected_script_path is not None:
-                        assert call_kwargs["script_path"] == expected_script_path
+        with mock.patch(to_mock) as mock_command:
+            with mock.patch("sys.argv", args):
+                cli.main()
+                mock_command.assert_called_once()
+                _, call_kwargs = mock_command.call_args
+                for expected_arg, expected_value in expected_config.items():
+                    actual_value = getattr(call_kwargs["config"], expected_arg)
+                    if hasattr(actual_value, "table_name"):
+                        assert asdict(actual_value) == asdict(expected_value)
+                    else:
+                        assert actual_value == expected_value
+                if expected_script_path is not None:
+                    assert call_kwargs["script_path"] == expected_script_path
 
 
 @pytest.mark.parametrize(
@@ -597,6 +532,8 @@ def test_main_deploy_config_folder(
                 str(script_path),
                 "--modules-folder",
                 "DUMMY",
+                "--config-folder",
+                str(assets_path),
             ],
             {**default_base_config, "modules_folder": "DUMMY"},
             script_path,
@@ -611,22 +548,21 @@ def test_main_deploy_modules_folder(
     expected_config: dict,
     expected_script_path: Path | None,
 ):
-    with mock.patch.dict(os.environ, {"SNOWFLAKE_PASSWORD": "password"}, clear=True):
-        with tempfile.TemporaryDirectory() as d:
-            # noinspection PyTypeChecker
-            args[args.index("DUMMY")] = d
-            expected_config["modules_folder"] = Path(d)
+    with tempfile.TemporaryDirectory() as d:
+        # noinspection PyTypeChecker
+        args[args.index("DUMMY")] = d
+        expected_config["modules_folder"] = Path(d)
 
-            with mock.patch(to_mock) as mock_command:
-                with mock.patch("sys.argv", args):
-                    cli.main()
-                    mock_command.assert_called_once()
-                    _, call_kwargs = mock_command.call_args
-                    for expected_arg, expected_value in expected_config.items():
-                        actual_value = getattr(call_kwargs["config"], expected_arg)
-                        if hasattr(actual_value, "table_name"):
-                            assert asdict(actual_value) == asdict(expected_value)
-                        else:
-                            assert actual_value == expected_value
-                    if expected_script_path is not None:
-                        assert call_kwargs["script_path"] == expected_script_path
+        with mock.patch(to_mock) as mock_command:
+            with mock.patch("sys.argv", args):
+                cli.main()
+                mock_command.assert_called_once()
+                _, call_kwargs = mock_command.call_args
+                for expected_arg, expected_value in expected_config.items():
+                    actual_value = getattr(call_kwargs["config"], expected_arg)
+                    if hasattr(actual_value, "table_name"):
+                        assert asdict(actual_value) == asdict(expected_value)
+                    else:
+                        assert actual_value == expected_value
+                if expected_script_path is not None:
+                    assert call_kwargs["script_path"] == expected_script_path

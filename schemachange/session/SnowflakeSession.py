@@ -47,7 +47,6 @@ class SnowflakeSession:
         autocommit: bool = False,
         **kwargs,  # TODO: Remove when connections.toml is enforced
     ):
-
         self.change_history_table = change_history_table
         self.autocommit = autocommit
         self.logger = logger

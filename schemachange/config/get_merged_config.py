@@ -11,8 +11,6 @@ from schemachange.config.parse_cli_args import parse_cli_args
 from schemachange.config.utils import (
     load_yaml_config,
     validate_directory,
-    get_env_kwargs,
-    get_connection_kwargs,
     validate_file_path,
 )
 
@@ -31,15 +29,25 @@ def get_yaml_config_kwargs(config_file_path: Optional[Path]) -> dict:
     if "vars" in kwargs:
         kwargs["config_vars"] = kwargs.pop("vars")
 
+    for deprecated_arg in [
+        "snowflake_account",
+        "snowflake_user",
+        "snowflake_role",
+        "snowflake_warehouse",
+        "snowflake_database",
+        "snowflake_schema",
+    ]:
+        if deprecated_arg in kwargs:
+            sys.stderr.write(
+                f"DEPRECATED - Set in connections.toml instead: {deprecated_arg}\n"
+            )
+
     return {k: v for k, v in kwargs.items() if v is not None}
 
 
 def get_merged_config(
     logger: structlog.BoundLogger,
 ) -> Union[DeployConfig, RenderConfig]:
-    env_kwargs: dict[str, str] = get_env_kwargs()
-    logger.debug("env_kwargs", **env_kwargs)
-
     cli_kwargs = parse_cli_args(sys.argv[1:])
     logger.debug("cli_kwargs", **cli_kwargs)
 
@@ -50,8 +58,6 @@ def get_merged_config(
     )
 
     connection_name = cli_kwargs.pop("connection_name", None)
-    if connection_name is None:
-        connection_name = env_kwargs.pop("connection_name", None)
 
     config_folder = validate_directory(path=cli_kwargs.pop("config_folder", "."))
     config_file_name = cli_kwargs.pop("config_file_name")
@@ -77,12 +83,6 @@ def get_merged_config(
     if connection_name is None:
         connection_name = yaml_kwargs.pop("connection_name", None)
 
-    connection_kwargs: dict[str, str] = get_connection_kwargs(
-        connections_file_path=connections_file_path,
-        connection_name=connection_name,
-    )
-    logger.debug("connection_kwargs", **connection_kwargs)
-
     config_vars = {
         **yaml_config_vars,
         **cli_config_vars,
@@ -92,9 +92,7 @@ def get_merged_config(
     kwargs = {
         "config_file_path": config_file_path,
         "config_vars": config_vars,
-        **{k: v for k, v in connection_kwargs.items() if v is not None},
         **{k: v for k, v in yaml_kwargs.items() if v is not None},
-        **{k: v for k, v in env_kwargs.items() if v is not None},
         **{k: v for k, v in cli_kwargs.items() if v is not None},
     }
     if connections_file_path is not None:

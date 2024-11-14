@@ -10,7 +10,6 @@ import jinja2
 import jinja2.ext
 import structlog
 import yaml
-from snowflake.connector.config_manager import CONFIG_MANAGER
 from schemachange.JinjaEnvVar import JinjaEnvVar
 import warnings
 
@@ -133,51 +132,6 @@ def load_yaml_config(config_file_path: Path | None) -> dict[str, Any]:
     return config
 
 
-def set_connections_toml_path(connections_file_path: Path) -> None:
-    # Change config file path and force update cache
-    # noinspection PyProtectedMember
-    for i, s in enumerate(CONFIG_MANAGER._slices):
-        if s.section == "connections":
-            # noinspection PyProtectedMember
-            CONFIG_MANAGER._slices[i] = s._replace(path=connections_file_path)
-            CONFIG_MANAGER.read_config()
-            break
-
-
-def get_connection_kwargs(
-    connections_file_path: Path | None = None, connection_name: str | None = None
-) -> dict:
-    if connections_file_path is not None:
-        connections_file_path = validate_file_path(file_path=connections_file_path)
-        set_connections_toml_path(connections_file_path=connections_file_path)
-
-    if connection_name is None:
-        return {}
-
-    connections = CONFIG_MANAGER["connections"]
-    connection = connections.get(connection_name)
-    if connection is None:
-        raise Exception(
-            f"Invalid connection_name '{connection_name}',"
-            f" known ones are {list(connections.keys())}"
-        )
-
-    connection_kwargs = {
-        "snowflake_account": connection.get("account"),
-        "snowflake_user": connection.get("user"),
-        "snowflake_role": connection.get("role"),
-        "snowflake_warehouse": connection.get("warehouse"),
-        "snowflake_database": connection.get("database"),
-        "snowflake_schema": connection.get("schema"),
-        "snowflake_authenticator": connection.get("authenticator"),
-        "snowflake_password": connection.get("password"),
-        "snowflake_private_key_path": connection.get("private-key"),
-        "snowflake_token_path": connection.get("token_file_path"),
-    }
-
-    return {k: v for k, v in connection_kwargs.items() if v is not None}
-
-
 def get_snowsql_pwd() -> str | None:
     snowsql_pwd = os.getenv("SNOWSQL_PWD")
     if snowsql_pwd is not None and snowsql_pwd:
@@ -207,14 +161,3 @@ def get_snowflake_password() -> str | None:
         return snowsql_pwd
     else:
         return None
-
-
-def get_env_kwargs() -> dict[str, str]:
-    env_kwargs = {
-        "snowflake_password": get_snowflake_password(),
-        "snowflake_private_key_path": os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH"),
-        "snowflake_authenticator": os.getenv("SNOWFLAKE_AUTHENTICATOR"),
-        "snowflake_oauth_token": os.getenv("SNOWFLAKE_TOKEN"),
-        "connection_name": os.getenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME"),
-    }
-    return {k: v for k, v in env_kwargs.items() if v is not None}

@@ -1,8 +1,6 @@
 import logging
-import os
 
 import structlog
-import tomlkit
 from pathlib import Path
 from unittest import mock
 
@@ -21,22 +19,6 @@ default_cli_kwargs = {
 
 assets_path = Path(__file__).parent
 
-
-def get_connection_from_toml(file_path: Path, connection_name: str) -> dict:
-    with file_path.open("rb") as f:
-        connections = tomlkit.load(f)
-        return connections[connection_name]
-
-
-my_connection = get_connection_from_toml(
-    file_path=assets_path / "connections.toml", connection_name="myconnection"
-)
-
-alt_connection = get_connection_from_toml(
-    file_path=assets_path / "alt-connections.toml",
-    connection_name="myaltconnection",
-)
-
 schemachange_config = get_yaml_config_kwargs(assets_path / "schemachange-config.yml")
 schemachange_config_full = get_yaml_config_kwargs(
     assets_path / "schemachange-config-full.yml"
@@ -50,13 +32,11 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
 
 
 @pytest.mark.parametrize(
-    "env_kwargs, cli_kwargs, yaml_kwargs, connection_kwargs, expected",
+    "cli_kwargs, yaml_kwargs, expected",
     [
         pytest.param(
-            {},  # env_kwargs
             {**default_cli_kwargs},  # cli_kwargs
             {},  # yaml_kwargs
-            {},  # connection_kwargs
             {  # expected
                 "config_file_path": Path("schemachange-config.yml"),
                 "config_vars": {},
@@ -65,41 +45,16 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
             id="Deploy: Only required arguments",
         ),
         pytest.param(
-            {},  # env_kwargs
             {**default_cli_kwargs},  # cli_kwargs
             {},  # yaml_kwargs
-            {  # connection_kwargs
-                "snowflake_account": "connection_snowflake_account",
-                "snowflake_user": "connection_snowflake_user",
-                "snowflake_role": "connection_snowflake_role",
-                "snowflake_warehouse": "connection_snowflake_warehouse",
-                "snowflake_database": "connection_snowflake_database",
-                "snowflake_schema": "connection_snowflake_schema",
-                "snowflake_authenticator": "connection_snowflake_authenticator",
-                "snowflake_password": "connection_snowflake_password",
-                "snowflake_private_key_path": "connection_snowflake_private_key_path",
-                "snowflake_token_path": "connection_snowflake_token_path",
-            },
             {  # expected
-                "log_level": logging.INFO,
                 "config_file_path": Path("schemachange-config.yml"),
                 "config_vars": {},
                 "subcommand": "deploy",
-                "snowflake_account": "connection_snowflake_account",
-                "snowflake_user": "connection_snowflake_user",
-                "snowflake_role": "connection_snowflake_role",
-                "snowflake_warehouse": "connection_snowflake_warehouse",
-                "snowflake_database": "connection_snowflake_database",
-                "snowflake_schema": "connection_snowflake_schema",
-                "snowflake_authenticator": "connection_snowflake_authenticator",
-                "snowflake_password": "connection_snowflake_password",
-                "snowflake_private_key_path": "connection_snowflake_private_key_path",
-                "snowflake_token_path": "connection_snowflake_token_path",
             },
             id="Deploy: all connection_kwargs",
         ),
         pytest.param(
-            {},  # env_kwargs
             {**default_cli_kwargs},  # cli_kwargs
             {  # yaml_kwargs
                 "root_folder": "yaml_root_folder",
@@ -116,9 +71,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "snowflake_warehouse": "yaml_snowflake_warehouse",
                 "snowflake_database": "yaml_snowflake_database",
                 "snowflake_schema": "yaml_snowflake_schema",
-                "snowflake_authenticator": "yaml_snowflake_authenticator",
-                "snowflake_private_key_path": "yaml_snowflake_private_key_path",
-                "snowflake_token_path": "yaml_snowflake_token_path",
                 "connections_file_path": "yaml_connections_file_path",
                 "connection_name": "yaml_connection_name",
                 "change_history_table": "yaml_change_history_table",
@@ -126,18 +78,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "autocommit": True,
                 "dry_run": True,
                 "query_tag": "yaml_query_tag",
-            },
-            {  # connection_kwargs
-                "snowflake_account": "connection_snowflake_account",
-                "snowflake_user": "connection_snowflake_user",
-                "snowflake_role": "connection_snowflake_role",
-                "snowflake_warehouse": "connection_snowflake_warehouse",
-                "snowflake_database": "connection_snowflake_database",
-                "snowflake_schema": "connection_snowflake_schema",
-                "snowflake_authenticator": "connection_snowflake_authenticator",
-                "snowflake_password": "connection_snowflake_password",
-                "snowflake_private_key_path": "connection_snowflake_private_key_path",
-                "snowflake_token_path": "connection_snowflake_token_path",
             },
             {  # expected
                 "log_level": logging.DEBUG,
@@ -156,10 +96,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "snowflake_warehouse": "yaml_snowflake_warehouse",
                 "snowflake_database": "yaml_snowflake_database",
                 "snowflake_schema": "yaml_snowflake_schema",
-                "snowflake_authenticator": "yaml_snowflake_authenticator",
-                "snowflake_password": "connection_snowflake_password",
-                "snowflake_private_key_path": "yaml_snowflake_private_key_path",
-                "snowflake_token_path": "yaml_snowflake_token_path",
                 "connections_file_path": Path("yaml_connections_file_path"),
                 "connection_name": "yaml_connection_name",
                 "change_history_table": "yaml_change_history_table",
@@ -171,7 +107,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
             id="Deploy: all yaml, all connection_kwargs",
         ),
         pytest.param(
-            {},  # env_kwargs
             {  # cli_kwargs
                 **default_cli_kwargs,
                 "config_folder": "cli_config_folder",
@@ -188,9 +123,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "snowflake_warehouse": "cli_snowflake_warehouse",
                 "snowflake_database": "cli_snowflake_database",
                 "snowflake_schema": "cli_snowflake_schema",
-                "snowflake_authenticator": "cli_snowflake_authenticator",
-                "snowflake_private_key_path": "cli_snowflake_private_key_path",
-                "snowflake_token_path": "cli_snowflake_token_path",
                 "connections_file_path": "cli_connections_file_path",
                 "connection_name": "cli_connection_name",
                 "change_history_table": "cli_change_history_table",
@@ -214,9 +146,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "snowflake_warehouse": "yaml_snowflake_warehouse",
                 "snowflake_database": "yaml_snowflake_database",
                 "snowflake_schema": "yaml_snowflake_schema",
-                "snowflake_authenticator": "yaml_snowflake_authenticator",
-                "snowflake_private_key_path": "yaml_snowflake_private_key_path",
-                "snowflake_token_path": "yaml_snowflake_token_path",
                 "connections_file_path": "yaml_connections_file_path",
                 "connection_name": "yaml_connection_name",
                 "change_history_table": "yaml_change_history_table",
@@ -224,18 +153,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "autocommit": True,
                 "dry_run": True,
                 "query_tag": "yaml_query_tag",
-            },
-            {  # connection_kwargs
-                "snowflake_account": "connection_snowflake_account",
-                "snowflake_user": "connection_snowflake_user",
-                "snowflake_role": "connection_snowflake_role",
-                "snowflake_warehouse": "connection_snowflake_warehouse",
-                "snowflake_database": "connection_snowflake_database",
-                "snowflake_schema": "connection_snowflake_schema",
-                "snowflake_authenticator": "connection_snowflake_authenticator",
-                "snowflake_password": "connection_snowflake_password",
-                "snowflake_private_key_path": "connection_snowflake_private_key_path",
-                "snowflake_token_path": "connection_snowflake_token_path",
             },
             {  # expected
                 "log_level": logging.INFO,
@@ -254,10 +171,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "snowflake_warehouse": "cli_snowflake_warehouse",
                 "snowflake_database": "cli_snowflake_database",
                 "snowflake_schema": "cli_snowflake_schema",
-                "snowflake_authenticator": "cli_snowflake_authenticator",
-                "snowflake_password": "connection_snowflake_password",
-                "snowflake_private_key_path": "cli_snowflake_private_key_path",
-                "snowflake_token_path": "cli_snowflake_token_path",
                 "connections_file_path": Path("cli_connections_file_path"),
                 "connection_name": "cli_connection_name",
                 "change_history_table": "cli_change_history_table",
@@ -269,12 +182,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
             id="Deploy: all cli, all yaml, all connection_kwargs",
         ),
         pytest.param(
-            {  # env_kwargs
-                "snowflake_password": "env_snowflake_password",
-                "snowflake_private_key_path": "env_snowflake_private_key_path",
-                "snowflake_authenticator": "env_snowflake_authenticator",
-                "connection_name": "env_connection_name",
-            },
             {  # cli_kwargs
                 **default_cli_kwargs,
                 "config_folder": "cli_config_folder",
@@ -291,9 +198,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "snowflake_warehouse": "cli_snowflake_warehouse",
                 "snowflake_database": "cli_snowflake_database",
                 "snowflake_schema": "cli_snowflake_schema",
-                "snowflake_authenticator": "cli_snowflake_authenticator",
-                "snowflake_private_key_path": "cli_snowflake_private_key_path",
-                "snowflake_token_path": "cli_snowflake_token_path",
                 "connections_file_path": "cli_connections_file_path",
                 "connection_name": "cli_connection_name",
                 "change_history_table": "cli_change_history_table",
@@ -317,9 +221,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "snowflake_warehouse": "yaml_snowflake_warehouse",
                 "snowflake_database": "yaml_snowflake_database",
                 "snowflake_schema": "yaml_snowflake_schema",
-                "snowflake_authenticator": "yaml_snowflake_authenticator",
-                "snowflake_private_key_path": "yaml_snowflake_private_key_path",
-                "snowflake_token_path": "yaml_snowflake_token_path",
                 "connections_file_path": "yaml_connections_file_path",
                 "connection_name": "yaml_connection_name",
                 "change_history_table": "yaml_change_history_table",
@@ -327,18 +228,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "autocommit": True,
                 "dry_run": True,
                 "query_tag": "yaml_query_tag",
-            },
-            {  # connection_kwargs
-                "snowflake_account": "connection_snowflake_account",
-                "snowflake_user": "connection_snowflake_user",
-                "snowflake_role": "connection_snowflake_role",
-                "snowflake_warehouse": "connection_snowflake_warehouse",
-                "snowflake_database": "connection_snowflake_database",
-                "snowflake_schema": "connection_snowflake_schema",
-                "snowflake_authenticator": "connection_snowflake_authenticator",
-                "snowflake_password": "connection_snowflake_password",
-                "snowflake_private_key_path": "connection_snowflake_private_key_path",
-                "snowflake_token_path": "connection_snowflake_token_path",
             },
             {  # expected
                 "log_level": logging.INFO,
@@ -357,10 +246,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "snowflake_warehouse": "cli_snowflake_warehouse",
                 "snowflake_database": "cli_snowflake_database",
                 "snowflake_schema": "cli_snowflake_schema",
-                "snowflake_authenticator": "cli_snowflake_authenticator",
-                "snowflake_password": "env_snowflake_password",
-                "snowflake_private_key_path": "cli_snowflake_private_key_path",
-                "snowflake_token_path": "cli_snowflake_token_path",
                 "connections_file_path": Path("cli_connections_file_path"),
                 "connection_name": "cli_connection_name",
                 "change_history_table": "cli_change_history_table",
@@ -375,35 +260,29 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
 )
 @mock.patch("pathlib.Path.is_dir", return_value=True)
 @mock.patch("pathlib.Path.is_file", return_value=True)
-@mock.patch("schemachange.config.get_merged_config.get_env_kwargs")
 @mock.patch("schemachange.config.get_merged_config.parse_cli_args")
 @mock.patch("schemachange.config.get_merged_config.get_yaml_config_kwargs")
-@mock.patch("schemachange.config.get_merged_config.get_connection_kwargs")
 @mock.patch("schemachange.config.get_merged_config.DeployConfig.factory")
 def test_get_merged_config_inheritance(
     mock_deploy_config_factory,
-    mock_get_connection_kwargs,
     mock_get_yaml_config_kwargs,
     mock_parse_cli_args,
-    mock_get_env_kwargs,
     _,
     __,
-    env_kwargs,
     cli_kwargs,
     yaml_kwargs,
-    connection_kwargs,
     expected,
 ):
-    mock_get_env_kwargs.return_value = {**env_kwargs}
     mock_parse_cli_args.return_value = {**cli_kwargs}
     mock_get_yaml_config_kwargs.return_value = {**yaml_kwargs}
-    mock_get_connection_kwargs.return_value = {**connection_kwargs}
     logger = structlog.testing.CapturingLogger()
     # noinspection PyTypeChecker
     get_merged_config(logger=logger)
     factory_kwargs = mock_deploy_config_factory.call_args.kwargs
     for actual_key, actual_value in factory_kwargs.items():
         assert expected[actual_key] == actual_value
+        del expected[actual_key]
+    assert len(expected.keys()) == 0
 
 
 @mock.patch("pathlib.Path.is_dir", return_value=False)
@@ -424,13 +303,14 @@ def test_invalid_config_folder(mock_parse_cli_args, _):
 
 
 param_only_required_cli_arguments = pytest.param(
-    {},  # env_kwargs
     [  # cli_args
         "schemachange",
+        "--config-folder",
+        str(assets_path),
     ],
     {  # expected
         "subcommand": "deploy",
-        "config_file_path": Path("schemachange-config.yml"),
+        "config_file_path": assets_path / "schemachange-config.yml",
         "config_version": 1,
         "config_vars": {},
         "log_level": logging.INFO,
@@ -439,9 +319,10 @@ param_only_required_cli_arguments = pytest.param(
 )
 
 param_full_cli_and_connection = pytest.param(
-    {},  # env_kwargs
     [  # cli_args
         "schemachange",
+        "--config-folder",
+        str(assets_path),
         "--root-folder",
         "root-folder-from-cli",
         "--modules-folder",
@@ -460,12 +341,6 @@ param_full_cli_and_connection = pytest.param(
         "snowflake-database-from-cli",
         "--snowflake-schema",
         "snowflake-schema-from-cli",
-        "--snowflake-authenticator",
-        "snowflake-authenticator-from-cli",
-        "--snowflake-private-key-path",
-        "snowflake-private-key-path-from-cli",
-        "--snowflake-token-path",
-        "snowflake-token-path-from-cli",
         "--connections-file-path",
         str(assets_path / "alt-connections.toml"),
         "--connection-name",
@@ -480,7 +355,7 @@ param_full_cli_and_connection = pytest.param(
     ],
     {  # expected
         "subcommand": "deploy",
-        "config_file_path": Path("schemachange-config.yml"),
+        "config_file_path": assets_path / "schemachange-config.yml",
         "config_version": 1,
         "root_folder": "root-folder-from-cli",
         "modules_folder": "modules-folder-from-cli",
@@ -490,9 +365,6 @@ param_full_cli_and_connection = pytest.param(
         "snowflake_warehouse": "snowflake-warehouse-from-cli",
         "snowflake_database": "snowflake-database-from-cli",
         "snowflake_schema": "snowflake-schema-from-cli",
-        "snowflake_authenticator": "snowflake-authenticator-from-cli",
-        "snowflake_private_key_path": "snowflake-private-key-path-from-cli",
-        "snowflake_token_path": "snowflake-token-path-from-cli",
         "change_history_table": "change-history-table-from-cli",
         "config_vars": {
             "var1": "from_cli",
@@ -505,13 +377,11 @@ param_full_cli_and_connection = pytest.param(
         "query_tag": "query-tag-from-cli",
         "connection_name": "myaltconnection",
         "connections_file_path": assets_path / "alt-connections.toml",
-        "snowflake_password": alt_connection["password"],
     },
     id="Deploy: full cli and connections.toml",
 )
 
 param_full_yaml_no_connection = pytest.param(
-    {},  # env_kwargs
     [  # cli_args
         "schemachange",
         "--config-folder",
@@ -537,9 +407,6 @@ param_full_yaml_no_connection = pytest.param(
                 "snowflake_warehouse",
                 "snowflake_database",
                 "snowflake_schema",
-                "snowflake_authenticator",
-                "snowflake_private_key_path",
-                "snowflake_token_path",
                 "change_history_table",
                 "config_vars",
                 "create_change_history_table",
@@ -553,7 +420,6 @@ param_full_yaml_no_connection = pytest.param(
 )
 
 param_full_yaml_and_connection = pytest.param(
-    {},  # env_kwargs
     [  # cli_args
         "schemachange",
         "--config-folder",
@@ -564,7 +430,6 @@ param_full_yaml_and_connection = pytest.param(
     {  # expected
         "subcommand": "deploy",
         "config_file_path": assets_path / "schemachange-config-full.yml",
-        "snowflake_password": my_connection["password"],
         "log_level": logging.INFO,
         "connections_file_path": assets_path / "connections.toml",
         **{
@@ -581,9 +446,6 @@ param_full_yaml_and_connection = pytest.param(
                 "snowflake_warehouse",
                 "snowflake_database",
                 "snowflake_schema",
-                "snowflake_authenticator",
-                "snowflake_private_key_path",
-                "snowflake_token_path",
                 "change_history_table",
                 "snowflake_private_key_path",
                 "config_vars",
@@ -599,7 +461,6 @@ param_full_yaml_and_connection = pytest.param(
 )
 
 param_full_yaml_and_connection_and_cli = pytest.param(
-    {},  # env_kwargs
     [  # cli_args
         "schemachange",
         "--config-folder",
@@ -624,12 +485,6 @@ param_full_yaml_and_connection_and_cli = pytest.param(
         "snowflake-database-from-cli",
         "--snowflake-schema",
         "snowflake-schema-from-cli",
-        "--snowflake-authenticator",
-        "snowflake-authenticator-from-cli",
-        "--snowflake-private-key-path",
-        "snowflake-private-key-path-from-cli",
-        "--snowflake-token-path",
-        "snowflake-token-path-from-cli",
         "--connections-file-path",
         str(assets_path / "alt-connections.toml"),
         "--connection-name",
@@ -654,9 +509,6 @@ param_full_yaml_and_connection_and_cli = pytest.param(
         "snowflake_warehouse": "snowflake-warehouse-from-cli",
         "snowflake_database": "snowflake-database-from-cli",
         "snowflake_schema": "snowflake-schema-from-cli",
-        "snowflake_authenticator": "snowflake-authenticator-from-cli",
-        "snowflake_private_key_path": "snowflake-private-key-path-from-cli",
-        "snowflake_token_path": "snowflake-token-path-from-cli",
         "change_history_table": "change-history-table-from-cli",
         "config_vars": {
             "var1": "from_cli",
@@ -670,19 +522,11 @@ param_full_yaml_and_connection_and_cli = pytest.param(
         "query_tag": "query-tag-from-cli",
         "connection_name": "myaltconnection",
         "connections_file_path": assets_path / "alt-connections.toml",
-        "snowflake_password": alt_connection["password"],
     },
     id="Deploy: full yaml, connections.toml, and cli",
 )
 
 param_full_yaml_and_connection_and_cli_and_env = pytest.param(
-    {
-        "SNOWFLAKE_PASSWORD": "env_snowflake_password",
-        "SNOWFLAKE_PRIVATE_KEY_PATH": "env_snowflake_private_key_path",
-        "SNOWFLAKE_AUTHENTICATOR": "env_snowflake_authenticator",
-        "SNOWFLAKE_TOKEN": "env_snowflake_token",
-        "SNOWFLAKE_DEFAULT_CONNECTION_NAME": "anotherconnection",
-    },  # env_kwargs
     [  # cli_args
         "schemachange",
         "--config-folder",
@@ -707,12 +551,6 @@ param_full_yaml_and_connection_and_cli_and_env = pytest.param(
         "snowflake-database-from-cli",
         "--snowflake-schema",
         "snowflake-schema-from-cli",
-        "--snowflake-authenticator",
-        "snowflake-authenticator-from-cli",
-        "--snowflake-private-key-path",
-        "snowflake-private-key-path-from-cli",
-        "--snowflake-token-path",
-        "snowflake-token-path-from-cli",
         "--connections-file-path",
         str(assets_path / "alt-connections.toml"),
         "--connection-name",
@@ -737,9 +575,6 @@ param_full_yaml_and_connection_and_cli_and_env = pytest.param(
         "snowflake_warehouse": "snowflake-warehouse-from-cli",
         "snowflake_database": "snowflake-database-from-cli",
         "snowflake_schema": "snowflake-schema-from-cli",
-        "snowflake_authenticator": "snowflake-authenticator-from-cli",
-        "snowflake_private_key_path": "snowflake-private-key-path-from-cli",
-        "snowflake_token_path": "snowflake-token-path-from-cli",
         "change_history_table": "change-history-table-from-cli",
         "config_vars": {
             "var1": "from_cli",
@@ -751,17 +586,14 @@ param_full_yaml_and_connection_and_cli_and_env = pytest.param(
         "log_level": logging.INFO,
         "dry_run": True,
         "query_tag": "query-tag-from-cli",
-        "snowflake_oauth_token": "env_snowflake_token",
         "connection_name": "myaltconnection",
         "connections_file_path": assets_path / "alt-connections.toml",
-        "snowflake_password": "env_snowflake_password",
     },
     id="Deploy: full yaml, connections.toml, cli, and env",
 )
 
 
 param_connection_no_yaml = pytest.param(
-    {},  # env_kwargs
     [  # cli_args
         "schemachange",
         "--config-folder",
@@ -777,16 +609,6 @@ param_connection_no_yaml = pytest.param(
         "connection_name": "myconnection",
         "config_file_path": assets_path / "schemachange-config.yml",
         "config_version": 1,
-        "snowflake_account": my_connection["account"],
-        "snowflake_user": my_connection["user"],
-        "snowflake_role": my_connection["role"],
-        "snowflake_warehouse": my_connection["warehouse"],
-        "snowflake_database": my_connection["database"],
-        "snowflake_schema": my_connection["schema"],
-        "snowflake_authenticator": my_connection["authenticator"],
-        "snowflake_password": my_connection["password"],
-        "snowflake_private_key_path": my_connection["private-key"],
-        "snowflake_token_path": my_connection["token_file_path"],
         "config_vars": {},
         "log_level": logging.INFO,
     },
@@ -794,7 +616,6 @@ param_connection_no_yaml = pytest.param(
 )
 
 param_partial_yaml_and_connection = pytest.param(
-    {},  # env_kwargs
     [  # cli_arg
         "schemachange",
         "--config-folder",
@@ -806,17 +627,7 @@ param_partial_yaml_and_connection = pytest.param(
         "subcommand": "deploy",
         "config_file_path": assets_path
         / "schemachange-config-partial-with-connection.yml",
-        "snowflake_account": my_connection["account"],
-        "snowflake_user": my_connection["user"],
-        "snowflake_role": my_connection["role"],
-        "snowflake_warehouse": my_connection["warehouse"],
-        "snowflake_database": my_connection["database"],
-        "snowflake_schema": my_connection["schema"],
-        "snowflake_authenticator": my_connection["authenticator"],
-        "snowflake_private_key_path": my_connection["private-key"],
-        "snowflake_token_path": my_connection["token_file_path"],
         "log_level": logging.INFO,
-        "snowflake_password": my_connection["password"],
         "connections_file_path": assets_path / "connections.toml",
         **{
             k: v
@@ -841,7 +652,7 @@ param_partial_yaml_and_connection = pytest.param(
 
 
 @pytest.mark.parametrize(
-    "env_vars, cli_args, expected",
+    "cli_args, expected",
     [
         param_only_required_cli_arguments,
         param_full_cli_and_connection,
@@ -854,19 +665,21 @@ param_partial_yaml_and_connection = pytest.param(
     ],
 )
 @mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("pathlib.Path.is_file", return_value=True)
 @mock.patch("schemachange.config.get_merged_config.DeployConfig.factory")
 def test_integration_get_merged_config_inheritance(
     mock_deploy_config_factory,
     _,
-    env_vars,
+    __,
     cli_args,
     expected,
 ):
     logger = structlog.testing.CapturingLogger()
-    with mock.patch.dict(os.environ, env_vars, clear=True):
-        with mock.patch("sys.argv", cli_args):
-            # noinspection PyTypeChecker
-            get_merged_config(logger=logger)
-            factory_kwargs = mock_deploy_config_factory.call_args.kwargs
-            for actual_key, actual_value in factory_kwargs.items():
-                assert expected[actual_key] == actual_value
+    with mock.patch("sys.argv", cli_args):
+        # noinspection PyTypeChecker
+        get_merged_config(logger=logger)
+        factory_kwargs = mock_deploy_config_factory.call_args.kwargs
+        for actual_key, actual_value in factory_kwargs.items():
+            assert expected[actual_key] == actual_value
+            del expected[actual_key]
+        assert len(expected.keys()) == 0

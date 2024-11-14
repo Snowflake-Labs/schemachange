@@ -38,13 +38,10 @@ class BaseConfig(ABC):
         modules_folder: Path | str | None = None,
         config_vars: str | dict | None = None,
         log_level: int = logging.INFO,
-        connection_secrets: set[str] | None = None,
         **kwargs,
     ):
         try:
             secrets = get_config_secrets(config_vars)
-            if connection_secrets is not None:
-                secrets.update(connection_secrets)
         except Exception as e:
             raise Exception(
                 "config_vars did not parse correctly, please check its configuration"

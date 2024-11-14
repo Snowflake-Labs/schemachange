@@ -62,7 +62,6 @@ def main():
             logger=logger,
         )
     else:
-        config.check_for_deploy_args()
         session = SnowflakeSession(
             schemachange_version=SCHEMACHANGE_VERSION,
             application=SNOWFLAKE_APPLICATION_NAME,
