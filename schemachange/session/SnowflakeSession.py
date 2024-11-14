@@ -14,10 +14,10 @@ from schemachange.session.Script import VersionedScript, RepeatableScript, Alway
 
 class SnowflakeSession:
     account: str
-    user: str | None
-    role: str | None
-    warehouse: str | None
-    database: str | None
+    user: str | None  # TODO: user: str when connections.toml is enforced
+    role: str | None  # TODO: role: str when connections.toml is enforced
+    warehouse: str | None  # TODO: warehouse: str when connections.toml is enforced
+    database: str | None  # TODO: database: str when connections.toml is enforced
     schema: str | None
     autocommit: bool
     change_history_table: ChangeHistoryTable
@@ -35,22 +35,19 @@ class SnowflakeSession:
         application: str,
         change_history_table: ChangeHistoryTable,
         logger: structlog.BoundLogger,
-        account: str | None = None,
-        user: str | None = None,
-        role: str | None = None,
-        warehouse: str | None = None,
-        database: str | None = None,
-        schema: str | None = None,
+        connection_name: str | None = None,
+        connections_file_path: str | None = None,
+        account: str | None = None,  # TODO: Remove when connections.toml is enforced
+        user: str | None = None,  # TODO: Remove when connections.toml is enforced
+        role: str | None = None,  # TODO: Remove when connections.toml is enforced
+        warehouse: str | None = None,  # TODO: Remove when connections.toml is enforced
+        database: str | None = None,  # TODO: Remove when connections.toml is enforced
+        schema: str | None = None,  # TODO: Remove when connections.toml is enforced
         query_tag: str | None = None,
         autocommit: bool = False,
-        **kwargs,
+        **kwargs,  # TODO: Remove when connections.toml is enforced
     ):
-        self.account = account
-        self.user = user
-        self.role = role
-        self.warehouse = warehouse
-        self.database = database
-        self.schema = schema
+
         self.change_history_table = change_history_table
         self.autocommit = autocommit
         self.logger = logger
@@ -60,24 +57,38 @@ class SnowflakeSession:
             self.session_parameters["QUERY_TAG"] += f";{query_tag}"
 
         connect_kwargs = {
-            "account": self.account,
-            "user": self.user,
-            "database": self.database,
-            "schema": self.schema,
-            "role": self.role,
-            "warehouse": self.warehouse,
-            "private_key_file": kwargs.get("private_key_path"),
-            "token": kwargs.get("oauth_token"),
-            "password": kwargs.get("password"),
-            "authenticator": kwargs.get("authenticator"),
-            "connection_name": kwargs.get("connection_name"),
-            "connections_file_path": kwargs.get("connections_file_path"),
+            "account": account,  # TODO: Remove when connections.toml is enforced
+            "user": user,  # TODO: Remove when connections.toml is enforced
+            "database": database,  # TODO: Remove when connections.toml is enforced
+            "schema": schema,  # TODO: Remove when connections.toml is enforced
+            "role": role,  # TODO: Remove when connections.toml is enforced
+            "warehouse": warehouse,  # TODO: Remove when connections.toml is enforced
+            "private_key_file": kwargs.get(
+                "private_key_path"
+            ),  # TODO: Remove when connections.toml is enforced
+            "token": kwargs.get(
+                "oauth_token"
+            ),  # TODO: Remove when connections.toml is enforced
+            "password": kwargs.get(
+                "password"
+            ),  # TODO: Remove when connections.toml is enforced
+            "authenticator": kwargs.get(
+                "authenticator"
+            ),  # TODO: Remove when connections.toml is enforced
+            "connection_name": connection_name,
+            "connections_file_path": connections_file_path,
             "application": application,
             "session_parameters": self.session_parameters,
         }
         self.logger.debug("snowflake.connector.connect kwargs", **connect_kwargs)
         self.con = snowflake.connector.connect(**connect_kwargs)
         print(f"Current session ID: {self.con.session_id}")
+        self.account = self.con.account
+        self.user = self.con.user
+        self.role = self.con.role
+        self.warehouse = self.con.warehouse
+        self.database = self.con.database
+        self.schema = self.con.schema
 
         if not self.autocommit:
             self.con.autocommit(False)
