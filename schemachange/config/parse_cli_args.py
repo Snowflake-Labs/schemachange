@@ -3,11 +3,31 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import sys
 from enum import Enum
 
 import structlog
 
 logger = structlog.getLogger(__name__)
+
+
+class DeprecateConnectionArgAction(argparse.Action):
+    def __init__(self, *args, **kwargs):
+        self.call_count = 0
+        if "help" in kwargs:
+            kwargs["help"] = (
+                f'[DEPRECATED - Set in connections.toml instead.] {kwargs["help"]}'
+            )
+        super().__init__(*args, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if self.call_count == 0:
+            sys.stderr.write(
+                f"{', '.join(self.option_strings)} is deprecated. It will be ignored in future versions.\n"
+            )
+            sys.stderr.write(self.help + "\n")
+        self.call_count += 1
+        setattr(namespace, self.dest, values)
 
 
 class EnumAction(argparse.Action):
@@ -101,12 +121,14 @@ def parse_cli_args(args) -> dict:
     subcommands = parser.add_subparsers(dest="subcommand")
     parser_deploy = subcommands.add_parser("deploy", parents=[parent_parser])
 
+    parser_deploy.register("action", "deprecate", DeprecateConnectionArgAction)
     parser_deploy.add_argument(
         "-a",
         "--snowflake-account",
         type=str,
         help="The name of the snowflake account (e.g. xy12345.east-us-2.azure)",
         required=False,
+        action="deprecate",
     )
     parser_deploy.add_argument(
         "-u",
@@ -114,6 +136,7 @@ def parse_cli_args(args) -> dict:
         type=str,
         help="The name of the snowflake user",
         required=False,
+        action="deprecate",
     )
     parser_deploy.add_argument(
         "-r",
@@ -121,6 +144,7 @@ def parse_cli_args(args) -> dict:
         type=str,
         help="The name of the default role to use",
         required=False,
+        action="deprecate",
     )
     parser_deploy.add_argument(
         "-w",
@@ -128,6 +152,7 @@ def parse_cli_args(args) -> dict:
         type=str,
         help="The name of the default warehouse to use. Can be overridden in the change scripts.",
         required=False,
+        action="deprecate",
     )
     parser_deploy.add_argument(
         "-d",
@@ -135,6 +160,7 @@ def parse_cli_args(args) -> dict:
         type=str,
         help="The name of the default database to use. Can be overridden in the change scripts.",
         required=False,
+        action="deprecate",
     )
     parser_deploy.add_argument(
         "-s",
@@ -142,6 +168,7 @@ def parse_cli_args(args) -> dict:
         type=str,
         help="The name of the default schema to use. Can be overridden in the change scripts.",
         required=False,
+        action="deprecate",
     )
     parser_deploy.add_argument(
         "-A",
@@ -149,6 +176,7 @@ def parse_cli_args(args) -> dict:
         type=str,
         help="The Snowflake Authenticator to use. One of snowflake, oauth, externalbrowser, or https://<okta_account_name>.okta.com",
         required=False,
+        action="deprecate",
     )
     parser_deploy.add_argument(
         "-k",
@@ -156,6 +184,7 @@ def parse_cli_args(args) -> dict:
         type=str,
         help="Path to file containing private key.",
         required=False,
+        action="deprecate",
     )
     parser_deploy.add_argument(
         "-t",
@@ -163,6 +192,7 @@ def parse_cli_args(args) -> dict:
         type=str,
         help="Path to the file containing the OAuth token to be used when authenticating with Snowflake.",
         required=False,
+        action="deprecate",
     )
     parser_deploy.add_argument(
         "--connections-file-path",
