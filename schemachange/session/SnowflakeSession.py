@@ -9,6 +9,7 @@ import snowflake.connector
 import structlog
 
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
+from schemachange.config.utils import get_snowflake_identifier_string
 from schemachange.session.Script import VersionedScript, RepeatableScript, AlwaysScript
 
 
@@ -79,15 +80,18 @@ class SnowflakeSession:
             "application": application,
             "session_parameters": self.session_parameters,
         }
+        connect_kwargs = {k: v for k, v in connect_kwargs.items() if v is not None}
         self.logger.debug("snowflake.connector.connect kwargs", **connect_kwargs)
         self.con = snowflake.connector.connect(**connect_kwargs)
         print(f"Current session ID: {self.con.session_id}")
         self.account = self.con.account
-        self.user = self.con.user
-        self.role = self.con.role
-        self.warehouse = self.con.warehouse
-        self.database = self.con.database
-        self.schema = self.con.schema
+        self.user = get_snowflake_identifier_string(self.con.user, "user")
+        self.role = get_snowflake_identifier_string(self.con.role, "role")
+        self.warehouse = get_snowflake_identifier_string(
+            self.con.warehouse, "warehouse"
+        )
+        self.database = get_snowflake_identifier_string(self.con.database, "database")
+        self.schema = get_snowflake_identifier_string(self.con.schema, "schema")
 
         if not self.autocommit:
             self.con.autocommit(False)

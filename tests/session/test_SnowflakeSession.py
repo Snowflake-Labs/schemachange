@@ -15,17 +15,20 @@ def session() -> SnowflakeSession:
     logger = structlog.testing.CapturingLogger()
 
     with mock.patch("snowflake.connector.connect"):
-        # noinspection PyTypeChecker
-        return SnowflakeSession(
-            user="user",
-            account="account",
-            role="role",
-            warehouse="warehouse",
-            schemachange_version="3.6.1.dev",
-            application="schemachange",
-            change_history_table=change_history_table,
-            logger=logger,
-        )
+        with mock.patch(
+            "schemachange.session.SnowflakeSession.get_snowflake_identifier_string"
+        ):
+            # noinspection PyTypeChecker
+            return SnowflakeSession(
+                user="user",
+                account="account",
+                role="role",
+                warehouse="warehouse",
+                schemachange_version="3.6.1.dev",
+                application="schemachange",
+                change_history_table=change_history_table,
+                logger=logger,
+            )
 
 
 class TestSnowflakeSession:

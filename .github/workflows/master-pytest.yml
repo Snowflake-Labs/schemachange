@@ -29,13 +29,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     if: ${{ github.event.label.name == 'ci-run-tests' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     env:
-      SNOWFLAKE_PASSWORD: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_PASSWORD }}
-      SNOWFLAKE_USER: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_USER }}
       SNOWFLAKE_ACCOUNT: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_ACCOUNT }}
-      SNOWFLAKE_DATABASE: SCHEMACHANGE_DEMO
-      SNOWFLAKE_WAREHOUSE: SCHEMACHANGE_DEMO_WH
+      SNOWFLAKE_USER: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_USER }}
       SNOWFLAKE_ROLE: SCHEMACHANGE_DEMO-DEPLOY
+      SNOWFLAKE_WAREHOUSE: SCHEMACHANGE_DEMO_WH
+      SNOWFLAKE_DATABASE: SCHEMACHANGE_DEMO
       MY_TARGET_SCHEMA: ${{ matrix.scenario-name }}_${{ github.run_number }}_${{ strategy.job-index }}
+      SNOWFLAKE_PASSWORD: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_PASSWORD }}
       SCENARIO_NAME: ${{ matrix.scenario-name }}
     steps:
       - uses: actions/checkout@v4
@@ -60,17 +60,16 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Create and populate connections.toml
         run: |
-          touch connections.toml
-          echo [default] >> connections.toml
-          echo account = "$SNOWFLAKE_ACCOUNT" >> connections.toml
-          echo user = "$SNOWFLAKE_USER" >> connections.toml
-          echo role = "$SNOWFLAKE_ROLE" >> connections.toml
-          echo warehouse = "$SNOWFLAKE_WAREHOUSE" >> connections.toml
-          echo database = "$SNOWFLAKE_DATABASE" >> connections.toml
-          echo schema = "$MY_TARGET_SCHEMA" >> connections.toml
-          echo password = "$SCHEMACHANGE_SNOWFLAKE_PASSWORD" >> connections.toml
+          touch ./connections.toml
+          echo [default] >> ./connections.toml
+          echo account = \"${SNOWFLAKE_ACCOUNT}\" >> ./connections.toml
+          echo user = \"${SNOWFLAKE_USER}\" >> ./connections.toml
+          echo role = \"${SNOWFLAKE_ROLE}\" >> ./connections.toml
+          echo warehouse = \"${SNOWFLAKE_WAREHOUSE}\" >> ./connections.toml
+          echo database = \"${SNOWFLAKE_DATABASE}\" >> ./connections.toml
+          echo password = \"${SNOWFLAKE_PASSWORD}\" >> ./connections.toml
           echo "cat connections.toml"
-          cat connections.toml
+          cat ./connections.toml
       - name: Test with pytest
         id: pytest
         run: |
@@ -84,24 +83,20 @@ jobs:
             --config-file-name schemachange-config-setup.yml \
             --root-folder ./demo/${SCENARIO_NAME}/1_setup \
             --connection-name default \
-            --connections-file-path connections.toml
-          echo "::endgroup::"'
+            --connections-file-path ./connections.toml \
+            --verbose
+          echo "::endgroup::"
 
           echo "::group::Testing Rendering to ${MY_TARGET_SCHEMA}"
+         
           schemachange render \
             --config-folder ./demo/${SCENARIO_NAME} \
-            --connection-name default \
-            --connections-file-path connections.toml \
             ./demo/${SCENARIO_NAME}/2_test/A__render.sql
           schemachange render \
             --config-folder ./demo/${SCENARIO_NAME} \
-            --connection-name default \
-            --connections-file-path connections.toml \
             ./demo/${SCENARIO_NAME}/2_test/R__render.sql
           schemachange render \
             --config-folder ./demo/${SCENARIO_NAME} \
-            --connection-name default \
-            --connections-file-path connections.toml 
             ./demo/${SCENARIO_NAME}/2_test/V1.0.0__render.sql
           echo "::endgroup::"
 
@@ -110,8 +105,9 @@ jobs:
           schemachange deploy \
             --config-folder ./demo/${SCENARIO_NAME} \
             --connection-name default \
-            --connections-file-path connections.toml \
-            --root-folder ./demo/${SCENARIO_NAME}/2_test
+            --connections-file-path ./connections.toml \
+            --root-folder ./demo/${SCENARIO_NAME}/2_test \
+            --verbose
           RESULT=$?
           if [ $RESULT -eq 0 ]; then
             echo "Deployment Completed!"
@@ -126,8 +122,9 @@ jobs:
             --config-folder ./demo \
             --config-file-name schemachange-config-teardown.yml \
             --connection-name default \
-            --connections-file-path connections.toml \
+            --connections-file-path ./connections.toml \
             --root-folder ./demo/${SCENARIO_NAME}/3_teardown \
+            --verbose
           echo "::endgroup::"
 
           if [ $RESULT -ne 0 ]; then

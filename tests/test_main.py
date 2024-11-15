@@ -66,7 +66,9 @@ required_config = {
     "snowflake_warehouse": "warehouse",
     "snowflake_role": "role",
 }
-script_path = Path(__file__).parent.parent / "demo" / "basics_demo" / "A__basic001.sql"
+script_path = (
+    Path(__file__).parent.parent / "demo" / "basics_demo" / "2_test" / "A__basic001.sql"
+)
 
 no_command = pytest.param(
     "schemachange.cli.deploy",
@@ -418,9 +420,11 @@ render_all_cli_arg_names = pytest.param(
 )
 @mock.patch("pathlib.Path.is_file", return_value=True)
 @mock.patch("schemachange.session.SnowflakeSession.snowflake.connector.connect")
+@mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string")
 def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
     _,
     __,
+    ___,
     to_mock: str,
     cli_args: list[str],
     expected_config: dict,
@@ -476,8 +480,10 @@ def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
     ],
 )
 @mock.patch("schemachange.session.SnowflakeSession.snowflake.connector.connect")
+@mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string")
 def test_main_deploy_config_folder(
     _,
+    __,
     to_mock: str,
     args: list[str],
     expected_config: dict,
@@ -541,8 +547,10 @@ def test_main_deploy_config_folder(
     ],
 )
 @mock.patch("schemachange.session.SnowflakeSession.snowflake.connector.connect")
+@mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string")
 def test_main_deploy_modules_folder(
     _,
+    __,
     to_mock: str,
     args: list[str],
     expected_config: dict,
