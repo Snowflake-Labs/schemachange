@@ -88,7 +88,7 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::Testing Rendering to ${MY_TARGET_SCHEMA}"
-         
+
           schemachange render \
             --config-folder ./demo/${SCENARIO_NAME} \
             ./demo/${SCENARIO_NAME}/2_test/A__render.sql
