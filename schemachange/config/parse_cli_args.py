@@ -113,6 +113,7 @@ def parse_cli_args(args) -> dict:
         "--log-level",
         type=LogLevel,
         action=EnumAction,
+        default=logging.INFO,
         help="Set the log level. Defaults to INFO.",
     )
     verbose = parent_parser.add_argument(
