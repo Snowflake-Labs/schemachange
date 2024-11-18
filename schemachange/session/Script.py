@@ -18,7 +18,7 @@ logger = structlog.getLogger(__name__)
 T = TypeVar("T", bound="Script")
 
 
-@dataclasses.dataclass(kw_only=True, frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Script(ABC):
     pattern: ClassVar[Pattern[str]]
     type: ClassVar[Literal["V", "R", "A"]]
@@ -54,7 +54,7 @@ class Script(ABC):
         )
 
 
-@dataclasses.dataclass(kw_only=True, frozen=True)
+@dataclasses.dataclass(frozen=True)
 class VersionedScript(Script):
     pattern: ClassVar[re.Pattern[str]] = re.compile(
         r"^(V)(?P<version>([^_]|_(?!_))+)?(?P<separator>_{1,2})(?P<description>.+?)\.",
@@ -86,7 +86,7 @@ class VersionedScript(Script):
         )
 
 
-@dataclasses.dataclass(kw_only=True, frozen=True)
+@dataclasses.dataclass(frozen=True)
 class RepeatableScript(Script):
     pattern: ClassVar[re.Pattern[str]] = re.compile(
         r"^(R)(?P<separator>_{1,2})(?P<description>.+?)\.", re.IGNORECASE
@@ -94,7 +94,7 @@ class RepeatableScript(Script):
     type: ClassVar[Literal["R"]] = "R"
 
 
-@dataclasses.dataclass(kw_only=True, frozen=True)
+@dataclasses.dataclass(frozen=True)
 class AlwaysScript(Script):
     pattern: ClassVar[re.Pattern[str]] = re.compile(
         r"^(A)(?P<separator>_{1,2})(?P<description>.+?)\.", re.IGNORECASE

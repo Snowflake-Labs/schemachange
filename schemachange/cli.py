@@ -13,7 +13,7 @@ from schemachange.session.SnowflakeSession import get_session_from_config
 
 # region Global Variables
 # metadata
-SCHEMACHANGE_VERSION = "3.7.0"
+SCHEMACHANGE_VERSION = "4.0.0"
 SNOWFLAKE_APPLICATION_NAME = "schemachange"
 module_logger = structlog.getLogger(__name__)
 

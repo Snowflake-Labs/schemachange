@@ -23,6 +23,8 @@ blog post.
 
 For the complete list of changes made to schemachange check out the [CHANGELOG](CHANGELOG.md).
 
+To learn more about making a contribution to schemachange, please see our [Contributing guide](.github/CONTRIBUTING.md).
+
 **Please note** that schemachange is a community-developed tool, not an official Snowflake offering. It comes with no
 support or warranty.
 
@@ -403,7 +405,7 @@ snowflake-account: 'xy12345.east-us-2.azure'
 # The name of the snowflake user
 snowflake-user: 'user'
 
-# The name of the default role to use. Can be overrideen in the change scripts.
+# The name of the default role to use. Can be overridden in the change scripts.
 snowflake-role: 'role'
 
 # The name of the default warehouse to use. Can be overridden in the change scripts.
@@ -490,7 +492,9 @@ compatibility with versions prior to 3.2.
 
 This is the main command that runs the deployment process.
 
-`usage: schemachange deploy [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-s SNOWFLAKE_SCHEMA] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG]`
+```bash
+usage: schemachange deploy [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-a SNOWFLAKE_ACCOUNT] [-u SNOWFLAKE_USER] [-r SNOWFLAKE_ROLE] [-w SNOWFLAKE_WAREHOUSE] [-d SNOWFLAKE_DATABASE] [-s SNOWFLAKE_SCHEMA] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG]
+```
 
 | Parameter                                                            | Description                                                                                                                                                             |
 |----------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------|

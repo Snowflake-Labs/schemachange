@@ -10,7 +10,7 @@ from schemachange.deploy import alphanum_convert, get_alphanum_key, sorted_alpha
 
 
 def test_cli_given__schemachange_version_change_updated_in_setup_config_file():
-    assert SCHEMACHANGE_VERSION == "3.7.0"
+    assert SCHEMACHANGE_VERSION == "4.0.0"
 
 
 def test_cli_given__constants_exist():
@@ -30,7 +30,11 @@ def test_alphanum_convert_given__lowercase():
 
 
 def test_get_alphanum_key_given__empty_string():
-    assert get_alphanum_key("") == [""]
+    assert get_alphanum_key("") == []
+
+
+def test_get_alphanum_key_given__none():
+    assert get_alphanum_key(None) == []
 
 
 def test_get_alphanum_key_given__numbers_only():

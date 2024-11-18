@@ -23,7 +23,9 @@ def alphanum_convert(text: str):
 # Each number is converted to and integer and string parts are left as strings
 # This will enable correct sorting in python when the lists are compared
 # e.g. get_alphanum_key('1.2.2') results in ['', 1, '.', 2, '.', 2, '']
-def get_alphanum_key(key):
+def get_alphanum_key(key: str | int | None) -> list:
+    if key == "" or key is None:
+        return []
     alphanum_key = [alphanum_convert(c) for c in re.split("([0-9]+)", key)]
     return alphanum_key
 
@@ -101,7 +103,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
             script_metadata = versioned_scripts.get(script.name)
 
             if (
-                max_published_version != ""
+                max_published_version is not None
                 and get_alphanum_key(script.version) <= max_published_version
             ):
                 if script_metadata is None:
@@ -120,7 +122,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
                 else:
                     script_log.debug(
                         "Script has already been applied",
-                        max_published_version=str(max_published_version),
+                        max_published_version=max_published_version,
                     )
                     if script_metadata["checksum"] != checksum_current:
                         script_log.info("Script checksum has drifted since application")
