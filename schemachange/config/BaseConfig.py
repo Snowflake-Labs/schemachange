@@ -4,7 +4,7 @@ import dataclasses
 import logging
 from abc import ABC
 from pathlib import Path
-from typing import Literal, ClassVar, TypeVar
+from typing import Literal, TypeVar
 
 import structlog
 
@@ -20,8 +20,6 @@ T = TypeVar("T", bound="BaseConfig")
 
 @dataclasses.dataclass(frozen=True)
 class BaseConfig(ABC):
-    default_config_file_name: ClassVar[str] = "schemachange-config.yml"
-
     subcommand: Literal["deploy", "render"]
     config_version: int | None = None
     config_file_path: Path | None = None

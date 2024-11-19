@@ -3,7 +3,6 @@ from dataclasses import asdict
 import pytest
 
 from schemachange.cli import SCHEMACHANGE_VERSION, SNOWFLAKE_APPLICATION_NAME
-from schemachange.config.BaseConfig import BaseConfig
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import get_snowflake_identifier_string
 from schemachange.deploy import alphanum_convert, get_alphanum_key, sorted_alphanumeric
@@ -14,7 +13,6 @@ def test_cli_given__schemachange_version_change_updated_in_setup_config_file():
 
 
 def test_cli_given__constants_exist():
-    assert BaseConfig.default_config_file_name == "schemachange-config.yml"
     assert ChangeHistoryTable._default_database_name == "METADATA"
     assert ChangeHistoryTable._default_schema_name == "SCHEMACHANGE"
     assert ChangeHistoryTable._default_table_name == "CHANGE_HISTORY"

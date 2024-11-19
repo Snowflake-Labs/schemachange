@@ -1,0 +1,14 @@
+config-version: 1
+root-folder: 'root-folder-from-yaml'
+modules-folder: 'modules-folder-from-yaml'
+connections-file-path: 'connections.toml'
+connection-name: 'myconnection'
+change-history-table: 'change-history-table-from-yaml'
+vars:
+  var1: 'from_yaml'
+  var2: 'also_from_yaml'
+create-change-history-table: false
+autocommit: false
+verbose: false
+dry-run: false
+query-tag: 'query-tag-from-yaml'
