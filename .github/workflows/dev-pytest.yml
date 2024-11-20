@@ -62,6 +62,8 @@ jobs:
       - name: Test Schemachange on ${{ matrix.os }} targeting ${{ env.SNOWFLAKE_DATABASE }}.${{ env.MY_TARGET_SCHEMA }} schema
         run: |
           echo "::group::Setting up ${MY_TARGET_SCHEMA}"
+          echo "SNOWFLAKE_USER: ${SNOWFLAKE_USER}"
+          echo "SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}"
           schemachange deploy --config-folder ./demo/${SCENARIO_NAME}/1_setup
           echo "::endgroup::"
           echo "::group::Testing Rendering to ${MY_TARGET_SCHEMA}"
