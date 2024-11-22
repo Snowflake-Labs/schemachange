@@ -64,5 +64,5 @@ jobs:
           echo "Current Directory: ${PWD}"
           ls -l
           chmod +x testSchemchange.sh
-          ./testSchemachange.sh
+          bash testSchemachange.sh
         working-directory: .
