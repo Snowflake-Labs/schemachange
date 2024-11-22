@@ -87,7 +87,9 @@ class DeployConfig(BaseConfig):
             "query_tag": self.query_tag
         }
         
-        #snowflake_password = get_snowflake_password()
-        #if snowflake_password is not None and snowflake_password:
+        # TODO: Discuss the need for check for snowflake password before passing the session 
+        # kwargs to open a snowflake session
+        # snowflake_password = get_snowflake_password()
+        # if snowflake_password is not None and snowflake_password:
         #    session_kwargs["password"] = snowflake_password 
         return {k: v for k, v in session_kwargs.items() if v is not None}
