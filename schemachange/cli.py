@@ -9,7 +9,7 @@ from schemachange.config.RenderConfig import RenderConfig
 from schemachange.config.get_merged_config import get_merged_config
 from schemachange.deploy import deploy
 from schemachange.redact_config_secrets import redact_config_secrets
-from schemachange.session.SnowflakeSession import get_session_from_config
+from schemachange.session.SnowflakeSession import SnowflakeSession
 
 # region Global Variables
 # metadata
@@ -42,7 +42,7 @@ def main():
         % {"schemachange_version": SCHEMACHANGE_VERSION}
     )
 
-    config = get_merged_config()
+    config = get_merged_config(logger=module_logger)
     redact_config_secrets(config_secrets=config.secrets)
 
     structlog.configure(
@@ -62,12 +62,11 @@ def main():
             logger=logger,
         )
     else:
-        config.check_for_deploy_args()
-        session = get_session_from_config(
-            config=config,
+        session = SnowflakeSession(
             schemachange_version=SCHEMACHANGE_VERSION,
-            snowflake_application_name=SNOWFLAKE_APPLICATION_NAME,
+            application=SNOWFLAKE_APPLICATION_NAME,
             logger=logger,
+            **config.get_session_kwargs(),
         )
         deploy(config=config, session=session)
 

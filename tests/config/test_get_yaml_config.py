@@ -22,7 +22,7 @@ modules-folder: modules
 vars:
   database_name: SCHEMACHANGE_DEMO_JINJA
 """
-    config_file = tmp_path / "schemachange-config.yml"
+    config_file = tmp_path / "schemachange-config-full.yml"
     config_file.write_text(config_contents)
 
     # noinspection PyTypeChecker
@@ -45,7 +45,7 @@ modules-folder: modules
 vars:
   database_name: SCHEMACHANGE_DEMO_JINJA
 """
-    config_file = tmp_path / "schemachange-config.yml"
+    config_file = tmp_path / "schemachange-config-full.yml"
     config_file.write_text(config_contents)
 
     config = load_yaml_config(config_file)
@@ -63,7 +63,7 @@ modules-folder: modules
 vars:
   database_name: SCHEMACHANGE_DEMO_JINJA
 """
-    config_file = tmp_path / "schemachange-config.yml"
+    config_file = tmp_path / "schemachange-config-full.yml"
     config_file.write_text(config_contents)
 
     with pytest.raises(ValueError) as e:
@@ -76,7 +76,7 @@ vars:
 
 @mock.patch("pathlib.Path.is_dir", return_value=True)
 def test_get_yaml_config(_):
-    config_file_path = Path(__file__).parent / "schemachange-config.yml"
+    config_file_path = Path(__file__).parent / "schemachange-config-full.yml"
     yaml_config = get_yaml_config_kwargs(config_file_path=config_file_path)
     assert str(yaml_config["root_folder"]) == "root-folder-from-yaml"
     assert str(yaml_config["modules_folder"]) == "modules-folder-from-yaml"
@@ -94,18 +94,3 @@ def test_get_yaml_config(_):
     assert yaml_config["dry_run"] is False
 
     assert yaml_config["config_vars"] == {"var1": "from_yaml", "var2": "also_from_yaml"}
-    assert yaml_config["oauth_config"] == {
-        "token-provider-url": "token-provider-url-from-yaml",
-        "token-request-headers": {
-            "Content-Type": "Content-Type-from-yaml",
-            "User-Agent": "User-Agent-from-yaml",
-        },
-        "token-request-payload": {
-            "client_id": "id-from-yaml",
-            "grant_type": "type-from-yaml",
-            "password": "password-from-yaml",
-            "scope": "scope-from-yaml",
-            "username": "username-from-yaml",
-        },
-        "token-response-name": "token-response-name-from-yaml",
-    }

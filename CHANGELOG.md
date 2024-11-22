@@ -7,12 +7,14 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Use of `structlog~=24.1.0` for standard log outputs
 - Verified Schemachange against Python 3.12
+- Support for connections.toml configurations
+- Support for supplying the authenticator, private key path, token path, connections file path, and connection name via the YAML and command-line configurations.
 
 ### Changed
 - Refactored the main cli.py into multiple modules - config, session.
 - Updated contributing guidelines and demo readme content to help contributors setup local snowflake account to run the github actions in their fork before pushing the PR to upstream repository.
 - Removed tests against Python 3.8 [End of Life on 2024-10-07](https://devguide.python.org/versions/#supported-versions)
-
+- Command-line vars are now merged into YAML vars instead of overwriting them entirely
 
 ## [3.7.0] - 2024-07-22
 ### Added

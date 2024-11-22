@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from unittest import mock
 
 import pytest
 
-from schemachange.session.utils import (
-    get_snowflake_password,
-    get_private_key_password,
-)
+from schemachange.config.utils import get_snowflake_password
+
+assets_path = Path(__file__).parent
 
 
 @pytest.mark.parametrize(
@@ -27,17 +27,4 @@ from schemachange.session.utils import (
 def test_get_snowflake_password(env_vars: dict, expected: str):
     with mock.patch.dict(os.environ, env_vars, clear=True):
         result = get_snowflake_password()
-        assert result == expected
-
-
-@pytest.mark.parametrize(
-    "env_vars, expected",
-    [
-        ({"SNOWFLAKE_PRIVATE_KEY_PASSPHRASE": "my-passphrase"}, b"my-passphrase"),
-        ({}, None),
-    ],
-)
-def test_get_private_key_password(env_vars: dict, expected: str):
-    with mock.patch.dict(os.environ, env_vars, clear=True):
-        result = get_private_key_password()
         assert result == expected

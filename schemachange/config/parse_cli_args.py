@@ -2,11 +2,32 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
+import sys
 from enum import Enum
 
 import structlog
 
 logger = structlog.getLogger(__name__)
+
+
+class DeprecateConnectionArgAction(argparse.Action):
+    def __init__(self, *args, **kwargs):
+        self.call_count = 0
+        if "help" in kwargs:
+            kwargs["help"] = (
+                f'[DEPRECATED - Set in connections.toml instead.] {kwargs["help"]}'
+            )
+        super().__init__(*args, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if self.call_count == 0:
+            sys.stderr.write(
+                f"{', '.join(self.option_strings)} is deprecated. It will be ignored in future versions.\n"
+            )
+            sys.stderr.write(self.help + "\n")
+        self.call_count += 1
+        setattr(namespace, self.dest, values)
 
 
 class EnumAction(argparse.Action):
@@ -59,6 +80,14 @@ def parse_cli_args(args) -> dict:
         required=False,
     )
     parent_parser.add_argument(
+        "--config-file-name",
+        type=str,
+        default="schemachange-config.yml",
+        help="The schemachange config YAML file name. Must be in the directory supplied as the config-folder "
+        "(Default: schemachange-config.yml)",
+        required=False,
+    )
+    parent_parser.add_argument(
         "-f",
         "--root-folder",
         type=str,
@@ -92,12 +121,14 @@ def parse_cli_args(args) -> dict:
     subcommands = parser.add_subparsers(dest="subcommand")
     parser_deploy = subcommands.add_parser("deploy", parents=[parent_parser])
 
+    parser_deploy.register("action", "deprecate", DeprecateConnectionArgAction)
     parser_deploy.add_argument(
         "-a",
         "--snowflake-account",
         type=str,
-        help="The name of the snowflake account (e.g. xy12345.east-us-2.azure)",
+        help="The name of the snowflake account (e.g. xy12345.east-us-2.azure, xy12345.east-us-2.azure.privatelink, org-accountname, org-accountname.privatelink)",
         required=False,
+        action="deprecate",
     )
     parser_deploy.add_argument(
         "-u",
@@ -105,6 +136,7 @@ def parse_cli_args(args) -> dict:
         type=str,
         help="The name of the snowflake user",
         required=False,
+        action="deprecate",
     )
     parser_deploy.add_argument(
         "-r",
@@ -112,6 +144,7 @@ def parse_cli_args(args) -> dict:
         type=str,
         help="The name of the default role to use",
         required=False,
+        action="deprecate",
     )
     parser_deploy.add_argument(
         "-w",
@@ -119,6 +152,7 @@ def parse_cli_args(args) -> dict:
         type=str,
         help="The name of the default warehouse to use. Can be overridden in the change scripts.",
         required=False,
+        action="deprecate",
     )
     parser_deploy.add_argument(
         "-d",
@@ -126,12 +160,26 @@ def parse_cli_args(args) -> dict:
         type=str,
         help="The name of the default database to use. Can be overridden in the change scripts.",
         required=False,
+        action="deprecate",
     )
     parser_deploy.add_argument(
         "-s",
         "--snowflake-schema",
         type=str,
         help="The name of the default schema to use. Can be overridden in the change scripts.",
+        required=False,
+        action="deprecate",
+    )
+    parser_deploy.add_argument(
+        "--connections-file-path",
+        type=str,
+        help="Override the default connections.toml file path at snowflake.connector.constants.CONNECTIONS_FILE (OS specific)",
+        required=False,
+    )
+    parser_deploy.add_argument(
+        "--connection-name",
+        type=str,
+        help="Override the default connections.toml connection name. Other connection-related values will override these connection values.",
         required=False,
     )
     parser_deploy.add_argument(
@@ -173,14 +221,6 @@ def parse_cli_args(args) -> dict:
         help="The string to add to the Snowflake QUERY_TAG session value for each query executed",
         required=False,
     )
-    parser_deploy.add_argument(
-        "--oauth-config",
-        type=json.loads,
-        help='Define values for the variables to Make Oauth Token requests  (e.g. {"token-provider-url": '
-        '"https//...", "token-request-payload": {"client_id": "GUID_xyz",...},... })',
-        required=False,
-    )
-
     parser_render = subcommands.add_parser(
         "render",
         description="Renders a script to the console, used to check and verify jinja output from scripts.",
@@ -204,7 +244,16 @@ def parse_cli_args(args) -> dict:
     if "log_level" in parsed_kwargs and isinstance(parsed_kwargs["log_level"], Enum):
         parsed_kwargs["log_level"] = parsed_kwargs["log_level"].value
 
+    parsed_kwargs["config_vars"] = {}
     if "vars" in parsed_kwargs:
-        parsed_kwargs["config_vars"] = parsed_kwargs.pop("vars")
+        config_vars = parsed_kwargs.pop("vars")
+        if config_vars is not None:
+            parsed_kwargs["config_vars"] = config_vars
 
-    return parsed_kwargs
+    if "verbose" in parsed_kwargs:
+        parsed_kwargs["log_level"] = (
+            logging.DEBUG if parsed_kwargs["verbose"] else logging.INFO
+        )
+        parsed_kwargs.pop("verbose")
+
+    return {k: v for k, v in parsed_kwargs.items() if v is not None}
