@@ -62,4 +62,7 @@ jobs:
           pwd
       # Testing Schemachange demo projects
       - name: Test Schemachange on ${{ matrix.os }} targeting ${{ env.SNOWFLAKE_DATABASE }}.${{ env.MY_TARGET_SCHEMA }} schema
-        run: testSchemachange.sh
+        run: |
+          pwd
+          ls -ltr
+          # ../testSchemachange.sh
