@@ -1,6 +1,10 @@
 config-version: 1
 
 root-folder: "./demo/{{ env_var('SCENARIO_NAME')}}/2_test"
+snowflake-user: "{{env_var('SNOWFLAKE_USER')}}"
+snowflake-account: "{{env_var('SNOWFLAKE_ACCOUNT')}}"
+snowflake-role: "{{env_var('SNOWFLAKE_ROLE')}}"
+snowflake-warehouse: "{{env_var('SNOWFLAKE_WAREHOUSE')}}"
 
 change-history-table: "{{ env_var('SNOWFLAKE_DATABASE')}}.{{ env_var('MY_TARGET_SCHEMA')}}.CHANGE_HISTORY"
 create-change-history-table: true
