@@ -65,4 +65,4 @@ jobs:
           ls -l
           chmod 744 testSchemchange.sh
           testSchemachange.sh
-        working-directory: .
+        working-directory: $PWD
