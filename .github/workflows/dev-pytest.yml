@@ -62,5 +62,7 @@ jobs:
       - name: Test Schemachange on ${{ matrix.os }} targeting ${{ env.SNOWFLAKE_DATABASE }}.${{ env.MY_TARGET_SCHEMA }} schema
         run: |
           echo "Current Directory: ${PWD}"
+          echo "GITHUB WORKSPACE: ${GITHUB_WORKSPACE}"
           chmod +x testSchemachange.sh
-          testSchemachange.sh
+          bash testSchemachange.sh
+        working-directory: .
