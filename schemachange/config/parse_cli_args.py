@@ -126,7 +126,7 @@ def parse_cli_args(args) -> dict:
         "-a",
         "--snowflake-account",
         type=str,
-        help="The name of the snowflake account (e.g. xy12345.east-us-2.azure)",
+        help="The name of the snowflake account (e.g. xy12345.east-us-2.azure, xy12345.east-us-2.azure.privatelink, org-accountname, org-accountname.privatelink)",
         required=False,
         action="deprecate",
     )

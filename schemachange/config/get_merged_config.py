@@ -11,7 +11,7 @@ from schemachange.config.parse_cli_args import parse_cli_args
 from schemachange.config.utils import (
     load_yaml_config,
     validate_directory,
-    validate_file_path,
+    validate_file_path
 )
 
 

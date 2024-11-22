@@ -149,7 +149,7 @@ class SnowflakeSession:
                 return row[0] > 0
 
     def create_change_history_schema(self, dry_run: bool) -> None:
-        query = f"CREATE SCHEMA IF NOT EXISTS {self.change_history_table.schema_name}"
+        query = f"CREATE SCHEMA IF NOT EXISTS {self.change_history_table.fully_qualified_schema_name}"
         if dry_run:
             self.logger.debug(
                 "Running in dry-run mode. Skipping execution.",

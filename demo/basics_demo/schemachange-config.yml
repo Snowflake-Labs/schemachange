@@ -1,6 +1,6 @@
 config-version: 1
 
-root-folder: "./demo/{{ env_var('SCENARIO_NAME')}}"
+root-folder: "./demo/{{ env_var('SCENARIO_NAME')}}/2_test"
 
 change-history-table: "{{ env_var('SNOWFLAKE_DATABASE')}}.{{ env_var('MY_TARGET_SCHEMA')}}.CHANGE_HISTORY"
 create-change-history-table: true
