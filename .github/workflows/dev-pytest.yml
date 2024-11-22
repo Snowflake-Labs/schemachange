@@ -58,11 +58,9 @@ jobs:
         id: pytest
         run: |
           pytest
-          chmod 744 testSchemchange.sh
-          pwd
       # Testing Schemachange demo projects
       - name: Test Schemachange on ${{ matrix.os }} targeting ${{ env.SNOWFLAKE_DATABASE }}.${{ env.MY_TARGET_SCHEMA }} schema
         run: |
           pwd
-          ls -ltr
-          ./testSchemachange.sh
+          chmod 744 testSchemchange.sh
+          . ./testSchemachange.sh
