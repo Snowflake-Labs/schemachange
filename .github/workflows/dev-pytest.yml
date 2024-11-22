@@ -63,4 +63,4 @@ jobs:
         run: |
           pwd
           chmod 744 testSchemchange.sh
-          . ./testSchemachange.sh
+          /home/runner/work/schemachange/schemachange/testSchemachange.sh
