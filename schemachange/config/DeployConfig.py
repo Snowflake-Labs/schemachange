@@ -6,8 +6,10 @@ from typing import Literal
 
 from schemachange.config.BaseConfig import BaseConfig
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
-from schemachange.config.utils import get_snowflake_identifier_string
-
+from schemachange.config.utils import (
+    get_snowflake_identifier_string,
+    get_snowflake_password,
+)
 
 @dataclasses.dataclass(frozen=True)
 class DeployConfig(BaseConfig):
@@ -82,6 +84,10 @@ class DeployConfig(BaseConfig):
             "connection_name": self.connection_name,
             "change_history_table": self.change_history_table,
             "autocommit": self.autocommit,
-            "query_tag": self.query_tag,
+            "query_tag": self.query_tag
         }
+        
+        snowflake_password = get_snowflake_password()
+        if snowflake_password is not None and snowflake_password:
+            session_kwargs["password"] = snowflake_password 
         return {k: v for k, v in session_kwargs.items() if v is not None}
