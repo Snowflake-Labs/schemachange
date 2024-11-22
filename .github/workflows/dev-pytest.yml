@@ -70,6 +70,6 @@ jobs:
         run: |
           echo "Current Directory: ${PWD}"
           echo "GITHUB WORKSPACE: ${GITHUB_WORKSPACE}"
-          chmod +x testSchemachange2.sh
-          bash testSchemachange2.sh
+          chmod +x testSchemachange.sh
+          bash testSchemachange.sh
         working-directory: .
