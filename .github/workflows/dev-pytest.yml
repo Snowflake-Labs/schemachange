@@ -3,7 +3,6 @@ name: dev-pytest
 defaults:
   run:
     shell: bash
-    working-directory: .
 
 on:
   workflow_dispatch:
@@ -66,3 +65,4 @@ jobs:
           ls -l
           chmod 744 testSchemchange.sh
           testSchemachange.sh
+        working-directory: .
