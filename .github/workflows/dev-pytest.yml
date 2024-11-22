@@ -3,6 +3,7 @@ name: dev-pytest
 defaults:
   run:
     shell: bash
+    working-directory: .
 
 on:
   workflow_dispatch:
@@ -61,6 +62,7 @@ jobs:
       # Testing Schemachange demo projects
       - name: Test Schemachange on ${{ matrix.os }} targeting ${{ env.SNOWFLAKE_DATABASE }}.${{ env.MY_TARGET_SCHEMA }} schema
         run: |
-          pwd
+          echo "Current Directory: ${PWD}"
+          ls -l
           chmod 744 testSchemchange.sh
-          /home/runner/work/schemachange/schemachange/testSchemachange.sh
+          testSchemachange.sh
