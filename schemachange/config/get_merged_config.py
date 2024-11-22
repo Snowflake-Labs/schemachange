@@ -12,6 +12,7 @@ from schemachange.config.utils import (
     load_yaml_config,
     validate_directory,
     validate_file_path,
+    get_snowflake_password,
 )
 
 
@@ -49,6 +50,7 @@ def get_merged_config(
     logger: structlog.BoundLogger,
 ) -> Union[DeployConfig, RenderConfig]:
     cli_kwargs = parse_cli_args(sys.argv[1:])
+    cli_kwargs["password"] = get_snowflake_password()
     logger.debug("cli_kwargs", **cli_kwargs)
 
     cli_config_vars = cli_kwargs.pop("config_vars")
