@@ -226,6 +226,10 @@ These files can be stored in the root-folder but schemachange also provides a se
 folder `--modules-folder`. This allows common logic to be stored outside of the main changes scripts.
 The [demo/citibike_demo_jinja](demo/citibike_demo_jinja) has a simple example that demonstrates this.
 
+schemachange uses Jinja's [`PrefixLoader`](https://jinja.palletsprojects.com/en/stable/api/#jinja2.PrefixLoader), so
+regardless of the `--modules-folder` that's used, the file paths (such as those passed to [`include`](https://jinja.palletsprojects.com/en/stable/templates/#include))
+should be prefixed with `modules/`.
+
 The Jinja auto-escaping feature is disabled in schemachange, this feature in Jinja is currently designed for where the
 output language is HTML/XML. So if you are using schemachange with untrusted inputs you will need to handle this within
 your change scripts.
