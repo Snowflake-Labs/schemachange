@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import dataclasses
-import itertools
 import re
 from abc import ABC
 from pathlib import Path
@@ -99,11 +98,13 @@ def get_all_scripts_recursively(root_directory: Path):
     all_files: dict[str, T] = dict()
     all_versions = list()
     # Walk the entire directory structure recursively
-    file_paths = itertools.chain(
-        root_directory.rglob("*.sql"), root_directory.rglob("*.sql.jinja")
-    )
-
+    sql_pattern = re.compile(r"\.sql(\.jinja)?$", flags=re.IGNORECASE)
+    file_paths = root_directory.glob("**/*")
     for file_path in file_paths:
+        if file_path.is_dir():
+            continue
+        if not sql_pattern.search(file_path.name.strip()):
+            continue
         script = script_factory(file_path=file_path)
         if script is None:
             continue
