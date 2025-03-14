@@ -10,7 +10,7 @@ import structlog
 
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import get_snowflake_identifier_string
-from schemachange.session.Script import VersionedScript, RepeatableScript, AlwaysScript
+from schemachange.session.Script import AlwaysScript, RepeatableScript, VersionedScript
 
 
 class SnowflakeSession:
@@ -64,7 +64,10 @@ class SnowflakeSession:
             "role": role,  # TODO: Remove when connections.toml is enforced
             "warehouse": warehouse,  # TODO: Remove when connections.toml is enforced
             "private_key_file": kwargs.get(
-                "private_key_path"
+                "private_key_file"
+            ),  # TODO: Remove when connections.toml is enforced
+            "private_key_file_pwd": kwargs.get(
+                "private_key_file_pwd"
             ),  # TODO: Remove when connections.toml is enforced
             "token": kwargs.get(
                 "oauth_token"
