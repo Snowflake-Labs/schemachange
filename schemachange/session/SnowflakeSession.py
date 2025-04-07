@@ -63,12 +63,8 @@ class SnowflakeSession:
             "schema": schema,  # TODO: Remove when connections.toml is enforced
             "role": role,  # TODO: Remove when connections.toml is enforced
             "warehouse": warehouse,  # TODO: Remove when connections.toml is enforced
-            "private_key_file": kwargs.get(
-                "private_key_file"
-            ),  # TODO: Remove when connections.toml is enforced
-            "private_key_file_pwd": kwargs.get(
-                "private_key_file_pwd"
-            ),  # TODO: Remove when connections.toml is enforced
+            "private_key_path": kwargs.get("private_key_path"),
+            "private_key_file_pwd": kwargs.get("private_key_file_pwd"),
             "token": kwargs.get(
                 "oauth_token"
             ),  # TODO: Remove when connections.toml is enforced
