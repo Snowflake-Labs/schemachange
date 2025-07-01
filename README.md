@@ -338,11 +338,39 @@ your Okta administrator for more information._
 
 ### Private Key Authentication
 
-External browser authentication can be selected by supplying `snowflake_jwt` as your authenticator. The filepath to a
+Private key authentication can be selected by supplying `snowflake_jwt` as your authenticator. The filepath to a
 Snowflake user-encrypted private key must be supplied as `private-key` in the [connections.toml](#connectionstoml-file)
 file. If the private key file is password protected, supply the password as `private_key_file_pwd` in
 the [connections.toml](#connectionstoml-file) file. If the variable is not set, the Snowflake Python connector will
 assume the private key is not encrypted.
+
+**Key Generation and Format Requirements:**
+
+For compatibility with schemachange and the Snowflake Python connector, generate private keys in PKCS#8 PEM format:
+
+```bash
+# Unencrypted private key (recommended for most automated use cases)
+openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -out rsa_key.p8 -nocrypt
+
+# Encrypted private key (if passphrase protection is needed)
+openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -out rsa_key.p8
+
+# Generate the corresponding public key
+openssl rsa -in rsa_key.p8 -pubout -out rsa_key.pub
+```
+
+**File Permissions:**
+Set secure permissions on your private key file:
+```bash
+chmod 600 rsa_key.p8
+```
+
+**Troubleshooting Private Key Issues:**
+If you encounter "Could not deserialize key data" errors:
+1. Ensure your private key is in PKCS#8 PEM format (use the commands above)
+2. Verify file permissions are set correctly (600)
+3. Check that the public key is properly configured in Snowflake
+4. Ensure you're using a compatible version of the cryptography library
 
 ## Configuration
 

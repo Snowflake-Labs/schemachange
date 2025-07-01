@@ -1,9 +1,8 @@
-from __future__ import annotations
-
 import hashlib
 import time
 from collections import defaultdict
 from textwrap import dedent, indent
+from typing import Union, Optional
 
 import snowflake.connector
 import structlog
@@ -63,9 +62,7 @@ class SnowflakeSession:
             "schema": schema,  # TODO: Remove when connections.toml is enforced
             "role": role,  # TODO: Remove when connections.toml is enforced
             "warehouse": warehouse,  # TODO: Remove when connections.toml is enforced
-            "private_key_file": kwargs.get(
-                "private_key_path"
-            ),  # TODO: Remove when connections.toml is enforced
+            "private_key_file": kwargs.get("private_key_path"),  # TODO: Remove when connections.toml is enforced
             "token": kwargs.get(
                 "oauth_token"
             ),  # TODO: Remove when connections.toml is enforced
