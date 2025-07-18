@@ -8,6 +8,7 @@ from schemachange.config.BaseConfig import BaseConfig
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import (
     get_snowflake_identifier_string,
+    get_snowflake_password,
 )
 
 
@@ -87,9 +88,9 @@ class DeployConfig(BaseConfig):
             "query_tag": self.query_tag,
         }
 
-        # TODO: Discuss the need for check for snowflake password before passing the session
-        # kwargs to open a snowflake session
-        # snowflake_password = get_snowflake_password()
-        # if snowflake_password is not None and snowflake_password:
-        #    session_kwargs["password"] = snowflake_password
+        # If the user supplied the password in the environment variable, add it to the session config
+        snowflake_password = get_snowflake_password()
+        if snowflake_password is not None and snowflake_password:
+            session_kwargs["password"] = snowflake_password
+
         return {k: v for k, v in session_kwargs.items() if v is not None}
