@@ -22,7 +22,7 @@ def test_parse_args_defaults():
     parsed_args = parse_cli_args(args)
     for expected_arg, expected_value in expected.items():
         assert parsed_args[expected_arg] == expected_value
-    assert parsed_args["raise_exception_on_ignored_versioned_script"] is None
+    assert parsed_args.get("raise_exception_on_ignored_versioned_script") is None
     assert parsed_args["subcommand"] == "deploy"
 
 
