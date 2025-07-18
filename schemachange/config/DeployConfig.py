@@ -6,18 +6,31 @@ from typing import Literal
 
 from schemachange.config.BaseConfig import BaseConfig
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
-from schemachange.config.utils import get_snowflake_identifier_string
+from schemachange.config.utils import (
+    get_snowflake_identifier_string,
+    get_snowflake_password,
+)
 
 
 @dataclasses.dataclass(frozen=True)
 class DeployConfig(BaseConfig):
     subcommand: Literal["deploy"] = "deploy"
-    snowflake_account: str | None = None
-    snowflake_user: str | None = None
-    snowflake_role: str | None = None
-    snowflake_warehouse: str | None = None
-    snowflake_database: str | None = None
-    snowflake_schema: str | None = None
+    snowflake_account: str | None = (
+        None  # TODO: Remove when connections.toml is enforced
+    )
+    snowflake_user: str | None = None  # TODO: Remove when connections.toml is enforced
+    snowflake_role: str | None = None  # TODO: Remove when connections.toml is enforced
+    snowflake_warehouse: str | None = (
+        None  # TODO: Remove when connections.toml is enforced
+    )
+    snowflake_database: str | None = (
+        None  # TODO: Remove when connections.toml is enforced
+    )
+    snowflake_schema: str | None = (
+        None  # TODO: Remove when connections.toml is enforced
+    )
+    connections_file_path: Path | None = None
+    connection_name: str | None = None
     # TODO: Turn change_history_table into three arguments. There's no need to parse it from a string
     change_history_table: ChangeHistoryTable | None = dataclasses.field(
         default_factory=ChangeHistoryTable
@@ -26,7 +39,6 @@ class DeployConfig(BaseConfig):
     autocommit: bool = False
     dry_run: bool = False
     query_tag: str | None = None
-    oauth_config: dict | None = None
     version_number_validation_regex: str | None = None
     raise_exception_on_ignored_versioned_script: bool = False
 
@@ -34,15 +46,23 @@ class DeployConfig(BaseConfig):
     def factory(
         cls,
         config_file_path: Path,
-        snowflake_role: str | None = None,
-        snowflake_warehouse: str | None = None,
-        snowflake_database: str | None = None,
-        snowflake_schema: str | None = None,
         change_history_table: str | None = None,
         **kwargs,
     ):
         if "subcommand" in kwargs:
             kwargs.pop("subcommand")
+
+        # TODO: Remove when connections.toml is enforced
+        for sf_input in [
+            "snowflake_role",
+            "snowflake_warehouse",
+            "snowflake_database",
+            "snowflake_schema",
+        ]:
+            if sf_input in kwargs and kwargs[sf_input] is not None:
+                kwargs[sf_input] = get_snowflake_identifier_string(
+                    kwargs[sf_input], sf_input
+                )
 
         change_history_table = ChangeHistoryTable.from_str(
             table_str=change_history_table
@@ -51,37 +71,28 @@ class DeployConfig(BaseConfig):
         return super().factory(
             subcommand="deploy",
             config_file_path=config_file_path,
-            snowflake_role=get_snowflake_identifier_string(
-                snowflake_role, "snowflake_role"
-            ),
-            snowflake_warehouse=get_snowflake_identifier_string(
-                snowflake_warehouse, "snowflake_warehouse"
-            ),
-            snowflake_database=get_snowflake_identifier_string(
-                snowflake_database, "snowflake_database"
-            ),
-            snowflake_schema=get_snowflake_identifier_string(
-                snowflake_schema, "snowflake_schema"
-            ),
             change_history_table=change_history_table,
             **kwargs,
         )
 
-    def check_for_deploy_args(self) -> None:
-        """Make sure we have the required connection info"""
-
-        req_args = {
-            "snowflake_account": self.snowflake_account,
-            "snowflake_user": self.snowflake_user,
-            "snowflake_role": self.snowflake_role,
-            "snowflake_warehouse": self.snowflake_warehouse,
+    def get_session_kwargs(self) -> dict:
+        session_kwargs = {
+            "account": self.snowflake_account,  # TODO: Remove when connections.toml is enforced
+            "user": self.snowflake_user,  # TODO: Remove when connections.toml is enforced
+            "role": self.snowflake_role,  # TODO: Remove when connections.toml is enforced
+            "warehouse": self.snowflake_warehouse,  # TODO: Remove when connections.toml is enforced
+            "database": self.snowflake_database,  # TODO: Remove when connections.toml is enforced
+            "schema": self.snowflake_schema,  # TODO: Remove when connections.toml is enforced
+            "connections_file_path": self.connections_file_path,
+            "connection_name": self.connection_name,
+            "change_history_table": self.change_history_table,
+            "autocommit": self.autocommit,
+            "query_tag": self.query_tag,
         }
-        missing_args = [key for key, value in req_args.items() if value is None]
 
-        if len(missing_args) == 0:
-            return
+        # If the user supplied the password in the environment variable, add it to the session config
+        snowflake_password = get_snowflake_password()
+        if snowflake_password is not None and snowflake_password:
+            session_kwargs["password"] = snowflake_password
 
-        missing_args = ", ".join({arg.replace("_", " ") for arg in missing_args})
-        raise ValueError(
-            f"Missing config values. The following config values are required: {missing_args}"
-        )
+        return {k: v for k, v in session_kwargs.items() if v is not None}

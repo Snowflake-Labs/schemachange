@@ -3,26 +3,23 @@ from __future__ import annotations
 import hashlib
 import time
 from collections import defaultdict
-from dataclasses import asdict
 from textwrap import dedent, indent
 
 import snowflake.connector
 import structlog
 
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
-from schemachange.config.DeployConfig import DeployConfig
-from schemachange.session.Credential import SomeCredential, credential_factory
+from schemachange.config.utils import get_snowflake_identifier_string
 from schemachange.session.Script import VersionedScript, RepeatableScript, AlwaysScript
 
 
 class SnowflakeSession:
-    user: str
     account: str
-    role: str
-    warehouse: str
-    database: str | None
+    user: str | None  # TODO: user: str when connections.toml is enforced
+    role: str | None  # TODO: role: str when connections.toml is enforced
+    warehouse: str | None  # TODO: warehouse: str when connections.toml is enforced
+    database: str | None  # TODO: database: str when connections.toml is enforced
     schema: str | None
-    query_tag: str | None
     autocommit: bool
     change_history_table: ChangeHistoryTable
     logger: structlog.BoundLogger
@@ -35,46 +32,66 @@ class SnowflakeSession:
 
     def __init__(
         self,
-        snowflake_user: str,
-        snowflake_account: str,
-        snowflake_role: str,
-        snowflake_warehouse: str,
         schemachange_version: str,
         application: str,
-        credential: SomeCredential,
         change_history_table: ChangeHistoryTable,
         logger: structlog.BoundLogger,
-        autocommit: bool = False,
-        snowflake_database: str | None = None,
-        snowflake_schema: str | None = None,
+        connection_name: str | None = None,
+        connections_file_path: str | None = None,
+        account: str | None = None,  # TODO: Remove when connections.toml is enforced
+        user: str | None = None,  # TODO: Remove when connections.toml is enforced
+        role: str | None = None,  # TODO: Remove when connections.toml is enforced
+        warehouse: str | None = None,  # TODO: Remove when connections.toml is enforced
+        database: str | None = None,  # TODO: Remove when connections.toml is enforced
+        schema: str | None = None,  # TODO: Remove when connections.toml is enforced
         query_tag: str | None = None,
+        autocommit: bool = False,
+        **kwargs,  # TODO: Remove when connections.toml is enforced
     ):
-        self.user = snowflake_user
-        self.account = snowflake_account
-        self.role = snowflake_role
-        self.warehouse = snowflake_warehouse
-        self.database = snowflake_database
-        self.schema = snowflake_schema
-        self.autocommit = autocommit
         self.change_history_table = change_history_table
+        self.autocommit = autocommit
         self.logger = logger
 
         self.session_parameters = {"QUERY_TAG": f"schemachange {schemachange_version}"}
         if query_tag:
             self.session_parameters["QUERY_TAG"] += f";{query_tag}"
 
-        self.con = snowflake.connector.connect(
-            user=self.user,
-            account=self.account,
-            role=self.role,
-            warehouse=self.warehouse,
-            database=self.database,
-            schema=self.schema,
-            application=application,
-            session_parameters=self.session_parameters,
-            **asdict(credential),
-        )
+        connect_kwargs = {
+            "account": account,  # TODO: Remove when connections.toml is enforced
+            "user": user,  # TODO: Remove when connections.toml is enforced
+            "database": database,  # TODO: Remove when connections.toml is enforced
+            "schema": schema,  # TODO: Remove when connections.toml is enforced
+            "role": role,  # TODO: Remove when connections.toml is enforced
+            "warehouse": warehouse,  # TODO: Remove when connections.toml is enforced
+            "private_key_file": kwargs.get(
+                "private_key_path"
+            ),  # TODO: Remove when connections.toml is enforced
+            "token": kwargs.get(
+                "oauth_token"
+            ),  # TODO: Remove when connections.toml is enforced
+            "password": kwargs.get(
+                "password"
+            ),  # TODO: Remove when connections.toml is enforced
+            "authenticator": kwargs.get(
+                "authenticator"
+            ),  # TODO: Remove when connections.toml is enforced
+            "connection_name": connection_name,
+            "connections_file_path": connections_file_path,
+            "application": application,
+            "session_parameters": self.session_parameters,
+        }
+        connect_kwargs = {k: v for k, v in connect_kwargs.items() if v is not None}
+        self.logger.debug("snowflake.connector.connect kwargs", **connect_kwargs)
+        self.con = snowflake.connector.connect(**connect_kwargs)
         print(f"Current session ID: {self.con.session_id}")
+        self.account = self.con.account
+        self.user = get_snowflake_identifier_string(self.con.user, "user")
+        self.role = get_snowflake_identifier_string(self.con.role, "role")
+        self.warehouse = get_snowflake_identifier_string(
+            self.con.warehouse, "warehouse"
+        )
+        self.database = get_snowflake_identifier_string(self.con.database, "database")
+        self.schema = get_snowflake_identifier_string(self.con.schema, "schema")
 
         if not self.autocommit:
             self.con.autocommit(False)
@@ -132,7 +149,7 @@ class SnowflakeSession:
                 return row[0] > 0
 
     def create_change_history_schema(self, dry_run: bool) -> None:
-        query = f"CREATE SCHEMA IF NOT EXISTS {self.change_history_table.schema_name}"
+        query = f"CREATE SCHEMA IF NOT EXISTS {self.change_history_table.fully_qualified_schema_name}"
         if dry_run:
             self.logger.debug(
                 "Running in dry-run mode. Skipping execution.",
@@ -257,6 +274,7 @@ class SnowflakeSession:
                     "checksum": checksum,
                 }
 
+        # noinspection PyTypeChecker
         return versioned_scripts, versions[0] if versions else None
 
     def reset_session(self, logger: structlog.BoundLogger):
@@ -294,6 +312,7 @@ class SnowflakeSession:
             return
         logger.info("Applying change script")
         # Define a few other change related variables
+        # noinspection PyTypeChecker
         checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
         execution_time = 0
         status = "Success"
@@ -337,27 +356,3 @@ class SnowflakeSession:
             );
         """
         self.execute_snowflake_query(dedent(query), logger=logger)
-
-
-def get_session_from_config(
-    config: DeployConfig,
-    logger: structlog.BoundLogger,
-    schemachange_version: str,
-    snowflake_application_name: str,
-) -> SnowflakeSession:
-    credential = credential_factory(logger=logger, oauth_config=config.oauth_config)
-    return SnowflakeSession(
-        snowflake_user=config.snowflake_user,
-        snowflake_account=config.snowflake_account,
-        snowflake_role=config.snowflake_role,
-        snowflake_warehouse=config.snowflake_warehouse,
-        schemachange_version=schemachange_version,
-        application=snowflake_application_name,
-        credential=credential,
-        change_history_table=config.change_history_table,
-        logger=logger,
-        autocommit=config.autocommit,
-        snowflake_database=config.snowflake_database,
-        snowflake_schema=config.snowflake_schema,
-        query_tag=config.query_tag,
-    )

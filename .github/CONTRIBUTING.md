@@ -7,7 +7,8 @@ operating environment, schemachange version and python version. Whenever possibl
 also include a brief, self-contained code example that demonstrates the problem.
 
 We have
-included [issue templates](https://github.com/Snowflake-Labs/schemachange/issues/new/choose) for reporting bugs, requesting features and seeking clarifications. Choose the appropriate issue template to contribute to the repository.
+included [issue templates](https://github.com/Snowflake-Labs/schemachange/issues/new/choose) for reporting bugs,
+requesting features and seeking clarifications. Choose the appropriate issue template to contribute to the repository.
 
 ## Contributing code
 
@@ -21,8 +22,6 @@ Thank you for your interest in contributing code to schemachange!
   and [ipython git workflow](https://mail.python.org/pipermail/ipython-dev/2010-October/005632.html).
 
 ### Guide to contributing to schemachange
-
-> **IMPORTANT** : You will need to follow the [provisioning and schemachange setup instructions](../demo/README.MD) to ensure you can run GitHub actions against your Snowflake account before placing a PR with main schemachange repository so that your PR can be merged into schemachange master branch.
 
 1. If you are a first-time contributor
     + Go to [Snowflake-Labs/Schemachange](https://github.com/Snowflake-Labs/schemachange) and click the "fork" button to
@@ -53,8 +52,8 @@ Thank you for your interest in contributing code to schemachange!
     + [Pull](https://github.com/git-guides/git-pull) the latest changes from upstream, including tags:
 
     ```shell
-    git checkout main
-    git pull upstream main --tags
+    git checkout master
+    git pull upstream master --tags
     ```
 
 2. Create and Activate a Virtual Environment
@@ -98,24 +97,32 @@ Thank you for your interest in contributing code to schemachange!
 
     + Commit locally as you progress ( [git add](https://github.com/git-guides/git-add)
       and [git commit](https://github.com/git-guides/git-commit) ). Use a properly formatted commit message. Be sure to
-      document any changed behavior in the [CHANGELOG.md](../CHANGELOG.md) file to help us collate the changes for a specific release.
+      document any changed behavior in the [CHANGELOG.md](../CHANGELOG.md) file to help us collate the changes for a
+      specific release.
 
 4. Test your contribution locally
 
    ```bash
    python -m pytest
    ```
-   PS: Please add test cases to the features you are developing so that over time, we can capture any lapse in functionality changes.
+   PS: Please add test cases to the features you are developing so that over time, we can capture any lapse in
+   functionality changes.
 
-5. Push your contribution to GitHub
+5. Perform integration tests on your branch from your fork
+    - Follow the [provisioning and schemachange setup instructions](../demo/README.MD) to configure your Snowflake
+      account for testing.
+    - Follow [these](https://docs.github.com/en/actions/managing-workflow-runs-and-deployments/managing-workflow-runs/manually-running-a-workflow)
+      instructions to manually run the `master-pytest` workflow on your fork of the repo, targeting your feature branch.
 
-    [Push](https://github.com/git-guides/git-push) your changes back to your fork on GitHub
+6. Push your contribution to GitHub
+
+   [Push](https://github.com/git-guides/git-push) your changes back to your fork on GitHub
 
     ```shell
     git push origin update-build-library-dependencies
     ```
 
-6. Raise a Pull Request to merge your contribution into the a Schemachange Release
+7. Raise a Pull Request to merge your contribution into the a Schemachange Release
     + Go to GitHub. The new branch will show up with a
       green [Pull Request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests#initiating-the-pull-request)
       button. Make sure the title and message are clear, concise and self-explanatory. Then click the button to submit

@@ -31,8 +31,8 @@ repos:
         args: [ --fix ]
       # Run the formatter.
       - id: ruff-format
-  - repo: git@github.com:GitGuardian/ggshield.git
-    rev: v1.28.0
+  - repo: https://github.com/gitguardian/ggshield
+    rev: v1.36.0
     hooks:
       - id: ggshield
         language_version: python3

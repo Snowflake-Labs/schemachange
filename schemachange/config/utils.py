@@ -1,31 +1,31 @@
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from typing import Any
+
 
 import jinja2
 import jinja2.ext
 import structlog
 import yaml
-
 from schemachange.JinjaEnvVar import JinjaEnvVar
+import warnings
 
 logger = structlog.getLogger(__name__)
 
 snowflake_identifier_pattern = re.compile(r"^[\w]+$")
 
 
-def get_snowflake_identifier_string(input_value: str, input_type: str) -> str:
+def get_snowflake_identifier_string(input_value: str, input_type: str) -> str | None:
     # Words with alphanumeric characters and underscores only.
-    result = ""
-
     if input_value is None:
-        result = None
+        return None
     elif snowflake_identifier_pattern.match(input_value):
-        result = input_value
+        return input_value
     elif input_value.startswith('"') and input_value.endswith('"'):
-        result = input_value
+        return input_value
     elif input_value.startswith('"') and not input_value.endswith('"'):
         raise ValueError(
             f"Invalid {input_type}: {input_value}. Missing ending double quote"
@@ -35,9 +35,7 @@ def get_snowflake_identifier_string(input_value: str, input_type: str) -> str:
             f"Invalid {input_type}: {input_value}. Missing beginning double quote"
         )
     else:
-        result = f'"{input_value}"'
-
-    return result
+        return f'"{input_value}"'
 
 
 def get_config_secrets(config_vars: dict[str, dict | str] | None) -> set[str]:
@@ -73,7 +71,9 @@ def get_config_secrets(config_vars: dict[str, dict | str] | None) -> set[str]:
     return inner_extract_dictionary_secrets(config_vars)
 
 
-def validate_file_path(file_path: Path | str) -> Path:
+def validate_file_path(file_path: Path | str | None) -> Path | None:
+    if file_path is None:
+        return None
     if isinstance(file_path, str):
         file_path = Path(file_path)
     if not file_path.is_file():
@@ -83,7 +83,7 @@ def validate_file_path(file_path: Path | str) -> Path:
 
 def validate_directory(path: Path | str | None) -> Path | None:
     if path is None:
-        return path
+        return None
     if isinstance(path, str):
         path = Path(path)
     if not path.is_dir():
@@ -130,3 +130,34 @@ def load_yaml_config(config_file_path: Path | None) -> dict[str, Any]:
             config = yaml.load(config_template.render(), Loader=yaml.FullLoader)
         logger.info("Using config file", config_file_path=str(config_file_path))
     return config
+
+
+def get_snowsql_pwd() -> str | None:
+    snowsql_pwd = os.getenv("SNOWSQL_PWD")
+    if snowsql_pwd is not None and snowsql_pwd:
+        warnings.warn(
+            "The SNOWSQL_PWD environment variable is deprecated and "
+            "will be removed in a later version of schemachange. "
+            "Please use SNOWFLAKE_PASSWORD instead.",
+            DeprecationWarning,
+        )
+    return snowsql_pwd
+
+
+def get_snowflake_password() -> str | None:
+    snowflake_password = os.getenv("SNOWFLAKE_PASSWORD")
+    snowsql_pwd = get_snowsql_pwd()
+
+    if snowflake_password is not None and snowflake_password:
+        # Check legacy/deprecated env variable
+        if snowsql_pwd is not None and snowsql_pwd:
+            warnings.warn(
+                "Environment variables SNOWFLAKE_PASSWORD and SNOWSQL_PWD "
+                "are both present, using SNOWFLAKE_PASSWORD",
+                DeprecationWarning,
+            )
+        return snowflake_password
+    elif snowsql_pwd is not None and snowsql_pwd:
+        return snowsql_pwd
+    else:
+        return None

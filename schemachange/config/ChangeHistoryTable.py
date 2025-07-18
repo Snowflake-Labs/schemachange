@@ -18,6 +18,10 @@ class ChangeHistoryTable:
     def fully_qualified(self) -> str:
         return f"{self.database_name}.{self.schema_name}.{self.table_name}"
 
+    @property
+    def fully_qualified_schema_name(self) -> str:
+        return f"{self.database_name}.{self.schema_name}"
+
     @classmethod
     def from_str(cls, table_str: str):
         database_name = cls._default_database_name
