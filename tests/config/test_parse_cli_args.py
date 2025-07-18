@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import logging
+
+import pytest
 
 from schemachange.config.parse_cli_args import parse_cli_args
 
@@ -128,3 +131,15 @@ def test_parse_args_deploy_flags():
     assert parsed_args["subcommand"] == "deploy"
     for expected_arg, expected_value in expected.items():
         assert parsed_args[expected_arg] == expected_value
+
+
+def test_parse_args_verbose_deprecation():
+    args: list[str] = ["--verbose"]
+    with pytest.warns(UserWarning) as warning:
+        parsed_args = parse_cli_args(args)
+    assert parsed_args.get("verbose", None) is None
+    assert parsed_args["log_level"] is logging.DEBUG
+    assert (
+        str(warning[0].message)
+        == "Argument ['-v', '--verbose'] is deprecated and will be interpreted as a DEBUG log level."
+    )
