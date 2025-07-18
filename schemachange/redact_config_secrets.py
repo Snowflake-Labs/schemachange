@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 import warnings
-from typing import Callable
+from typing import Callable, Any
 
 import structlog
 from structlog import PrintLogger
@@ -14,39 +14,41 @@ def get_redact_config_secrets_processor(
     def redact_config_secrets_processor(
         _: PrintLogger, __: str, event_dict: dict
     ) -> dict:
-        def redact_dict(level: int, sub_event_dict: dict) -> dict:
+        def redact_value(level: int, value: Any):
             if level > 6:
                 warnings.warn(
                     "Unable to redact deeply nested secrets in log: %(event)s"
                     % {"event": event_dict["event"]}
                 )
-                return sub_event_dict
-            for sub_k, sub_v in sub_event_dict.items():
-                if isinstance(sub_v, dict):
-                    sub_event_dict[sub_k] = redact_dict(
-                        level=level + 1, sub_event_dict=sub_v
-                    )
-                elif isinstance(sub_v, str):
-                    for secret in config_secrets:
-                        if secret in sub_v:
-                            sub_event_dict[sub_k] = sub_event_dict[sub_k].replace(
-                                secret, "*" * len(secret)
-                            )
-                elif isinstance(sub_v, int):
-                    for secret in config_secrets:
-                        if secret in str(sub_v):
-                            sub_event_dict[sub_k] = str(sub_event_dict[sub_k]).replace(
-                                secret, "*" * len(secret)
-                            )
-                else:
+                return value
+            if isinstance(value, dict):
+                for sub_k, sub_v in value.items():
+                    value[sub_k] = redact_value(level=level + 1, value=sub_v)
+                return value
+            elif isinstance(value, list):
+                for i, sub_v in enumerate(value):
+                    value[i] = redact_value(level=level + 1, value=sub_v)
+                return value
+            elif isinstance(value, set):
+                return {redact_value(level=level + 1, value=sub_v) for sub_v in value}
+            elif isinstance(value, tuple):
+                return tuple(
+                    redact_value(level=level + 1, value=sub_v) for sub_v in value
+                )
+            elif not isinstance(value, str):
+                try:
+                    value = str(value)
+                except Exception:
                     warnings.warn(
                         "Unable to redact %(type)s log arguments in log: %(event)s"
-                        % {"type": type(sub_v).__name__, "event": event_dict["event"]}
+                        % {"type": type(value).__name__, "event": event_dict["event"]}
                     )
-                    return sub_event_dict
-            return sub_event_dict
+                    return value
+            for secret in config_secrets:
+                value = value.replace(secret, "*" * len(secret))
+            return value
 
-        return redact_dict(level=0, sub_event_dict=copy.deepcopy(event_dict))
+        return redact_value(level=0, value=copy.deepcopy(event_dict))
 
     return redact_config_secrets_processor
 
