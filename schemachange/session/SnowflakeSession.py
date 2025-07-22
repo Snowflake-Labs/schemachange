@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import time
-import os
 from collections import defaultdict
 from textwrap import dedent, indent
 
@@ -12,7 +11,6 @@ import structlog
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import get_snowflake_identifier_string
 from schemachange.session.Script import VersionedScript, RepeatableScript, AlwaysScript
-
 
 
 class SnowflakeSession:
@@ -53,7 +51,6 @@ class SnowflakeSession:
         self.change_history_table = change_history_table
         self.autocommit = autocommit
         self.logger = logger
-
 
         self.session_parameters = {"QUERY_TAG": f"schemachange {schemachange_version}"}
         if query_tag:
