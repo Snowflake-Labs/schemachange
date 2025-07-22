@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import time
+import os
 from collections import defaultdict
 from textwrap import dedent, indent
 
@@ -11,6 +12,8 @@ import structlog
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import get_snowflake_identifier_string
 from schemachange.session.Script import VersionedScript, RepeatableScript, AlwaysScript
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
 
 
 class SnowflakeSession:
@@ -52,6 +55,12 @@ class SnowflakeSession:
         self.autocommit = autocommit
         self.logger = logger
 
+        p_key = serialization.load_pem_private_key(
+                os.environ.get("SNOWFLAKE_PRIVATE_KEY", "").encode('utf-8'),
+                password=None,
+                backend=default_backend()
+            )
+
         self.session_parameters = {"QUERY_TAG": f"schemachange {schemachange_version}"}
         if query_tag:
             self.session_parameters["QUERY_TAG"] += f";{query_tag}"
@@ -63,6 +72,7 @@ class SnowflakeSession:
             "schema": schema,  # TODO: Remove when connections.toml is enforced
             "role": role,  # TODO: Remove when connections.toml is enforced
             "warehouse": warehouse,  # TODO: Remove when connections.toml is enforced
+            "private_key": p_key,
             "private_key_file": kwargs.get(
                 "private_key_path"
             ),  # TODO: Remove when connections.toml is enforced
