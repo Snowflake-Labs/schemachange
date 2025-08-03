@@ -22,6 +22,7 @@ def test_parse_args_defaults():
     parsed_args = parse_cli_args(args)
     for expected_arg, expected_value in expected.items():
         assert parsed_args[expected_arg] == expected_value
+    assert parsed_args.get("raise_exception_on_ignored_versioned_script") is None
     assert parsed_args["subcommand"] == "deploy"
 
 
@@ -53,6 +54,7 @@ def test_parse_args_deploy_names():
         ("--connection-name", "some_connection_name", "some_connection_name"),
         ("--change-history-table", "some_history_table", "some_history_table"),
         ("--query-tag", "some_query_tag", "some_query_tag"),
+        ("--version-number-validation-regex", "some_regex", "some_regex"),
     ]
 
     for arg, value, expected_value in valued_test_args:
@@ -65,6 +67,7 @@ def test_parse_args_deploy_names():
         ("--create-change-history-table", True),
         ("--autocommit", True),
         ("--dry-run", True),
+        ("--raise-exception-on-ignored-versioned-script", True),
     ]
 
     for arg, expected_value in valueless_test_args:
