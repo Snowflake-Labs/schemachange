@@ -1,6 +1,6 @@
 # schemachange
 
-<img src="images/schemachange-logo-title.png" alt="schemachange" title="schemachange logo" width="600" />
+<img src="https://github.com/user-attachments/assets/8bc170c9-4171-48c7-812c-6d76c07ee364" alt="schemachange" title="schemachange logo" width="600" />
 
 *Looking for snowchange? You've found the right spot. snowchange has been renamed to schemachange.*
 
@@ -100,7 +100,7 @@ by [Flyway Versioned Migrations](https://documentation.red-gate.com/fd/versioned
 must follow this pattern (image taken
 from [Flyway docs](https://documentation.red-gate.com/fd/versioned-migrations-273973333.html)):
 
-<img src="images/flyway-naming-convention.png" alt="Flyway naming conventions" title="Flyway naming conventions" width="300" />
+<img src="https://github.com/user-attachments/assets/a71297d9-4a3c-4d30-82d3-c634be88fe54" alt="Flyway naming conventions" title="Flyway naming conventions" width="300" />
 
 With the following rules for each part of the filename:
 
@@ -131,7 +131,7 @@ by [Flyway Versioned Migrations](https://documentation.red-gate.com/fd/repeatabl
 script name must follow this pattern (image taken
 from [Flyway docs](https://documentation.red-gate.com/fd/repeatable-migrations-273973335.html):
 
-<img src="images/flyway-repeatable-naming-convention.png" alt="Flyway naming conventions" title="Flyway naming conventions" width="300" />
+<img src="https://github.com/user-attachments/assets/06abd883-58b7-42d5-97b2-581158d8b121" alt="Flyway naming conventions" title="Flyway naming conventions" width="300" />
 
 e.g:
 
@@ -564,7 +564,7 @@ To get started with schemachange and these demo scripts follow these steps:
 
 Here is a sample DevOps development lifecycle with schemachange:
 
-<img src="images/diagram.png" alt="schemachange DevOps process" title="schemachange DevOps process" />
+<img src="https://github.com/user-attachments/assets/42eae968-ae76-4fcb-a0ba-3995ec977818" alt="schemachange DevOps process" title="schemachange DevOps process" />
 
 ### Using in a CI/CD Pipeline
 
