@@ -71,6 +71,10 @@ def test_parse_args_deploy_names():
         ("--autocommit", True),
         ("--dry-run", True),
         ("--raise-exception-on-ignored-versioned-script", True),
+        ("--continue-all-on-error", True),
+        ("--continue-versioned-on-error", True),
+        ("--continue-repeatable-on-error", True),
+        ("--continue-always-on-error", True),
     ]
 
     for arg, expected_value in valueless_test_args:

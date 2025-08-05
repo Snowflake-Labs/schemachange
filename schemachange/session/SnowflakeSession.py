@@ -168,6 +168,7 @@ class SnowflakeSession:
                 CHECKSUM VARCHAR,
                 EXECUTION_TIME NUMBER,
                 STATUS VARCHAR,
+                ERROR_MESSAGE VARCHAR,
                 INSTALLED_BY VARCHAR,
                 INSTALLED_ON TIMESTAMP_LTZ
             )
@@ -316,22 +317,26 @@ class SnowflakeSession:
         checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
         execution_time = 0
         status = "Success"
-
-        # Execute the contents of the script
+        error_message = ""
+        error: Exception | None = None
+        start = time.time()
         if len(script_content) > 0:
-            start = time.time()
             self.reset_session(logger=logger)
             self.reset_query_tag(extra_tag=script.name, logger=logger)
             try:
                 self.execute_snowflake_query(query=script_content, logger=logger)
             except Exception as e:
-                raise Exception(f"Failed to execute {script.name}") from e
-            self.reset_query_tag(logger=logger)
-            self.reset_session(logger=logger)
-            end = time.time()
-            execution_time = round(end - start)
+                status = "Failed"
+                error = e
+                error_message = str(e).replace("'", "''")
+            finally:
+                self.reset_query_tag(logger=logger)
+                self.reset_session(logger=logger)
+                end = time.time()
+                execution_time = round(end - start)
 
         # Compose and execute the insert statement to the log file
+        script_version = getattr(script, "version", "")
         query = f"""\
             INSERT INTO {self.change_history_table.fully_qualified} (
                 VERSION,
@@ -341,18 +346,40 @@ class SnowflakeSession:
                 CHECKSUM,
                 EXECUTION_TIME,
                 STATUS,
+                ERROR_MESSAGE,
                 INSTALLED_BY,
                 INSTALLED_ON
             ) VALUES (
-                '{getattr(script, "version", "")}',
+                '{script_version}',
                 '{script.description}',
                 '{script.name}',
                 '{script.type}',
                 '{checksum}',
                 {execution_time},
                 '{status}',
+                '{error_message}',
                 '{self.user}',
                 CURRENT_TIMESTAMP
             );
         """
-        self.execute_snowflake_query(dedent(query), logger=logger)
+        dedent_query = dedent(query)
+        try:
+            self.execute_snowflake_query(dedent_query, logger=logger)
+        except snowflake.connector.errors.ProgrammingError as e:
+            if "ERROR_MESSAGE" in str(e):
+                logger.warning(
+                    "Change history table missing ERROR_MESSAGE column, adding column",
+                    error=str(e),
+                )
+                alter_query = (
+                    f"ALTER TABLE {self.change_history_table.fully_qualified} "
+                    "ADD COLUMN IF NOT EXISTS ERROR_MESSAGE VARCHAR"
+                )
+                self.execute_snowflake_query(alter_query, logger=logger)
+                self.execute_snowflake_query(dedent_query, logger=logger)
+            else:
+                raise
+        if status != "Success":
+            raise Exception(
+                f"Failed to execute {script.name}: {error_message}"
+            ) from error
