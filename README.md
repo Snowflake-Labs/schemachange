@@ -342,8 +342,8 @@ your Okta administrator for more information._
 
 ### Private Key Authentication
 
-External browser authentication can be selected by supplying `snowflake_jwt` as your authenticator. The filepath to a
-Snowflake user-encrypted private key must be supplied as `private-key` in the [connections.toml](#connectionstoml-file)
+Private key authentication can be selected by supplying `snowflake_jwt` as your authenticator. The filepath to a
+Snowflake user-encrypted private key must be supplied as `private_key_file` in the [connections.toml](#connectionstoml-file)
 file. If the private key file is password protected, supply the password as `private_key_file_pwd` in
 the [connections.toml](#connectionstoml-file) file. If the variable is not set, the Snowflake Python connector will
 assume the private key is not encrypted.
