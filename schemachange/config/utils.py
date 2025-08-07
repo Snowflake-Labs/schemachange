@@ -161,3 +161,9 @@ def get_snowflake_password() -> str | None:
         return snowsql_pwd
     else:
         return None
+
+
+def get_snowflake_private_key() -> tuple[str | None, str | None]:
+    private_key_path = os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH")
+    private_key_passphrase = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE")
+    return private_key_path, private_key_passphrase
