@@ -76,6 +76,8 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
 
     scripts_skipped = 0
     scripts_applied = 0
+    scripts_failed = 0
+    failed_scripts: list[str] = []
 
     # Loop through each script in order and apply any required changes
     for script_name in all_script_names_sorted:
@@ -146,17 +148,40 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
                 scripts_skipped += 1
                 continue
 
-        session.apply_change_script(
-            script=script,
-            script_content=content,
-            dry_run=config.dry_run,
-            logger=script_log,
+        should_continue = (
+            (script.type == "V" and config.continue_versioned_on_error)
+            or (script.type == "R" and config.continue_repeatable_on_error)
+            or (script.type == "A" and config.continue_always_on_error)
         )
+        try:
+            session.apply_change_script(
+                script=script,
+                script_content=content,
+                dry_run=config.dry_run,
+                logger=script_log,
+            )
+            scripts_applied += 1
+        except Exception as e:
+            scripts_failed += 1
+            failed_scripts.append(script.name)
+            script_log.error("Failed to apply change script", error=str(e))
+            if not should_continue:
+                raise
 
-        scripts_applied += 1
-
-    logger.info(
-        "Completed successfully",
-        scripts_applied=scripts_applied,
-        scripts_skipped=scripts_skipped,
-    )
+    if scripts_failed > 0:
+        logger.error(
+            "Completed with errors",
+            scripts_applied=scripts_applied,
+            scripts_skipped=scripts_skipped,
+            scripts_failed=scripts_failed,
+            failed_scripts=failed_scripts,
+        )
+        raise Exception(
+            f"{scripts_failed} change script(s) failed: {', '.join(failed_scripts)}"
+        )
+    else:
+        logger.info(
+            "Completed successfully",
+            scripts_applied=scripts_applied,
+            scripts_skipped=scripts_skipped,
+        )

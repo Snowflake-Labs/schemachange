@@ -12,6 +12,8 @@ from schemachange.JinjaEnvVar import JinjaEnvVar
 
 logger = structlog.getLogger(__name__)
 
+_NO_JINJA_MARKER = "schemachange-no-jinja"
+
 
 class JinjaTemplateProcessor:
     _env_args = {
@@ -48,8 +50,14 @@ class JinjaTemplateProcessor:
             variables = {}
         # jinja needs posix path
         posix_path = Path(script).as_posix()
-        template = self.__environment.get_template(posix_path)
-        content = template.render(**variables).strip()
+        source, _, _ = self.__environment.loader.get_source(
+            self.__environment, posix_path
+        )
+        if _NO_JINJA_MARKER in source.lower():
+            content = source.strip()
+        else:
+            template = self.__environment.get_template(posix_path)
+            content = template.render(**variables).strip()
         content = content[:-1] if content.endswith(";") else content
         return content
 
