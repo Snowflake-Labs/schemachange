@@ -47,6 +47,19 @@ class BaseConfig(ABC):
                 "config_vars did not parse correctly, please check its configuration"
             ) from e
 
+        # Get the field names from the dataclass to validate against
+        field_names = {field.name for field in dataclasses.fields(cls)}
+
+        # Check for unknown keys and warn about them
+        unknown_keys = set(kwargs.keys()) - field_names
+        if unknown_keys:
+            unknown_keys_str = ", ".join(sorted(unknown_keys))
+            logger.warning(
+                f"Unknown configuration keys found and will be ignored: {unknown_keys_str}"
+            )
+            # Filter out unknown keys to prevent TypeError
+            kwargs = {k: v for k, v in kwargs.items() if k in field_names}
+
         return cls(
             subcommand=subcommand,
             config_file_path=config_file_path,
