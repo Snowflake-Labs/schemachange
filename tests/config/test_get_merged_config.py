@@ -562,6 +562,9 @@ param_full_yaml_and_connection_and_cli_and_env = pytest.param(
         "--dry-run",
         "--query-tag",
         "query-tag-from-cli",
+        "--version-number-validation-regex",
+        "version_number_validation_regex-from-cli",
+        "--raise-exception-on-ignored-versioned-script",
     ],
     {  # expected
         "subcommand": "deploy",
@@ -588,6 +591,8 @@ param_full_yaml_and_connection_and_cli_and_env = pytest.param(
         "query_tag": "query-tag-from-cli",
         "connection_name": "myaltconnection",
         "connections_file_path": assets_path / "alt-connections.toml",
+        "version_number_validation_regex": "version_number_validation_regex-from-cli",
+        "raise_exception_on_ignored_versioned_script": True,
     },
     id="Deploy: full yaml, connections.toml, cli, and env",
 )

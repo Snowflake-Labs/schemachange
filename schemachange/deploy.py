@@ -60,6 +60,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
     # Find all scripts in the root folder (recursively) and sort them correctly
     all_scripts = get_all_scripts_recursively(
         root_directory=config.root_folder,
+        version_number_regex=config.version_number_validation_regex,
     )
     all_script_names = list(all_scripts.keys())
     # Sort scripts such that versioned scripts get applied first and then the repeatable ones.
@@ -106,12 +107,18 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
                 and get_alphanum_key(script.version) <= max_published_version
             ):
                 if script_metadata is None:
-                    script_log.debug(
-                        "Skipping versioned script because it's older than the most recently applied change",
-                        max_published_version=max_published_version,
-                    )
-                    scripts_skipped += 1
-                    continue
+                    if config.raise_exception_on_ignored_versioned_script:
+                        raise ValueError(
+                            f"Versioned script will never be applied: {script.name}\n"
+                            f"Version number is less than the max version number: {max_published_version}"
+                        )
+                    else:
+                        script_log.debug(
+                            "Skipping versioned script because it's older than the most recently applied change",
+                            max_published_version=max_published_version,
+                        )
+                        scripts_skipped += 1
+                        continue
                 else:
                     script_log.debug(
                         "Script has already been applied",

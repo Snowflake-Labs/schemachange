@@ -11,6 +11,7 @@ from schemachange.config.utils import (
     get_snowflake_password,
 )
 
+
 @dataclasses.dataclass(frozen=True)
 class DeployConfig(BaseConfig):
     subcommand: Literal["deploy"] = "deploy"
@@ -38,6 +39,8 @@ class DeployConfig(BaseConfig):
     autocommit: bool = False
     dry_run: bool = False
     query_tag: str | None = None
+    version_number_validation_regex: str | None = None
+    raise_exception_on_ignored_versioned_script: bool = False
 
     @classmethod
     def factory(
@@ -84,12 +87,12 @@ class DeployConfig(BaseConfig):
             "connection_name": self.connection_name,
             "change_history_table": self.change_history_table,
             "autocommit": self.autocommit,
-            "query_tag": self.query_tag
+            "query_tag": self.query_tag,
         }
-        
-        # TODO: Discuss the need for check for snowflake password before passing the session 
-        # kwargs to open a snowflake session
-        # snowflake_password = get_snowflake_password()
-        # if snowflake_password is not None and snowflake_password:
-        #    session_kwargs["password"] = snowflake_password 
+
+        # If the user supplied the password in the environment variable, add it to the session config
+        snowflake_password = get_snowflake_password()
+        if snowflake_password is not None and snowflake_password:
+            session_kwargs["password"] = snowflake_password
+
         return {k: v for k, v in session_kwargs.items() if v is not None}
