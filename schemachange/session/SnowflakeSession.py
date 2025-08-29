@@ -63,6 +63,7 @@ class SnowflakeSession:
             "schema": schema,  # TODO: Remove when connections.toml is enforced
             "role": role,  # TODO: Remove when connections.toml is enforced
             "warehouse": warehouse,  # TODO: Remove when connections.toml is enforced
+            "private_key": kwargs.get("private_key"),
             "private_key_file": kwargs.get(
                 "private_key_path"
             ),  # TODO: Remove when connections.toml is enforced

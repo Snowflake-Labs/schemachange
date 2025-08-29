@@ -9,6 +9,7 @@ from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import (
     get_snowflake_identifier_string,
     get_snowflake_password,
+    get_snowflake_private_key
 )
 
 
@@ -94,5 +95,9 @@ class DeployConfig(BaseConfig):
         snowflake_password = get_snowflake_password()
         if snowflake_password is not None and snowflake_password:
             session_kwargs["password"] = snowflake_password
+
+        snowflake_private_key = get_snowflake_private_key()
+        if snowflake_private_key:
+            session_kwargs["private_key"] = snowflake_private_key
 
         return {k: v for k, v in session_kwargs.items() if v is not None}
