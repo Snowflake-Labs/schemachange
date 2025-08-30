@@ -298,7 +298,7 @@ class Script(ABC):
                 )
                 results.append(result)
 
-                # If a statement fails, we might want to stop execution
+                # If a statement fails, we want to stop execution
                 if result.status == ExecutionStatus.FAILED:
                     error_msg = f"Statement {statement.statement_index} failed, stopping execution"
                     logger.error(error_msg)
@@ -321,6 +321,18 @@ class Script(ABC):
                 ),
             )
 
+            # Handle transaction management
+            if report.failure_count > 0:
+                # If any statement failed, rollback the transaction
+                if not session.autocommit:
+                    session.con.rollback()
+                    logger.debug("Transaction rolled back due to statement failure")
+            else:
+                # If all statements succeeded, commit the transaction
+                if not session.autocommit:
+                    session.con.commit()
+                    logger.debug("Transaction committed successfully")
+
             # Log execution summary
             if execution_warnings:
                 logger.warning(
@@ -332,6 +344,10 @@ class Script(ABC):
             return report
 
         except Exception as e:
+            # Ensure rollback on any exception
+            if not session.autocommit:
+                session.con.rollback()
+                logger.debug("Transaction rolled back due to exception")
             context = self.get_execution_context()
             raise ScriptExecutionError(context, None, e)
 
@@ -365,7 +381,10 @@ class Script(ABC):
             )
 
             # Execute the statement using the simplified session method
-            cursor = session.execute_snowflake_query(statement.sql, logger)
+            # Don't auto-commit individual statements - let the script handle transaction management
+            cursor = session.execute_snowflake_query(
+                statement.sql, logger, auto_commit=False
+            )
 
             execution_time = time.time() - start_time
 

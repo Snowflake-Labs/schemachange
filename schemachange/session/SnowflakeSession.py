@@ -118,7 +118,9 @@ class SnowflakeSession:
         if hasattr(self, "con"):
             self.con.close()
 
-    def execute_snowflake_query(self, query: str, logger: structlog.BoundLogger):
+    def execute_snowflake_query(
+        self, query: str, logger: structlog.BoundLogger, auto_commit: bool = True
+    ):
         """Execute a single SQL query using the simplest Snowflake connector method."""
         logger.debug(
             "Executing query",
@@ -129,8 +131,8 @@ class SnowflakeSession:
             cursor = self.con.cursor()
             cursor.execute(query)
 
-            # Only commit if not in autocommit mode and this is not a state-checking query
-            if not self.autocommit:
+            # Only commit if explicitly requested and not in autocommit mode
+            if auto_commit and not self.autocommit:
                 self.con.commit()
             return cursor
         except Exception as e:
@@ -275,8 +277,20 @@ class SnowflakeSession:
                 if len(script_content.strip()) > 0:
                     execution_report = script.execute(self, script_content, logger)
                     execution_time = execution_report.total_execution_time
-                    status = "Success" if execution_report.is_successful else "Failed"
-                    logger.info(f"Successfully applied {script.name}")
+
+                    # Check if any statements failed
+                    if execution_report.failure_count > 0:
+                        status = "Failed"
+                        failed_statements = execution_report.get_failed_statements()
+                        error_messages = [
+                            f"Statement {stmt.statement_index}: {result.error_message}"
+                            for stmt, result in failed_statements
+                        ]
+                        raise Exception(
+                            f"Script {script.name} failed: {'; '.join(error_messages)}"
+                        )
+                    else:
+                        logger.info(f"Successfully applied {script.name}")
                 else:
                     logger.info(f"Script {script.name} is empty, skipping execution")
                     status = "Success"
