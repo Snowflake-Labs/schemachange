@@ -186,6 +186,10 @@ JSON object formatted as a string.
 schemachange will replace any variable placeholders before running your change script code and will throw an error if it
 finds any variable placeholders that haven't been replaced.
 
+If a script contains jinja-style syntax that should not be processed by schemachange, add the comment
+`-- schemachange-no-jinja` anywhere in the file. When this marker is present, schemachange will skip jinja rendering for
+that script and execute it as-is.
+
 #### Secrets filtering
 
 While many CI/CD tools already have the capability to filter secrets, it is best that any tool also does not output
@@ -480,7 +484,13 @@ usage: schemachange deploy [-h] [--config-folder CONFIG_FOLDER] [--config-file-n
 | -ac, --autocommit                                                    | Enable autocommit feature for DML commands. The default is 'False'.                                                                                                                                                                                                 |
 | -v, --verbose                                                        | Display verbose debugging details during execution. The default is 'False'.                                                                                                                                                                                         |
 | --dry-run                                                            | Run schemachange in dry run mode. The default is 'False'.                                                                                                                                                                                                           |
+| --continue-all-on-error                                              | Continue executing remaining scripts even if one fails. The default is 'False'. Use the script-type specific flags for finer control.       |
+| --continue-versioned-on-error                                        | Continue executing remaining versioned scripts after an error. The default is 'False'.                                                      |
+| --continue-repeatable-on-error                                       | Continue executing remaining repeatable scripts after an error. The default is 'False'.                                                     |
+| --continue-always-on-error                                           | Continue executing remaining always scripts after an error. The default is 'False'.                                                         |
 | --query-tag                                                          | A string to include in the QUERY_TAG that is attached to every SQL statement executed.                                                                                                                                                                              |
+
+When any continue-on-error flag is used, schemachange records full error messages for failed scripts in the change history table and reports the list of failed scripts before exiting.
 
 ### render
 

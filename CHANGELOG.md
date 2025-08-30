@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Added flag `--error-on-ignored-versioned-migration` to throw an error when versioned migrations are ignored due to being out of order (#287 by @zanebclark)
 - Added `py.typed` marker file for better MyPy type checking support (#332 by @fozcodes)
+- Optional flags to continue deploying remaining scripts after an error, recording full error messages in the change history table and listing failed scripts at completion. (#339 by @luisggc)
 
 ### Changed
 - Updated Flyway documentation links to current Red Gate community documentation (#333 by @sfc-gh-adamle)

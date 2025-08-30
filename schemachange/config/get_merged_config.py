@@ -95,6 +95,12 @@ def get_merged_config(
         **{k: v for k, v in yaml_kwargs.items() if v is not None},
         **{k: v for k, v in cli_kwargs.items() if v is not None},
     }
+    if "continue_all_on_error" in kwargs:
+        if kwargs["continue_all_on_error"]:
+            kwargs["continue_versioned_on_error"] = True
+            kwargs["continue_repeatable_on_error"] = True
+            kwargs["continue_always_on_error"] = True
+        del kwargs["continue_all_on_error"]
     if connections_file_path is not None:
         kwargs["connections_file_path"] = connections_file_path
     if connection_name is not None:
@@ -107,4 +113,4 @@ def get_merged_config(
     elif cli_kwargs["subcommand"] == "render":
         return RenderConfig.factory(**kwargs)
     else:
-        raise Exception(f"unhandled subcommand: {cli_kwargs['subcommand'] }")
+        raise Exception(f"unhandled subcommand: {cli_kwargs['subcommand']}")
