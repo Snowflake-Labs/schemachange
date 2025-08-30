@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import time
-from collections import defaultdict
-from textwrap import dedent, indent
+from textwrap import indent
 
 import snowflake.connector
 import structlog
@@ -11,6 +10,7 @@ import structlog
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import get_snowflake_identifier_string
 from schemachange.session.Script import VersionedScript, RepeatableScript, AlwaysScript
+from schemachange.session.HistorySession import HistorySession
 
 
 class SnowflakeSession:
@@ -96,116 +96,47 @@ class SnowflakeSession:
         if not self.autocommit:
             self.con.autocommit(False)
 
+        # Create dedicated history session
+        self.history_session = HistorySession(
+            schemachange_version=schemachange_version,
+            application=application,
+            change_history_table=change_history_table,
+            logger=logger,
+            connection_name=connection_name,
+            connections_file_path=connections_file_path,
+            account=account,
+            user=user,
+            role=role,
+            warehouse=warehouse,
+            database=database,
+            schema=schema,
+            query_tag=query_tag,
+            autocommit=autocommit,
+            **kwargs,
+        )
+
     def __del__(self):
         if hasattr(self, "con"):
             self.con.close()
 
     def execute_snowflake_query(self, query: str, logger: structlog.BoundLogger):
+        """Execute a single SQL query using the simplest Snowflake connector method."""
         logger.debug(
             "Executing query",
             query=indent(query, prefix="\t"),
         )
         try:
-            res = self.con.execute_string(query)
+            # Use the simplest method: cursor().execute() for single queries
+            cursor = self.con.cursor()
+            cursor.execute(query)
+
             if not self.autocommit:
                 self.con.commit()
-            return res
+            return cursor
         except Exception as e:
             if not self.autocommit:
                 self.con.rollback()
             raise e
-
-    def fetch_change_history_metadata(self) -> dict:
-        # This should only ever return 0 or 1 rows
-        query = f"""\
-            SELECT
-                CREATED,
-                LAST_ALTERED
-            FROM {self.change_history_table.database_name}.INFORMATION_SCHEMA.TABLES
-            WHERE TABLE_SCHEMA = REPLACE('{self.change_history_table.schema_name}','\"','')
-                AND TABLE_NAME = REPLACE('{self.change_history_table.table_name}','\"','')
-        """
-        results = self.execute_snowflake_query(query=dedent(query), logger=self.logger)
-
-        # Collect all the results into a list
-        change_history_metadata = dict()
-        for cursor in results:
-            for row in cursor:
-                change_history_metadata["created"] = row[0]
-                change_history_metadata["last_altered"] = row[1]
-
-        return change_history_metadata
-
-    def change_history_schema_exists(self) -> bool:
-        query = f"""\
-            SELECT
-                COUNT(1)
-            FROM {self.change_history_table.database_name}.INFORMATION_SCHEMA.SCHEMATA
-            WHERE SCHEMA_NAME = REPLACE('{self.change_history_table.schema_name}','\"','')
-        """
-        results = self.execute_snowflake_query(dedent(query), logger=self.logger)
-        for cursor in results:
-            for row in cursor:
-                return row[0] > 0
-
-    def create_change_history_schema(self, dry_run: bool) -> None:
-        query = f"CREATE SCHEMA IF NOT EXISTS {self.change_history_table.fully_qualified_schema_name}"
-        if dry_run:
-            self.logger.debug(
-                "Running in dry-run mode. Skipping execution.",
-                query=indent(dedent(query), prefix="\t"),
-            )
-        else:
-            self.execute_snowflake_query(dedent(query), logger=self.logger)
-
-    def create_change_history_table(self, dry_run: bool) -> None:
-        query = f"""\
-            CREATE TABLE IF NOT EXISTS {self.change_history_table.fully_qualified} (
-                VERSION VARCHAR,
-                DESCRIPTION VARCHAR,
-                SCRIPT VARCHAR,
-                SCRIPT_TYPE VARCHAR,
-                CHECKSUM VARCHAR,
-                EXECUTION_TIME NUMBER,
-                STATUS VARCHAR,
-                INSTALLED_BY VARCHAR,
-                INSTALLED_ON TIMESTAMP_LTZ
-            )
-        """
-        if dry_run:
-            self.logger.debug(
-                "Running in dry-run mode. Skipping execution.",
-                query=indent(dedent(query), prefix="\t"),
-            )
-        else:
-            self.execute_snowflake_query(dedent(query), logger=self.logger)
-            self.logger.info(
-                f"Created change history table {self.change_history_table.fully_qualified}"
-            )
-
-    def change_history_table_exists(
-        self, create_change_history_table: bool, dry_run: bool
-    ) -> bool:
-        change_history_metadata = self.fetch_change_history_metadata()
-        if change_history_metadata:
-            self.logger.info(
-                f"Using existing change history table {self.change_history_table.fully_qualified}",
-                last_altered=change_history_metadata["last_altered"],
-            )
-            return True
-        elif create_change_history_table:
-            schema_exists = self.change_history_schema_exists()
-            if not schema_exists:
-                self.create_change_history_schema(dry_run=dry_run)
-            self.create_change_history_table(dry_run=dry_run)
-            if dry_run:
-                return False
-            self.logger.info("Created change history table")
-            return True
-        else:
-            raise ValueError(
-                f"Unable to find change history table {self.change_history_table.fully_qualified}"
-            )
 
     def get_script_metadata(
         self, create_change_history_table: bool, dry_run: bool
@@ -214,15 +145,17 @@ class SnowflakeSession:
         dict[str, list[str]] | None,
         str | int | None,
     ]:
-        change_history_table_exists = self.change_history_table_exists(
+        change_history_table_exists = self.history_session.change_history_table_exists(
             create_change_history_table=create_change_history_table,
             dry_run=dry_run,
         )
         if not change_history_table_exists:
             return None, None, None
 
-        change_history, max_published_version = self.fetch_versioned_scripts()
-        r_scripts_checksum = self.fetch_repeatable_scripts()
+        change_history, max_published_version = (
+            self.history_session.fetch_versioned_scripts()
+        )
+        r_scripts_checksum = self.history_session.fetch_repeatable_scripts()
 
         self.logger.info(
             "Max applied change script version %(max_published_version)s"
@@ -230,75 +163,100 @@ class SnowflakeSession:
         )
         return change_history, r_scripts_checksum, max_published_version
 
-    def fetch_repeatable_scripts(self) -> dict[str, list[str]]:
-        query = f"""\
-        SELECT DISTINCT
-            SCRIPT AS SCRIPT_NAME,
-            FIRST_VALUE(CHECKSUM) OVER (
-                PARTITION BY SCRIPT
-                ORDER BY INSTALLED_ON DESC
-            ) AS CHECKSUM
-        FROM {self.change_history_table.fully_qualified}
-        WHERE SCRIPT_TYPE = 'R'
-            AND STATUS = 'Success'
-        """
-        results = self.execute_snowflake_query(dedent(query), logger=self.logger)
-
-        # Collect all the results into a dict
-        script_checksums: dict[str, list[str]] = defaultdict(list)
-        for cursor in results:
-            for script_name, checksum in cursor:
-                script_checksums[script_name].append(checksum)
-        return script_checksums
-
-    def fetch_versioned_scripts(
-        self,
-    ) -> tuple[dict[str, dict[str, str | int]], str | int | None]:
-        query = f"""\
-        SELECT VERSION, SCRIPT, CHECKSUM
-        FROM {self.change_history_table.fully_qualified}
-        WHERE SCRIPT_TYPE = 'V'
-        ORDER BY INSTALLED_ON DESC -- TODO: Why not order by version?
-        """
-        results = self.execute_snowflake_query(dedent(query), logger=self.logger)
-
-        # Collect all the results into a list
-        versioned_scripts: dict[str, dict[str, str | int]] = defaultdict(dict)
-        versions: list[str | int | None] = []
-        for cursor in results:
-            for version, script, checksum in cursor:
-                versions.append(version if version != "" else None)
-                versioned_scripts[script] = {
-                    "version": version,
-                    "script": script,
-                    "checksum": checksum,
-                }
-
-        # noinspection PyTypeChecker
-        return versioned_scripts, versions[0] if versions else None
-
     def reset_session(self, logger: structlog.BoundLogger):
-        # These items are optional, so we can only reset the ones with values
-        reset_query = []
-        if self.role:
-            reset_query.append(f"USE ROLE IDENTIFIER('{self.role}');")
-        if self.warehouse:
-            reset_query.append(f"USE WAREHOUSE IDENTIFIER('{self.warehouse}');")
-        if self.database:
-            reset_query.append(f"USE DATABASE IDENTIFIER('{self.database}');")
-        if self.schema:
-            reset_query.append(f"USE SCHEMA IDENTIFIER('{self.schema}');")
+        """Reset session context with state checking to avoid unnecessary queries."""
+        # Check current state first
+        current_state = self._get_current_session_state(logger)
 
-        self.execute_snowflake_query("\n".join(reset_query), logger=logger)
+        reset_queries = []
+        # Define the session parameters to check
+        session_params = ["role", "warehouse", "database", "schema"]
+        reset_queries = [
+            f"USE {param.upper()} IDENTIFIER('{getattr(self, param)}');"
+            for param in session_params
+            if getattr(self, param) and current_state.get(param) != getattr(self, param)
+        ]
+
+        if reset_queries:
+            [
+                self.execute_snowflake_query(reset_query, logger=logger)
+                for reset_query in reset_queries
+            ]
+            logger.debug("Session context reset", queries=reset_queries)
+        else:
+            logger.debug("Session context already correct, no reset needed")
+
+    def _get_current_session_state(self, logger: structlog.BoundLogger) -> dict:
+        """Get current session state using async execution."""
+        try:
+            # Use async execution for state checking
+            cursor = self.con.cursor()
+            cursor.execute_async(
+                "SELECT CURRENT_ROLE(), CURRENT_WAREHOUSE(), CURRENT_DATABASE(), CURRENT_SCHEMA()"
+            )
+
+            # Wait for completion and get results
+            while cursor.is_running():
+                time.sleep(0.1)  # Small delay to avoid busy waiting
+
+            if cursor.is_done():
+                results = cursor.fetchone()
+                if results:
+                    return {
+                        "role": results[0],
+                        "warehouse": results[1],
+                        "database": results[2],
+                        "schema": results[3],
+                    }
+
+            logger.warning("Could not get current session state, assuming reset needed")
+            return {}
+
+        except Exception as e:
+            logger.warning(f"Error getting session state: {e}, assuming reset needed")
+            return {}
 
     def reset_query_tag(self, logger: structlog.BoundLogger, extra_tag=None):
-        query_tag = self.session_parameters["QUERY_TAG"]
+        """Reset query tag with state checking to avoid unnecessary queries."""
+        desired_query_tag = self.session_parameters["QUERY_TAG"]
         if extra_tag:
-            query_tag += f";{extra_tag}"
+            desired_query_tag += f";{extra_tag}"
 
-        self.execute_snowflake_query(
-            f"ALTER SESSION SET QUERY_TAG = '{query_tag}'", logger=logger
-        )
+        # Check current query tag
+        current_query_tag = self._get_current_query_tag(logger)
+
+        if current_query_tag != desired_query_tag:
+            self.execute_snowflake_query(
+                f"ALTER SESSION SET QUERY_TAG = '{desired_query_tag}'", logger=logger
+            )
+            logger.debug(
+                "Query tag reset", from_tag=current_query_tag, to_tag=desired_query_tag
+            )
+        else:
+            logger.debug("Query tag already correct, no reset needed")
+
+    def _get_current_query_tag(self, logger: structlog.BoundLogger) -> str:
+        """Get current query tag using async execution."""
+        try:
+            cursor = self.con.cursor()
+            cursor.execute_async("SHOW PARAMETERS LIKE 'QUERY_TAG'")
+
+            # Wait for completion and get results
+            while cursor.is_running():
+                time.sleep(0.1)
+
+            if cursor.is_done():
+                results = cursor.fetchall()
+                for row in results:
+                    if row[0] == "QUERY_TAG":
+                        return row[1] or ""
+
+            logger.warning("Could not get current query tag, assuming reset needed")
+            return ""
+
+        except Exception as e:
+            logger.warning(f"Error getting query tag: {e}, assuming reset needed")
+            return ""
 
     def apply_change_script(
         self,
@@ -310,49 +268,46 @@ class SnowflakeSession:
         if dry_run:
             logger.debug("Running in dry-run mode. Skipping execution")
             return
+
         logger.info("Applying change script")
-        # Define a few other change related variables
-        # noinspection PyTypeChecker
+
+        # Calculate checksum
         checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
         execution_time = 0
         status = "Success"
 
-        # Execute the contents of the script
+        # Execute the contents of the script using the new Script-based architecture
         if len(script_content) > 0:
-            start = time.time()
             self.reset_session(logger=logger)
             self.reset_query_tag(extra_tag=script.name, logger=logger)
-            try:
-                self.execute_snowflake_query(query=script_content, logger=logger)
-            except Exception as e:
-                raise Exception(f"Failed to execute {script.name}") from e
-            self.reset_query_tag(logger=logger)
-            self.reset_session(logger=logger)
-            end = time.time()
-            execution_time = round(end - start)
 
-        # Compose and execute the insert statement to the log file
-        query = f"""\
-            INSERT INTO {self.change_history_table.fully_qualified} (
-                VERSION,
-                DESCRIPTION,
-                SCRIPT,
-                SCRIPT_TYPE,
-                CHECKSUM,
-                EXECUTION_TIME,
-                STATUS,
-                INSTALLED_BY,
-                INSTALLED_ON
-            ) VALUES (
-                '{getattr(script, "version", "")}',
-                '{script.description}',
-                '{script.name}',
-                '{script.type}',
-                '{checksum}',
-                {execution_time},
-                '{status}',
-                '{self.user}',
-                CURRENT_TIMESTAMP
-            );
-        """
-        self.execute_snowflake_query(dedent(query), logger=logger)
+            try:
+                # Use the new Script architecture for execution
+                if len(script_content.strip()) > 0:
+                    execution_report = script.execute(self, script_content, logger)
+                    execution_time = execution_report.total_execution_time
+                    status = "Success" if execution_report.is_successful else "Failed"
+                    logger.info(f"Successfully applied {script.name}")
+                else:
+                    logger.info(f"Script {script.name} is empty, skipping execution")
+                    status = "Success"
+
+            except Exception as e:
+                status = "Failed"
+                raise Exception(f"Failed to execute {script.name}: {e}") from e
+            finally:
+                self.reset_query_tag(logger=logger)
+                self.reset_session(logger=logger)
+
+        # Use history session to insert the record
+        self.history_session.insert_change_record(
+            version=getattr(script, "version", ""),
+            description=script.description,
+            script_name=script.name,
+            script_type=script.type,
+            checksum=checksum,
+            execution_time=execution_time,
+            status=status,
+            installed_by=self.user,
+            logger=logger,
+        )

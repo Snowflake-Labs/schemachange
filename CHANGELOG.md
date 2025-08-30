@@ -3,6 +3,16 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [4.X.X] - 2025-XX-XX
+### Changed
+- **Major Architectural Refactor**: Moved execution logic from Snowflake connector to this package for better control and separation of concerns
+- **Script Execution**: Created dedicated `Script` class hierarchy to handle parsing and execution of individual SQL statements
+- **Session Management**: Enhanced `SnowflakeSession` class to manage session state, query tags, and execution routing
+- **History Management**: Moved history table operations to dedicated `HistorySession` class for better separation
+- **Execution Flow**: All script execution now routes through the session layer for consistent state management
+- **Statement Parsing**: Improved SQL statement parsing with support for both commented and non-commented versions
+- **Error Handling**: Enhanced error reporting with detailed execution reports and statement-level failure tracking
+
 ## [4.1.0] - 2025-08-05
 ### Added
 - Added flag `--error-on-ignored-versioned-migration` to throw an error when versioned migrations are ignored due to being out of order (#287 by @zanebclark)
