@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import time
 from textwrap import indent
 
 import snowflake.connector
@@ -96,7 +95,7 @@ class SnowflakeSession:
         if not self.autocommit:
             self.con.autocommit(False)
 
-        # Create dedicated history session
+        # Create dedicated history session using the same connection parameters
         self.history_session = HistorySession(
             schemachange_version=schemachange_version,
             application=application,
@@ -130,6 +129,7 @@ class SnowflakeSession:
             cursor = self.con.cursor()
             cursor.execute(query)
 
+            # Only commit if not in autocommit mode and this is not a state-checking query
             if not self.autocommit:
                 self.con.commit()
             return cursor
@@ -178,36 +178,30 @@ class SnowflakeSession:
         ]
 
         if reset_queries:
-            [
-                self.execute_snowflake_query(reset_query, logger=logger)
-                for reset_query in reset_queries
-            ]
+            # Execute all reset queries in a single anonymous block for efficiency
+            reset_block = "BEGIN\n" + "\n".join(reset_queries) + "\nEND;"
+            self.execute_snowflake_query(reset_block, logger=logger)
             logger.debug("Session context reset", queries=reset_queries)
         else:
             logger.debug("Session context already correct, no reset needed")
 
     def _get_current_session_state(self, logger: structlog.BoundLogger) -> dict:
-        """Get current session state using async execution."""
+        """Get current session state using simple execution."""
         try:
-            # Use async execution for state checking
+            # Use simple execution for state checking
             cursor = self.con.cursor()
-            cursor.execute_async(
+            cursor.execute(
                 "SELECT CURRENT_ROLE(), CURRENT_WAREHOUSE(), CURRENT_DATABASE(), CURRENT_SCHEMA()"
             )
 
-            # Wait for completion and get results
-            while cursor.is_running():
-                time.sleep(0.1)  # Small delay to avoid busy waiting
-
-            if cursor.is_done():
-                results = cursor.fetchone()
-                if results:
-                    return {
-                        "role": results[0],
-                        "warehouse": results[1],
-                        "database": results[2],
-                        "schema": results[3],
-                    }
+            results = cursor.fetchone()
+            if results:
+                return {
+                    "role": results[0],
+                    "warehouse": results[1],
+                    "database": results[2],
+                    "schema": results[3],
+                }
 
             logger.warning("Could not get current session state, assuming reset needed")
             return {}
@@ -236,20 +230,15 @@ class SnowflakeSession:
             logger.debug("Query tag already correct, no reset needed")
 
     def _get_current_query_tag(self, logger: structlog.BoundLogger) -> str:
-        """Get current query tag using async execution."""
+        """Get current query tag using simple execution."""
         try:
             cursor = self.con.cursor()
-            cursor.execute_async("SHOW PARAMETERS LIKE 'QUERY_TAG'")
+            cursor.execute("SHOW PARAMETERS LIKE 'QUERY_TAG'")
 
-            # Wait for completion and get results
-            while cursor.is_running():
-                time.sleep(0.1)
-
-            if cursor.is_done():
-                results = cursor.fetchall()
-                for row in results:
-                    if row[0] == "QUERY_TAG":
-                        return row[1] or ""
+            results = cursor.fetchall()
+            for row in results:
+                if row[0] == "QUERY_TAG":
+                    return row[1] or ""
 
             logger.warning("Could not get current query tag, assuming reset needed")
             return ""

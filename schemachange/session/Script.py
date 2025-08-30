@@ -347,6 +347,19 @@ class Script(ABC):
         start_time = time.time()
 
         try:
+            # Skip execution of empty statements
+            if statement.is_empty:
+                logger.debug(
+                    f"Skipping empty statement {statement.statement_index} in {self.name}"
+                )
+                return ExecutionResult(
+                    statement=statement,
+                    status=ExecutionStatus.SUCCESS,
+                    execution_time=0.0,
+                    rows_affected=0,
+                    query_id=None,
+                )
+
             logger.debug(
                 f"Executing statement {statement.statement_index}: {statement.sql[:100]}..."
             )
