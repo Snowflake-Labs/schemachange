@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
+import time
 from abc import ABC
 from io import StringIO  # Required by split_statements - expects stream-like object
 from pathlib import Path
@@ -56,10 +57,8 @@ class Statement:
 
     @property
     def sql(self) -> str:
-        """Return the SQL to execute (without comments for non-empty, with comments for empty)"""
-        return (
-            self.sql_without_comments if not self.is_empty else self.sql_with_comments
-        )
+        """Return the SQL with comments (primary accessor)"""
+        return self.sql_with_comments
 
     @property
     def is_empty(self) -> bool:
@@ -269,8 +268,6 @@ class Script(ABC):
         logger: structlog.BoundLogger,
     ) -> ScriptExecutionReport:
         """Execute this script and return a detailed execution report with warnings"""
-        import time
-
         start_time = time.time()
 
         try:
@@ -358,8 +355,6 @@ class Script(ABC):
         logger: structlog.BoundLogger,
     ) -> ExecutionResult:
         """Execute a single statement and return the result"""
-        import time
-
         start_time = time.time()
 
         try:
@@ -381,6 +376,7 @@ class Script(ABC):
             )
 
             # Execute the statement using the simplified session method
+            # Use sql to preserve the original SQL as written
             # Don't auto-commit individual statements - let the script handle transaction management
             cursor = session.execute_snowflake_query(
                 statement.sql, logger, auto_commit=False

@@ -530,7 +530,7 @@ class TestScriptExecution:
 
         # Test non-empty statement
         statement = Statement(
-            sql_with_comments="SELECT 1; -- comment",
+            sql_with_comments="-- comment\nSELECT 1;",
             sql_without_comments="SELECT 1;",
             line_number=1,
             statement_index=1,
@@ -539,7 +539,9 @@ class TestScriptExecution:
         )
 
         assert not statement.is_empty
-        assert statement.sql == "SELECT 1;"  # Uses sql_without_comments for non-empty
+        assert (
+            statement.sql == "-- comment\nSELECT 1;"
+        )  # Uses sql_with_comments (primary accessor)
 
         # Test empty statement
         empty_statement = Statement(
@@ -552,7 +554,9 @@ class TestScriptExecution:
         )
 
         assert empty_statement.is_empty
-        assert empty_statement.sql == "; -- comment"  # Uses sql_with_comments for empty
+        assert (
+            empty_statement.sql == "; -- comment"
+        )  # Uses sql_with_comments (primary accessor)
 
     def test_autocommit_behavior(self, versioned_script, mock_session, mock_logger):
         """Test execution behavior with autocommit enabled"""
