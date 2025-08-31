@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [4.2.0] - 2025-08-28
+### Added
+- Added validation for unknown configuration keys with warning messages instead of errors for better backward and sideways compatibility
+
+### Fixed
+- Fixed YAML configuration validation to show warnings for unknown keys instead of throwing TypeError exceptions
+
 ## [4.1.0] - 2025-08-05
 ### Added
 - Added flag `--error-on-ignored-versioned-migration` to throw an error when versioned migrations are ignored due to being out of order (#287 by @zanebclark)

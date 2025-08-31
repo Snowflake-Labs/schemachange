@@ -436,6 +436,21 @@ The YAML config file supports the jinja templating language and has a custom fun
 variables. Jinja variables are unavailable and not yet loaded since they are supplied by the YAML file. Customisation of
 the YAML file can only happen through values passed via environment variables.
 
+#### Configuration Validation
+
+Schemachange validates YAML configuration files and provides helpful feedback for configuration issues:
+
+**Unknown Keys**: If your configuration contains keys that are not recognized by schemachange, you will see warning messages like:
+```
+Unknown configuration keys found and will be ignored: unknown_key, another_unknown_key
+```
+
+This behavior ensures:
+- **Backward compatibility**: Existing configurations continue to work
+- **Sideways compatibility**: Tools that overlay schemachange can add custom keys without conflicts
+- **Clear feedback**: Users are informed about ignored configuration options
+- **No errors**: Unknown keys are filtered out rather than causing deployment failures
+
 ##### env_var
 
 Provides access to environmental variables. The function can be used two different ways.
