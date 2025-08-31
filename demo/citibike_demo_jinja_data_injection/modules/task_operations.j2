@@ -1,0 +1,34 @@
+{% macro create_task(task_config, table_definitions) -%}
+CREATE OR REPLACE TASK {{ task_config.name }}
+    WAREHOUSE = {{ task_config.warehouse }}
+    SCHEDULE = {{ task_config.schedule }}
+    AS
+    {% from 'modules/task_operations.j2' import create_task_sql %}
+    {{ create_task_sql(task_config.name, table_definitions) }};
+{%- endmacro %}
+
+{% macro create_task_sql(task_name, table_definitions) -%}
+-- Get the latest load time from landing table
+{% set landing_table = task_name.replace('PROCESS_', '').replace('_DATA', '') + '_LANDING' %}
+{% set final_table = task_name.replace('PROCESS_', '').replace('_DATA', '') %}
+
+-- Insert new data from landing to final table
+INSERT INTO {{ final_table }} (
+    {% for col in table_definitions %}
+    {{ col.column_name }}{% if not loop.last %},{% endif %}
+    {% endfor %}
+)
+SELECT
+    {% for col in table_definitions %}
+    {% if col.final_transformation %}
+        {{ col.final_transformation }}{% if not loop.last %},{% endif %}
+    {% else %}
+        {{ col.column_name }}{% if not loop.last %},{% endif %}
+    {% endif %}
+    {% endfor %}
+FROM {{ landing_table }}
+WHERE LOAD_TIME > (
+    SELECT COALESCE(MAX(LOAD_TIME), '1970-01-01'::TIMESTAMP_NTZ)
+    FROM {{ final_table }}
+);
+{%- endmacro %}

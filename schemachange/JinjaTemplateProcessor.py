@@ -8,7 +8,7 @@ import jinja2.ext
 import structlog
 from jinja2.loaders import BaseLoader
 
-from schemachange.JinjaEnvVar import JinjaEnvVar
+from schemachange.LocalDataInjection import LocalDataInjection
 
 logger = structlog.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class JinjaTemplateProcessor:
     _env_args = {
         "undefined": jinja2.StrictUndefined,
         "autoescape": False,
-        "extensions": [JinjaEnvVar],
+        "extensions": [LocalDataInjection],
     }
 
     def __init__(self, project_root: Path, modules_folder: Path = None):

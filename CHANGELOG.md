@@ -3,6 +3,23 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [4.X.X] - 2025-XX-XX
+### Added
+- Refactored `JinjaEnvVar` into `LocalDataInjection` class with enhanced functionality
+- Added `from_csv()` function to load CSV data as tuples or dictionaries in Jinja templates
+- Added `from_json()` function to load JSON data in Jinja templates
+- Added `from_yaml()` function to load YAML data in Jinja templates
+- Added comprehensive demo showcasing LocalDataInjection vs legacy approaches
+- Added detailed documentation in `docs/LocalDataInjection.md`
+
+### Changed
+- `env_var()` function now provided by `LocalDataInjection` class (backward compatible)
+- Updated Jinja template processor to use `LocalDataInjection` instead of `JinjaEnvVar`
+- Enhanced README.md with LocalDataInjection function documentation
+
+### Deprecated
+- `JinjaEnvVar` class is deprecated in favor of `LocalDataInjection`
+
 ## [4.1.0] - 2025-08-05
 ### Added
 - Added flag `--error-on-ignored-versioned-migration` to throw an error when versioned migrations are ignored due to being out of order (#287 by @zanebclark)

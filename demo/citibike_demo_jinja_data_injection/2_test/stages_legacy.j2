@@ -1,0 +1,47 @@
+-- LEGACY APPROACH: Manual data definitions in Jinja
+-- This shows the "before" state that LocalDataInjection improves upon
+-- Instead of using from_yaml('stages.yaml'), we manually define the data structure
+
+{% set stage_config = {
+    "stages": [
+        {
+            "name": "TRIPS",
+            "url": "{{ secrets.trips_s3_bucket }}",
+            "description": "Stage for Citibike trips data"
+        },
+        {
+            "name": "WEATHER",
+            "url": "{{ secrets.weather_s3_bucket }}",
+            "description": "Stage for weather data"
+        }
+    ],
+    "copy_operations": {
+        "trips_landing": {
+            "table": "TRIPS_LANDING",
+            "stage": "TRIPS",
+            "file_format": "CSV_NO_HEADER",
+            "pattern": ".*trips_.*csv.gz",
+            "description": "Load trips data into landing table with metadata"
+        },
+        "weather_landing": {
+            "table": "WEATHER_LANDING",
+            "stage": "WEATHER",
+            "file_format": "JSON",
+            "description": "Load weather data into landing table with metadata"
+        }
+    },
+    "tasks": [
+        {
+            "name": "PROCESS_TRIPS_DATA",
+            "warehouse": "{{ database_name }}_WH",
+            "schedule": "USING CRON '0 */6 * * * UTC'",
+            "description": "Process trips data from landing to final table"
+        },
+        {
+            "name": "PROCESS_WEATHER_DATA",
+            "warehouse": "{{ database_name }}_WH",
+            "schedule": "USING CRON '0 */2 * * * UTC'",
+            "description": "Process weather data from landing to final table"
+        }
+    ]
+} %}

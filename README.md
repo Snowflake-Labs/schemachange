@@ -432,9 +432,7 @@ query-tag: 'QUERY_TAG'
 
 #### Yaml Jinja support
 
-The YAML config file supports the jinja templating language and has a custom function "env_var" to access environmental
-variables. Jinja variables are unavailable and not yet loaded since they are supplied by the YAML file. Customisation of
-the YAML file can only happen through values passed via environment variables.
+The YAML config file supports the jinja templating language and has custom functions to access environmental variables and local data files. Jinja variables are unavailable and not yet loaded since they are supplied by the YAML file. Customisation of the YAML file can only happen through values passed via environment variables.
 
 ##### env_var
 
@@ -450,6 +448,22 @@ Return the value of the environmental variable if it exists, otherwise raise an 
 
 ```jinja
 {{ env_var('<environmental_variable>') }}
+```
+
+##### from_csv, from_json, from_yaml
+
+These functions provide access to local data files for use in Jinja templates. For detailed documentation and examples, see [LocalDataInjection.md](docs/LocalDataInjection.md).
+
+**Examples:**
+```jinja
+-- Load CSV data as dictionaries
+{% set table_defs = from_csv('data/tables.csv', as_dict=true) %}
+
+-- Load JSON configuration
+{% set config = from_json('config/settings.json') %}
+
+-- Load YAML parameters
+{% set params = from_yaml('config/parameters.yaml') %}
 ```
 
 ## Commands

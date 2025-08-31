@@ -1,0 +1,27 @@
+-- LEGACY APPROACH: Manual data definitions in Jinja
+-- This shows the "before" state that LocalDataInjection improves upon
+-- Instead of using from_json('file_formats.json'), we manually define the data structure
+
+{% set file_format_config = {
+    "file_formats": [
+        {
+            "name": "CSV_NO_HEADER",
+            "type": "CSV",
+            "compression": "AUTO",
+            "field_delimiter": ",",
+            "skip_header": 0,
+            "field_optionally_enclosed_by": "\"",
+            "null_if": ["NULL", "\\N", "\\N", ""]
+        },
+        {
+            "name": "JSON",
+            "type": "JSON",
+            "compression": "AUTO",
+            "enable_octal": false,
+            "allow_duplicate": false,
+            "strip_outer_array": false,
+            "strip_null_values": false,
+            "ignore_utf8_errors": false
+        }
+    ]
+} %}

@@ -10,7 +10,7 @@ import jinja2
 import jinja2.ext
 import structlog
 import yaml
-from schemachange.JinjaEnvVar import JinjaEnvVar
+from schemachange.LocalDataInjection import LocalDataInjection
 import warnings
 
 logger = structlog.getLogger(__name__)
@@ -123,7 +123,7 @@ def load_yaml_config(config_file_path: Path | None) -> dict[str, Any]:
             config_template = jinja2.Template(
                 config_file.read(),
                 undefined=jinja2.StrictUndefined,
-                extensions=[JinjaEnvVar],
+                extensions=[LocalDataInjection],
             )
 
             # The FullLoader parameter handles the conversion from YAML scalar values to Python the dictionary format
