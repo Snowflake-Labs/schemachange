@@ -9,7 +9,6 @@ import structlog
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import get_snowflake_identifier_string
 from schemachange.session.Script import VersionedScript, RepeatableScript, AlwaysScript
-from schemachange.session.HistorySession import HistorySession
 
 
 class SnowflakeSession:
@@ -82,7 +81,6 @@ class SnowflakeSession:
         connect_kwargs = {k: v for k, v in connect_kwargs.items() if v is not None}
         self.logger.debug("snowflake.connector.connect kwargs", **connect_kwargs)
         self.con = snowflake.connector.connect(**connect_kwargs)
-        print(f"Current session ID: {self.con.session_id}")
         self.account = self.con.account
         self.user = get_snowflake_identifier_string(self.con.user, "user")
         self.role = get_snowflake_identifier_string(self.con.role, "role")
@@ -95,24 +93,34 @@ class SnowflakeSession:
         if not self.autocommit:
             self.con.autocommit(False)
 
-        # Create dedicated history session using the same connection parameters
-        self.history_session = HistorySession(
-            schemachange_version=schemachange_version,
-            application=application,
-            change_history_table=change_history_table,
-            logger=logger,
-            connection_name=connection_name,
-            connections_file_path=connections_file_path,
-            account=account,
-            user=user,
-            role=role,
-            warehouse=warehouse,
-            database=database,
-            schema=schema,
-            query_tag=query_tag,
-            autocommit=autocommit,
+        # Store connection parameters for lazy HistorySession creation
+        self._history_session_params = {
+            "schemachange_version": schemachange_version,
+            "application": application,
+            "change_history_table": change_history_table,
+            "logger": logger,
+            "connection_name": connection_name,
+            "connections_file_path": connections_file_path,
+            "account": account,
+            "user": user,
+            "role": role,
+            "warehouse": warehouse,
+            "database": database,
+            "schema": schema,
+            "query_tag": query_tag,
+            "autocommit": autocommit,
             **kwargs,
-        )
+        }
+        self._history_session = None
+
+    @property
+    def history_session(self):
+        """Lazily create HistorySession when first accessed."""
+        if self._history_session is None:
+            from schemachange.session.HistorySession import HistorySession
+
+            self._history_session = HistorySession(**self._history_session_params)
+        return self._history_session
 
     def __del__(self):
         if hasattr(self, "con"):
@@ -314,3 +322,7 @@ class SnowflakeSession:
             installed_by=self.user,
             logger=logger,
         )
+
+    def fetch_change_history_metadata(self) -> dict:
+        """Fetch metadata about the change history table."""
+        return self.history_session.fetch_change_history_metadata()

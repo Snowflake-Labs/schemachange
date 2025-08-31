@@ -33,17 +33,32 @@ def session() -> SnowflakeSession:
 
 class TestSnowflakeSession:
     def test_fetch_change_history_metadata_exists(self, session: SnowflakeSession):
-        session.con.execute_string.return_value = [[["created", "last_altered"]]]
-        result = session.fetch_change_history_metadata()
-        assert result == {"created": "created", "last_altered": "last_altered"}
-        assert session.con.execute_string.call_count == 1
-        assert session.logger.calls[1][1][0] == "Executing query"
+        # Mock the HistorySession creation
+        mock_history_session = mock.MagicMock()
+        mock_history_session.fetch_change_history_metadata.return_value = {
+            "created": "created",
+            "last_altered": "last_altered",
+        }
+
+        with mock.patch(
+            "schemachange.session.HistorySession.HistorySession",
+            return_value=mock_history_session,
+        ):
+            result = session.fetch_change_history_metadata()
+            assert result == {"created": "created", "last_altered": "last_altered"}
+            mock_history_session.fetch_change_history_metadata.assert_called_once()
 
     def test_fetch_change_history_metadata_does_not_exist(
         self, session: SnowflakeSession
     ):
-        session.con.execute_string.return_value = [[]]
-        result = session.fetch_change_history_metadata()
-        assert result == {}
-        assert session.con.execute_string.call_count == 1
-        assert session.logger.calls[1][1][0] == "Executing query"
+        # Mock the HistorySession creation
+        mock_history_session = mock.MagicMock()
+        mock_history_session.fetch_change_history_metadata.return_value = {}
+
+        with mock.patch(
+            "schemachange.session.HistorySession.HistorySession",
+            return_value=mock_history_session,
+        ):
+            result = session.fetch_change_history_metadata()
+            assert result == {}
+            mock_history_session.fetch_change_history_metadata.assert_called_once()
