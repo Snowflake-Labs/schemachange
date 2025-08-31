@@ -147,7 +147,6 @@ class SnowflakeSession:
             if not self.autocommit:
                 self.con.rollback()
             raise e
-
     def get_script_metadata(
         self, create_change_history_table: bool, dry_run: bool
     ) -> tuple[
@@ -265,7 +264,7 @@ class SnowflakeSession:
         logger: structlog.BoundLogger,
     ) -> None:
         if dry_run:
-            logger.debug("Running in dry-run mode. Skipping execution")
+            logger.info("Running in dry-run mode. Skipping execution")
             return
 
         logger.info("Applying change script")
