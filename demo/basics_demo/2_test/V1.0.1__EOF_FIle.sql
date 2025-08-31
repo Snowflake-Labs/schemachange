@@ -5,6 +5,4 @@ create transient table FORGETMEPLEASE (
     test varchar
 );
 
--- comment in the last line
--- Adding query to avoid last comment line.
-SELECT 1;
+-- comment in the last line ( no longer a problem)
