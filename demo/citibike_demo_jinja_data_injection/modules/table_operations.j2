@@ -1,0 +1,43 @@
+{% macro create_table(table_name, columns, as_varchar=false) -%}
+CREATE OR REPLACE TABLE {{ table_name }}{% if as_varchar %}_LANDING{% endif %}
+(
+    {% for column in columns %}
+    {{ column.column_name }} {% if as_varchar %}VARCHAR{% else %}{{ column.data_type }}{% endif %}{% if column.nullable == 'NOT NULL' %} NOT NULL{% endif %}{% if not loop.last %},{% endif %}
+    {% endfor %}
+    METADATA VARIANT NOT NULL,
+    LOAD_TIME TIMESTAMP_NTZ NOT NULL
+);
+{%- endmacro %}
+
+{% macro create_view(view_name, source_table, table_definitions) -%}
+CREATE OR REPLACE VIEW {{ view_name }} AS
+SELECT
+    {% for col in table_definitions %}
+        {% if col.final_transformation %}
+            {{ col.final_transformation }} as {{ col.column_name }}{% if not loop.last %},{% endif %}
+        {% else %}
+            {{ col.column_name }}{% if not loop.last %},{% endif %}
+        {% endif %}
+    {% endfor %}
+FROM {{ source_table }}
+WHERE LOAD_TIME = (
+    SELECT MAX(LOAD_TIME)
+    FROM {{ source_table }}
+);
+{%- endmacro %}
+
+{% macro copy_into_landing(operation, table_definitions) -%}
+-- Load the {{ operation['table'] }} data into landing table with metadata
+COPY INTO {{ operation['table'] }} FROM
+    (
+        SELECT
+        {% for col in table_definitions %}
+            {% if col.landing_transformation %}
+                {{ col.landing_transformation }} as {{ col.column_name }}{% if not loop.last %},{% endif %}
+            {% endif %}
+        {% endfor %}
+        FROM @{{ operation['stage'] }}
+        {% if operation['pattern'] is defined %}(PATTERN => '{{ operation['pattern'] }}'){% endif %}
+    )
+    FILE_FORMAT = (FORMAT_NAME = '{{ operation['file_format'] }}');
+{%- endmacro %}

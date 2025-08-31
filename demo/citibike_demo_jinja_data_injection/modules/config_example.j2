@@ -1,0 +1,23 @@
+-- Example showing when {% with context %} is needed vs not needed
+
+-- GOOD: Using passed parameters (no with context needed)
+{% macro good_macro(table_name, columns) -%}
+CREATE TABLE {{ table_name }} (
+    {% for column in columns %}
+    {{ column.name }} {{ column.type }}{% if not loop.last %},{% endif %}
+    {% endfor %}
+);
+{%- endmacro %}
+
+-- BAD: Using config variables directly (requires with context)
+{% macro bad_macro() -%}
+-- This macro uses config variables directly - requires {% with context %} in import
+CREATE TABLE {{ database_name }}.{{ schema_name }}.EXAMPLE (
+    id INTEGER,
+    name STRING
+);
+{%- endmacro %}
+
+-- Usage examples:
+-- GOOD: {% from 'modules/config_example.j2' import good_macro %}
+-- BAD:  {% from 'modules/config_example.j2' import bad_macro with context %}

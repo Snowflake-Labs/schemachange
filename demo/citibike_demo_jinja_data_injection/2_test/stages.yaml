@@ -1,0 +1,32 @@
+stages:
+  - name: TRIPS
+    url: "{{ secrets.trips_s3_bucket }}"
+    description: "Stage for Citibike trips data"
+  - name: WEATHER
+    url: "{{ secrets.weather_s3_bucket }}"
+    description: "Stage for weather data"
+
+copy_operations:
+  trips_landing:
+    table: TRIPS_LANDING
+    stage: TRIPS
+    file_format: CSV_NO_HEADER
+    pattern: ".*trips_.*csv.gz"
+    description: "Load trips data into landing table with metadata"
+
+  weather_landing:
+    table: WEATHER_LANDING
+    stage: WEATHER
+    file_format: JSON
+    description: "Load weather data into landing table with metadata"
+
+tasks:
+  - name: PROCESS_TRIPS_DATA
+    warehouse: "{{ database_name }}_WH"
+    schedule: "USING CRON '0 */6 * * * UTC'"  # Every 6 hours
+    description: "Process trips data from landing to final table"
+
+  - name: PROCESS_WEATHER_DATA
+    warehouse: "{{ database_name }}_WH"
+    schedule: "USING CRON '0 */2 * * * UTC'"  # Every 2 hours
+    description: "Process weather data from landing to final table"
