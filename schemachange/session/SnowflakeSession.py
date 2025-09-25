@@ -219,7 +219,7 @@ class SnowflakeSession:
             dry_run=dry_run,
         )
         if not change_history_table_exists:
-            return None, None, None
+            return defaultdict(dict), None, None
 
         change_history, max_published_version = self.fetch_versioned_scripts()
         r_scripts_checksum = self.fetch_repeatable_scripts()
