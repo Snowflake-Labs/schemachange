@@ -1,6 +1,89 @@
 [build-system]
-requires = [
-  "setuptools >= 40.9.0",
-  "wheel",
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "schemachange"
+version = "4.0.1"
+description = "A Database Change Management tool for Snowflake"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "jamesweakley/jeremiahhansen"},
 ]
-build-backend = "setuptools.build_meta"
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "cryptography",
+    "jinja2~=3.0",
+    "pyyaml~=6.0",
+    "requests",
+    "snowflake-connector-python>=2.8,<4.0",
+    "structlog~=24.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Snowflake-Labs/schemachange"
+Repository = "https://github.com/Snowflake-Labs/schemachange"
+
+[project.scripts]
+schemachange = "schemachange.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "flake8",
+    "pre-commit",
+    "pyfakefs",
+    "pytest",
+    "ruff",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["schemachange"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/schemachange",
+    "/README.md",
+    "/LICENSE",
+    "/NOTICE",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py38"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501", # line too long (handled by formatter)
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.black]
+line-length = 120
+target-version = ["py38", "py39", "py310", "py311", "py312"]
