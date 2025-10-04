@@ -78,7 +78,20 @@ def get_merged_config(
             # noinspection PyTypeChecker
             connections_file_path = config_folder / connections_file_path
 
-        connections_file_path = validate_file_path(file_path=connections_file_path)
+        # Allow missing connections file when using environment variable authentication
+        if connections_file_path is not None:
+            try:
+                connections_file_path = validate_file_path(
+                    file_path=connections_file_path
+                )
+            except ValueError:
+                logger.debug(
+                    "connections-file-path specified but file does not exist, "
+                    "will attempt to use environment variables for authentication",
+                    connections_file_path=str(connections_file_path),
+                )
+                connections_file_path = None
+                yaml_kwargs.pop("connection_name", None)
 
     if connection_name is None:
         connection_name = yaml_kwargs.pop("connection_name", None)
@@ -107,4 +120,4 @@ def get_merged_config(
     elif cli_kwargs["subcommand"] == "render":
         return RenderConfig.factory(**kwargs)
     else:
-        raise Exception(f"unhandled subcommand: {cli_kwargs['subcommand'] }")
+        raise Exception(f"unhandled subcommand: {cli_kwargs['subcommand']}")
