@@ -107,4 +107,4 @@ def get_merged_config(
     elif cli_kwargs["subcommand"] == "render":
         return RenderConfig.factory(**kwargs)
     else:
-        raise Exception(f"unhandled subcommand: {cli_kwargs['subcommand'] }")
+        raise Exception(f"unhandled subcommand: {cli_kwargs['subcommand']}")

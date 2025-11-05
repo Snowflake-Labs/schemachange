@@ -132,3 +132,4 @@ dmypy.json
 
 # Mac files
 **/.DS_Store
+.cache_ggshield

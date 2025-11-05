@@ -44,7 +44,7 @@ class Script(ABC):
             prefix = f"V{name_parts.group('version')}" if cls.type == "V" else cls.type
 
             raise ValueError(
-                f'two underscores are required between "{ prefix }" and the description: '
+                f'two underscores are required between "{prefix}" and the description: '
                 f"{file_path}\n{str(file_path)}"
             )
         # noinspection PyArgumentList

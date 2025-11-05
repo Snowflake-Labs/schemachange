@@ -161,3 +161,168 @@ def get_snowflake_password() -> str | None:
         return snowsql_pwd
     else:
         return None
+
+
+def get_snowflake_account() -> str | None:
+    """
+    Get Snowflake account from environment variable.
+
+    Returns:
+        Account identifier from SNOWFLAKE_ACCOUNT environment variable,
+        or None if not set or empty.
+    """
+    account = os.getenv("SNOWFLAKE_ACCOUNT")
+    if account is not None and account:
+        return account
+    return None
+
+
+def get_snowflake_user() -> str | None:
+    """
+    Get Snowflake user from environment variable.
+
+    Returns:
+        User name from SNOWFLAKE_USER environment variable,
+        or None if not set or empty.
+    """
+    user = os.getenv("SNOWFLAKE_USER")
+    if user is not None and user:
+        return user
+    return None
+
+
+def get_snowflake_role() -> str | None:
+    """
+    Get Snowflake role from environment variable.
+
+    Returns:
+        Role name from SNOWFLAKE_ROLE environment variable,
+        or None if not set or empty.
+    """
+    role = os.getenv("SNOWFLAKE_ROLE")
+    if role is not None and role:
+        return role
+    return None
+
+
+def get_snowflake_warehouse() -> str | None:
+    """
+    Get Snowflake warehouse from environment variable.
+
+    Returns:
+        Warehouse name from SNOWFLAKE_WAREHOUSE environment variable,
+        or None if not set or empty.
+    """
+    warehouse = os.getenv("SNOWFLAKE_WAREHOUSE")
+    if warehouse is not None and warehouse:
+        return warehouse
+    return None
+
+
+def get_snowflake_database() -> str | None:
+    """
+    Get Snowflake database from environment variable.
+
+    Returns:
+        Database name from SNOWFLAKE_DATABASE environment variable,
+        or None if not set or empty.
+    """
+    database = os.getenv("SNOWFLAKE_DATABASE")
+    if database is not None and database:
+        return database
+    return None
+
+
+def get_snowflake_schema() -> str | None:
+    """
+    Get Snowflake schema from environment variable.
+
+    Returns:
+        Schema name from SNOWFLAKE_SCHEMA environment variable,
+        or None if not set or empty.
+    """
+    schema = os.getenv("SNOWFLAKE_SCHEMA")
+    if schema is not None and schema:
+        return schema
+    return None
+
+
+def get_snowflake_authenticator() -> str | None:
+    """
+    Get Snowflake authenticator from environment variable.
+
+    Returns:
+        Authenticator type from SNOWFLAKE_AUTHENTICATOR environment variable,
+        or None if not set or empty.
+
+    Valid values: 'snowflake', 'oauth', 'externalbrowser',
+                  'https://<okta_account>.okta.com', 'snowflake_jwt'
+    """
+    authenticator = os.getenv("SNOWFLAKE_AUTHENTICATOR")
+    if authenticator is not None and authenticator:
+        return authenticator
+    return None
+
+
+def get_snowflake_private_key_path() -> str | None:
+    """
+    Get Snowflake private key file path from environment variable.
+
+    Returns:
+        Private key file path from SNOWFLAKE_PRIVATE_KEY_PATH environment variable,
+        or None if not set or empty.
+
+    Used for JWT (snowflake_jwt) authentication.
+    """
+    private_key_path = os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH")
+    if private_key_path is not None and private_key_path:
+        return private_key_path
+    return None
+
+
+def get_snowflake_private_key_passphrase() -> str | None:
+    """
+    Get Snowflake private key passphrase from environment variable.
+
+    Returns:
+        Private key passphrase from SNOWFLAKE_PRIVATE_KEY_PASSPHRASE environment variable,
+        or None if not set or empty.
+
+    Used when the private key file is encrypted.
+    """
+    passphrase = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE")
+    if passphrase is not None and passphrase:
+        return passphrase
+    return None
+
+
+def get_snowflake_token_file_path() -> str | None:
+    """
+    Get Snowflake OAuth token file path from environment variable.
+
+    Returns:
+        Token file path from SNOWFLAKE_TOKEN_FILE_PATH environment variable,
+        or None if not set or empty.
+
+    Used for OAuth authentication.
+    """
+    token_file_path = os.getenv("SNOWFLAKE_TOKEN_FILE_PATH")
+    if token_file_path is not None and token_file_path:
+        return token_file_path
+    return None
+
+
+def get_snowflake_connections_file_path() -> str | None:
+    """
+    Get Snowflake connections.toml file path from environment variable.
+
+    Returns:
+        Connections file path from SNOWFLAKE_CONNECTIONS_FILE_PATH environment variable,
+        or None if not set or empty.
+
+    Used to override the default connections.toml location.
+    """
+    connections_file_path = os.getenv("SNOWFLAKE_CONNECTIONS_FILE_PATH")
+    if connections_file_path is not None and connections_file_path:
+        return connections_file_path
+    return None
