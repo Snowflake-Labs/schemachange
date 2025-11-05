@@ -150,7 +150,10 @@ def test_get_snowflake_schema(env_vars: dict, expected: str | None):
         ({"SNOWFLAKE_AUTHENTICATOR": "oauth"}, "oauth"),
         ({"SNOWFLAKE_AUTHENTICATOR": "externalbrowser"}, "externalbrowser"),
         ({"SNOWFLAKE_AUTHENTICATOR": "snowflake_jwt"}, "snowflake_jwt"),
-        ({"SNOWFLAKE_AUTHENTICATOR": "https://mycompany.okta.com"}, "https://mycompany.okta.com"),
+        (
+            {"SNOWFLAKE_AUTHENTICATOR": "https://mycompany.okta.com"},
+            "https://mycompany.okta.com",
+        ),
         ({"SNOWFLAKE_AUTHENTICATOR": ""}, None),
         ({}, None),
     ],
@@ -165,7 +168,10 @@ def test_get_snowflake_authenticator(env_vars: dict, expected: str | None):
     "env_vars, expected",
     [
         ({"SNOWFLAKE_PRIVATE_KEY_PATH": "/path/to/key.pem"}, "/path/to/key.pem"),
-        ({"SNOWFLAKE_PRIVATE_KEY_PATH": "/home/user/.ssh/snowflake_key.p8"}, "/home/user/.ssh/snowflake_key.p8"),
+        (
+            {"SNOWFLAKE_PRIVATE_KEY_PATH": "/home/user/.ssh/snowflake_key.p8"},
+            "/home/user/.ssh/snowflake_key.p8",
+        ),
         ({"SNOWFLAKE_PRIVATE_KEY_PATH": "~/keys/rsa_key.pem"}, "~/keys/rsa_key.pem"),
         ({"SNOWFLAKE_PRIVATE_KEY_PATH": ""}, None),
         ({}, None),
@@ -180,7 +186,10 @@ def test_get_snowflake_private_key_path(env_vars: dict, expected: str | None):
 @pytest.mark.parametrize(
     "env_vars, expected",
     [
-        ({"SNOWFLAKE_PRIVATE_KEY_PASSPHRASE": "my-secret-passphrase"}, "my-secret-passphrase"),
+        (
+            {"SNOWFLAKE_PRIVATE_KEY_PASSPHRASE": "my-secret-passphrase"},
+            "my-secret-passphrase",
+        ),
         ({"SNOWFLAKE_PRIVATE_KEY_PASSPHRASE": "P@ssw0rd123!"}, "P@ssw0rd123!"),
         ({"SNOWFLAKE_PRIVATE_KEY_PASSPHRASE": ""}, None),
         ({}, None),
@@ -196,7 +205,10 @@ def test_get_snowflake_private_key_passphrase(env_vars: dict, expected: str | No
     "env_vars, expected",
     [
         ({"SNOWFLAKE_TOKEN_FILE_PATH": "/path/to/token.txt"}, "/path/to/token.txt"),
-        ({"SNOWFLAKE_TOKEN_FILE_PATH": "/home/user/.snowflake/oauth_token"}, "/home/user/.snowflake/oauth_token"),
+        (
+            {"SNOWFLAKE_TOKEN_FILE_PATH": "/home/user/.snowflake/oauth_token"},
+            "/home/user/.snowflake/oauth_token",
+        ),
         ({"SNOWFLAKE_TOKEN_FILE_PATH": "~/tokens/oauth.token"}, "~/tokens/oauth.token"),
         ({"SNOWFLAKE_TOKEN_FILE_PATH": ""}, None),
         ({}, None),
@@ -211,9 +223,20 @@ def test_get_snowflake_token_file_path(env_vars: dict, expected: str | None):
 @pytest.mark.parametrize(
     "env_vars, expected",
     [
-        ({"SNOWFLAKE_CONNECTIONS_FILE_PATH": "/path/to/connections.toml"}, "/path/to/connections.toml"),
-        ({"SNOWFLAKE_CONNECTIONS_FILE_PATH": "/home/user/.snowflake/connections.toml"}, "/home/user/.snowflake/connections.toml"),
-        ({"SNOWFLAKE_CONNECTIONS_FILE_PATH": "~/config/connections.toml"}, "~/config/connections.toml"),
+        (
+            {"SNOWFLAKE_CONNECTIONS_FILE_PATH": "/path/to/connections.toml"},
+            "/path/to/connections.toml",
+        ),
+        (
+            {
+                "SNOWFLAKE_CONNECTIONS_FILE_PATH": "/home/user/.snowflake/connections.toml"
+            },
+            "/home/user/.snowflake/connections.toml",
+        ),
+        (
+            {"SNOWFLAKE_CONNECTIONS_FILE_PATH": "~/config/connections.toml"},
+            "~/config/connections.toml",
+        ),
         ({"SNOWFLAKE_CONNECTIONS_FILE_PATH": ""}, None),
         ({}, None),
     ],
