@@ -302,9 +302,13 @@ def test_invalid_config_folder(mock_parse_cli_args, _):
     }
     mock_parse_cli_args.return_value = {**cli_kwargs}
     logger = structlog.testing.CapturingLogger()
-    with pytest.raises(Exception) as e_info:
-        # noinspection PyTypeChecker
-        get_merged_config(logger=logger)
+
+    # Clear environment variables to prevent leakage from GitHub Actions
+    with mock.patch.dict(os.environ, {}, clear=True):
+        with pytest.raises(Exception) as e_info:
+            # noinspection PyTypeChecker
+            get_merged_config(logger=logger)
+
     assert f"Path is not valid directory: {cli_kwargs['config_folder']}" in str(
         e_info.value
     )
