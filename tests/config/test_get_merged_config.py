@@ -274,11 +274,18 @@ def test_get_merged_config_inheritance(
     yaml_kwargs,
     expected,
 ):
+    """
+    Test that the merged config is correctly inherited from the CLI, YAML, and ENV.
+    """
     mock_parse_cli_args.return_value = {**cli_kwargs}
     mock_get_yaml_config_kwargs.return_value = {**yaml_kwargs}
     logger = structlog.testing.CapturingLogger()
-    # noinspection PyTypeChecker
-    get_merged_config(logger=logger)
+
+    # Clear environment variables to prevent leakage from GitHub Actions
+    with mock.patch.dict(os.environ, {}, clear=True):
+        # noinspection PyTypeChecker
+        get_merged_config(logger=logger)
+
     factory_kwargs = mock_deploy_config_factory.call_args.kwargs
     for actual_key, actual_value in factory_kwargs.items():
         assert expected[actual_key] == actual_value
@@ -682,8 +689,10 @@ def test_integration_get_merged_config_inheritance(
 ):
     logger = structlog.testing.CapturingLogger()
     with mock.patch("sys.argv", cli_args):
-        # noinspection PyTypeChecker
-        get_merged_config(logger=logger)
+        # Clear environment variables to prevent leakage from GitHub Actions
+        with mock.patch.dict(os.environ, {}, clear=True):
+            # noinspection PyTypeChecker
+            get_merged_config(logger=logger)
         factory_kwargs = mock_deploy_config_factory.call_args.kwargs
         for actual_key, actual_value in factory_kwargs.items():
             assert expected[actual_key] == actual_value
