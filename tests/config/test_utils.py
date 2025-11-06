@@ -11,6 +11,8 @@ from schemachange.config.utils import (
     get_snowflake_authenticator,
     get_snowflake_connections_file_path,
     get_snowflake_database,
+    get_snowflake_default_connection_name,
+    get_snowflake_home,
     get_snowflake_password,
     get_snowflake_private_key_passphrase,
     get_snowflake_private_key_path,
@@ -244,4 +246,36 @@ def test_get_snowflake_token_file_path(env_vars: dict, expected: str | None):
 def test_get_snowflake_connections_file_path(env_vars: dict, expected: str | None):
     with mock.patch.dict(os.environ, env_vars, clear=True):
         result = get_snowflake_connections_file_path()
+        assert result == expected
+
+
+@pytest.mark.parametrize(
+    "env_vars, expected",
+    [
+        ({"SNOWFLAKE_HOME": "/custom/snowflake"}, "/custom/snowflake"),
+        ({"SNOWFLAKE_HOME": "~/.snowflake"}, "~/.snowflake"),
+        ({"SNOWFLAKE_HOME": "/opt/snowflake/config"}, "/opt/snowflake/config"),
+        ({"SNOWFLAKE_HOME": ""}, None),
+        ({}, None),
+    ],
+)
+def test_get_snowflake_home(env_vars: dict, expected: str | None):
+    with mock.patch.dict(os.environ, env_vars, clear=True):
+        result = get_snowflake_home()
+        assert result == expected
+
+
+@pytest.mark.parametrize(
+    "env_vars, expected",
+    [
+        ({"SNOWFLAKE_DEFAULT_CONNECTION_NAME": "production"}, "production"),
+        ({"SNOWFLAKE_DEFAULT_CONNECTION_NAME": "dev"}, "dev"),
+        ({"SNOWFLAKE_DEFAULT_CONNECTION_NAME": "default"}, "default"),
+        ({"SNOWFLAKE_DEFAULT_CONNECTION_NAME": ""}, None),
+        ({}, None),
+    ],
+)
+def test_get_snowflake_default_connection_name(env_vars: dict, expected: str | None):
+    with mock.patch.dict(os.environ, env_vars, clear=True):
+        result = get_snowflake_default_connection_name()
         assert result == expected

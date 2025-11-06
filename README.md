@@ -50,9 +50,11 @@ support or warranty.
     1. [Okta Authentication](#okta-authentication)
     1. [Private Key Authentication](#private-key-authentication)
 1. [Configuration](#configuration)
+    1. [Configuration Priority Order](#configuration-priority-order)
+    1. [connections.toml File](#connectionstoml-file)
+    1. [Environment Variables](#environment-variables)
     1. [YAML Config File](#yaml-config-file)
         1. [Yaml Jinja support](#yaml-jinja-support)
-    1. [connections.toml File](#connectionstoml-file)
 1. [Commands](#commands)
     1. [deploy](#deploy)
     1. [render](#render)
@@ -346,14 +348,18 @@ assume the private key is not encrypted.
 
 ## Configuration
 
-As of version 4.0, Snowflake connection parameters must be supplied via
-a [connections.toml file](#connectionstoml-file). Command-line and yaml arguments will still be supported with a
-deprecation warning until support is completely dropped.
+schemachange supports multiple configuration sources with a well-defined priority order. Connection parameters and schemachange-specific settings can be supplied through four different sources:
 
-Schemachange-specific parameters can be supplied in two different ways (in order of priority):
+### Configuration Priority Order
 
-1. Command Line Arguments
-2. YAML config file
+When the same parameter is defined in multiple sources, schemachange uses the following priority (highest to lowest):
+
+1. **Command Line Arguments** (highest priority)
+2. **Environment Variables**
+3. **YAML config file**
+4. **connections.toml file** (lowest priority)
+
+For example, if `warehouse` is defined in all four sources, the command-line value will be used.
 
 **Note:** As of 4.0, `vars` provided via command-line argument will be merged with vars provided via YAML config.
 Previously, one overwrote the other completely
@@ -372,9 +378,80 @@ filepath can be supplied in the following ways (in order of priority):
 
 A connection name can be supplied in the following ways (in order of priority):
 
-1. The `SNOWFLAKE_DEFAULT_CONNECTION_NAME` [environment variable](#environment-variables)
-2. The `--connection-name` [command-line argument](#commands)
+1. The `--connection-name` [command-line argument](#commands)
+2. The `SNOWFLAKE_DEFAULT_CONNECTION_NAME` [environment variable](#environment-variables)
 3. The `connection-name` [YAML value](#yaml-config-file)
+
+### Environment Variables
+
+schemachange supports environment variables for Snowflake connection parameters, following the naming conventions used by the [Snowflake Python Connector](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect). Environment variables are particularly useful in CI/CD pipelines and containerized deployments.
+
+#### Connection Parameters
+
+The following environment variables can be used to configure your Snowflake connection:
+
+| Environment Variable | Description | Example |
+|---------------------|-------------|---------|
+| `SNOWFLAKE_ACCOUNT` | Snowflake account identifier | `myorg-myaccount` |
+| `SNOWFLAKE_USER` | Snowflake username | `john.doe` |
+| `SNOWFLAKE_PASSWORD` | Snowflake password (not recommended in production) | `mypassword` |
+| `SNOWFLAKE_ROLE` | Snowflake role to use | `SYSADMIN` |
+| `SNOWFLAKE_WAREHOUSE` | Snowflake warehouse to use | `COMPUTE_WH` |
+| `SNOWFLAKE_DATABASE` | Snowflake database to use | `PROD_DB` |
+| `SNOWFLAKE_SCHEMA` | Snowflake schema to use | `PUBLIC` |
+
+#### Authentication Parameters
+
+For advanced authentication methods:
+
+| Environment Variable | Description | Example |
+|---------------------|-------------|---------|
+| `SNOWFLAKE_AUTHENTICATOR` | Authentication method | `snowflake`, `oauth`, `externalbrowser`, `snowflake_jwt` |
+| `SNOWFLAKE_PRIVATE_KEY_PATH` | Path to private key file (for JWT auth) | `/path/to/rsa_key.p8` |
+| `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` | Passphrase for encrypted private key | `my-secret-passphrase` |
+| `SNOWFLAKE_TOKEN_FILE_PATH` | Path to OAuth token file | `/path/to/token.txt` |
+
+#### Configuration Parameters
+
+| Environment Variable | Description | Example |
+|---------------------|-------------|---------|
+| `SNOWFLAKE_CONNECTIONS_FILE_PATH` | Override default connections.toml location | `/custom/path/connections.toml` |
+| `SNOWFLAKE_HOME` | Directory containing connections.toml | `~/.snowflake` |
+| `SNOWFLAKE_DEFAULT_CONNECTION_NAME` | Default connection profile name | `production` |
+
+#### Usage Example
+
+```bash
+# Set environment variables
+export SNOWFLAKE_ACCOUNT="myorg-myaccount"
+export SNOWFLAKE_USER="deploy_user"
+export SNOWFLAKE_PASSWORD="$DEPLOY_PASSWORD"
+export SNOWFLAKE_ROLE="SYSADMIN"
+export SNOWFLAKE_WAREHOUSE="COMPUTE_WH"
+export SNOWFLAKE_DATABASE="PROD_DB"
+
+# Run schemachange (no connection parameters needed in CLI)
+schemachange deploy
+```
+
+#### CI/CD Pipeline Usage
+
+Environment variables are ideal for CI/CD pipelines where credentials are stored as secrets:
+
+```yaml
+# GitHub Actions example
+- name: Run schemachange
+  env:
+    SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+    SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+    SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+    SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+    SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+    SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}
+  run: schemachange deploy
+```
+
+**Note:** The legacy `SNOWSQL_PWD` environment variable is still supported for backward compatibility but is deprecated. Use `SNOWFLAKE_PASSWORD` instead.
 
 ### YAML Config File
 

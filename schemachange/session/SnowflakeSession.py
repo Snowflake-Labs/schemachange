@@ -57,29 +57,27 @@ class SnowflakeSession:
             self.session_parameters["QUERY_TAG"] += f";{query_tag}"
 
         connect_kwargs = {
-            "account": account,  # TODO: Remove when connections.toml is enforced
-            "user": user,  # TODO: Remove when connections.toml is enforced
-            "database": database,  # TODO: Remove when connections.toml is enforced
-            "schema": schema,  # TODO: Remove when connections.toml is enforced
-            "role": role,  # TODO: Remove when connections.toml is enforced
-            "warehouse": warehouse,  # TODO: Remove when connections.toml is enforced
-            "private_key_file": kwargs.get(
-                "private_key_path"
-            ),  # TODO: Remove when connections.toml is enforced
-            "token": kwargs.get(
-                "oauth_token"
-            ),  # TODO: Remove when connections.toml is enforced
-            "password": kwargs.get(
-                "password"
-            ),  # TODO: Remove when connections.toml is enforced
-            "authenticator": kwargs.get(
-                "authenticator"
-            ),  # TODO: Remove when connections.toml is enforced
-            "connection_name": connection_name,
-            "connections_file_path": connections_file_path,
+            "account": account,
+            "user": user,
+            "database": database,
+            "schema": schema,
+            "role": role,
+            "warehouse": warehouse,
+            "private_key_file": kwargs.get("private_key_path"),
+            "token": kwargs.get("oauth_token"),
+            "password": kwargs.get("password"),
+            "authenticator": kwargs.get("authenticator"),
             "application": application,
             "session_parameters": self.session_parameters,
         }
+
+        # Add connection_name and connections_file_path if specified
+        # The connector will load from connections.toml, and explicit parameters above will override it
+        # This gives us the correct priority: CLI > ENV > YAML > connections.toml
+        if connection_name:
+            connect_kwargs["connection_name"] = connection_name
+        if connections_file_path:
+            connect_kwargs["connections_file_path"] = connections_file_path
         connect_kwargs = {k: v for k, v in connect_kwargs.items() if v is not None}
         self.logger.debug("snowflake.connector.connect kwargs", **connect_kwargs)
         self.con = snowflake.connector.connect(**connect_kwargs)

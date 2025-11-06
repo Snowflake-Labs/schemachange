@@ -2,16 +2,15 @@ from __future__ import annotations
 
 import os
 import re
+import warnings
 from pathlib import Path
 from typing import Any
-
 
 import jinja2
 import jinja2.ext
 import structlog
 import yaml
 from schemachange.JinjaEnvVar import JinjaEnvVar
-import warnings
 
 logger = structlog.getLogger(__name__)
 
@@ -325,4 +324,36 @@ def get_snowflake_connections_file_path() -> str | None:
     connections_file_path = os.getenv("SNOWFLAKE_CONNECTIONS_FILE_PATH")
     if connections_file_path is not None and connections_file_path:
         return connections_file_path
+    return None
+
+
+def get_snowflake_home() -> str | None:
+    """
+    Get Snowflake home directory from environment variable.
+
+    Returns:
+        Home directory from SNOWFLAKE_HOME environment variable,
+        or None if not set or empty.
+
+    Used to locate the connections.toml file (default: ~/.snowflake).
+    """
+    home = os.getenv("SNOWFLAKE_HOME")
+    if home is not None and home:
+        return home
+    return None
+
+
+def get_snowflake_default_connection_name() -> str | None:
+    """
+    Get default Snowflake connection name from environment variable.
+
+    Returns:
+        Connection name from SNOWFLAKE_DEFAULT_CONNECTION_NAME environment variable,
+        or None if not set or empty.
+
+    Used to select which connection profile to use from connections.toml.
+    """
+    connection_name = os.getenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME")
+    if connection_name is not None and connection_name:
+        return connection_name
     return None

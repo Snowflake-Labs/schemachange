@@ -7,8 +7,12 @@ from typing import Literal
 from schemachange.config.BaseConfig import BaseConfig
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import (
+    get_snowflake_authenticator,
     get_snowflake_identifier_string,
     get_snowflake_password,
+    get_snowflake_private_key_passphrase,
+    get_snowflake_private_key_path,
+    get_snowflake_token_file_path,
 )
 
 
@@ -90,9 +94,27 @@ class DeployConfig(BaseConfig):
             "query_tag": self.query_tag,
         }
 
-        # If the user supplied the password in the environment variable, add it to the session config
+        # Add password from environment variable if available
         snowflake_password = get_snowflake_password()
         if snowflake_password is not None and snowflake_password:
             session_kwargs["password"] = snowflake_password
+
+        # Add authentication parameters from environment variables if available
+        # These are used for OAuth, JWT, and other auth methods
+        authenticator = get_snowflake_authenticator()
+        if authenticator is not None:
+            session_kwargs["authenticator"] = authenticator
+
+        private_key_path = get_snowflake_private_key_path()
+        if private_key_path is not None:
+            session_kwargs["private_key_path"] = private_key_path
+
+        private_key_passphrase = get_snowflake_private_key_passphrase()
+        if private_key_passphrase is not None:
+            session_kwargs["private_key_passphrase"] = private_key_passphrase
+
+        token_file_path = get_snowflake_token_file_path()
+        if token_file_path is not None:
+            session_kwargs["oauth_token"] = token_file_path
 
         return {k: v for k, v in session_kwargs.items() if v is not None}
