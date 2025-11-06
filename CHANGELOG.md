@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
-## [Unreleased]
+## [unrleased] - TBD
 ### Added
 - Comprehensive environment variable support for all Snowflake connection parameters following Snowflake Python Connector conventions (`SNOWFLAKE_*` prefix)
 - Support for `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_ROLE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_DATABASE`, `SNOWFLAKE_SCHEMA` environment variables
@@ -11,27 +11,20 @@ All notable changes to this project will be documented in this file.
 - Support for configuration environment variables: `SNOWFLAKE_HOME`, `SNOWFLAKE_DEFAULT_CONNECTION_NAME`, `SNOWFLAKE_CONNECTIONS_FILE_PATH`
 - Well-defined configuration priority order: CLI > ENV > YAML > connections.toml
 - Comprehensive documentation for environment variable usage in CI/CD pipelines
+- Added flag `--error-on-ignored-versioned-migration` to throw an error when versioned migrations are ignored due to being out of order (#287 by @zanebclark)
+- Added `py.typed` marker file for better MyPy type checking support (#332 by @fozcodes)
 
 ### Changed
 - Environment variables now follow Snowflake Python Connector naming conventions with `SNOWFLAKE_` prefix
 - Improved configuration merge logic to properly handle priority across all four configuration sources
 - Updated README with detailed environment variable documentation and usage examples
-
-### Deprecated
-- `SNOWSQL_PWD` environment variable (use `SNOWFLAKE_PASSWORD` instead for consistency)
-
-## [4.1.0] - 2025-08-05
-### Added
-- Added flag `--error-on-ignored-versioned-migration` to throw an error when versioned migrations are ignored due to being out of order (#287 by @zanebclark)
-- Added `py.typed` marker file for better MyPy type checking support (#332 by @fozcodes)
-
-### Changed
 - Updated Flyway documentation links to current Red Gate community documentation (#333 by @sfc-gh-adamle)
 
 ### Fixed
 - Fixed secret redaction functionality to properly handle configuration secrets (#312 by @zanebclark)
 
 ### Deprecated
+- `SNOWSQL_PWD` environment variable (use `SNOWFLAKE_PASSWORD` instead for consistency)
 - Deprecated the `--verbose` flag in favor of structured logging (#288 by @zanebclark)
 
 ## [4.0.1] - 2025-02-17
