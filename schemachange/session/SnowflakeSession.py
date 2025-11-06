@@ -149,7 +149,7 @@ class SnowflakeSession:
     def create_change_history_schema(self, dry_run: bool) -> None:
         query = f"CREATE SCHEMA IF NOT EXISTS {self.change_history_table.fully_qualified_schema_name}"
         if dry_run:
-            self.logger.debug(
+            self.logger.info(
                 "Running in dry-run mode. Skipping execution.",
                 query=indent(dedent(query), prefix="\t"),
             )
@@ -171,7 +171,7 @@ class SnowflakeSession:
             )
         """
         if dry_run:
-            self.logger.debug(
+            self.logger.info(
                 "Running in dry-run mode. Skipping execution.",
                 query=indent(dedent(query), prefix="\t"),
             )
@@ -306,7 +306,7 @@ class SnowflakeSession:
         logger: structlog.BoundLogger,
     ) -> None:
         if dry_run:
-            logger.debug("Running in dry-run mode. Skipping execution")
+            logger.info("Running in dry-run mode. Skipping execution")
             return
         logger.info("Applying change script")
         # Define a few other change related variables
