@@ -5,8 +5,6 @@ schemachange deploy \
 --config-folder ./demo \
 --config-file-name schemachange-config-setup.yml \
 --root-folder ./demo/${SCENARIO_NAME}/1_setup \
---connection-name default \
---connections-file-path ./connections.toml \
 --verbose
 echo "::endgroup::"
 
@@ -27,8 +25,6 @@ echo "::group::Testing Deployment using ${MY_TARGET_SCHEMA}"
 set +e
 schemachange deploy \
 --config-folder ./demo/${SCENARIO_NAME} \
---connection-name default \
---connections-file-path ./connections.toml \
 --root-folder ./demo/${SCENARIO_NAME}/2_test \
 --verbose
 RESULT=$?
@@ -46,8 +42,6 @@ echo "::group::Tearing down up ${MY_TARGET_SCHEMA}"
 schemachange deploy \
 --config-folder ./demo \
 --config-file-name schemachange-config-teardown.yml \
---connection-name default \
---connections-file-path ./connections.toml \
 --root-folder ./demo/${SCENARIO_NAME}/3_teardown \
 --verbose
 echo "::endgroup::"
