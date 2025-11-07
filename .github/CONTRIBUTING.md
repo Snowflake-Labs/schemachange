@@ -95,11 +95,6 @@ Thank you for your interest in contributing code to schemachange!
       git checkout -b update-build-library-dependencies
       ```
 
-    + Commit locally as you progress ( [git add](https://github.com/git-guides/git-add)
-      and [git commit](https://github.com/git-guides/git-commit) ). Use a properly formatted commit message. Be sure to
-      document any changed behavior in the [CHANGELOG.md](../CHANGELOG.md) file to help us collate the changes for a
-      specific release.
-
 4. Test your contribution locally
 
    ```bash

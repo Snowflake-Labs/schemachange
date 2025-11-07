@@ -21,8 +21,6 @@ between the Declarative and Imperative approaches, please read
 the [Embracing Agile Software Delivery and DevOps with Snowflake](https://www.snowflake.com/blog/embracing-agile-software-delivery-and-devops-with-snowflake/)
 blog post.
 
-For the complete list of changes made to schemachange check out the [CHANGELOG](CHANGELOG.md).
-
 To learn more about making a contribution to schemachange, please see our [Contributing guide](.github/CONTRIBUTING.md).
 
 **Please note** that schemachange is a community-developed tool, not an official Snowflake offering. It comes with no
