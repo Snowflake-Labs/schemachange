@@ -13,14 +13,7 @@ All notable changes to this project will be documented in this file.
 - **OAuth token support** via `SNOWFLAKE_TOKEN_FILE_PATH` with `SNOWFLAKE_AUTHENTICATOR=oauth` for external OAuth providers
 - Token file reading with automatic whitespace handling and comprehensive error messages
 - Well-defined configuration priority order: CLI > ENV > YAML > connections.toml
-- Comprehensive documentation for environment variable usage in CI/CD pipelines, including PAT authentication examples
-- **Interactive authentication example scripts** in `demo/examples/` for testing different authentication methods:
-  - `password_auth_example.sh` - Password authentication with MFA deprecation notice
-  - `pat_auth_example.sh` - PAT authentication with interactive token setup
-  - `keypair_auth_example.sh` - Key-pair (JWT) authentication with key generation guide
-  - `sso_auth_example.sh` - External browser (SSO) authentication
-  - Credential templates for PAT tokens and connections.toml
-  - Comprehensive troubleshooting and security guidance
+- Comprehensive documentation for environment variable usage in CI/CD pipelines with command-line examples for PAT, Key-Pair (JWT), OAuth, and SSO authentication methods
 - Added flag `--error-on-ignored-versioned-migration` to throw an error when versioned migrations are ignored due to being out of order (#287 by @zanebclark)
 - Added `py.typed` marker file for better MyPy type checking support (#332 by @fozcodes)
 

@@ -126,67 +126,9 @@ schemachange deploy --config-folder ./demo/basics_demo
 
 ⚠️ **SNOWSQL_PWD is deprecated**: The legacy `SNOWSQL_PWD` environment variable is deprecated in favor of `SNOWFLAKE_PASSWORD`. While `SNOWSQL_PWD` is still supported for backward compatibility, you will see a deprecation warning. Please migrate to `SNOWFLAKE_PASSWORD`.
 
-## Interactive Authentication Examples
+### Additional Authentication Examples
 
-The `examples/` directory contains ready-to-use scripts for testing different authentication methods. These interactive scripts will guide you through the authentication process and help you verify your configuration.
-
-### Quick Start
-
-```bash
-cd demo/examples
-
-# Choose your authentication method:
-./password_auth_example.sh          # Basic password authentication
-./pat_auth_example.sh              # Programmatic Access Token (RECOMMENDED for CI/CD)
-./keypair_auth_example.sh          # RSA key-pair authentication (RECOMMENDED for CI/CD)
-./sso_auth_example.sh              # Browser-based SSO authentication
-```
-
-Each script will:
-- Guide you through the authentication setup process
-- Prompt for required credentials interactively
-- Validate your connection by rendering a test script
-- Provide helpful troubleshooting tips if authentication fails
-- Show next steps for deploying to the demo projects
-
-### What's Included
-
-The examples directory contains:
-
-- **`README.md`** - Comprehensive guide to all authentication methods
-- **`password_auth_example.sh`** - Password authentication example
-- **`pat_auth_example.sh`** - PAT authentication example (uses `SNOWFLAKE_PASSWORD`)
-- **`keypair_auth_example.sh`** - Key-pair authentication with key generation guide
-- **`sso_auth_example.sh`** - SSO authentication with browser integration
-- **`templates/`** - Credential file templates for easy setup
-  - `token.txt.template` - Token file template (for PAT or OAuth storage)
-  - `connections.toml.template` - Snowflake connections file template
-
-### Example Output
-
-When you run an authentication example, you'll see:
-
-```
-╔════════════════════════════════════════════════════════════╗
-║  Schemachange - PAT Authentication Example               ║
-║  (Recommended for CI/CD and Service Accounts)             ║
-╚════════════════════════════════════════════════════════════╝
-
-Configuration:
-  Account:        myaccount.us-east-1
-  User:           service_account
-  Password:       [PAT SET]
-  Role:           SCHEMACHANGE_DEMO-DEPLOY
-  Warehouse:      SCHEMACHANGE_DEMO_WH
-  Database:       SCHEMACHANGE_DEMO
-  Project:        basics_demo
-
-Testing connection with 'schemachange render'...
-
-✓ Success! PAT authentication is working.
-```
-
-For detailed documentation, see [examples/README.md](examples/README.md).
+For additional command-line examples and authentication patterns, see the [examples/README.md](examples/README.md) documentation.
 
 ### Consumers
 

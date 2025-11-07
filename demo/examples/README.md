@@ -1,94 +1,67 @@
 # Schemachange Authentication Examples
 
-This directory contains practical examples for testing different Snowflake authentication methods with schemachange.
+This directory provides command-line examples for authenticating to Snowflake with schemachange using different authentication methods.
 
-## Quick Start
+## Quick Reference
 
-1. **Choose your authentication method** from the examples below
-2. **Follow the setup instructions** for that method
-3. **Run the example script** to test your configuration
-4. **Verify the connection** works before using in production
-
-## Authentication Methods
+Choose your authentication method and set the appropriate environment variables:
 
 ### 1. Password Authentication (Basic)
-**File:** `password_auth_example.sh`
-
-Simple username/password authentication. **Note:** Snowflake is enforcing MFA for all password authentication by November 2025.
 
 ```bash
-./examples/password_auth_example.sh
+export SNOWFLAKE_ACCOUNT="myaccount"
+export SNOWFLAKE_USER="myuser"
+export SNOWFLAKE_PASSWORD="mypassword"
+export SNOWFLAKE_ROLE="MY_ROLE"
+export SNOWFLAKE_WAREHOUSE="MY_WH"
+schemachange deploy --config-folder ./demo/basics_demo
 ```
 
-### 2. Programmatic Access Token (PAT) - RECOMMENDED for CI/CD
-**File:** `pat_auth_example.sh`
+**Note:** Snowflake enforces MFA for password authentication (November 2025+).
 
-Secure, password-less authentication using Snowflake Programmatic Access Tokens. Best for:
-- CI/CD pipelines
-- Service accounts
-- Automated processes
+### 2. Programmatic Access Token (PAT) - RECOMMENDED for CI/CD
 
 ```bash
-./examples/pat_auth_example.sh
+export SNOWFLAKE_ACCOUNT="myaccount"
+export SNOWFLAKE_USER="service_account"
+export SNOWFLAKE_PASSWORD="<your_pat_token>"
+export SNOWFLAKE_ROLE="MY_ROLE"
+export SNOWFLAKE_WAREHOUSE="MY_WH"
+schemachange deploy --config-folder ./demo/basics_demo
+```
+
+**Secure option** (read from file):
+```bash
+export SNOWFLAKE_PASSWORD=$(cat ~/.snowflake/pat_token.txt)
 ```
 
 ### 3. Key-Pair (JWT) Authentication - RECOMMENDED for CI/CD
-**File:** `keypair_auth_example.sh`
-
-RSA key-pair authentication. Best for:
-- CI/CD pipelines
-- Service accounts
-- Automated processes with long-lived credentials
 
 ```bash
-./examples/keypair_auth_example.sh
+export SNOWFLAKE_ACCOUNT="myaccount"
+export SNOWFLAKE_USER="myuser"
+export SNOWFLAKE_AUTHENTICATOR="snowflake_jwt"
+export SNOWFLAKE_PRIVATE_KEY_PATH="~/.ssh/snowflake_key.p8"
+export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="key_password"
+export SNOWFLAKE_ROLE="MY_ROLE"
+export SNOWFLAKE_WAREHOUSE="MY_WH"
+schemachange deploy --config-folder ./demo/basics_demo
 ```
 
 ### 4. External Browser (SSO) Authentication
-**File:** `sso_auth_example.sh`
-
-Browser-based SSO authentication. Best for:
-- Human users with SSO
-- Interactive sessions
-- MFA-enabled accounts
 
 ```bash
-./examples/sso_auth_example.sh
-```
-
-## Credential Templates
-
-Template files are provided in the `templates/` directory. Copy and populate them with your credentials:
-
-```bash
-# Copy templates
-cp templates/token.txt.template ~/.snowflake/token.txt
-cp templates/connections.toml.template ~/.snowflake/connections.toml
-
-# Edit with your credentials
-nano ~/.snowflake/token.txt
-```
-
-**Security Note:** Never commit actual credentials to version control!
-
-## Testing Against Demo Projects
-
-All example scripts support testing against the included demo projects:
-
-```bash
-# Test with basics_demo
-./examples/pat_auth_example.sh basics_demo
-
-# Test with citibike_demo
-./examples/keypair_auth_example.sh citibike_demo
-
-# Test with citibike_demo_jinja
-./examples/sso_auth_example.sh citibike_demo_jinja
+export SNOWFLAKE_ACCOUNT="myaccount"
+export SNOWFLAKE_USER="myuser"
+export SNOWFLAKE_AUTHENTICATOR="externalbrowser"
+export SNOWFLAKE_ROLE="MY_ROLE"
+export SNOWFLAKE_WAREHOUSE="MY_WH"
+schemachange deploy --config-folder ./demo/basics_demo
 ```
 
 ## Environment Variables Reference
 
-All authentication methods support the following base configuration:
+### Base Configuration (All Methods)
 
 | Variable | Description | Required |
 |----------|-------------|----------|
@@ -106,71 +79,57 @@ All authentication methods support the following base configuration:
 
 **PAT Authentication:**
 - `SNOWFLAKE_PASSWORD` - Programmatic Access Token value
-- Note: Authenticator defaults to `snowflake` (no need to set)
-- The connector automatically detects PATs from regular passwords
-
-**OAuth Authentication (External OAuth Providers):**
-- `SNOWFLAKE_AUTHENTICATOR=oauth`
-- `SNOWFLAKE_TOKEN_FILE_PATH` - Path to OAuth token file
+- Authenticator defaults to `snowflake` (no need to set)
 
 **Key-Pair Authentication:**
 - `SNOWFLAKE_AUTHENTICATOR=snowflake_jwt`
 - `SNOWFLAKE_PRIVATE_KEY_PATH` - Path to private key file
-- `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` - Passphrase (if key is encrypted)
+- `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` - Passphrase (if encrypted)
 
 **SSO Authentication:**
 - `SNOWFLAKE_AUTHENTICATOR=externalbrowser`
 
 ## Troubleshooting
 
-### Common Issues
+### PAT Authentication
 
-**PAT Authentication:**
 ```bash
-# Error: Authentication failed with PAT
-# Solution: Verify PAT is valid and passed correctly
-echo $SNOWFLAKE_PASSWORD  # Should show your PAT value
+# Verify PAT is set correctly
+echo $SNOWFLAKE_PASSWORD
 
-# If using a file:
-cat ~/.snowflake/pat_token.txt  # Verify token is readable
-chmod 600 ~/.snowflake/pat_token.txt  # Ensure secure permissions
-export SNOWFLAKE_PASSWORD=$(cat ~/.snowflake/pat_token.txt)
+# If using a file, ensure it's readable
+cat ~/.snowflake/pat_token.txt
+chmod 600 ~/.snowflake/pat_token.txt
 ```
 
-**Key-Pair Authentication:**
+### Key-Pair Authentication
+
 ```bash
-# Error: Invalid private key format
-# Solution: Ensure key is in PEM format
-openssl rsa -in snowflake_key.p8 -check
+# Verify private key format
+openssl rsa -in ~/.ssh/snowflake_key.p8 -check
+
+# Generate a new key pair if needed
+openssl genrsa -out snowflake_key.p8 2048
+openssl rsa -in snowflake_key.p8 -pubout -out snowflake_key.pub
 ```
 
-**SSO Authentication:**
-```bash
-# Error: Browser doesn't open
-# Solution: Ensure you're on a system with a browser
-# For headless systems, use PAT or key-pair instead
-```
+### SSO Authentication
 
-### Getting Help
-
-1. Check the main [README.md](../../README.md) for detailed documentation
-2. Review [demo/README.MD](../README.MD) for environment variable details
-3. Open an issue on GitHub if you encounter problems
+Ensure you're on a system with a browser. For headless systems, use PAT or key-pair authentication instead.
 
 ## Security Best Practices
 
-1. **Never hardcode credentials** in scripts
-2. **Use environment variables** or secure vaults
-3. **Set restrictive permissions** on credential files (600)
+1. **Never hardcode credentials** in scripts or version control
+2. **Use environment variables** or secure secret managers
+3. **Set restrictive permissions** on credential files (chmod 600)
 4. **Rotate credentials** regularly
 5. **Use PAT or key-pair** for automated processes
 6. **Enable MFA** for human users
-7. **Review access logs** periodically
 
 ## Next Steps
 
-After testing authentication:
-1. Review the [basics_demo](../basics_demo/) for a simple example
-2. Try the [citibike_demo](../citibike_demo/) for a more complex scenario
-3. Explore [citibike_demo_jinja](../citibike_demo_jinja/) for Jinja templating
+After setting up authentication:
+1. Test with [basics_demo](../basics_demo/)
+2. Try [citibike_demo](../citibike_demo/)
+3. Explore [citibike_demo_jinja](../citibike_demo_jinja/)
 4. Read the main [README.md](../../README.md) for full documentation
