@@ -30,6 +30,9 @@ schemachange_config_full_no_connection = get_yaml_config_kwargs(
 schemachange_config_partial_with_connection = get_yaml_config_kwargs(
     assets_path / "schemachange-config-partial-with-connection.yml"
 )
+schemachange_config_with_missing_connection_file = get_yaml_config_kwargs(
+    assets_path / "schemachange-config-with-missing-connection-file.yml"
+)
 
 
 @pytest.mark.parametrize(
@@ -667,6 +670,45 @@ param_partial_yaml_and_connection = pytest.param(
     id="Deploy: partial yaml and connections.toml",
 )
 
+param_yaml_with_missing_connection_file = pytest.param(
+    [  # cli_args
+        "schemachange",
+        "--config-folder",
+        str(assets_path),
+        "--config-file-name",
+        "schemachange-config-with-missing-connection-file.yml",
+    ],
+    {  # expected
+        "subcommand": "deploy",
+        "config_file_path": assets_path
+        / "schemachange-config-with-missing-connection-file.yml",
+        "log_level": logging.INFO,
+        **{
+            k: v
+            for k, v in schemachange_config_with_missing_connection_file.items()
+            if k
+            in [
+                "config_version",
+                "root_folder",
+                "modules_folder",
+                "snowflake_account",
+                "snowflake_user",
+                "snowflake_role",
+                "snowflake_warehouse",
+                "snowflake_database",
+                "snowflake_schema",
+                "change_history_table",
+                "config_vars",
+                "create_change_history_table",
+                "autocommit",
+                "dry_run",
+                "query_tag",
+            ]
+        },
+    },
+    id="Deploy: yaml with missing connections.toml file (backward compatibility for env vars)",
+)
+
 
 @pytest.mark.parametrize(
     "cli_args, expected",
@@ -679,29 +721,35 @@ param_partial_yaml_and_connection = pytest.param(
         param_full_yaml_and_connection_and_cli_and_env,
         param_connection_no_yaml,
         param_partial_yaml_and_connection,
+        param_yaml_with_missing_connection_file,
     ],
 )
 @mock.patch("pathlib.Path.is_dir", return_value=True)
-@mock.patch("pathlib.Path.is_file", return_value=True)
 @mock.patch("schemachange.config.get_merged_config.DeployConfig.factory")
 def test_integration_get_merged_config_inheritance(
     mock_deploy_config_factory,
     _,
-    __,
     cli_args,
     expected,
 ):
     logger = structlog.testing.CapturingLogger()
+
+    def is_file_mock(path_self):
+        return "missing-connections.toml" not in str(path_self)
+
     with mock.patch("sys.argv", cli_args):
         # Clear environment variables to prevent leakage from GitHub Actions
         with mock.patch.dict(os.environ, {}, clear=True):
-            # noinspection PyTypeChecker
-            get_merged_config(logger=logger)
-        factory_kwargs = mock_deploy_config_factory.call_args.kwargs
-        for actual_key, actual_value in factory_kwargs.items():
-            assert expected[actual_key] == actual_value
-            del expected[actual_key]
-        assert len(expected.keys()) == 0
+            with mock.patch.object(Path, "is_file", new=is_file_mock):
+                # noinspection PyTypeChecker
+                get_merged_config(logger=logger)
+            factory_kwargs = mock_deploy_config_factory.call_args.kwargs
+            for actual_key, actual_value in factory_kwargs.items():
+                assert (
+                    expected[actual_key] == actual_value
+                ), f"Mismatch for {actual_key}: expected {expected[actual_key]}, got {actual_value}"
+                del expected[actual_key]
+            assert len(expected.keys()) == 0
 
 
 # ============================================================================
@@ -1339,14 +1387,17 @@ def test_priority_all_four_layers(
 
     logger = structlog.testing.CapturingLogger()
 
-    with mock.patch.dict(os.environ, env_vars, clear=True):
-        # noinspection PyTypeChecker
-        get_merged_config(logger=logger)
+    def is_file_mock(path_self):
+        return "missing-connections.toml" not in str(path_self)
 
-    factory_kwargs = mock_deploy_config_factory.call_args.kwargs
-    for actual_key, actual_value in factory_kwargs.items():
-        assert (
-            expected[actual_key] == actual_value
-        ), f"Mismatch for {actual_key}: expected {expected[actual_key]}, got {actual_value}"
-        del expected[actual_key]
-    assert len(expected.keys()) == 0
+    with mock.patch.dict(os.environ, env_vars, clear=True):
+        with mock.patch.object(Path, "is_file", new=is_file_mock):
+            # noinspection PyTypeChecker
+            get_merged_config(logger=logger)
+            factory_kwargs = mock_deploy_config_factory.call_args.kwargs
+            for actual_key, actual_value in factory_kwargs.items():
+                assert (
+                    expected[actual_key] == actual_value
+                ), f"Mismatch for {actual_key}: expected {expected[actual_key]}, got {actual_value}"
+                del expected[actual_key]
+            assert len(expected.keys()) == 0
