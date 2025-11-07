@@ -1,18 +1,16 @@
-FROM python:3.9
+FROM ghcr.io/astral-sh/uv:python3.9-bookworm-slim
 
 WORKDIR /build
 
 COPY schemachange /build/schemachange
-COPY requirements.txt setup.cfg README.md /build/
+COPY pyproject.toml uv.lock README.md LICENSE NOTICE /build/
 
-RUN pip3 install --upgrade build
-RUN pip3 install --upgrade -r requirements.txt
-RUN python3 -m build
+RUN uv build
 
 
-FROM python:3.9
+FROM python:3.9-slim
 
 COPY --from=0 /build/dist/schemachange-*-py3-none-any.whl /tmp/
 RUN pip3 install /tmp/schemachange-*-py3-none-any.whl && rm /tmp/schemachange-*-py3-none-any.whl
 
-ENTRYPOINT schemachange
+ENTRYPOINT ["schemachange"]
