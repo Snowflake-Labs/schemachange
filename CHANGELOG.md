@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - Comprehensive documentation for environment variable usage in CI/CD pipelines with command-line examples for PAT, Key-Pair (JWT), OAuth, and SSO authentication methods
 - Added flag `--error-on-ignored-versioned-migration` to throw an error when versioned migrations are ignored due to being out of order (#287 by @zanebclark)
 - Added `py.typed` marker file for better MyPy type checking support (#332 by @fozcodes)
+- Added support for `NO_COLOR` environment variable to disable colored output (#357)
 
 ### Changed
 - Environment variables now follow Snowflake Python Connector naming conventions with `SNOWFLAKE_` prefix
