@@ -9,8 +9,18 @@ All notable changes to this project will be documented in this file.
 - Support for `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_ROLE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_DATABASE`, `SNOWFLAKE_SCHEMA` environment variables
 - Support for authentication environment variables: `SNOWFLAKE_AUTHENTICATOR`, `SNOWFLAKE_PRIVATE_KEY_PATH`, `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE`, `SNOWFLAKE_TOKEN_FILE_PATH`
 - Support for configuration environment variables: `SNOWFLAKE_HOME`, `SNOWFLAKE_DEFAULT_CONNECTION_NAME`, `SNOWFLAKE_CONNECTIONS_FILE_PATH`
+- **Snowflake Programmatic Access Token (PAT) support** via `SNOWFLAKE_PASSWORD` with default authenticator - recommended for CI/CD and service accounts with MFA requirements
+- **OAuth token support** via `SNOWFLAKE_TOKEN_FILE_PATH` with `SNOWFLAKE_AUTHENTICATOR=oauth` for external OAuth providers
+- Token file reading with automatic whitespace handling and comprehensive error messages
 - Well-defined configuration priority order: CLI > ENV > YAML > connections.toml
-- Comprehensive documentation for environment variable usage in CI/CD pipelines
+- Comprehensive documentation for environment variable usage in CI/CD pipelines, including PAT authentication examples
+- **Interactive authentication example scripts** in `demo/examples/` for testing different authentication methods:
+  - `password_auth_example.sh` - Password authentication with MFA deprecation notice
+  - `pat_auth_example.sh` - PAT authentication with interactive token setup
+  - `keypair_auth_example.sh` - Key-pair (JWT) authentication with key generation guide
+  - `sso_auth_example.sh` - External browser (SSO) authentication
+  - Credential templates for PAT tokens and connections.toml
+  - Comprehensive troubleshooting and security guidance
 - Added flag `--error-on-ignored-versioned-migration` to throw an error when versioned migrations are ignored due to being out of order (#287 by @zanebclark)
 - Added `py.typed` marker file for better MyPy type checking support (#332 by @fozcodes)
 
@@ -18,6 +28,7 @@ All notable changes to this project will be documented in this file.
 - Environment variables now follow Snowflake Python Connector naming conventions with `SNOWFLAKE_` prefix
 - Improved configuration merge logic to properly handle priority across all four configuration sources
 - Updated README with detailed environment variable documentation and usage examples
+- Updated demo README with comprehensive environment variable usage examples for various authentication methods
 - Updated Flyway documentation links to current Red Gate community documentation (#333 by @sfc-gh-adamle)
 
 ### Fixed

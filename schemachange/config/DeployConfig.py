@@ -95,6 +95,10 @@ class DeployConfig(BaseConfig):
         }
 
         # Add password from environment variable if available
+        # NOTE: SNOWFLAKE_PASSWORD is used for:
+        #   1. Traditional password authentication (deprecated with MFA requirements)
+        #   2. Programmatic Access Tokens (PATs) - recommended for CI/CD
+        #      PATs use the default 'snowflake' authenticator (no need to set SNOWFLAKE_AUTHENTICATOR)
         snowflake_password = get_snowflake_password()
         if snowflake_password is not None and snowflake_password:
             session_kwargs["password"] = snowflake_password
@@ -113,8 +117,31 @@ class DeployConfig(BaseConfig):
         if private_key_passphrase is not None:
             session_kwargs["private_key_passphrase"] = private_key_passphrase
 
+        # Read OAuth token from file if specified
+        # NOTE: SNOWFLAKE_TOKEN_FILE_PATH is for OAUTH ONLY (external OAuth providers)
+        #       It should be used with SNOWFLAKE_AUTHENTICATOR=oauth
+        #       For PATs, use SNOWFLAKE_PASSWORD instead (see above)
         token_file_path = get_snowflake_token_file_path()
         if token_file_path is not None:
-            session_kwargs["oauth_token"] = token_file_path
+            try:
+                # Expand user paths like ~/tokens/oauth.token
+                expanded_path = Path(token_file_path).expanduser()
+                with open(expanded_path) as token_file:
+                    # Read and strip whitespace/newlines from token
+                    token = token_file.read().strip()
+                    if token:
+                        session_kwargs["token"] = token
+                    else:
+                        raise ValueError(f"Token file is empty: {token_file_path}")
+            except FileNotFoundError:
+                raise FileNotFoundError(f"Token file not found: {token_file_path}")
+            except PermissionError:
+                raise PermissionError(
+                    f"Permission denied reading token file: {token_file_path}"
+                )
+            except Exception as e:
+                raise ValueError(
+                    f"Error reading token file {token_file_path}: {str(e)}"
+                )
 
         return {k: v for k, v in session_kwargs.items() if v is not None}

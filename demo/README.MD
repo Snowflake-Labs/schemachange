@@ -13,6 +13,181 @@ not break any existing functionality.
     - [setup_schemachange_schema.sql](provision/setup_schemachange_schema.sql): Contains the SQL variables to track the
       individual demo scenarios in its own change history table.
 
+## Environment Variable Support (Version 4.1.0+)
+
+Starting with version 4.1.0, schemachange natively supports `SNOWFLAKE_*` environment variables for all connection and authentication parameters. This eliminates the need for workarounds like `populateConnection.sh` or `connections.toml` generation scripts.
+
+### Configuration Priority Order
+
+Schemachange uses the following priority order when loading configuration (highest priority first):
+
+1. **CLI arguments** - Explicitly provided command-line flags
+2. **Environment variables** - `SNOWFLAKE_*` prefixed variables
+3. **YAML configuration file** - `schemachange-config.yml`
+4. **Snowflake connections.toml** - Snowflake Python Connector's connection file
+
+This means you can:
+- Set base configuration in `connections.toml` or YAML
+- Override with environment variables for CI/CD
+- Further override with CLI arguments for specific runs
+
+### Supported Environment Variables
+
+#### Connection Parameters
+- `SNOWFLAKE_ACCOUNT` - Snowflake account identifier
+- `SNOWFLAKE_USER` - Username for authentication
+- `SNOWFLAKE_PASSWORD` - Password for authentication
+- `SNOWFLAKE_ROLE` - Role to use after connecting
+- `SNOWFLAKE_WAREHOUSE` - Default warehouse
+- `SNOWFLAKE_DATABASE` - Default database
+- `SNOWFLAKE_SCHEMA` - Default schema
+
+#### Authentication Parameters
+- `SNOWFLAKE_AUTHENTICATOR` - Authentication method (e.g., `snowflake`, `oauth`, `externalbrowser`, `snowflake_jwt`)
+- `SNOWFLAKE_PRIVATE_KEY_PATH` - Path to private key file for key-pair authentication
+- `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` - Passphrase for encrypted private key
+- `SNOWFLAKE_TOKEN_FILE_PATH` - Path to OAuth token file (for external OAuth only, NOT for PAT)
+
+#### Configuration Parameters
+- `SNOWFLAKE_CONNECTIONS_FILE_PATH` - Custom path to `connections.toml`
+- `SNOWFLAKE_HOME` - Custom Snowflake home directory
+- `SNOWFLAKE_DEFAULT_CONNECTION_NAME` - Default connection name from `connections.toml`
+
+### Example Usage
+
+#### Basic Password Authentication
+```bash
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_USER="demo_user"
+export SNOWFLAKE_PASSWORD="secure_password"
+export SNOWFLAKE_ROLE="SCHEMACHANGE_DEMO-DEPLOY"
+export SNOWFLAKE_WAREHOUSE="SCHEMACHANGE_DEMO_WH"
+export SNOWFLAKE_DATABASE="SCHEMACHANGE_DEMO"
+
+# Run schemachange - it will automatically pick up the environment variables
+schemachange deploy --config-folder ./demo/basics_demo
+```
+
+#### Key-Pair Authentication
+```bash
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_USER="demo_user"
+export SNOWFLAKE_AUTHENTICATOR="snowflake_jwt"
+export SNOWFLAKE_PRIVATE_KEY_PATH="~/.ssh/snowflake_key.p8"
+export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="key_password"
+export SNOWFLAKE_ROLE="SCHEMACHANGE_DEMO-DEPLOY"
+export SNOWFLAKE_WAREHOUSE="SCHEMACHANGE_DEMO_WH"
+export SNOWFLAKE_DATABASE="SCHEMACHANGE_DEMO"
+
+schemachange deploy --config-folder ./demo/basics_demo
+```
+
+#### Programmatic Access Token (PAT) Authentication
+**Recommended for CI/CD and service accounts** - especially with Snowflake's MFA enforcement (November 2025).
+
+```bash
+# First, generate a PAT in Snowflake (via Snowsight or SQL):
+# ALTER USER service_account ADD PROGRAMMATIC ACCESS TOKEN my_token_name;
+
+# Option 1: Store PAT in a file and read it
+echo "your_generated_token_here" > ~/.snowflake/pat_token.txt
+chmod 600 ~/.snowflake/pat_token.txt
+
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_USER="service_account"
+export SNOWFLAKE_PASSWORD=$(cat ~/.snowflake/pat_token.txt)
+export SNOWFLAKE_ROLE="SCHEMACHANGE_DEMO-DEPLOY"
+export SNOWFLAKE_WAREHOUSE="SCHEMACHANGE_DEMO_WH"
+export SNOWFLAKE_DATABASE="SCHEMACHANGE_DEMO"
+
+schemachange deploy --config-folder ./demo/basics_demo
+
+# Option 2: Set PAT directly (for CI/CD secrets)
+export SNOWFLAKE_PASSWORD="<your_pat_token_value>"
+# ... other exports ...
+schemachange deploy --config-folder ./demo/basics_demo
+```
+
+**Note:** PATs use the default `snowflake` authenticator - no need to set `SNOWFLAKE_AUTHENTICATOR`. The Snowflake connector automatically detects that the password value is a PAT.
+
+#### External Browser (SSO) Authentication
+```bash
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_USER="demo_user"
+export SNOWFLAKE_AUTHENTICATOR="externalbrowser"
+export SNOWFLAKE_ROLE="SCHEMACHANGE_DEMO-DEPLOY"
+export SNOWFLAKE_WAREHOUSE="SCHEMACHANGE_DEMO_WH"
+export SNOWFLAKE_DATABASE="SCHEMACHANGE_DEMO"
+
+schemachange deploy --config-folder ./demo/basics_demo
+```
+
+### Deprecation Notice
+
+⚠️ **SNOWSQL_PWD is deprecated**: The legacy `SNOWSQL_PWD` environment variable is deprecated in favor of `SNOWFLAKE_PASSWORD`. While `SNOWSQL_PWD` is still supported for backward compatibility, you will see a deprecation warning. Please migrate to `SNOWFLAKE_PASSWORD`.
+
+## Interactive Authentication Examples
+
+The `examples/` directory contains ready-to-use scripts for testing different authentication methods. These interactive scripts will guide you through the authentication process and help you verify your configuration.
+
+### Quick Start
+
+```bash
+cd demo/examples
+
+# Choose your authentication method:
+./password_auth_example.sh          # Basic password authentication
+./pat_auth_example.sh              # Programmatic Access Token (RECOMMENDED for CI/CD)
+./keypair_auth_example.sh          # RSA key-pair authentication (RECOMMENDED for CI/CD)
+./sso_auth_example.sh              # Browser-based SSO authentication
+```
+
+Each script will:
+- Guide you through the authentication setup process
+- Prompt for required credentials interactively
+- Validate your connection by rendering a test script
+- Provide helpful troubleshooting tips if authentication fails
+- Show next steps for deploying to the demo projects
+
+### What's Included
+
+The examples directory contains:
+
+- **`README.md`** - Comprehensive guide to all authentication methods
+- **`password_auth_example.sh`** - Password authentication example
+- **`pat_auth_example.sh`** - PAT authentication example (uses `SNOWFLAKE_PASSWORD`)
+- **`keypair_auth_example.sh`** - Key-pair authentication with key generation guide
+- **`sso_auth_example.sh`** - SSO authentication with browser integration
+- **`templates/`** - Credential file templates for easy setup
+  - `token.txt.template` - Token file template (for PAT or OAuth storage)
+  - `connections.toml.template` - Snowflake connections file template
+
+### Example Output
+
+When you run an authentication example, you'll see:
+
+```
+╔════════════════════════════════════════════════════════════╗
+║  Schemachange - PAT Authentication Example               ║
+║  (Recommended for CI/CD and Service Accounts)             ║
+╚════════════════════════════════════════════════════════════╝
+
+Configuration:
+  Account:        myaccount.us-east-1
+  User:           service_account
+  Password:       [PAT SET]
+  Role:           SCHEMACHANGE_DEMO-DEPLOY
+  Warehouse:      SCHEMACHANGE_DEMO_WH
+  Database:       SCHEMACHANGE_DEMO
+  Project:        basics_demo
+
+Testing connection with 'schemachange render'...
+
+✓ Success! PAT authentication is working.
+```
+
+For detailed documentation, see [examples/README.md](examples/README.md).
+
 ### Consumers
 
 - If you are consumer who is installing schemachange and wants to test-run the demo, then you will have to set the

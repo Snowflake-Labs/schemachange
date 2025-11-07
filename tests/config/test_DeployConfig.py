@@ -67,3 +67,203 @@ def test_config_vars_reserved_word():
         "The variable 'schemachange' has been reserved for use by schemachange, please use a different name"
         in str(e_info.value)
     )
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("schemachange.config.DeployConfig.get_snowflake_token_file_path")
+@mock.patch("schemachange.config.DeployConfig.get_snowflake_password")
+def test_get_session_kwargs_with_oauth_token_file(
+    mock_get_password, mock_get_token_file_path, _
+):
+    """Test that OAuth token file is read and passed as token parameter for external OAuth"""
+    import tempfile
+    import os
+
+    # Create a temporary OAuth token file
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".token") as f:
+        f.write("test_oauth_token_12345\n")
+        token_file_path = f.name
+
+    try:
+        mock_get_password.return_value = None
+        mock_get_token_file_path.return_value = token_file_path
+
+        config = DeployConfig.factory(
+            config_file_path=Path("."), **minimal_deploy_config_kwargs
+        )
+        session_kwargs = config.get_session_kwargs()
+
+        # OAuth token should be read from file and passed as 'token'
+        assert "token" in session_kwargs
+        assert session_kwargs["token"] == "test_oauth_token_12345"
+    finally:
+        # Clean up temp file
+        os.unlink(token_file_path)
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("schemachange.config.DeployConfig.get_snowflake_token_file_path")
+@mock.patch("schemachange.config.DeployConfig.get_snowflake_password")
+def test_get_session_kwargs_with_oauth_token_file_whitespace(
+    mock_get_password, mock_get_token_file_path, _
+):
+    """Test that OAuth token file content is stripped of whitespace"""
+    import tempfile
+    import os
+
+    # Create a temporary OAuth token file with extra whitespace
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".token") as f:
+        f.write("  \n  test_oauth_token_with_whitespace  \n\n  ")
+        token_file_path = f.name
+
+    try:
+        mock_get_password.return_value = None
+        mock_get_token_file_path.return_value = token_file_path
+
+        config = DeployConfig.factory(
+            config_file_path=Path("."), **minimal_deploy_config_kwargs
+        )
+        session_kwargs = config.get_session_kwargs()
+
+        # OAuth token should be stripped
+        assert "token" in session_kwargs
+        assert session_kwargs["token"] == "test_oauth_token_with_whitespace"
+    finally:
+        os.unlink(token_file_path)
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("schemachange.config.DeployConfig.get_snowflake_token_file_path")
+@mock.patch("schemachange.config.DeployConfig.get_snowflake_password")
+def test_get_session_kwargs_with_oauth_token_file_not_found(
+    mock_get_password, mock_get_token_file_path, _
+):
+    """Test that FileNotFoundError is raised when OAuth token file doesn't exist"""
+    mock_get_password.return_value = None
+    mock_get_token_file_path.return_value = "/nonexistent/path/to/oauth_token.txt"
+
+    config = DeployConfig.factory(
+        config_file_path=Path("."), **minimal_deploy_config_kwargs
+    )
+
+    with pytest.raises(FileNotFoundError) as e_info:
+        config.get_session_kwargs()
+
+    assert "Token file not found: /nonexistent/path/to/oauth_token.txt" in str(
+        e_info.value
+    )
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("schemachange.config.DeployConfig.get_snowflake_token_file_path")
+@mock.patch("schemachange.config.DeployConfig.get_snowflake_password")
+def test_get_session_kwargs_with_empty_oauth_token_file(
+    mock_get_password, mock_get_token_file_path, _
+):
+    """Test that ValueError is raised when OAuth token file is empty"""
+    import tempfile
+    import os
+
+    # Create an empty OAuth token file
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".token") as f:
+        f.write("")
+        token_file_path = f.name
+
+    try:
+        mock_get_password.return_value = None
+        mock_get_token_file_path.return_value = token_file_path
+
+        config = DeployConfig.factory(
+            config_file_path=Path("."), **minimal_deploy_config_kwargs
+        )
+
+        with pytest.raises(ValueError) as e_info:
+            config.get_session_kwargs()
+
+        assert "Token file is empty:" in str(e_info.value)
+    finally:
+        os.unlink(token_file_path)
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("schemachange.config.DeployConfig.get_snowflake_token_file_path")
+@mock.patch("schemachange.config.DeployConfig.get_snowflake_password")
+def test_get_session_kwargs_with_oauth_token_file_whitespace_only(
+    mock_get_password, mock_get_token_file_path, _
+):
+    """Test that ValueError is raised when OAuth token file contains only whitespace"""
+    import tempfile
+    import os
+
+    # Create an OAuth token file with only whitespace
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".token") as f:
+        f.write("   \n\n\t  ")
+        token_file_path = f.name
+
+    try:
+        mock_get_password.return_value = None
+        mock_get_token_file_path.return_value = token_file_path
+
+        config = DeployConfig.factory(
+            config_file_path=Path("."), **minimal_deploy_config_kwargs
+        )
+
+        with pytest.raises(ValueError) as e_info:
+            config.get_session_kwargs()
+
+        assert "Token file is empty:" in str(e_info.value)
+    finally:
+        os.unlink(token_file_path)
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("schemachange.config.DeployConfig.get_snowflake_token_file_path")
+@mock.patch("schemachange.config.DeployConfig.get_snowflake_password")
+def test_get_session_kwargs_with_oauth_token_file_expanduser(
+    mock_get_password, mock_get_token_file_path, _
+):
+    """Test that ~ in OAuth token file path is expanded"""
+    import tempfile
+    import os
+
+    # Create a temporary OAuth token file in a location we can control
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".token") as f:
+        f.write("test_oauth_token_with_tilde")
+        token_file_path = f.name
+
+    try:
+        # Mock the expanduser to return our temp file
+        mock_get_password.return_value = None
+        # Simulate a path with ~
+        mock_get_token_file_path.return_value = token_file_path
+
+        config = DeployConfig.factory(
+            config_file_path=Path("."), **minimal_deploy_config_kwargs
+        )
+        session_kwargs = config.get_session_kwargs()
+
+        assert "token" in session_kwargs
+        assert session_kwargs["token"] == "test_oauth_token_with_tilde"
+    finally:
+        os.unlink(token_file_path)
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("schemachange.config.DeployConfig.get_snowflake_token_file_path")
+@mock.patch("schemachange.config.DeployConfig.get_snowflake_password")
+def test_get_session_kwargs_without_oauth_token_file(
+    mock_get_password, mock_get_token_file_path, _
+):
+    """Test that no OAuth token is passed when token file path is None"""
+    mock_get_password.return_value = "test_password_or_pat"
+    mock_get_token_file_path.return_value = None
+
+    config = DeployConfig.factory(
+        config_file_path=Path("."), **minimal_deploy_config_kwargs
+    )
+    session_kwargs = config.get_session_kwargs()
+
+    # No OAuth token should be present
+    assert "token" not in session_kwargs
+    # But password should be present (could be traditional password or PAT)
+    assert session_kwargs["password"] == "test_password_or_pat"

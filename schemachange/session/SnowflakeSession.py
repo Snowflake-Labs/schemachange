@@ -64,7 +64,7 @@ class SnowflakeSession:
             "role": role,
             "warehouse": warehouse,
             "private_key_file": kwargs.get("private_key_path"),
-            "token": kwargs.get("oauth_token"),
+            "token": kwargs.get("token"),
             "password": kwargs.get("password"),
             "authenticator": kwargs.get("authenticator"),
             "application": application,

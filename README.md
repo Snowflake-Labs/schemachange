@@ -315,10 +315,65 @@ If an authenticator is unsupported, an exception will be raised.
 Password authentication is the default authenticator. Supplying `snowflake` as your authenticator will set it
 explicitly. A `password` must be supplied in the [connections.toml](#connectionstoml-file) file
 
+### Programmatic Access Token (PAT) Authentication
+
+**Programmatic Access Tokens (PATs)** are Snowflake's recommended approach for service accounts and CI/CD pipelines, especially with Snowflake's enforcement of MFA for password authentication (November 2025). PATs provide secure, password-less authentication for automated processes.
+
+PATs are passed via the `SNOWFLAKE_PASSWORD` environment variable. The Snowflake Python Connector automatically detects that the value is a PAT (not a regular password) and handles authentication appropriately. The authenticator defaults to `snowflake` and does not need to be explicitly set.
+
+**Environment Variable Example (Direct PAT):**
+```bash
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_USER="service_account"
+export SNOWFLAKE_PASSWORD="<your_pat_token_value>"
+export SNOWFLAKE_ROLE="DEPLOY_ROLE"
+export SNOWFLAKE_WAREHOUSE="COMPUTE_WH"
+export SNOWFLAKE_DATABASE="PROD_DB"
+
+schemachange deploy --config-folder ./migrations
+```
+
+**Environment Variable Example (PAT from File):**
+```bash
+# Store PAT in a file with restricted permissions
+echo "<your_pat_token>" > ~/.snowflake/pat_token.txt
+chmod 600 ~/.snowflake/pat_token.txt
+
+# Read PAT from file
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_USER="service_account"
+export SNOWFLAKE_PASSWORD=$(cat ~/.snowflake/pat_token.txt)
+export SNOWFLAKE_ROLE="DEPLOY_ROLE"
+export SNOWFLAKE_WAREHOUSE="COMPUTE_WH"
+export SNOWFLAKE_DATABASE="PROD_DB"
+
+schemachange deploy --config-folder ./migrations
+```
+
+**How to Generate a PAT:**
+- Via Snowsight: User Profile → Access Tokens → Generate Token
+- Via SQL: `ALTER USER <username> ADD PROGRAMMATIC ACCESS TOKEN <token_name>;`
+
+**Important:** PATs are NOT the same as OAuth tokens. PATs use the default `snowflake` authenticator and are passed via the `password` parameter, while OAuth tokens use the `oauth` authenticator and are passed via the `token` parameter.
+
 ### External OAuth Authentication
 
-External OAuth authentication can be selected by supplying `oauth` as your authenticator. A `token_file_path` must be
-supplied in the [connections.toml](#connectionstoml-file) file
+External OAuth authentication (for external OAuth providers, not Snowflake PATs) can be used by supplying `oauth` as your authenticator. The OAuth token must be provided via the `SNOWFLAKE_TOKEN_FILE_PATH` environment variable or `token_file_path` in the [connections.toml](#connectionstoml-file) file.
+
+**Environment Variable Example:**
+```bash
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_USER="oauth_user"
+export SNOWFLAKE_AUTHENTICATOR="oauth"
+export SNOWFLAKE_TOKEN_FILE_PATH="/path/to/oauth_token.txt"
+export SNOWFLAKE_ROLE="DEPLOY_ROLE"
+export SNOWFLAKE_WAREHOUSE="COMPUTE_WH"
+export SNOWFLAKE_DATABASE="PROD_DB"
+
+schemachange deploy --config-folder ./migrations
+```
+
+The token file should contain only the OAuth token as plain text. Schemachange will automatically read and use the token for authentication.
 
 **Schemachange no longer supports the `--oauth-config` option.**  Prior to the 4.0 release, this library supported
 supplying an `--oauth-config` that would be used to fetch an OAuth token via the `requests` library. This required
@@ -398,7 +453,7 @@ The following environment variables can be used to configure your Snowflake conn
 |---------------------|-------------|---------|
 | `SNOWFLAKE_ACCOUNT` | Snowflake account identifier | `myorg-myaccount` |
 | `SNOWFLAKE_USER` | Snowflake username | `john.doe` |
-| `SNOWFLAKE_PASSWORD` | Snowflake password (not recommended in production) | `mypassword` |
+| `SNOWFLAKE_PASSWORD` | Snowflake password OR Programmatic Access Token (PAT) | `mypassword` or `<PAT_token>` |
 | `SNOWFLAKE_ROLE` | Snowflake role to use | `SYSADMIN` |
 | `SNOWFLAKE_WAREHOUSE` | Snowflake warehouse to use | `COMPUTE_WH` |
 | `SNOWFLAKE_DATABASE` | Snowflake database to use | `PROD_DB` |
@@ -413,7 +468,9 @@ For advanced authentication methods:
 | `SNOWFLAKE_AUTHENTICATOR` | Authentication method | `snowflake`, `oauth`, `externalbrowser`, `snowflake_jwt` |
 | `SNOWFLAKE_PRIVATE_KEY_PATH` | Path to private key file (for JWT auth) | `/path/to/rsa_key.p8` |
 | `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` | Passphrase for encrypted private key | `my-secret-passphrase` |
-| `SNOWFLAKE_TOKEN_FILE_PATH` | Path to OAuth token file | `/path/to/token.txt` |
+| `SNOWFLAKE_TOKEN_FILE_PATH` | Path to OAuth token file (for external OAuth only, NOT for PAT) | `/path/to/oauth_token.txt` |
+
+**Note:** For Programmatic Access Tokens (PAT), use `SNOWFLAKE_PASSWORD` instead of `SNOWFLAKE_TOKEN_FILE_PATH`. PATs use the default `snowflake` authenticator.
 
 #### Configuration Parameters
 
