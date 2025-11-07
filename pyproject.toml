@@ -42,7 +42,6 @@ schemachange = "schemachange.cli:main"
 dev = [
     "black",
     "flake8",
-    "flake8-complexity",
     "pre-commit",
     "pyfakefs",
     "pytest",
