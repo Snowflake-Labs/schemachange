@@ -21,6 +21,7 @@ class TestNoColor:
     def test_no_color_env_var_disables_colors(self):
         """Test that setting NO_COLOR=1 disables colored output."""
         test_script = """
+import schemachange
 import structlog
 logger = structlog.getLogger()
 logger.info("Test message", key="value")
