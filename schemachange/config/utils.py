@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 import warnings
@@ -10,6 +11,7 @@ import jinja2
 import jinja2.ext
 import structlog
 import yaml
+
 from schemachange.JinjaEnvVar import JinjaEnvVar
 
 logger = structlog.getLogger(__name__)
@@ -26,13 +28,9 @@ def get_snowflake_identifier_string(input_value: str, input_type: str) -> str | 
     elif input_value.startswith('"') and input_value.endswith('"'):
         return input_value
     elif input_value.startswith('"') and not input_value.endswith('"'):
-        raise ValueError(
-            f"Invalid {input_type}: {input_value}. Missing ending double quote"
-        )
+        raise ValueError(f"Invalid {input_type}: {input_value}. Missing ending double quote")
     elif not input_value.startswith('"') and input_value.endswith('"'):
-        raise ValueError(
-            f"Invalid {input_type}: {input_value}. Missing beginning double quote"
-        )
+        raise ValueError(f"Invalid {input_type}: {input_value}. Missing beginning double quote")
     else:
         return f'"{input_value}"'
 
@@ -58,10 +56,7 @@ def get_config_secrets(config_vars: dict[str, dict | str] | None) -> set[str]:
             if isinstance(value, dict):
                 if key == "secrets":
                     child_of_secrets = True
-                extracted_secrets = (
-                    extracted_secrets
-                    | inner_extract_dictionary_secrets(value, child_of_secrets)
-                )
+                extracted_secrets = extracted_secrets | inner_extract_dictionary_secrets(value, child_of_secrets)
             elif child_of_secrets or "SECRET" in key.upper():
                 extracted_secrets.add(value.strip())
 
@@ -95,9 +90,7 @@ def validate_config_vars(config_vars: str | dict | None) -> dict:
         return {}
 
     if not isinstance(config_vars, dict):
-        raise ValueError(
-            f"config_vars did not parse correctly, please check its configuration: {config_vars}"
-        )
+        raise ValueError(f"config_vars did not parse correctly, please check its configuration: {config_vars}")
 
     if "schemachange" in config_vars.keys():
         raise ValueError(
@@ -109,9 +102,16 @@ def validate_config_vars(config_vars: str | dict | None) -> dict:
 
 def load_yaml_config(config_file_path: Path | None) -> dict[str, Any]:
     """
-    Loads the schemachange config file and processes with jinja templating engine
+    Loads the schemachange config file and processes with jinja templating engine.
+
+    Supports two config versions:
+    - Version 1 (default): Flat structure with all parameters at root level
+    - Version 2: Sectioned structure with 'schemachange' and 'snowflake' sections
+
+    Returns a flattened dict with all parameters at root level for internal use,
+    plus an 'additional_snowflake_params' key for pass-through parameters.
     """
-    config = dict()
+    config = {}
 
     # First read in the yaml config file, if present
     if config_file_path is not None and config_file_path.is_file():
@@ -126,8 +126,70 @@ def load_yaml_config(config_file_path: Path | None) -> dict[str, Any]:
             )
 
             # The FullLoader parameter handles the conversion from YAML scalar values to Python the dictionary format
-            config = yaml.load(config_template.render(), Loader=yaml.FullLoader)
-        logger.info("Using config file", config_file_path=str(config_file_path))
+            raw_config = yaml.load(config_template.render(), Loader=yaml.FullLoader)
+
+            if raw_config is None:
+                raw_config = {}
+
+            # Detect config version (default to 1 if not specified)
+            config_version = raw_config.get("config-version", 1)
+
+            # Normalize version to int (1.0, 1.1, 1.x all become 1; 2.0, 2.x all become 2)
+            if config_version is not None:
+                try:
+                    # Convert to float first to handle string versions, then to int
+                    config_version = int(float(config_version))
+                except (ValueError, TypeError) as e:
+                    raise ValueError(f"Invalid config-version: {config_version}. Must be a number (1 or 2).") from e
+            else:
+                config_version = 1
+
+            if config_version == 2:
+                # Version 2: Sectioned structure
+                config = _parse_yaml_v2(raw_config)
+                logger.info("Using config file (version 2)", config_file_path=str(config_file_path))
+            elif config_version == 1:
+                # Version 1: Flat structure (existing format)
+                config = raw_config
+                logger.info("Using config file (version 1)", config_file_path=str(config_file_path))
+            else:
+                raise ValueError(f"Unsupported config-version: {config_version}. Supported versions are 1 and 2.")
+
+    return config
+
+
+def _parse_yaml_v2(raw_config: dict) -> dict[str, Any]:
+    """
+    Parse YAML config version 2 with separate schemachange and snowflake sections.
+
+    Returns a flattened dict with all schemachange parameters at root level,
+    and snowflake parameters stored in 'additional_snowflake_params' for pass-through.
+
+    Converts kebab-case keys to snake_case for schemachange parameters.
+    """
+    config = {}
+
+    # Extract schemachange section
+    schemachange_section = raw_config.get("schemachange", {})
+    if schemachange_section:
+        # Flatten schemachange parameters to root level
+        # Convert kebab-case to snake_case for Python parameter names
+        for key, value in schemachange_section.items():
+            snake_case_key = key.replace("-", "_")
+            config[snake_case_key] = value
+
+    # Extract snowflake section
+    snowflake_section = raw_config.get("snowflake", {})
+    if snowflake_section:
+        # Store snowflake parameters for pass-through to connector
+        # These will be handled separately in get_merged_config
+        # Keep kebab-case as-is since Snowflake connector might expect it
+        config["additional_snowflake_params"] = snowflake_section
+
+    # Keep config-version in the flattened config
+    if "config-version" in raw_config:
+        config["config-version"] = raw_config["config-version"]
+
     return config
 
 
@@ -139,6 +201,7 @@ def get_snowsql_pwd() -> str | None:
             "will be removed in a later version of schemachange. "
             "Please use SNOWFLAKE_PASSWORD instead.",
             DeprecationWarning,
+            stacklevel=2,
         )
     return snowsql_pwd
 
@@ -154,6 +217,7 @@ def get_snowflake_password() -> str | None:
                 "Environment variables SNOWFLAKE_PASSWORD and SNOWSQL_PWD "
                 "are both present, using SNOWFLAKE_PASSWORD",
                 DeprecationWarning,
+                stacklevel=2,
             )
         return snowflake_password
     elif snowsql_pwd is not None and snowsql_pwd:
@@ -357,3 +421,158 @@ def get_snowflake_default_connection_name() -> str | None:
     if connection_name is not None and connection_name:
         return connection_name
     return None
+
+
+def get_schemachange_config_from_env() -> dict:
+    """
+    Get schemachange-specific configuration from SCHEMACHANGE_* environment variables.
+
+    Supports all schemachange parameters with proper type conversion:
+    - Boolean parameters: accept true/false, 1/0, yes/no, on/off (case-insensitive)
+    - JSON parameters: parse SCHEMACHANGE_VARS as JSON object
+    - Log level: convert string (DEBUG/INFO/WARNING/ERROR/CRITICAL) to logging level int
+
+    Returns:
+        Dictionary with schemachange configuration parameters from environment
+    """
+    import json
+
+    env_config = {}
+
+    # String parameters
+    string_params = {
+        "SCHEMACHANGE_ROOT_FOLDER": "root_folder",
+        "SCHEMACHANGE_MODULES_FOLDER": "modules_folder",
+        "SCHEMACHANGE_CHANGE_HISTORY_TABLE": "change_history_table",
+        "SCHEMACHANGE_QUERY_TAG": "query_tag",
+        "SCHEMACHANGE_CONFIG_FOLDER": "config_folder",
+        "SCHEMACHANGE_CONFIG_FILE_NAME": "config_file_name",
+        "SCHEMACHANGE_CONNECTIONS_FILE_PATH": "connections_file_path",
+        "SCHEMACHANGE_CONNECTION_NAME": "connection_name",
+        "SCHEMACHANGE_VERSION_NUMBER_VALIDATION_REGEX": "version_number_validation_regex",
+    }
+
+    for env_var, param_name in string_params.items():
+        value = os.getenv(env_var)
+        if value:
+            env_config[param_name] = value
+
+    # Also support legacy SNOWFLAKE_* env vars for connections configuration
+    # SCHEMACHANGE_* takes precedence if both are set
+    if "connections_file_path" not in env_config:
+        snowflake_conn_path = os.getenv("SNOWFLAKE_CONNECTIONS_FILE_PATH")
+        if snowflake_conn_path:
+            env_config["connections_file_path"] = snowflake_conn_path
+
+    if "connection_name" not in env_config:
+        snowflake_conn_name = os.getenv("SNOWFLAKE_DEFAULT_CONNECTION_NAME")
+        if snowflake_conn_name:
+            env_config["connection_name"] = snowflake_conn_name
+
+    # Boolean parameters
+    bool_params = {
+        "SCHEMACHANGE_CREATE_CHANGE_HISTORY_TABLE": "create_change_history_table",
+        "SCHEMACHANGE_AUTOCOMMIT": "autocommit",
+        "SCHEMACHANGE_DRY_RUN": "dry_run",
+        "SCHEMACHANGE_RAISE_EXCEPTION_ON_IGNORED_VERSIONED_SCRIPT": "raise_exception_on_ignored_versioned_script",
+    }
+
+    for env_var, param_name in bool_params.items():
+        value = os.getenv(env_var)
+        if value:
+            # Convert string to boolean
+            env_config[param_name] = value.lower() in ("true", "1", "yes", "on")
+
+    # JSON parameter (vars)
+    vars_value = os.getenv("SCHEMACHANGE_VARS")
+    if vars_value:
+        try:
+            env_config["config_vars"] = json.loads(vars_value)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in SCHEMACHANGE_VARS environment variable: {e}") from e
+
+    # Log level parameter (string to int conversion)
+    log_level_value = os.getenv("SCHEMACHANGE_LOG_LEVEL")
+    if log_level_value:
+        log_level_map = {
+            "DEBUG": logging.DEBUG,
+            "INFO": logging.INFO,
+            "WARNING": logging.WARNING,
+            "ERROR": logging.ERROR,
+            "CRITICAL": logging.CRITICAL,
+        }
+        log_level_upper = log_level_value.upper()
+        if log_level_upper in log_level_map:
+            env_config["log_level"] = log_level_map[log_level_upper]
+        else:
+            raise ValueError(
+                f"Invalid log level in SCHEMACHANGE_LOG_LEVEL: {log_level_value}. "
+                f"Valid values are: DEBUG, INFO, WARNING, ERROR, CRITICAL"
+            )
+
+    return env_config
+
+
+def get_all_snowflake_env_vars() -> dict:
+    """
+    Get all SNOWFLAKE_* environment variables for pass-through to Snowflake connector.
+
+    Detects any SNOWFLAKE_* environment variable not explicitly handled elsewhere
+    and prepares them for pass-through to snowflake.connector.connect().
+
+    Applies type conversion for known boolean and numeric parameters.
+
+    Returns:
+        Dictionary with Snowflake connector parameters (snake_case keys)
+    """
+    snowflake_params = {}
+
+    # Parameters already explicitly handled (skip these)
+    explicitly_handled = {
+        "SNOWFLAKE_ACCOUNT",
+        "SNOWFLAKE_USER",
+        "SNOWFLAKE_PASSWORD",
+        "SNOWFLAKE_ROLE",
+        "SNOWFLAKE_WAREHOUSE",
+        "SNOWFLAKE_DATABASE",
+        "SNOWFLAKE_SCHEMA",
+        "SNOWFLAKE_AUTHENTICATOR",
+        "SNOWFLAKE_PRIVATE_KEY_PATH",
+        "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE",
+        "SNOWFLAKE_TOKEN_FILE_PATH",
+        "SNOWFLAKE_CONNECTIONS_FILE_PATH",
+        "SNOWFLAKE_DEFAULT_CONNECTION_NAME",
+        "SNOWFLAKE_HOME",
+        "SNOWSQL_PWD",
+    }
+
+    # Known boolean parameters
+    boolean_params = {
+        "client_session_keep_alive",
+        "validate_default_parameters",
+        "disable_request_pooling",
+        "ocsp_fail_open",
+    }
+
+    # Known numeric parameters
+    numeric_params = {"login_timeout", "network_timeout", "socket_timeout", "client_prefetch_threads"}
+
+    for env_var, value in os.environ.items():
+        if env_var.startswith("SNOWFLAKE_") and value and env_var not in explicitly_handled:
+            # Convert SNOWFLAKE_PARAM_NAME to param_name
+            param_name = env_var[10:].lower()  # Remove 'SNOWFLAKE_' prefix
+
+            # Apply type conversion
+            if param_name in boolean_params:
+                snowflake_params[param_name] = value.lower() in ("true", "1", "yes", "on")
+            elif param_name in numeric_params:
+                try:
+                    snowflake_params[param_name] = int(value)
+                except ValueError:
+                    logger.warning(f"Invalid numeric value for {env_var}: {value}. Using as string.")
+                    snowflake_params[param_name] = value
+            else:
+                # Pass through as string
+                snowflake_params[param_name] = value
+
+    return snowflake_params

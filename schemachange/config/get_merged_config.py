@@ -1,17 +1,18 @@
 import logging
 import sys
 from pathlib import Path
-from typing import Union, Optional
+from typing import Optional, Union
 
 import structlog
 
 from schemachange.config.DeployConfig import DeployConfig
-from schemachange.config.RenderConfig import RenderConfig
 from schemachange.config.parse_cli_args import parse_cli_args
+from schemachange.config.RenderConfig import RenderConfig
 from schemachange.config.utils import (
+    get_all_snowflake_env_vars,
+    get_schemachange_config_from_env,
     get_snowflake_account,
     get_snowflake_authenticator,
-    get_snowflake_connections_file_path,
     get_snowflake_database,
     get_snowflake_default_connection_name,
     get_snowflake_private_key_passphrase,
@@ -33,10 +34,19 @@ def get_env_config_kwargs() -> dict:
 
     Priority: CLI > ENV > YAML > connections.toml
     This function provides the ENV layer.
+
+    Supports:
+    - SCHEMACHANGE_* environment variables for schemachange-specific config
+    - SNOWFLAKE_* environment variables for Snowflake connection parameters
+    - Generic SNOWFLAKE_* pass-through for any connector parameter
     """
     env_kwargs = {}
 
-    # Basic connection parameters
+    # 1. Get schemachange-specific config from SCHEMACHANGE_* env vars
+    schemachange_env_config = get_schemachange_config_from_env()
+    env_kwargs.update(schemachange_env_config)
+
+    # 2. Get explicitly-mapped Snowflake connection parameters
     env_mapping = {
         "snowflake_account": get_snowflake_account,
         "snowflake_user": get_snowflake_user,
@@ -44,7 +54,6 @@ def get_env_config_kwargs() -> dict:
         "snowflake_warehouse": get_snowflake_warehouse,
         "snowflake_database": get_snowflake_database,
         "snowflake_schema": get_snowflake_schema,
-        "connections_file_path": get_snowflake_connections_file_path,
     }
 
     # Authentication parameters (stored for use in get_session_kwargs)
@@ -60,14 +69,18 @@ def get_env_config_kwargs() -> dict:
         if env_value is not None:
             env_kwargs[param] = env_value
 
+    # 3. Get generic SNOWFLAKE_* environment variables for pass-through
+    generic_snowflake_params = get_all_snowflake_env_vars()
+    if generic_snowflake_params:
+        # Store these for pass-through to Snowflake connector
+        env_kwargs["additional_snowflake_params"] = generic_snowflake_params
+
     return env_kwargs
 
 
 def get_yaml_config_kwargs(config_file_path: Optional[Path]) -> dict:
     # load YAML inputs and convert kebabs to snakes
-    kwargs = {
-        k.replace("-", "_"): v for (k, v) in load_yaml_config(config_file_path).items()
-    }
+    kwargs = {k.replace("-", "_"): v for (k, v) in load_yaml_config(config_file_path).items()}
 
     if "verbose" in kwargs:
         if kwargs["verbose"]:
@@ -86,9 +99,7 @@ def get_yaml_config_kwargs(config_file_path: Optional[Path]) -> dict:
         "snowflake_schema",
     ]:
         if deprecated_arg in kwargs:
-            sys.stderr.write(
-                f"DEPRECATED - Set in connections.toml instead: {deprecated_arg}\n"
-            )
+            sys.stderr.write(f"DEPRECATED - Set in connections.toml instead: {deprecated_arg}\n")
 
     return {k: v for k, v in kwargs.items() if v is not None}
 
@@ -102,9 +113,7 @@ def get_merged_config(
     cli_config_vars = cli_kwargs.pop("config_vars")
 
     # Extract connections.toml path and connection name from CLI
-    cli_connections_file_path = validate_file_path(
-        file_path=cli_kwargs.pop("connections_file_path", None)
-    )
+    cli_connections_file_path = validate_file_path(file_path=cli_kwargs.pop("connections_file_path", None))
     cli_connection_name = cli_kwargs.pop("connection_name", None)
 
     config_folder = validate_directory(path=cli_kwargs.pop("config_folder", "."))
@@ -153,7 +162,7 @@ def get_merged_config(
     if connection_name is None:
         connection_name = yaml_kwargs.pop("connection_name", None)
 
-    # Handle config_vars
+    # Handle config_vars merging (CLI > YAML)
     yaml_config_vars = yaml_kwargs.pop("config_vars", None)
     if yaml_config_vars is None:
         yaml_config_vars = {}
@@ -161,6 +170,24 @@ def get_merged_config(
     config_vars = {
         **yaml_config_vars,
         **cli_config_vars,
+    }
+
+    # Handle additional_snowflake_params merging (ENV > YAML)
+    # These are parameters to pass through to snowflake.connector.connect()
+    yaml_snowflake_params = yaml_kwargs.pop("additional_snowflake_params", {})
+    env_snowflake_params = env_kwargs.pop("additional_snowflake_params", {})
+
+    # Normalize YAML params to snake_case for consistent merging with ENV params
+    # YAML v2 uses kebab-case, ENV uses snake_case
+    normalized_yaml_params = {}
+    for key, value in yaml_snowflake_params.items():
+        snake_key = key.replace("-", "_")
+        normalized_yaml_params[snake_key] = value
+
+    # Merge with priority: ENV > YAML (both now in snake_case)
+    additional_snowflake_params = {
+        **normalized_yaml_params,
+        **env_snowflake_params,
     }
 
     # Apply priority: P3 (YAML) < P2 (ENV) < P1 (CLI)
@@ -173,6 +200,10 @@ def get_merged_config(
         **{k: v for k, v in env_kwargs.items() if v is not None},  # P2: ENV
         **{k: v for k, v in cli_kwargs.items() if v is not None},  # P1: CLI (highest)
     }
+
+    # Add additional_snowflake_params if any
+    if additional_snowflake_params:
+        kwargs["additional_snowflake_params"] = additional_snowflake_params
 
     # Pass connection_name and connections_file_path to let connector load connections.toml (P4)
     if connections_file_path is not None:

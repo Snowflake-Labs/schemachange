@@ -1,11 +1,10 @@
 import logging
 import os
-
-import structlog
 from pathlib import Path
 from unittest import mock
 
 import pytest
+import structlog
 
 from schemachange.config.get_merged_config import (
     get_merged_config,
@@ -21,9 +20,7 @@ default_cli_kwargs = {
 assets_path = Path(__file__).parent
 
 schemachange_config = get_yaml_config_kwargs(assets_path / "schemachange-config.yml")
-schemachange_config_full = get_yaml_config_kwargs(
-    assets_path / "schemachange-config-full.yml"
-)
+schemachange_config_full = get_yaml_config_kwargs(assets_path / "schemachange-config-full.yml")
 schemachange_config_full_no_connection = get_yaml_config_kwargs(
     assets_path / "schemachange-config-full-no-connection.yml"
 )
@@ -237,9 +234,7 @@ def test_invalid_config_folder(mock_parse_cli_args, _):
             # noinspection PyTypeChecker
             get_merged_config(logger=logger)
 
-    assert f"Path is not valid directory: {cli_kwargs['config_folder']}" in str(
-        e_info.value
-    )
+    assert f"Path is not valid directory: {cli_kwargs['config_folder']}" in str(e_info.value)
 
 
 param_only_required_cli_arguments = pytest.param(
@@ -570,8 +565,7 @@ param_partial_yaml_and_connection = pytest.param(
     ],
     {  # expected
         "subcommand": "deploy",
-        "config_file_path": assets_path
-        / "schemachange-config-partial-with-connection.yml",
+        "config_file_path": assets_path / "schemachange-config-partial-with-connection.yml",
         "log_level": logging.INFO,
         "connections_file_path": assets_path / "connections.toml",
         **{
@@ -605,8 +599,7 @@ param_yaml_with_missing_connection_file = pytest.param(
     ],
     {  # expected
         "subcommand": "deploy",
-        "config_file_path": assets_path
-        / "schemachange-config-with-missing-connection-file.yml",
+        "config_file_path": assets_path / "schemachange-config-with-missing-connection-file.yml",
         "log_level": logging.INFO,
         **{
             k: v
@@ -992,9 +985,7 @@ def test_priority_env_overrides_yaml(
                 "subcommand": "deploy",
                 "authenticator": "cli_authenticator",  # CLI wins
                 "private_key_path": "/env/key.pem",  # ENV overrides YAML
-                "connections_file_path": Path(
-                    "/env/connections.toml"
-                ),  # ENV overrides YAML
+                "connections_file_path": Path("/env/connections.toml"),  # ENV overrides YAML
             },
             id="CLI overrides ENV overrides YAML: authentication parameters",
         ),
@@ -1120,12 +1111,8 @@ def test_priority_env_authentication_parameters(
 
     # Verify authentication parameters are present
     for key, expected_value in expected_auth_params.items():
-        assert (
-            key in factory_kwargs
-        ), f"Expected key '{key}' not found in factory_kwargs"  # noqa: E713
-        assert (
-            factory_kwargs[key] == expected_value
-        ), f"Expected {key}={expected_value}, got {factory_kwargs[key]}"
+        assert key in factory_kwargs, f"Expected key '{key}' not found in factory_kwargs"  # noqa: E713
+        assert factory_kwargs[key] == expected_value, f"Expected {key}={expected_value}, got {factory_kwargs[key]}"
 
 
 @pytest.mark.parametrize(
@@ -1326,3 +1313,216 @@ def test_priority_all_four_layers(
                 ), f"Mismatch for {actual_key}: expected {expected[actual_key]}, got {actual_value}"
                 del expected[actual_key]
             assert len(expected.keys()) == 0
+
+
+# ============================================================================
+# Additional Snowflake Parameters Integration Tests
+# ============================================================================
+# These tests verify that additional_snowflake_params from YAML v2 and
+# generic SNOWFLAKE_* env vars are correctly passed through and merged
+
+
+@pytest.mark.parametrize(
+    "env_vars, yaml_kwargs, expected_additional_params",
+    [
+        pytest.param(
+            # env_vars (generic SNOWFLAKE_* params)
+            {
+                "SNOWFLAKE_CLIENT_SESSION_KEEP_ALIVE": "true",
+                "SNOWFLAKE_LOGIN_TIMEOUT": "60",
+                "SNOWFLAKE_NETWORK_TIMEOUT": "120",
+            },
+            # yaml_kwargs (no additional params)
+            {},
+            # expected additional_snowflake_params
+            {
+                "client_session_keep_alive": True,
+                "login_timeout": 60,
+                "network_timeout": 120,
+            },
+            id="Additional params: from ENV only",
+        ),
+        pytest.param(
+            # env_vars (empty)
+            {},
+            # yaml_kwargs with additional_snowflake_params (from YAML v2, in kebab-case)
+            {
+                "additional_snowflake_params": {
+                    "client-session-keep-alive": True,
+                    "login-timeout": 30,
+                    "network-timeout": 60,
+                }
+            },
+            # expected additional_snowflake_params (converted to snake_case)
+            {
+                "client_session_keep_alive": True,
+                "login_timeout": 30,
+                "network_timeout": 60,
+            },
+            id="Additional params: from YAML v2 only",
+        ),
+        pytest.param(
+            # env_vars (ENV overrides YAML)
+            {
+                "SNOWFLAKE_CLIENT_SESSION_KEEP_ALIVE": "false",
+                "SNOWFLAKE_LOGIN_TIMEOUT": "90",
+            },
+            # yaml_kwargs (from YAML v2)
+            {
+                "additional_snowflake_params": {
+                    "client-session-keep-alive": True,
+                    "login-timeout": 30,
+                    "network-timeout": 60,
+                }
+            },
+            # expected (ENV overrides YAML)
+            {
+                "client_session_keep_alive": False,
+                "login_timeout": 90,
+                "network_timeout": 60,  # Only in YAML
+            },
+            id="Additional params: ENV overrides YAML v2",
+        ),
+        pytest.param(
+            # env_vars (generic params that don't conflict with explicit params)
+            {
+                "SNOWFLAKE_CLIENT_SESSION_KEEP_ALIVE": "true",
+                "SNOWFLAKE_CLIENT_PREFETCH_THREADS": "4",
+            },
+            # yaml_kwargs
+            {},
+            # expected
+            {
+                "client_session_keep_alive": True,
+                "client_prefetch_threads": 4,
+            },
+            id="Additional params: non-conflicting generic params",
+        ),
+    ],
+)
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("pathlib.Path.is_file", return_value=True)
+@mock.patch("schemachange.config.get_merged_config.parse_cli_args")
+@mock.patch("schemachange.config.get_merged_config.get_yaml_config_kwargs")
+@mock.patch("schemachange.config.get_merged_config.DeployConfig.factory")
+def test_additional_snowflake_params(
+    mock_deploy_config_factory,
+    mock_get_yaml_config_kwargs,
+    mock_parse_cli_args,
+    _,
+    __,
+    env_vars,
+    yaml_kwargs,
+    expected_additional_params,
+):
+    """Test that additional_snowflake_params are correctly merged from ENV and YAML."""
+    cli_kwargs = {**default_cli_kwargs}
+    mock_parse_cli_args.return_value = cli_kwargs
+    mock_get_yaml_config_kwargs.return_value = yaml_kwargs
+
+    logger = structlog.testing.CapturingLogger()
+
+    with mock.patch.dict(os.environ, env_vars, clear=True):
+        # noinspection PyTypeChecker
+        get_merged_config(logger=logger)
+
+    factory_kwargs = mock_deploy_config_factory.call_args.kwargs
+
+    # Verify additional_snowflake_params
+    actual_additional_params = factory_kwargs.get("additional_snowflake_params", {})
+    assert actual_additional_params == expected_additional_params, (
+        f"Expected additional_snowflake_params={expected_additional_params}, " f"got {actual_additional_params}"
+    )
+
+
+@pytest.mark.parametrize(
+    "env_vars, cli_kwargs, yaml_kwargs, expected",
+    [
+        pytest.param(
+            # env_vars (generic params + explicit params)
+            {
+                "SNOWFLAKE_ACCOUNT": "env_account",
+                "SNOWFLAKE_CLIENT_SESSION_KEEP_ALIVE": "true",
+                "SNOWFLAKE_LOGIN_TIMEOUT": "60",
+            },
+            # cli_kwargs (explicit account overrides ENV)
+            {
+                **default_cli_kwargs,
+                "snowflake_account": "cli_account",
+            },
+            # yaml_kwargs (has additional params too)
+            {
+                "snowflake_account": "yaml_account",
+                "additional_snowflake_params": {
+                    "client-session-keep-alive": False,
+                    "network-timeout": 30,
+                },
+            },
+            # expected
+            {
+                "snowflake_account": "cli_account",  # CLI explicit wins
+                "additional_snowflake_params": {
+                    "client_session_keep_alive": True,  # ENV generic wins over YAML
+                    "login_timeout": 60,  # ENV generic only
+                    "network_timeout": 30,  # YAML only
+                },
+            },
+            id="Priority: CLI explicit > ENV generic > YAML generic",
+        ),
+        pytest.param(
+            # env_vars (explicit snowflake params should NOT go to additional_snowflake_params)
+            {
+                "SNOWFLAKE_ACCOUNT": "env_account",
+                "SNOWFLAKE_USER": "env_user",
+                "SNOWFLAKE_CLIENT_SESSION_KEEP_ALIVE": "true",
+            },
+            # cli_kwargs
+            {
+                **default_cli_kwargs,
+            },
+            # yaml_kwargs
+            {},
+            # expected (explicit params stay separate from additional)
+            {
+                "snowflake_account": "env_account",
+                "snowflake_user": "env_user",
+                "additional_snowflake_params": {
+                    "client_session_keep_alive": True,
+                },
+            },
+            id="Explicit params separate from additional_snowflake_params",
+        ),
+    ],
+)
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("pathlib.Path.is_file", return_value=True)
+@mock.patch("schemachange.config.get_merged_config.parse_cli_args")
+@mock.patch("schemachange.config.get_merged_config.get_yaml_config_kwargs")
+@mock.patch("schemachange.config.get_merged_config.DeployConfig.factory")
+def test_additional_snowflake_params_precedence(
+    mock_deploy_config_factory,
+    mock_get_yaml_config_kwargs,
+    mock_parse_cli_args,
+    _,
+    __,
+    env_vars,
+    cli_kwargs,
+    yaml_kwargs,
+    expected,
+):
+    """Test that additional_snowflake_params respect precedence and stay separate from explicit params."""
+    mock_parse_cli_args.return_value = cli_kwargs
+    mock_get_yaml_config_kwargs.return_value = yaml_kwargs
+
+    logger = structlog.testing.CapturingLogger()
+
+    with mock.patch.dict(os.environ, env_vars, clear=True):
+        # noinspection PyTypeChecker
+        get_merged_config(logger=logger)
+
+    factory_kwargs = mock_deploy_config_factory.call_args.kwargs
+
+    # Verify each expected key
+    for key, expected_value in expected.items():
+        assert key in factory_kwargs, f"Expected key '{key}' not found in factory_kwargs"
+        assert factory_kwargs[key] == expected_value, f"Expected {key}={expected_value}, got {factory_kwargs[key]}"

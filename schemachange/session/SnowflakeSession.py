@@ -10,7 +10,7 @@ import structlog
 
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import get_snowflake_identifier_string
-from schemachange.session.Script import VersionedScript, RepeatableScript, AlwaysScript
+from schemachange.session.Script import AlwaysScript, RepeatableScript, VersionedScript
 
 
 class SnowflakeSession:
@@ -46,6 +46,7 @@ class SnowflakeSession:
         schema: str | None = None,  # TODO: Remove when connections.toml is enforced
         query_tag: str | None = None,
         autocommit: bool = False,
+        additional_snowflake_params: dict | None = None,
         **kwargs,  # TODO: Remove when connections.toml is enforced
     ):
         self.change_history_table = change_history_table
@@ -56,7 +57,22 @@ class SnowflakeSession:
         if query_tag:
             self.session_parameters["QUERY_TAG"] += f";{query_tag}"
 
-        connect_kwargs = {
+        # Start with additional_snowflake_params (lowest priority for these params)
+        # These come from YAML v2 snowflake section or generic SNOWFLAKE_* env vars
+        connect_kwargs = {}
+        if additional_snowflake_params:
+            # Convert kebab-case keys to snake_case for connector compatibility
+            for key, value in additional_snowflake_params.items():
+                snake_case_key = key.replace("-", "_")
+                connect_kwargs[snake_case_key] = value
+            self.logger.debug(
+                "Using additional Snowflake parameters from YAML v2 or environment variables",
+                additional_params=list(connect_kwargs.keys()),
+            )
+
+        # Explicit parameters override additional_snowflake_params
+        # This ensures CLI > ENV > YAML precedence is maintained
+        explicit_params = {
             "account": account,
             "user": user,
             "database": database,
@@ -71,6 +87,9 @@ class SnowflakeSession:
             "session_parameters": self.session_parameters,
         }
 
+        # Merge explicit params, overriding any additional params
+        connect_kwargs.update({k: v for k, v in explicit_params.items() if v is not None})
+
         # Add connection_name and connections_file_path if specified
         # The connector will load from connections.toml, and explicit parameters above will override it
         # This gives us the correct priority: CLI > ENV > YAML > connections.toml
@@ -78,16 +97,14 @@ class SnowflakeSession:
             connect_kwargs["connection_name"] = connection_name
         if connections_file_path:
             connect_kwargs["connections_file_path"] = connections_file_path
-        connect_kwargs = {k: v for k, v in connect_kwargs.items() if v is not None}
+
         self.logger.debug("snowflake.connector.connect kwargs", **connect_kwargs)
         self.con = snowflake.connector.connect(**connect_kwargs)
         print(f"Current session ID: {self.con.session_id}")
         self.account = self.con.account
         self.user = get_snowflake_identifier_string(self.con.user, "user")
         self.role = get_snowflake_identifier_string(self.con.role, "role")
-        self.warehouse = get_snowflake_identifier_string(
-            self.con.warehouse, "warehouse"
-        )
+        self.warehouse = get_snowflake_identifier_string(self.con.warehouse, "warehouse")
         self.database = get_snowflake_identifier_string(self.con.database, "database")
         self.schema = get_snowflake_identifier_string(self.con.schema, "schema")
 
@@ -126,7 +143,7 @@ class SnowflakeSession:
         results = self.execute_snowflake_query(query=dedent(query), logger=self.logger)
 
         # Collect all the results into a list
-        change_history_metadata = dict()
+        change_history_metadata = {}
         for cursor in results:
             for row in cursor:
                 change_history_metadata["created"] = row[0]
@@ -177,13 +194,9 @@ class SnowflakeSession:
             )
         else:
             self.execute_snowflake_query(dedent(query), logger=self.logger)
-            self.logger.info(
-                f"Created change history table {self.change_history_table.fully_qualified}"
-            )
+            self.logger.info(f"Created change history table {self.change_history_table.fully_qualified}")
 
-    def change_history_table_exists(
-        self, create_change_history_table: bool, dry_run: bool
-    ) -> bool:
+    def change_history_table_exists(self, create_change_history_table: bool, dry_run: bool) -> bool:
         change_history_metadata = self.fetch_change_history_metadata()
         if change_history_metadata:
             self.logger.info(
@@ -201,9 +214,7 @@ class SnowflakeSession:
             self.logger.info("Created change history table")
             return True
         else:
-            raise ValueError(
-                f"Unable to find change history table {self.change_history_table.fully_qualified}"
-            )
+            raise ValueError(f"Unable to find change history table {self.change_history_table.fully_qualified}")
 
     def get_script_metadata(
         self, create_change_history_table: bool, dry_run: bool
@@ -222,10 +233,7 @@ class SnowflakeSession:
         change_history, max_published_version = self.fetch_versioned_scripts()
         r_scripts_checksum = self.fetch_repeatable_scripts()
 
-        self.logger.info(
-            "Max applied change script version %(max_published_version)s"
-            % {"max_published_version": max_published_version}
-        )
+        self.logger.info(f"Max applied change script version {max_published_version}")
         return change_history, r_scripts_checksum, max_published_version
 
     def fetch_repeatable_scripts(self) -> dict[str, list[str]]:
@@ -294,9 +302,7 @@ class SnowflakeSession:
         if extra_tag:
             query_tag += f";{extra_tag}"
 
-        self.execute_snowflake_query(
-            f"ALTER SESSION SET QUERY_TAG = '{query_tag}'", logger=logger
-        )
+        self.execute_snowflake_query(f"ALTER SESSION SET QUERY_TAG = '{query_tag}'", logger=logger)
 
     def apply_change_script(
         self,

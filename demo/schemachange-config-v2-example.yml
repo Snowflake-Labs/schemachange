@@ -1,0 +1,88 @@
+# schemachange YAML Configuration File - Version 2
+# This version uses separate sections for schemachange and Snowflake configuration
+
+config-version: 2
+
+schemachange:
+  # The root folder for the database change scripts
+  root-folder: './migrations'
+
+  # The modules folder for jinja macros and templates
+  modules-folder: './modules'
+
+  # Change history table configuration
+  change-history-table: 'METADATA.SCHEMACHANGE.CHANGE_HISTORY'
+  create-change-history-table: false
+
+  # Execution options
+  autocommit: false
+  dry-run: false
+  query-tag: 'schemachange-deployment'
+
+  # Connections configuration (part of schemachange section since it's about config management)
+  connections-file-path: '~/.snowflake/connections.toml'
+  connection-name: 'default'
+
+  # Variables for Jinja template rendering
+  vars:
+    environment: 'dev'
+    app_name: 'my_application'
+    secrets:
+      api_key: '${API_KEY}'  # Can reference environment variables
+
+  # Logging
+  log-level: 'INFO'
+
+  # Version validation
+  version-number-validation-regex: '^[0-9]+\.[0-9]+\.[0-9]+$'
+  raise-exception-on-ignored-versioned-script: false
+
+snowflake:
+  # Standard Snowflake connection parameters
+  account: 'myaccount.us-east-1'
+  user: 'schemachange_user'
+  role: 'DEPLOYMENT_ROLE'
+  warehouse: 'DEPLOYMENT_WH'
+  database: 'MY_DATABASE'
+  schema: 'PUBLIC'
+
+  # Authentication (choose one method)
+  # Method 1: Use connections.toml (recommended - configured in schemachange section above)
+
+  # Method 2: JWT authentication
+  # authenticator: 'snowflake_jwt'
+  # private-key-path: '~/.ssh/snowflake_key.p8'
+  # private-key-passphrase: 'my_passphrase'  # Optional if key is encrypted
+
+  # Method 3: OAuth
+  # authenticator: 'oauth'
+  # token-file-path: '~/.snowflake/oauth_token.txt'
+
+  # Method 4: External browser (SSO)
+  # authenticator: 'externalbrowser'
+
+  # Method 5: Okta
+  # authenticator: 'https://myorg.okta.com'
+
+  # Additional Snowflake connector parameters (passed directly to snowflake.connector.connect())
+  # These are optional and provide fine-tuned control over the connection
+  client-session-keep-alive: true
+  login-timeout: 30
+  network-timeout: 60
+  # socket-timeout: 60
+  # validate-default-parameters: true
+  # ocsp-fail-open: true
+  # disable-request-pooling: false
+  # client-prefetch-threads: 4
+
+# Note:
+# - Parameters in the 'schemachange' section can be overridden by:
+#   1. Command-line arguments (--schemachange-root-folder, -f, etc.)
+#   2. Environment variables (SCHEMACHANGE_ROOT_FOLDER, etc.)
+#
+# - Parameters in the 'snowflake' section can be overridden by:
+#   1. Command-line arguments (--snowflake-account, -a, etc.)
+#   2. Environment variables (SNOWFLAKE_ACCOUNT, SNOWFLAKE_USER, etc.)
+#   3. connections.toml file (lowest priority)
+#
+# - Precedence order: CLI > ENV > YAML > connections.toml
