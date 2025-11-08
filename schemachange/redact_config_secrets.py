@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 import warnings
-from typing import Callable, Any
+from typing import Any, Callable
 
 import structlog
 from structlog import PrintLogger
@@ -11,14 +11,12 @@ from structlog import PrintLogger
 def get_redact_config_secrets_processor(
     config_secrets: set[str],
 ) -> Callable[[PrintLogger, str, dict], dict]:
-    def redact_config_secrets_processor(
-        _: PrintLogger, __: str, event_dict: dict
-    ) -> dict:
+    def redact_config_secrets_processor(_: PrintLogger, __: str, event_dict: dict) -> dict:
         def redact_value(level: int, value: Any):
             if level > 6:
                 warnings.warn(
-                    "Unable to redact deeply nested secrets in log: %(event)s"
-                    % {"event": event_dict["event"]}
+                    "Unable to redact deeply nested secrets in log: {event}".format(event=event_dict["event"]),
+                    stacklevel=2,
                 )
                 return value
             if isinstance(value, dict):
@@ -32,16 +30,14 @@ def get_redact_config_secrets_processor(
             elif isinstance(value, set):
                 return {redact_value(level=level + 1, value=sub_v) for sub_v in value}
             elif isinstance(value, tuple):
-                return tuple(
-                    redact_value(level=level + 1, value=sub_v) for sub_v in value
-                )
+                return tuple(redact_value(level=level + 1, value=sub_v) for sub_v in value)
             elif not isinstance(value, str):
                 try:
                     value = str(value)
                 except Exception:
                     warnings.warn(
-                        "Unable to redact %(type)s log arguments in log: %(event)s"
-                        % {"type": type(value).__name__, "event": event_dict["event"]}
+                        f"Unable to redact {type(value).__name__} log arguments in log: {event_dict['event']}",
+                        stacklevel=2,
                     )
                     return value
             for secret in config_secrets:
@@ -58,9 +54,7 @@ def redact_config_secrets(config_secrets: set[str]) -> None:
         return
 
     cfg = structlog.get_config()
-    redact_config_secrets_processor = get_redact_config_secrets_processor(
-        config_secrets=config_secrets
-    )
+    redact_config_secrets_processor = get_redact_config_secrets_processor(config_secrets=config_secrets)
 
     new_processors = cfg["processors"]
     new_processors.insert(len(cfg["processors"]) - 1, redact_config_secrets_processor)

@@ -47,9 +47,7 @@ logger.info("Test message", key="value")
         assert result_without_colors.returncode == 0
 
         output_with_colors = result_with_colors.stderr + result_with_colors.stdout
-        output_without_colors = (
-            result_without_colors.stderr + result_without_colors.stdout
-        )
+        output_without_colors = result_without_colors.stderr + result_without_colors.stdout
 
         assert "Test message" in output_with_colors
         assert "Test message" in output_without_colors
@@ -88,9 +86,7 @@ logger.info("Schemachange test", foo="bar")
         assert result_without_colors.returncode == 0
 
         output_with_colors = result_with_colors.stderr + result_with_colors.stdout
-        output_without_colors = (
-            result_without_colors.stderr + result_without_colors.stdout
-        )
+        output_without_colors = result_without_colors.stderr + result_without_colors.stdout
 
         assert "Schemachange test" in output_with_colors
         assert "Schemachange test" in output_without_colors

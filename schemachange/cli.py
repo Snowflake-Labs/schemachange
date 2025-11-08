@@ -4,10 +4,10 @@ from pathlib import Path
 import structlog
 from structlog import BoundLogger
 
-from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
-from schemachange.config.RenderConfig import RenderConfig
 from schemachange.config.get_merged_config import get_merged_config
+from schemachange.config.RenderConfig import RenderConfig
 from schemachange.deploy import deploy
+from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
 from schemachange.redact_config_secrets import redact_config_secrets
 from schemachange.session.SnowflakeSession import SnowflakeSession
 
@@ -25,22 +25,15 @@ def render(config: RenderConfig, script_path: Path, logger: BoundLogger) -> None
     Note: does not apply secrets filtering.
     """
     # Always process with jinja engine
-    jinja_processor = JinjaTemplateProcessor(
-        project_root=config.root_folder, modules_folder=config.modules_folder
-    )
-    content = jinja_processor.render(
-        jinja_processor.relpath(script_path), config.config_vars
-    )
+    jinja_processor = JinjaTemplateProcessor(project_root=config.root_folder, modules_folder=config.modules_folder)
+    content = jinja_processor.render(jinja_processor.relpath(script_path), config.config_vars)
 
     checksum = hashlib.sha224(content.encode("utf-8")).hexdigest()
     logger.info("Success", checksum=checksum, content=content)
 
 
 def main():
-    module_logger.info(
-        "schemachange version: %(schemachange_version)s"
-        % {"schemachange_version": SCHEMACHANGE_VERSION}
-    )
+    module_logger.info(f"schemachange version: {SCHEMACHANGE_VERSION}")
 
     config = get_merged_config(logger=module_logger)
     redact_config_secrets(config_secrets=config.secrets)

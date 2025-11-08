@@ -26,9 +26,7 @@ class JinjaTemplateProcessor:
             loader = jinja2.ChoiceLoader(
                 [
                     jinja2.FileSystemLoader(project_root),
-                    jinja2.PrefixLoader(
-                        {"modules": jinja2.FileSystemLoader(modules_folder)}
-                    ),
+                    jinja2.PrefixLoader({"modules": jinja2.FileSystemLoader(modules_folder)}),
                 ]
             )
         else:

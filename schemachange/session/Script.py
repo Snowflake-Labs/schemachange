@@ -4,11 +4,11 @@ import dataclasses
 import re
 from abc import ABC
 from pathlib import Path
+from re import Pattern
 from typing import (
-    Literal,
     ClassVar,
+    Literal,
     TypeVar,
-    Pattern,
 )
 
 import structlog
@@ -48,9 +48,7 @@ class Script(ABC):
                 f"{file_path}\n{str(file_path)}"
             )
         # noinspection PyArgumentList
-        return cls(
-            name=script_name, file_path=file_path, description=description, **kwargs
-        )
+        return cls(name=script_name, file_path=file_path, description=description, **kwargs)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -69,9 +67,7 @@ class VersionedScript(Script):
 
         version = name_parts.group("version")
         if version is None:
-            raise ValueError(
-                f"Versioned migrations must be prefixed with a version: {str(file_path)}"
-            )
+            raise ValueError(f"Versioned migrations must be prefixed with a version: {str(file_path)}")
 
         if cls.version_number_regex:
             if re.search(cls.version_number_regex, version, re.IGNORECASE) is None:
@@ -80,24 +76,18 @@ class VersionedScript(Script):
                     f"{cls.version_number_regex}\n{str(file_path)}"
                 )
 
-        return super().from_path(
-            file_path=file_path, version=name_parts.group("version")
-        )
+        return super().from_path(file_path=file_path, version=name_parts.group("version"))
 
 
 @dataclasses.dataclass(frozen=True)
 class RepeatableScript(Script):
-    pattern: ClassVar[re.Pattern[str]] = re.compile(
-        r"^(R)(?P<separator>_{1,2})(?P<description>.+?)\.", re.IGNORECASE
-    )
+    pattern: ClassVar[re.Pattern[str]] = re.compile(r"^(R)(?P<separator>_{1,2})(?P<description>.+?)\.", re.IGNORECASE)
     type: ClassVar[Literal["R"]] = "R"
 
 
 @dataclasses.dataclass(frozen=True)
 class AlwaysScript(Script):
-    pattern: ClassVar[re.Pattern[str]] = re.compile(
-        r"^(A)(?P<separator>_{1,2})(?P<description>.+?)\.", re.IGNORECASE
-    )
+    pattern: ClassVar[re.Pattern[str]] = re.compile(r"^(A)(?P<separator>_{1,2})(?P<description>.+?)\.", re.IGNORECASE)
     type: ClassVar[Literal["A"]] = "A"
 
 
@@ -116,13 +106,11 @@ def script_factory(
     logger.debug("ignoring non-change file", file_path=str(file_path))
 
 
-def get_all_scripts_recursively(
-    root_directory: Path, version_number_regex: str | None = None
-):
+def get_all_scripts_recursively(root_directory: Path, version_number_regex: str | None = None):
     VersionedScript.version_number_regex = version_number_regex
 
-    all_files: dict[str, T] = dict()
-    all_versions = list()
+    all_files: dict[str, T] = {}
+    all_versions = []
     # Walk the entire directory structure recursively
     sql_pattern = re.compile(r"\.sql(\.jinja)?$", flags=re.IGNORECASE)
     file_paths = root_directory.glob("**/*")

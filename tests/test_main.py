@@ -9,9 +9,9 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
-from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 
 import schemachange.cli as cli
+from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import get_snowflake_identifier_string
 
 assets_path = Path(__file__).parent / "config"
@@ -68,9 +68,7 @@ required_config = {
     "snowflake_warehouse": "warehouse",
     "snowflake_role": "role",
 }
-script_path = (
-    Path(__file__).parent.parent / "demo" / "basics_demo" / "2_test" / "A__basic001.sql"
-)
+script_path = Path(__file__).parent.parent / "demo" / "basics_demo" / "2_test" / "A__basic001.sql"
 
 no_command = pytest.param(
     "schemachange.cli.deploy",
@@ -136,18 +134,10 @@ deploy_all_cli_arg_names = pytest.param(
         "modules_folder": assets_path,
         "snowflake_account": "snowflake-account-from-cli",
         "snowflake_user": "snowflake-user-from-cli",
-        "snowflake_role": get_snowflake_identifier_string(
-            "snowflake-role-from-cli", "placeholder"
-        ),
-        "snowflake_warehouse": get_snowflake_identifier_string(
-            "snowflake-warehouse-from-cli", "placeholder"
-        ),
-        "snowflake_database": get_snowflake_identifier_string(
-            "snowflake-database-from-cli", "placeholder"
-        ),
-        "snowflake_schema": get_snowflake_identifier_string(
-            "snowflake-schema-from-cli", "placeholder"
-        ),
+        "snowflake_role": get_snowflake_identifier_string("snowflake-role-from-cli", "placeholder"),
+        "snowflake_warehouse": get_snowflake_identifier_string("snowflake-warehouse-from-cli", "placeholder"),
+        "snowflake_database": get_snowflake_identifier_string("snowflake-database-from-cli", "placeholder"),
+        "snowflake_schema": get_snowflake_identifier_string("snowflake-schema-from-cli", "placeholder"),
         "change_history_table": ChangeHistoryTable(
             database_name="db",
             schema_name="schema",
@@ -217,18 +207,10 @@ deploy_all_cli_arg_flags = pytest.param(
         "modules_folder": assets_path,
         "snowflake_account": "snowflake-account-from-cli",
         "snowflake_user": "snowflake-user-from-cli",
-        "snowflake_role": get_snowflake_identifier_string(
-            "snowflake-role-from-cli", "placeholder"
-        ),
-        "snowflake_warehouse": get_snowflake_identifier_string(
-            "snowflake-warehouse-from-cli", "placeholder"
-        ),
-        "snowflake_database": get_snowflake_identifier_string(
-            "snowflake-database-from-cli", "placeholder"
-        ),
-        "snowflake_schema": get_snowflake_identifier_string(
-            "snowflake-schema-from-cli", "placeholder"
-        ),
+        "snowflake_role": get_snowflake_identifier_string("snowflake-role-from-cli", "placeholder"),
+        "snowflake_warehouse": get_snowflake_identifier_string("snowflake-warehouse-from-cli", "placeholder"),
+        "snowflake_database": get_snowflake_identifier_string("snowflake-database-from-cli", "placeholder"),
+        "snowflake_schema": get_snowflake_identifier_string("snowflake-schema-from-cli", "placeholder"),
         "change_history_table": ChangeHistoryTable(
             database_name="db",
             schema_name="schema",
@@ -298,18 +280,10 @@ deploy_all_env_all_cli = pytest.param(
         "modules_folder": assets_path,
         "snowflake_account": "snowflake-account-from-cli",
         "snowflake_user": "snowflake-user-from-cli",
-        "snowflake_role": get_snowflake_identifier_string(
-            "snowflake-role-from-cli", "placeholder"
-        ),
-        "snowflake_warehouse": get_snowflake_identifier_string(
-            "snowflake-warehouse-from-cli", "placeholder"
-        ),
-        "snowflake_database": get_snowflake_identifier_string(
-            "snowflake-database-from-cli", "placeholder"
-        ),
-        "snowflake_schema": get_snowflake_identifier_string(
-            "snowflake-schema-from-cli", "placeholder"
-        ),
+        "snowflake_role": get_snowflake_identifier_string("snowflake-role-from-cli", "placeholder"),
+        "snowflake_warehouse": get_snowflake_identifier_string("snowflake-warehouse-from-cli", "placeholder"),
+        "snowflake_database": get_snowflake_identifier_string("snowflake-database-from-cli", "placeholder"),
+        "snowflake_schema": get_snowflake_identifier_string("snowflake-schema-from-cli", "placeholder"),
         "change_history_table": ChangeHistoryTable(
             database_name="db",
             schema_name="schema",

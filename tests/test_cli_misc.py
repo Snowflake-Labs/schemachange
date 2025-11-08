@@ -160,9 +160,7 @@ def test__get_snowflake_identifier_string_given__acceptable_values_produces_prop
     "input_value, input_type",
     [('"valid-value-123', "role"), ('valid-value-123"', "role")],
 )
-def test__get_snowflake_identifier_string_given__unacceptable_values_raises_error(
-    input_value, input_type
-):
+def test__get_snowflake_identifier_string_given__unacceptable_values_raises_error(input_value, input_type):
     with pytest.raises(ValueError) as e:
         get_snowflake_identifier_string(input_value, input_type)
 
