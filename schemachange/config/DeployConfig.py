@@ -19,32 +19,28 @@ from schemachange.config.utils import (
 @dataclasses.dataclass(frozen=True)
 class DeployConfig(BaseConfig):
     subcommand: Literal["deploy"] = "deploy"
-    snowflake_account: str | None = (
-        None  # TODO: Remove when connections.toml is enforced
-    )
+    snowflake_account: str | None = None  # TODO: Remove when connections.toml is enforced
     snowflake_user: str | None = None  # TODO: Remove when connections.toml is enforced
     snowflake_role: str | None = None  # TODO: Remove when connections.toml is enforced
-    snowflake_warehouse: str | None = (
-        None  # TODO: Remove when connections.toml is enforced
-    )
-    snowflake_database: str | None = (
-        None  # TODO: Remove when connections.toml is enforced
-    )
-    snowflake_schema: str | None = (
-        None  # TODO: Remove when connections.toml is enforced
-    )
+    snowflake_warehouse: str | None = None  # TODO: Remove when connections.toml is enforced
+    snowflake_database: str | None = None  # TODO: Remove when connections.toml is enforced
+    snowflake_schema: str | None = None  # TODO: Remove when connections.toml is enforced
     connections_file_path: Path | None = None
     connection_name: str | None = None
     # TODO: Turn change_history_table into three arguments. There's no need to parse it from a string
-    change_history_table: ChangeHistoryTable | None = dataclasses.field(
-        default_factory=ChangeHistoryTable
-    )
+    change_history_table: ChangeHistoryTable | None = dataclasses.field(default_factory=ChangeHistoryTable)
     create_change_history_table: bool = False
     autocommit: bool = False
     dry_run: bool = False
     query_tag: str | None = None
+    # Authentication parameters (CLI > ENV precedence)
+    authenticator: str | None = None
+    private_key_path: str | None = None
+    private_key_passphrase: str | None = None
+    token_file_path: str | None = None
     version_number_validation_regex: str | None = None
     raise_exception_on_ignored_versioned_script: bool = False
+    additional_snowflake_params: dict | None = None  # Parameters from YAML v2 or generic SNOWFLAKE_* env vars
 
     @classmethod
     def factory(
@@ -64,13 +60,9 @@ class DeployConfig(BaseConfig):
             "snowflake_schema",
         ]:
             if sf_input in kwargs and kwargs[sf_input] is not None:
-                kwargs[sf_input] = get_snowflake_identifier_string(
-                    kwargs[sf_input], sf_input
-                )
+                kwargs[sf_input] = get_snowflake_identifier_string(kwargs[sf_input], sf_input)
 
-        change_history_table = ChangeHistoryTable.from_str(
-            table_str=change_history_table
-        )
+        change_history_table = ChangeHistoryTable.from_str(table_str=change_history_table)
 
         return super().factory(
             subcommand="deploy",
@@ -92,6 +84,7 @@ class DeployConfig(BaseConfig):
             "change_history_table": self.change_history_table,
             "autocommit": self.autocommit,
             "query_tag": self.query_tag,
+            "additional_snowflake_params": self.additional_snowflake_params,
         }
 
         # Add password from environment variable if available
@@ -103,17 +96,27 @@ class DeployConfig(BaseConfig):
         if snowflake_password is not None and snowflake_password:
             session_kwargs["password"] = snowflake_password
 
-        # Add authentication parameters from environment variables if available
+        # Add authentication parameters with priority: CLI/YAML > ENV
         # These are used for OAuth, JWT, and other auth methods
-        authenticator = get_snowflake_authenticator()
+
+        # Authenticator: CLI/YAML takes precedence over ENV
+        authenticator = self.authenticator if self.authenticator is not None else get_snowflake_authenticator()
         if authenticator is not None:
             session_kwargs["authenticator"] = authenticator
 
-        private_key_path = get_snowflake_private_key_path()
+        # Private key path: CLI/YAML takes precedence over ENV
+        private_key_path = (
+            self.private_key_path if self.private_key_path is not None else get_snowflake_private_key_path()
+        )
         if private_key_path is not None:
             session_kwargs["private_key_path"] = private_key_path
 
-        private_key_passphrase = get_snowflake_private_key_passphrase()
+        # Private key passphrase: CLI/YAML takes precedence over ENV
+        private_key_passphrase = (
+            self.private_key_passphrase
+            if self.private_key_passphrase is not None
+            else get_snowflake_private_key_passphrase()
+        )
         if private_key_passphrase is not None:
             session_kwargs["private_key_passphrase"] = private_key_passphrase
 
@@ -121,7 +124,8 @@ class DeployConfig(BaseConfig):
         # NOTE: SNOWFLAKE_TOKEN_FILE_PATH is for OAUTH ONLY (external OAuth providers)
         #       It should be used with SNOWFLAKE_AUTHENTICATOR=oauth
         #       For PATs, use SNOWFLAKE_PASSWORD instead (see above)
-        token_file_path = get_snowflake_token_file_path()
+        # Token file path: CLI/YAML takes precedence over ENV
+        token_file_path = self.token_file_path if self.token_file_path is not None else get_snowflake_token_file_path()
         if token_file_path is not None:
             try:
                 # Expand user paths like ~/tokens/oauth.token
@@ -136,12 +140,8 @@ class DeployConfig(BaseConfig):
             except FileNotFoundError:
                 raise FileNotFoundError(f"Token file not found: {token_file_path}")
             except PermissionError:
-                raise PermissionError(
-                    f"Permission denied reading token file: {token_file_path}"
-                )
+                raise PermissionError(f"Permission denied reading token file: {token_file_path}")
             except Exception as e:
-                raise ValueError(
-                    f"Error reading token file {token_file_path}: {str(e)}"
-                )
+                raise ValueError(f"Error reading token file {token_file_path}: {str(e)}")
 
         return {k: v for k, v in session_kwargs.items() if v is not None}
