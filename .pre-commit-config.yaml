@@ -36,4 +36,4 @@ repos:
     hooks:
       - id: ggshield
         language_version: python3
-        stages: [ commit ]
+        stages: [ pre-commit ]

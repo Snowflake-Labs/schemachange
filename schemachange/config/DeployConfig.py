@@ -138,10 +138,10 @@ class DeployConfig(BaseConfig):
                     else:
                         raise ValueError(f"Token file is empty: {token_file_path}")
             except FileNotFoundError:
-                raise FileNotFoundError(f"Token file not found: {token_file_path}")
+                raise FileNotFoundError(f"Token file not found: {token_file_path}") from None
             except PermissionError:
-                raise PermissionError(f"Permission denied reading token file: {token_file_path}")
+                raise PermissionError(f"Permission denied reading token file: {token_file_path}") from None
             except Exception as e:
-                raise ValueError(f"Error reading token file {token_file_path}: {str(e)}")
+                raise ValueError(f"Error reading token file {token_file_path}: {str(e)}") from e
 
         return {k: v for k, v in session_kwargs.items() if v is not None}
