@@ -88,8 +88,8 @@ schemachange expects a directory structure like the following to exist:
         |-- R__fn_sort_ascii.sql
 ```
 
-The schemachange folder structure is very flexible. The `project_root` folder is specified with the `-f`
-or `--root-folder` argument. schemachange only pays attention to the filenames, not the paths. Therefore, under
+The schemachange folder structure is very flexible. The `project_root` folder is specified with the `-f`,
+`--schemachange-root-folder`, or `--root-folder` argument. schemachange only pays attention to the filenames, not the paths. Therefore, under
 the `project_root` folder you are free to arrange the change scripts any way you see fit. You can have as many
 subfolders (and nested subfolders) as you would like.
 
@@ -247,16 +247,16 @@ Within change scripts:
 
 schemachange records all applied changes scripts to the change history table. By default, schemachange will attempt to
 log all activities to the `METADATA.SCHEMACHANGE.CHANGE_HISTORY` table. The name and location of the change history
-table can be overriden via a command line argument (`-c` or `--change-history-table`) or the `schemachange-config.yml`
-file ( `change-history-table`). The value passed to the parameter can have a one, two, or three part name (e.g. "
-TABLE_NAME", or "SCHEMA_NAME.TABLE_NAME", or " DATABASE_NAME.SCHEMA_NAME.TABLE_NAME"). This can be used to support
-multiple environments (dev, test, prod) or multiple subject areas within the same Snowflake account.
+table can be overriden via a command line argument (`-c`, `--schemachange-change-history-table`, or `--change-history-table`)
+or the `schemachange-config.yml` file (`change-history-table`). The value passed to the parameter can have a one, two, or
+three part name (e.g. "TABLE_NAME", or "SCHEMA_NAME.TABLE_NAME", or "DATABASE_NAME.SCHEMA_NAME.TABLE_NAME"). This can be
+used to support multiple environments (dev, test, prod) or multiple subject areas within the same Snowflake account.
 
 By default, schemachange will not try to create the change history table, and it will fail if the table does not exist.
-This behavior can be altered by passing in the `--create-change-history-table` argument or adding
-`create-change-history-table: true` to the `schemachange-config.yml` file. Even with the `--create-change-history-table`
-parameter, schemachange will not attempt to create the database for the change history table. That must be created
-before running schemachange.
+This behavior can be altered by passing in the `--schemachange-create-change-history-table` or `--create-change-history-table`
+argument or adding `create-change-history-table: true` to the `schemachange-config.yml` file. Even with the
+`--create-change-history-table` parameter, schemachange will not attempt to create the database for the change history
+table. That must be created before running schemachange.
 
 The structure of the `CHANGE_HISTORY` table is as follows:
 
@@ -766,18 +766,18 @@ Most arguments also support short forms (single dash, single letter) for conveni
 
 | Parameter | Short Form | Environment Variable | Description |
 |-----------|------------|---------------------|-------------|
-| -f, --root-folder, --schemachange-root-folder | -f | SCHEMACHANGE_ROOT_FOLDER | The root folder for database change scripts (default: current directory) |
-| -m, --modules-folder, --schemachange-modules-folder | -m | SCHEMACHANGE_MODULES_FOLDER | The modules folder for jinja macros and templates |
-| -c, --change-history-table, --schemachange-change-history-table | -c | SCHEMACHANGE_CHANGE_HISTORY_TABLE | Override the default change history table name (default: METADATA.SCHEMACHANGE.CHANGE_HISTORY) |
-| -V, --vars, --schemachange-vars | -V | SCHEMACHANGE_VARS | Define variables for scripts in JSON format. Merged with YAML vars (e.g., '{"var1": "val1"}') |
-| --create-change-history-table, --schemachange-create-change-history-table | | SCHEMACHANGE_CREATE_CHANGE_HISTORY_TABLE | Create the change history table if it doesn't exist (default: false) |
-| -ac, --autocommit, --schemachange-autocommit | -ac | SCHEMACHANGE_AUTOCOMMIT | Enable autocommit for DML commands (default: false) |
-| --dry-run, --schemachange-dry-run | | SCHEMACHANGE_DRY_RUN | Run in dry run mode (default: false) |
-| -Q, --query-tag, --schemachange-query-tag | -Q | SCHEMACHANGE_QUERY_TAG | String to include in QUERY_TAG attached to every SQL statement |
-| -L, --log-level, --schemachange-log-level | -L | SCHEMACHANGE_LOG_LEVEL | Logging level: DEBUG, INFO, WARNING, ERROR, or CRITICAL (default: INFO) |
-| -C, --connection-name, --schemachange-connection-name | -C | SCHEMACHANGE_CONNECTION_NAME | Override the default connections.toml connection profile name |
-| --connections-file-path, --schemachange-connections-file-path | | SCHEMACHANGE_CONNECTIONS_FILE_PATH | Override the default connections.toml file path |
-| -v, --verbose | -v | | Display verbose debugging details (deprecated, use --log-level DEBUG instead) |
+| -f, --schemachange-root-folder, --root-folder | -f | SCHEMACHANGE_ROOT_FOLDER | The root folder for database change scripts (default: current directory). Deprecated alias: --root-folder |
+| -m, --schemachange-modules-folder, --modules-folder | -m | SCHEMACHANGE_MODULES_FOLDER | The modules folder for jinja macros and templates. Deprecated alias: --modules-folder |
+| -c, --schemachange-change-history-table, --change-history-table | -c | SCHEMACHANGE_CHANGE_HISTORY_TABLE | Override the default change history table name (default: METADATA.SCHEMACHANGE.CHANGE_HISTORY). Deprecated alias: --change-history-table |
+| -V, --schemachange-vars, --vars | -V | SCHEMACHANGE_VARS | Define variables for scripts in JSON format. Merged with YAML vars (e.g., '{"var1": "val1"}'). Deprecated alias: --vars |
+| --schemachange-create-change-history-table, --create-change-history-table | | SCHEMACHANGE_CREATE_CHANGE_HISTORY_TABLE | Create the change history table if it doesn't exist (default: false). Deprecated alias: --create-change-history-table |
+| -ac, --schemachange-autocommit, --autocommit | -ac | SCHEMACHANGE_AUTOCOMMIT | Enable autocommit for DML commands (default: false). Deprecated alias: --autocommit |
+| --schemachange-dry-run, --dry-run | | SCHEMACHANGE_DRY_RUN | Run in dry run mode (default: false). Deprecated alias: --dry-run |
+| -Q, --schemachange-query-tag, --query-tag | -Q | SCHEMACHANGE_QUERY_TAG | String to include in QUERY_TAG attached to every SQL statement. Deprecated alias: --query-tag |
+| -L, --schemachange-log-level, --log-level | -L | SCHEMACHANGE_LOG_LEVEL | Logging level: DEBUG, INFO, WARNING, ERROR, or CRITICAL (default: INFO). Deprecated alias: --log-level |
+| -C, --schemachange-connection-name, --connection-name | -C | SCHEMACHANGE_CONNECTION_NAME | Override the default connections.toml connection profile name. Deprecated alias: --connection-name |
+| --schemachange-connections-file-path, --connections-file-path | | SCHEMACHANGE_CONNECTIONS_FILE_PATH | Override the default connections.toml file path. Deprecated alias: --connections-file-path |
+| -v, --verbose | -v | | Display verbose debugging details (deprecated, use -L DEBUG or --schemachange-log-level DEBUG instead) |
 
 **Snowflake Connection Parameters**
 
@@ -794,25 +794,28 @@ Most arguments also support short forms (single dash, single letter) for conveni
 | --snowflake-private-key-passphrase | | SNOWFLAKE_PRIVATE_KEY_PASSPHRASE | Passphrase for encrypted private key |
 | --snowflake-token-file-path | | SNOWFLAKE_TOKEN_FILE_PATH | Path to OAuth token file (use with --snowflake-authenticator oauth) |
 
-**Note on Deprecated Arguments:**
-- Old unprefixed arguments (e.g., `--vars`, `--query-tag`, `--log-level`) are deprecated but still functional for backward compatibility
-- When using deprecated arguments, you'll see migration messages suggesting the new prefixed forms
-- Use the new prefixed forms (`--schemachange-*`, `--snowflake-*`) or short forms for future compatibility
+**Note on Argument Aliases:**
+- Multiple argument forms are supported for backward compatibility (e.g., `-f`, `--schemachange-root-folder`, `--root-folder`)
+- The recommended forms are the short forms (e.g., `-f`, `-m`, `-c`) or the explicit prefixed forms (e.g., `--schemachange-root-folder`)
+- Deprecated aliases (e.g., `--root-folder`, `--vars`, `--query-tag`) are noted in the help text but continue to work
+- All variants of an argument set the same configuration value
+- Use the prefixed forms (`--schemachange-*`, `--snowflake-*`) or short forms for clarity and future compatibility
 
 ### render
 
 This subcommand is used to render a single script to the console. It is intended to support the development and
 troubleshooting of script that use features from the jinja template engine.
 
-`usage: schemachange render [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [--vars VARS] [-v] script`
+`usage: schemachange render [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-V VARS] [-L LOG_LEVEL] script`
 
-| Parameter                                          | Description                                                                                                                               |
-|----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
-| --config-folder CONFIG_FOLDER                      | The folder to look in for the schemachange-config.yml file (the default is the current working directory)                                 |
-| -f ROOT_FOLDER, --root-folder ROOT_FOLDER          | The root folder for the database change scripts                                                                                           |
-| -m MODULES_FOLDER, --modules-folder MODULES_FOLDER | The modules folder for jinja macros and templates to be used across multiple scripts                                                      |
-| --vars VARS                                        | Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"}) |
-| -v, --verbose                                      | Display verbose debugging details during execution (the default is False)                                                                 |
+| Parameter | Description |
+|-----------|-------------|
+| --config-folder, --schemachange-config-folder | The folder to look in for the schemachange-config.yml file (the default is the current working directory) |
+| -f, --schemachange-root-folder, --root-folder | The root folder for the database change scripts |
+| -m, --schemachange-modules-folder, --modules-folder | The modules folder for jinja macros and templates to be used across multiple scripts |
+| -V, --schemachange-vars, --vars | Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"}) |
+| -L, --schemachange-log-level, --log-level | Logging level: DEBUG, INFO, WARNING, ERROR, or CRITICAL (default: INFO) |
+| script | Path to the script to render |
 
 ## Running schemachange
 
@@ -843,15 +846,17 @@ In order to run schemachange you must have the following:
 schemachange is a single python script located at [schemachange/cli.py](schemachange/cli.py). It can be executed as
 follows:
 
-```
-python schemachange/cli.py [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--connections-file-path] [--connection-name]
+```bash
+python schemachange/cli.py [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-c CHANGE_HISTORY_TABLE] [-V VARS] [--create-change-history-table] [-ac] [-L LOG_LEVEL] [--dry-run] [-Q QUERY_TAG] [--connections-file-path CONNECTIONS_FILE_PATH] [-C CONNECTION_NAME]
 ```
 
 Or if installed via `pip`, it can be executed as follows:
 
+```bash
+schemachange deploy [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-c CHANGE_HISTORY_TABLE] [-V VARS] [--create-change-history-table] [-ac] [-L LOG_LEVEL] [--dry-run] [-Q QUERY_TAG] [--connections-file-path CONNECTIONS_FILE_PATH] [-C CONNECTION_NAME]
 ```
-schemachange [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--connections-file-path] [--connection-name]
-```
+
+**Note:** All arguments support multiple forms for backward compatibility. See the [deploy command](#deploy) section for the full list of argument variants.
 
 The [demo](demo) folder in this project repository contains three schemachange demo projects for you to try out. These
 demos showcase the basics and a couple of advanced examples based on the standard Snowflake Citibike demo which can be
@@ -889,7 +894,7 @@ If your build agent has a recent version of python 3 installed, the script can b
 
 ```bash
 pip install schemachange --upgrade
-schemachange [-h] [-f ROOT_FOLDER] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--connections-file-path] [--connection-name]
+schemachange deploy [-f ROOT_FOLDER] [-c CHANGE_HISTORY_TABLE] [-V VARS] [--create-change-history-table] [-ac] [-L LOG_LEVEL] [--dry-run] [-Q QUERY_TAG] [--connections-file-path CONNECTIONS_FILE_PATH] [-C CONNECTION_NAME]
 ```
 
 Or if you prefer docker, run like so:

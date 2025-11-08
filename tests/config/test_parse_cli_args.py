@@ -250,32 +250,47 @@ def test_parse_args_snowflake_args_no_deprecation():
     assert parsed_args["snowflake_schema"] == "schema"
 
 
-def test_parse_args_old_unprefixed_show_deprecation(capsys):
-    """Test old unprefixed arguments show deprecation warnings"""
-    # Test --vars deprecation
+def test_parse_args_deprecated_aliases_work():
+    """Test that deprecated aliases still work (backward compatibility)"""
+    # Test --vars deprecated alias
     args = ["deploy", "--vars", json.dumps({"var1": "value1"})]
     parsed_args = parse_cli_args(args)
-    captured = capsys.readouterr()
-    assert "--vars is deprecated" in captured.err
-    assert "-V or --schemachange-vars" in captured.err
-    assert "SCHEMACHANGE_VARS" in captured.err
     assert parsed_args["config_vars"] == {"var1": "value1"}
 
-    # Test --query-tag deprecation
+    # Test --query-tag deprecated alias
     args = ["deploy", "--query-tag", "my_tag"]
     parsed_args = parse_cli_args(args)
-    captured = capsys.readouterr()
-    assert "--query-tag is deprecated" in captured.err
-    assert "-Q or --schemachange-query-tag" in captured.err
     assert parsed_args["query_tag"] == "my_tag"
 
-    # Test --connection-name deprecation
+    # Test --connection-name deprecated alias
     args = ["deploy", "--connection-name", "conn"]
     parsed_args = parse_cli_args(args)
-    captured = capsys.readouterr()
-    assert "--connection-name is deprecated" in captured.err
-    assert "-C or --schemachange-connection-name" in captured.err
     assert parsed_args["connection_name"] == "conn"
+
+    # Test --root-folder deprecated alias
+    args = ["deploy", "--root-folder", "some_folder"]
+    parsed_args = parse_cli_args(args)
+    assert parsed_args["root_folder"] == "some_folder"
+
+    # Test --modules-folder deprecated alias
+    args = ["deploy", "--modules-folder", "some_modules"]
+    parsed_args = parse_cli_args(args)
+    assert parsed_args["modules_folder"] == "some_modules"
+
+    # Test --change-history-table deprecated alias
+    args = ["deploy", "--change-history-table", "DB.SCHEMA.TABLE"]
+    parsed_args = parse_cli_args(args)
+    assert parsed_args["change_history_table"] == "DB.SCHEMA.TABLE"
+
+    # Test --autocommit deprecated alias
+    args = ["deploy", "--autocommit"]
+    parsed_args = parse_cli_args(args)
+    assert parsed_args["autocommit"] is True
+
+    # Test --log-level deprecated alias
+    args = ["deploy", "--log-level", "DEBUG"]
+    parsed_args = parse_cli_args(args)
+    assert parsed_args["log_level"] == logging.DEBUG
 
 
 def test_parse_args_parameter_precedence():
@@ -311,3 +326,103 @@ def test_parse_args_authentication_parameters():
     assert parsed_args["private_key_path"] == "/path/to/key.pem"
     assert parsed_args["private_key_passphrase"] == "my_passphrase"
     assert parsed_args["token_file_path"] == "/path/to/token.txt"
+
+
+def test_parse_args_all_argument_variants():
+    """Test that all variants of consolidated arguments work correctly"""
+    # Test config-folder variants
+    for arg in ["--config-folder", "--schemachange-config-folder"]:
+        args = ["deploy", arg, "test_folder"]
+        parsed_args = parse_cli_args(args)
+        assert parsed_args["config_folder"] == "test_folder"
+
+    # Test config-file-name variants
+    for arg in ["--config-file-name", "--schemachange-config-file-name"]:
+        args = ["deploy", arg, "test_config.yml"]
+        parsed_args = parse_cli_args(args)
+        assert parsed_args["config_file_name"] == "test_config.yml"
+
+    # Test root-folder variants
+    for arg in ["-f", "--schemachange-root-folder", "--root-folder"]:
+        args = ["deploy", arg, "test_root"]
+        parsed_args = parse_cli_args(args)
+        assert parsed_args["root_folder"] == "test_root"
+
+    # Test modules-folder variants
+    for arg in ["-m", "--schemachange-modules-folder", "--modules-folder"]:
+        args = ["deploy", arg, "test_modules"]
+        parsed_args = parse_cli_args(args)
+        assert parsed_args["modules_folder"] == "test_modules"
+
+    # Test vars variants
+    test_vars = {"key": "value"}
+    for arg in ["-V", "--schemachange-vars", "--vars"]:
+        args = ["deploy", arg, json.dumps(test_vars)]
+        parsed_args = parse_cli_args(args)
+        assert parsed_args["config_vars"] == test_vars
+
+    # Test log-level variants
+    for arg in ["-L", "--schemachange-log-level", "--log-level"]:
+        args = ["deploy", arg, "DEBUG"]
+        parsed_args = parse_cli_args(args)
+        assert parsed_args["log_level"] == logging.DEBUG
+
+    # Test change-history-table variants
+    for arg in ["-c", "--schemachange-change-history-table", "--change-history-table"]:
+        args = ["deploy", arg, "TEST.TABLE"]
+        parsed_args = parse_cli_args(args)
+        assert parsed_args["change_history_table"] == "TEST.TABLE"
+
+    # Test autocommit variants
+    for arg in ["-ac", "--schemachange-autocommit", "--autocommit"]:
+        args = ["deploy", arg]
+        parsed_args = parse_cli_args(args)
+        assert parsed_args["autocommit"] is True
+
+    # Test query-tag variants
+    for arg in ["-Q", "--schemachange-query-tag", "--query-tag"]:
+        args = ["deploy", arg, "test_tag"]
+        parsed_args = parse_cli_args(args)
+        assert parsed_args["query_tag"] == "test_tag"
+
+    # Test connection-name variants
+    for arg in ["-C", "--schemachange-connection-name", "--connection-name"]:
+        args = ["deploy", arg, "test_connection"]
+        parsed_args = parse_cli_args(args)
+        assert parsed_args["connection_name"] == "test_connection"
+
+    # Test connections-file-path variants
+    for arg in ["--schemachange-connections-file-path", "--connections-file-path"]:
+        args = ["deploy", arg, "test_path.toml"]
+        parsed_args = parse_cli_args(args)
+        assert parsed_args["connections_file_path"] == "test_path.toml"
+
+    # Test dry-run variants
+    for arg in ["--schemachange-dry-run", "--dry-run"]:
+        args = ["deploy", arg]
+        parsed_args = parse_cli_args(args)
+        assert parsed_args["dry_run"] is True
+
+    # Test create-change-history-table variants
+    for arg in ["--schemachange-create-change-history-table", "--create-change-history-table"]:
+        args = ["deploy", arg]
+        parsed_args = parse_cli_args(args)
+        assert parsed_args["create_change_history_table"] is True
+
+
+def test_parse_args_mixing_old_and_new_forms():
+    """Test that mixing old and new forms works (last one wins)"""
+    # Old form followed by new form - new form should win
+    args = ["deploy", "--root-folder", "old_value", "-f", "new_value"]
+    parsed_args = parse_cli_args(args)
+    assert parsed_args["root_folder"] == "new_value"
+
+    # New form followed by old form - old form should win (last specified)
+    args = ["deploy", "-f", "new_value", "--root-folder", "old_value"]
+    parsed_args = parse_cli_args(args)
+    assert parsed_args["root_folder"] == "old_value"
+
+    # Multiple variants - last one wins
+    args = ["deploy", "--vars", '{"a":"1"}', "-V", '{"b":"2"}', "--schemachange-vars", '{"c":"3"}']
+    parsed_args = parse_cli_args(args)
+    assert parsed_args["config_vars"] == {"c": "3"}

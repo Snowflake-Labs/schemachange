@@ -110,6 +110,35 @@ schemachange deploy --config-folder ./demo/basics_demo
 
 **Note:** PATs use the default `snowflake` authenticator - no need to set `SNOWFLAKE_AUTHENTICATOR`. The Snowflake connector automatically detects that the password value is a PAT.
 
+### Command-Line Argument Aliases
+
+schemachange supports multiple forms of CLI arguments for flexibility and backward compatibility:
+
+**Recommended forms:**
+- **Short forms**: `-f`, `-m`, `-c`, `-V`, `-L`, `-Q`, `-C`, `-ac` (quick and concise)
+- **Prefixed forms**: `--schemachange-root-folder`, `--schemachange-vars`, etc. (explicit and clear)
+
+**Deprecated aliases** (still work, but marked as deprecated):
+- `--root-folder`, `--modules-folder`, `--vars`, `--query-tag`, `--change-history-table`, etc.
+
+**Examples:**
+```bash
+# Using short forms (recommended)
+schemachange deploy -f ./migrations -c DB.SCHEMA.TABLE -V '{"env":"prod"}'
+
+# Using prefixed forms (recommended)
+schemachange deploy --schemachange-root-folder ./migrations \
+                    --schemachange-change-history-table DB.SCHEMA.TABLE
+
+# Using deprecated aliases (still works)
+schemachange deploy --root-folder ./migrations --change-history-table DB.SCHEMA.TABLE
+
+# Mixing forms (all variants work)
+schemachange deploy -f ./migrations --change-history-table DB.SCHEMA.TABLE
+```
+
+All argument variants are documented in `schemachange deploy --help`.
+
 #### External Browser (SSO) Authentication
 ```bash
 export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
