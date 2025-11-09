@@ -63,12 +63,32 @@ ls -l ~/.snowflake/connections.toml
 
 ## 🔒 Recommended Authentication Methods
 
+⚠️ **IMPORTANT: Snowflake is deprecating password-only authentication. MFA or alternative authentication methods are required for most accounts.**
+
 ### Priority Order (Most Secure to Least Secure)
 
-1. **✅ BEST: Programmatic Access Tokens (PATs) via Environment Variable**
+1. **✅ BEST: JWT/Private Key Authentication (Production Automation)**
+   - Most secure for automated deployments
+   - Key-based authentication
+   - No password exposure
+   - Recommended by Snowflake for service accounts
+
+   ```bash
+   export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+   export SNOWFLAKE_USER="service_account"
+   export SNOWFLAKE_AUTHENTICATOR="snowflake_jwt"
+   export SNOWFLAKE_PRIVATE_KEY_PATH="~/.ssh/snowflake_key.p8"
+   export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="key_passphrase"  # Only if key is encrypted
+   export SNOWFLAKE_ROLE="DEPLOYMENT_ROLE"
+   export SNOWFLAKE_WAREHOUSE="DEPLOYMENT_WH"
+
+   schemachange deploy
+   ```
+
+2. **✅ GOOD: Programmatic Access Tokens (PATs) for MFA Accounts**
    - Required for MFA-enabled accounts
    - Token rotation support
-   - No password exposure
+   - Better than storing passwords
 
    ```bash
    export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
@@ -76,21 +96,6 @@ ls -l ~/.snowflake/connections.toml
    export SNOWFLAKE_PASSWORD="<your_pat_token>"  # PAT, not actual password
    export SNOWFLAKE_ROLE="DEPLOYMENT_ROLE"
    export SNOWFLAKE_WAREHOUSE="DEPLOYMENT_WH"
-
-   schemachange deploy
-   ```
-
-2. **✅ GOOD: JWT Authentication (Service Accounts)**
-   - Best for automated deployments
-   - Key-based authentication
-   - Private key stored securely
-
-   ```bash
-   export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
-   export SNOWFLAKE_USER="service_account"
-   export SNOWFLAKE_AUTHENTICATOR="snowflake_jwt"
-   export SNOWFLAKE_PRIVATE_KEY_PATH="~/.ssh/snowflake_key.p8"
-   export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="key_passphrase"  # If key is encrypted
 
    schemachange deploy
    ```

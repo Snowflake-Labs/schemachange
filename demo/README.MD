@@ -35,26 +35,15 @@ See main README for complete list and examples.
 
 ### Example Usage
 
-#### Basic Password Authentication
-```bash
-export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
-export SNOWFLAKE_USER="demo_user"
-export SNOWFLAKE_PASSWORD="secure_password"
-export SNOWFLAKE_ROLE="SCHEMACHANGE_DEMO-DEPLOY"
-export SNOWFLAKE_WAREHOUSE="SCHEMACHANGE_DEMO_WH"
-export SNOWFLAKE_DATABASE="SCHEMACHANGE_DEMO"
+⚠️ **IMPORTANT: Snowflake is deprecating password-only authentication. Use JWT, PAT, or SSO authentication instead.**
 
-# Run schemachange - it will automatically pick up the environment variables
-schemachange deploy --config-folder ./demo/basics_demo
-```
-
-#### Key-Pair Authentication
+#### Key-Pair (JWT) Authentication (Recommended for Production)
 ```bash
 export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
 export SNOWFLAKE_USER="demo_user"
 export SNOWFLAKE_AUTHENTICATOR="snowflake_jwt"
 export SNOWFLAKE_PRIVATE_KEY_PATH="~/.ssh/snowflake_key.p8"
-export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="key_password"
+export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="key_password"  # Only if key is encrypted
 export SNOWFLAKE_ROLE="SCHEMACHANGE_DEMO-DEPLOY"
 export SNOWFLAKE_WAREHOUSE="SCHEMACHANGE_DEMO_WH"
 export SNOWFLAKE_DATABASE="SCHEMACHANGE_DEMO"
@@ -63,7 +52,7 @@ schemachange deploy --config-folder ./demo/basics_demo
 ```
 
 #### Programmatic Access Token (PAT) Authentication
-**Recommended for CI/CD and service accounts** - especially with Snowflake's MFA enforcement (November 2025).
+**Recommended for MFA-enabled accounts and CI/CD pipelines.**
 
 ```bash
 # First, generate a PAT in Snowflake (via Snowsight or SQL):

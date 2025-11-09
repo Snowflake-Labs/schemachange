@@ -320,28 +320,27 @@ If an authenticator is unsupported, an exception will be raised.
 
 ### Password Authentication
 
+⚠️ **IMPORTANT: Snowflake is deprecating password-only authentication. MFA or alternative authentication methods are now required for most accounts.**
+
+**Recommended Authentication Methods (in order of preference):**
+1. **[Private Key (JWT)](#private-key-authentication)** - Most secure for automation
+2. **[External Browser/SSO](#external-browser-authentication)** - Best for interactive use
+3. **[OAuth](#external-oauth-authentication)** - For OAuth-enabled workflows
+4. **Programmatic Access Token (PAT)** - For MFA-enabled accounts
+
+#### Password Authentication with Programmatic Access Token (PAT)
+
 Password authentication is the default authenticator (or set `authenticator: snowflake` explicitly).
 
-#### For Accounts WITHOUT MFA
-
-Use your regular Snowflake password via `SNOWFLAKE_PASSWORD` environment variable (recommended) or in [connections.toml](#connectionstoml-file):
-
-```bash
-export SNOWFLAKE_PASSWORD="your_password"
-schemachange deploy
-```
-
-#### For Accounts WITH MFA (Required)
-
-If your account has Multi-Factor Authentication (MFA) enabled, you **must** use a **Programmatic Access Token (PAT)** instead of your password.
+**For accounts with MFA (required)**, you **must** use a **Programmatic Access Token (PAT)** instead of your regular password.
 
 **What is a PAT?**
-A Programmatic Access Token is a long-lived token that allows automated tools to authenticate without MFA prompts. It's more secure than disabling MFA for service accounts.
+A Programmatic Access Token is a long-lived token that allows automated tools to authenticate without MFA prompts. It's more secure than storing passwords and is Snowflake's recommended approach for automation.
 
 **How to use a PAT:**
 
 ```bash
-export SNOWFLAKE_PASSWORD="<your_pat_token>"  # Use PAT, not your actual password
+export SNOWFLAKE_PASSWORD="<your_pat_token>"  # PAT, not your regular password
 schemachange deploy
 ```
 
@@ -349,11 +348,26 @@ schemachange deploy
 1. Log into Snowflake Web UI
 2. Go to your user preferences
 3. Generate a new Programmatic Access Token
-4. Copy the token and use it as your password
+4. Copy the token and use it in place of your password
 
-For detailed PAT setup and best practices, see:
+**For detailed PAT setup and best practices, see:**
 - [Snowflake PAT Documentation](https://docs.snowflake.com/en/user-guide/ui-snowsight-profile#generate-a-programmatic-access-token)
 - [SECURITY.md](SECURITY.md) for comprehensive authentication guidance
+
+#### Legacy Password-Only Authentication (Deprecated)
+
+⚠️ **WARNING: Password-only authentication (without MFA) is being phased out by Snowflake and should not be used for new deployments.**
+
+If you must use password-only authentication on legacy accounts:
+```bash
+export SNOWFLAKE_PASSWORD="your_password"  # NOT RECOMMENDED
+schemachange deploy
+```
+
+**Migration Required:** Snowflake is actively deprecating single-factor authentication. Plan to migrate to:
+- Private Key (JWT) authentication for production deployments
+- PAT for MFA-enabled accounts
+- External Browser/SSO for interactive use
 
 ### External OAuth Authentication
 
@@ -667,11 +681,13 @@ For a complete list of supported connector parameters, see the [Snowflake Python
 
 #### Example Usage
 
-**Basic Password Authentication:**
+**Key-Pair (JWT) Authentication (Recommended for Production):**
 ```bash
 export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
 export SNOWFLAKE_USER="deploy_user"
-export SNOWFLAKE_PASSWORD="secure_password"
+export SNOWFLAKE_AUTHENTICATOR="snowflake_jwt"
+export SNOWFLAKE_PRIVATE_KEY_PATH="~/.ssh/snowflake_key.p8"
+export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="key_password"  # Only if key is encrypted
 export SNOWFLAKE_ROLE="DEPLOY_ROLE"
 export SNOWFLAKE_WAREHOUSE="DEPLOY_WH"
 export SNOWFLAKE_DATABASE="MY_DATABASE"
@@ -679,24 +695,26 @@ export SNOWFLAKE_DATABASE="MY_DATABASE"
 schemachange deploy --config-folder ./migrations
 ```
 
-**Key-Pair Authentication:**
+**Programmatic Access Token (PAT) for MFA-Enabled Accounts:**
 ```bash
 export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
-export SNOWFLAKE_USER="deploy_user"
-export SNOWFLAKE_AUTHENTICATOR="snowflake_jwt"
-export SNOWFLAKE_PRIVATE_KEY_PATH="~/.ssh/snowflake_key.p8"
-export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="key_password"
+export SNOWFLAKE_USER="service_account"
+export SNOWFLAKE_PASSWORD="<your_pat_token>"  # PAT, not regular password
 export SNOWFLAKE_ROLE="DEPLOY_ROLE"
+export SNOWFLAKE_WAREHOUSE="DEPLOY_WH"
+export SNOWFLAKE_DATABASE="MY_DATABASE"
 
 schemachange deploy --config-folder ./migrations
 ```
 
-**Programmatic Access Token (PAT):**
+**External Browser (SSO) Authentication:**
 ```bash
 export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
-export SNOWFLAKE_USER="service_account"
-export SNOWFLAKE_PASSWORD="<your_pat_token>"
+export SNOWFLAKE_USER="user@company.com"
+export SNOWFLAKE_AUTHENTICATOR="externalbrowser"
 export SNOWFLAKE_ROLE="DEPLOY_ROLE"
+export SNOWFLAKE_WAREHOUSE="DEPLOY_WH"
+export SNOWFLAKE_DATABASE="MY_DATABASE"
 
 schemachange deploy --config-folder ./migrations
 ```

@@ -74,6 +74,12 @@ All notable changes to this project will be documented in this file.
 - Added support for `NO_COLOR` environment variable to disable colored output (#357)
 
 ### Changed
+- **Documentation updated to reflect Snowflake's deprecation of password-only authentication**:
+  - All documentation now leads with secure authentication methods (JWT, PAT, SSO)
+  - Password-only authentication marked as deprecated with migration guidance
+  - Examples reordered to prioritize JWT/Key-Pair authentication for production
+  - Added warnings that Snowflake requires MFA or alternative authentication for most accounts
+  - Updated README, SECURITY.md, and demo documentation
 - Updated `SnowflakeSession` to accept and pass `additional_snowflake_params` to Snowflake Python Connector
 - Updated `DeployConfig` to manage `additional_snowflake_params` with proper precedence
 - Updated `DeployConfig` to support authentication parameters from CLI/YAML with CLI > ENV precedence
