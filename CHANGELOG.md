@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
-## [4.1.0] - Unreleased
+## [4.1.0] - 2025-11-14
 ### Added
 - **New `verify` command**: Test Snowflake connectivity and display configuration parameters
   - Tests actual connection to Snowflake with configured credentials
@@ -29,6 +29,11 @@ All notable changes to this project will be documented in this file.
   - Security checklist for deployments
   - Incident response procedures for credential leaks
   - Quick reference table for all credential types
+- **Dedicated troubleshooting guide**: New `TROUBLESHOOTING.md` file with:
+  - Organized by error category (connection, permission, security, configuration)
+  - Step-by-step diagnostic procedures
+  - Common error patterns and solutions
+  - Links to relevant documentation sections
 - **YAML Config Version 2**: New structured YAML format with separate `schemachange` and `snowflake` sections for better organization
   - `config-version: 2` enables the new format
   - Backward compatible with `config-version: 1` (flat structure)
