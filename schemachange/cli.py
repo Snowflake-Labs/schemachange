@@ -108,29 +108,63 @@ def verify(config, logger: BoundLogger) -> None:
     logger.info("-" * 80)
 
     try:
-        session = SnowflakeSession(
-            schemachange_version=SCHEMACHANGE_VERSION,
-            application=SNOWFLAKE_APPLICATION_NAME,
-            logger=logger,
-            **session_kwargs,
-        )
+        # Connect directly to Snowflake without SnowflakeSession
+        # (SnowflakeSession requires change_history_table which verify doesn't need)
+
+        # Prepare connection parameters
+        connect_params = {}
+
+        # Handle connections.toml if specified
+        if session_kwargs.get("connections_file_path") and session_kwargs.get("connection_name"):
+            connect_params["connections_file_path"] = str(session_kwargs["connections_file_path"])
+            connect_params["connection_name"] = session_kwargs["connection_name"]
+
+        # Add explicit connection parameters (these override connections.toml)
+        for param in [
+            "account",
+            "user",
+            "role",
+            "warehouse",
+            "database",
+            "schema",
+            "authenticator",
+            "password",
+            "token",
+            "private_key_path",
+            "private_key_passphrase",
+        ]:
+            if param in session_kwargs and session_kwargs[param] is not None:
+                connect_params[param] = session_kwargs[param]
+
+        # Add additional Snowflake parameters
+        if session_kwargs.get("additional_snowflake_params"):
+            for key, value in session_kwargs["additional_snowflake_params"].items():
+                snake_case_key = key.replace("-", "_")
+                connect_params[snake_case_key] = value
+
+        # Set application identifier
+        connect_params["application"] = f"{SNOWFLAKE_APPLICATION_NAME}_{SCHEMACHANGE_VERSION}"
+        connect_params["session_parameters"] = {"QUERY_TAG": f"schemachange {SCHEMACHANGE_VERSION}"}
+
+        # Connect
+        con = snowflake.connector.connect(**connect_params)
 
         logger.info("")
         logger.info("✓ Connection Successful!")
         logger.info("")
         logger.info("Connection Details:")
-        logger.info(f"  Account: {session.account}")
-        logger.info(f"  User: {session.user}")
-        logger.info(f"  Role: {session.role}")
-        logger.info(f"  Warehouse: {session.warehouse}")
-        logger.info(f"  Database: {session.database}")
-        logger.info(f"  Schema: {session.schema}")
-        logger.info(f"  Session ID: {session.con.session_id}")
+        logger.info(f"  Account: {connect_params.get('account', 'N/A')}")
+        logger.info(f"  User: {connect_params.get('user', 'N/A')}")
+        logger.info(f"  Role: {connect_params.get('role', 'N/A')}")
+        logger.info(f"  Warehouse: {connect_params.get('warehouse', 'N/A')}")
+        logger.info(f"  Database: {connect_params.get('database', 'N/A')}")
+        logger.info(f"  Schema: {connect_params.get('schema', 'N/A')}")
+        logger.info(f"  Session ID: {con.session_id}")
 
         # Test a simple query
         logger.info("")
         logger.info("Testing Query Execution...")
-        cursor = session.con.cursor()
+        cursor = con.cursor()
         cursor.execute("SELECT CURRENT_VERSION()")
         snowflake_version = cursor.fetchone()[0]
         cursor.close()
@@ -142,7 +176,7 @@ def verify(config, logger: BoundLogger) -> None:
         logger.info("=" * 80)
 
         # Close the connection
-        session.con.close()
+        con.close()
 
     except snowflake.connector.errors.DatabaseError as e:
         logger.error("")
