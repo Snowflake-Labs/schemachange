@@ -50,6 +50,21 @@ class VerifyConfig(BaseConfig):
         if "subcommand" in kwargs:
             kwargs.pop("subcommand")
 
+        # Filter out deployment-specific parameters that verify doesn't support
+        # These are only relevant for the deploy command
+        deployment_only_params = [
+            "change_history_table",
+            "create_change_history_table",
+            "dry_run",
+            "autocommit",
+            "query_tag",
+            "root_folder",
+            "modules_folder",
+            "vars",
+        ]
+        for param in deployment_only_params:
+            kwargs.pop(param, None)
+
         # Validate Snowflake identifier strings
         for sf_input in [
             "snowflake_role",

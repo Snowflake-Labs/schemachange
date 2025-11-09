@@ -125,3 +125,31 @@ def test_verify_config_cli_auth_takes_precedence_over_env(_):
             # CLI values should take precedence
             assert session_kwargs["authenticator"] == "cli_auth"
             assert session_kwargs["private_key_path"] == "/cli/key"
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+def test_verify_config_filters_deployment_specific_params(_):
+    """Test that VerifyConfig.factory filters out deployment-specific parameters"""
+    # Create config with deployment-specific params (like would come from a deploy YAML config)
+    config = VerifyConfig.factory(
+        config_file_path=Path("."),
+        change_history_table="SCHEMACHANGE_HISTORY",
+        create_change_history_table=True,
+        dry_run=True,
+        autocommit=True,
+        query_tag="test_query_tag",
+        root_folder=Path("/some/root"),
+        modules_folder=Path("/some/modules"),
+        vars={"key": "value"},
+        **minimal_verify_config_kwargs,
+    )
+
+    # Config should be created successfully without deployment params
+    assert config.subcommand == "verify"
+    assert config.snowflake_account == "some_snowflake_account"
+
+    # Verify that deployment-specific attributes don't exist on VerifyConfig
+    assert not hasattr(config, "change_history_table")
+    assert not hasattr(config, "create_change_history_table")
+    assert not hasattr(config, "dry_run")
+    assert not hasattr(config, "query_tag")

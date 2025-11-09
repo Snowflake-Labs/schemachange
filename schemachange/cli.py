@@ -238,10 +238,7 @@ def main():
         sys.exit(130)  # Standard exit code for SIGINT
     except Exception as e:
         module_logger.error(f"Unexpected error: {str(e)}")
-        if module_logger.isEnabledFor(logging.DEBUG):
-            module_logger.exception("Full traceback:")
-        else:
-            module_logger.error("Run with --schemachange-log-level DEBUG for detailed traceback.")
+        module_logger.exception("Full traceback:")
         sys.exit(1)
 
 
