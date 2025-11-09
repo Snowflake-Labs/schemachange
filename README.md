@@ -857,22 +857,15 @@ For more information about Snowflake access control:
 
 ## Upgrading to 4.1.0
 
-### Breaking Change: `--snowflake-private-key-passphrase` CLI Argument Removed
+### New Authentication CLI Arguments (with Security Design Decision)
 
-**Why was this removed?** For security reasons, schemachange 4.1.0 intentionally removes the `--snowflake-private-key-passphrase` CLI argument. Command-line arguments are visible in process lists (`ps aux`) and shell history files (`.bash_history`, `.zsh_history`), which exposes sensitive credentials to other users on the system and in log files.
+**What's new:** Version 4.1.0 adds CLI support for authentication parameters (`--snowflake-authenticator`, `--snowflake-private-key-path`, `--snowflake-token-file-path`). These were not available via CLI in previous versions (4.0.x and earlier).
 
-#### Migration Guide
+**Important Security Design:** For security reasons, `--snowflake-private-key-passphrase` is **intentionally NOT supported via CLI**. Command-line arguments are visible in process lists (`ps aux`) and shell history files (`.bash_history`, `.zsh_history`), which would expose sensitive credentials to other users on the system and in log files.
 
-❌ **This no longer works in 4.1.0+:**
-```bash
-# This will fail with "unrecognized arguments: --snowflake-private-key-passphrase"
-schemachange deploy \
-  --snowflake-authenticator snowflake_jwt \
-  --snowflake-private-key-path ~/.ssh/snowflake_key.p8 \
-  --snowflake-private-key-passphrase "my_passphrase"
-```
+#### Using Private Key Authentication in 4.1.0
 
-✅ **Option 1: Use environment variable (recommended for CI/CD):**
+✅ **Option 1: Environment variable (recommended for CI/CD):**
 ```bash
 export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="my_passphrase"
 schemachange deploy \
@@ -880,7 +873,7 @@ schemachange deploy \
   --snowflake-private-key-path ~/.ssh/snowflake_key.p8
 ```
 
-✅ **Option 2: Use connections.toml (recommended for local development):**
+✅ **Option 2: connections.toml (recommended for local development):**
 
 Create or update `~/.snowflake/connections.toml`:
 ```toml
@@ -902,7 +895,7 @@ Then deploy with the connection profile:
 schemachange deploy -C production
 ```
 
-✅ **Option 3: Use YAML config v2 + environment variable:**
+✅ **Option 3: YAML config v2 + environment variable:**
 
 In `schemachange-config.yml`:
 ```yaml
@@ -920,6 +913,12 @@ Then use environment variable for the passphrase:
 ```bash
 export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="my_passphrase"
 schemachange deploy
+```
+
+❌ **NEVER use passphrase as a CLI argument** (this was never supported and will not work):
+```bash
+# This will fail - CLI passphrases are not supported for security
+schemachange deploy --snowflake-private-key-passphrase "my_passphrase"
 ```
 
 **See [SECURITY.md](SECURITY.md) for comprehensive security best practices and authentication guidance.**

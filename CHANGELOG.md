@@ -51,12 +51,14 @@ All notable changes to this project will be documented in this file.
   - `--snowflake-*` prefixed arguments for Snowflake connection parameters (e.g., `--snowflake-account`)
   - New capital letter short forms: `-V` (vars), `-L` (log-level), `-Q` (query-tag), `-C` (connection-name)
   - Retained existing lowercase short forms: `-f`, `-m`, `-c`, `-ac` (no deprecation for backward compatibility)
-- **CLI Authentication Arguments**: Added command-line support for authentication parameters (previously only available via ENV and YAML)
+- **CLI Authentication Arguments**: Added command-line support for authentication parameters (NEW in 4.1.0 - not available in 4.0.x)
   - `--snowflake-authenticator`: Specify authentication method (snowflake, oauth, externalbrowser, snowflake_jwt, or Okta URL)
   - `--snowflake-private-key-path`: Path to private key file for JWT authentication
   - `--snowflake-token-file-path`: Path to OAuth token file
   - Configuration precedence: CLI > ENV > YAML > connections.toml
-  - Note: `--snowflake-private-key-passphrase` intentionally NOT supported via CLI for security (see "Removed" section)
+  - **Security Note**: `--snowflake-private-key-passphrase` intentionally NOT supported via CLI for security (use ENV or connections.toml only)
+    - CLI arguments are visible in process lists and shell history
+    - Prevents credential exposure to other users and log files
 - **Snowflake Programmatic Access Token (PAT) support** via `SNOWFLAKE_PASSWORD` with default authenticator - recommended for CI/CD and service accounts with MFA requirements
 - **OAuth token support** via `SNOWFLAKE_TOKEN_FILE_PATH` with `SNOWFLAKE_AUTHENTICATOR=oauth` for external OAuth providers
 - Token file reading with automatic whitespace handling and comprehensive error messages
@@ -94,13 +96,6 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - Fixed secret redaction functionality to properly handle configuration secrets (#312 by @zanebclark)
-
-### Removed
-- **`--snowflake-private-key-passphrase` CLI argument** (BREAKING CHANGE for security)
-  - Removed to prevent credential exposure in process lists and shell history
-  - **Migration**: Use `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` environment variable or store in `connections.toml` (with proper file permissions)
-  - This is an intentional security improvement to protect credentials
-  - See `SECURITY.md` for best practices
 
 ### Deprecated
 - Old unprefixed CLI arguments (`--vars`, `--query-tag`, `--log-level`) in favor of `--schemachange-*` prefixed versions
