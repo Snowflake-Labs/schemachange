@@ -75,6 +75,63 @@ def validate_file_path(file_path: Path | str | None) -> Path | None:
     return file_path
 
 
+def validate_connections_file_permissions(file_path: Path) -> None:
+    """
+    Validate that connections.toml file has secure permissions.
+
+    Warns if file is readable by group or others, as it may contain
+    sensitive credentials.
+
+    Args:
+        file_path: Path to connections.toml file
+    """
+    import stat
+    import warnings
+
+    if file_path is None or not file_path.exists():
+        return
+
+    try:
+        file_stat = file_path.stat()
+        mode = file_stat.st_mode
+
+        # Check if file is readable by group or others
+        if mode & stat.S_IRGRP or mode & stat.S_IROTH:
+            warnings.warn(
+                f"\n"
+                f"SECURITY WARNING: connections.toml file has insecure permissions!\n"
+                f"  File: {file_path}\n"
+                f"  Current permissions: {oct(stat.S_IMODE(mode))}\n"
+                f"  Recommended: 0o600 (read/write for owner only)\n"
+                f"\n"
+                f"To fix, run:\n"
+                f"  chmod 600 {file_path}\n"
+                f"\n"
+                f"This file may contain sensitive credentials and should only be\n"
+                f"readable by the file owner.\n",
+                UserWarning,
+                stacklevel=3,
+            )
+
+        # Also check if writable by group or others (even worse)
+        if mode & stat.S_IWGRP or mode & stat.S_IWOTH:
+            warnings.warn(
+                f"\n"
+                f"CRITICAL SECURITY WARNING: connections.toml is writable by others!\n"
+                f"  File: {file_path}\n"
+                f"  Current permissions: {oct(stat.S_IMODE(mode))}\n"
+                f"  This is a CRITICAL security issue!\n"
+                f"\n"
+                f"To fix immediately, run:\n"
+                f"  chmod 600 {file_path}\n",
+                UserWarning,
+                stacklevel=3,
+            )
+    except (OSError, AttributeError):
+        # If we can't check permissions (e.g., on Windows), silently pass
+        pass
+
+
 def validate_directory(path: Path | str | None) -> Path | None:
     if path is None:
         return None
@@ -151,11 +208,52 @@ def load_yaml_config(config_file_path: Path | None) -> dict[str, Any]:
             elif config_version == 1:
                 # Version 1: Flat structure (existing format)
                 config = raw_config
+                # Check for sensitive parameters in v1 YAML (security warning)
+                _check_yaml_v1_for_sensitive_params(config)
                 logger.info("Using config file (version 1)", config_file_path=str(config_file_path))
             else:
                 raise ValueError(f"Unsupported config-version: {config_version}. Supported versions are 1 and 2.")
 
     return config
+
+
+def _check_yaml_v1_for_sensitive_params(config: dict) -> None:
+    """
+    Check YAML v1 config for sensitive parameters and warn if found.
+
+    Args:
+        config: Flat YAML v1 configuration dictionary
+    """
+    import warnings
+
+    sensitive_params_v1 = {
+        "snowflake-password": "SNOWFLAKE_PASSWORD environment variable or connections.toml",
+        "snowflake-private-key-passphrase": "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE environment variable or connections.toml",
+    }
+
+    found_sensitive = []
+    for param, recommendation in sensitive_params_v1.items():
+        if param in config and config[param]:
+            found_sensitive.append((param, recommendation))
+
+    if found_sensitive:
+        warning_msg = (
+            "\n"
+            "SECURITY WARNING: Sensitive credentials found in YAML configuration!\n"
+            "\n"
+            "The following sensitive parameters should NOT be stored in YAML files:\n"
+        )
+        for param, recommendation in found_sensitive:
+            warning_msg += f"  - {param}: Use {recommendation} instead\n"
+        warning_msg += (
+            "\n"
+            "YAML files are often committed to version control and should not\n"
+            "contain passwords or other secrets. Use environment variables\n"
+            "or connections.toml (with proper file permissions) instead.\n"
+            "\n"
+            "Consider migrating to config-version 2 for better organization.\n"
+        )
+        warnings.warn(warning_msg, UserWarning, stacklevel=5)
 
 
 def _parse_yaml_v2(raw_config: dict) -> dict[str, Any]:
@@ -167,6 +265,8 @@ def _parse_yaml_v2(raw_config: dict) -> dict[str, Any]:
 
     Converts kebab-case keys to snake_case for schemachange parameters.
     """
+    import warnings
+
     config = {}
 
     # Extract schemachange section
@@ -181,6 +281,35 @@ def _parse_yaml_v2(raw_config: dict) -> dict[str, Any]:
     # Extract snowflake section
     snowflake_section = raw_config.get("snowflake", {})
     if snowflake_section:
+        # Check for sensitive parameters in YAML (security warning)
+        sensitive_params = {
+            "password": "SNOWFLAKE_PASSWORD environment variable or connections.toml",
+            "private-key-passphrase": "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE environment variable or connections.toml",
+            "token": "token-file-path with SNOWFLAKE_TOKEN_FILE_PATH or connections.toml",
+        }
+
+        found_sensitive = []
+        for param, recommendation in sensitive_params.items():
+            if param in snowflake_section and snowflake_section[param]:
+                found_sensitive.append((param, recommendation))
+
+        if found_sensitive:
+            warning_msg = (
+                "\n"
+                "SECURITY WARNING: Sensitive credentials found in YAML configuration!\n"
+                "\n"
+                "The following sensitive parameters should NOT be stored in YAML files:\n"
+            )
+            for param, recommendation in found_sensitive:
+                warning_msg += f"  - {param}: Use {recommendation} instead\n"
+            warning_msg += (
+                "\n"
+                "YAML files are often committed to version control and should not\n"
+                "contain passwords, tokens, or other secrets. Use environment variables\n"
+                "or connections.toml (with proper file permissions) instead.\n"
+            )
+            warnings.warn(warning_msg, UserWarning, stacklevel=4)
+
         # Store snowflake parameters for pass-through to connector
         # These will be handled separately in get_merged_config
         # Keep kebab-case as-is since Snowflake connector might expect it

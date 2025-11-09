@@ -235,14 +235,9 @@ def parse_cli_args(args) -> dict:
         "Can also be set via SNOWFLAKE_PRIVATE_KEY_PATH environment variable.",
         required=False,
     )
-    parser_deploy.add_argument(
-        "--snowflake-private-key-passphrase",
-        type=str,
-        dest="private_key_passphrase",
-        help="Passphrase for encrypted private key file. "
-        "Can also be set via SNOWFLAKE_PRIVATE_KEY_PASSPHRASE environment variable.",
-        required=False,
-    )
+    # NOTE: --snowflake-private-key-passphrase intentionally NOT supported via CLI for security
+    # (would be visible in process list and shell history)
+    # Use SNOWFLAKE_PRIVATE_KEY_PASSPHRASE environment variable or connections.toml instead
     parser_deploy.add_argument(
         "--snowflake-token-file-path",
         type=str,
@@ -364,9 +359,117 @@ def parse_cli_args(args) -> dict:
     )
     parser_render.add_argument("script_path", type=str, help="Path to the script to render")
 
+    parser_verify = subcommands.add_parser(
+        "verify",
+        description="Verifies Snowflake connectivity and displays configuration parameters. "
+        "This command tests the connection to Snowflake and reports the status along with "
+        "all configuration parameters being used.",
+        parents=[parent_parser],
+    )
+
+    # Snowflake connection arguments for verify (same as deploy)
+    parser_verify.add_argument(
+        "-a",
+        "--snowflake-account",
+        type=str,
+        help="The name of the snowflake account (e.g. xy12345.east-us-2.azure, "
+        "xy12345.east-us-2.azure.privatelink, org-accountname, org-accountname.privatelink). "
+        "Can also be set via SNOWFLAKE_ACCOUNT environment variable.",
+        required=False,
+    )
+    parser_verify.add_argument(
+        "-u",
+        "--snowflake-user",
+        type=str,
+        help="The name of the snowflake user. " "Can also be set via SNOWFLAKE_USER environment variable.",
+        required=False,
+    )
+    parser_verify.add_argument(
+        "-r",
+        "--snowflake-role",
+        type=str,
+        help="The name of the default role to use. " "Can also be set via SNOWFLAKE_ROLE environment variable.",
+        required=False,
+    )
+    parser_verify.add_argument(
+        "-w",
+        "--snowflake-warehouse",
+        type=str,
+        help="The name of the default warehouse to use. "
+        "Can also be set via SNOWFLAKE_WAREHOUSE environment variable.",
+        required=False,
+    )
+    parser_verify.add_argument(
+        "-d",
+        "--snowflake-database",
+        type=str,
+        help="The name of the default database to use. " "Can also be set via SNOWFLAKE_DATABASE environment variable.",
+        required=False,
+    )
+    parser_verify.add_argument(
+        "-s",
+        "--snowflake-schema",
+        type=str,
+        help="The name of the default schema to use. " "Can also be set via SNOWFLAKE_SCHEMA environment variable.",
+        required=False,
+    )
+
+    # Snowflake authentication arguments for verify
+    parser_verify.add_argument(
+        "--snowflake-authenticator",
+        type=str,
+        dest="authenticator",
+        help="The authenticator method to use (e.g. 'snowflake', 'oauth', 'externalbrowser', "
+        "'snowflake_jwt', or Okta URL). "
+        "Can also be set via SNOWFLAKE_AUTHENTICATOR environment variable.",
+        required=False,
+    )
+    parser_verify.add_argument(
+        "--snowflake-private-key-path",
+        type=str,
+        dest="private_key_path",
+        help="Path to private key file for JWT (snowflake_jwt) authentication. "
+        "Can also be set via SNOWFLAKE_PRIVATE_KEY_PATH environment variable.",
+        required=False,
+    )
+    # NOTE: --snowflake-private-key-passphrase intentionally NOT supported via CLI for security
+    # (would be visible in process list and shell history)
+    # Use SNOWFLAKE_PRIVATE_KEY_PASSPHRASE environment variable or connections.toml instead
+    parser_verify.add_argument(
+        "--snowflake-token-file-path",
+        type=str,
+        dest="token_file_path",
+        help="Path to OAuth token file (for use with --snowflake-authenticator oauth). "
+        "Can also be set via SNOWFLAKE_TOKEN_FILE_PATH environment variable.",
+        required=False,
+    )
+
+    # Connection configuration for verify
+    parser_verify.add_argument(
+        "-C",
+        "--schemachange-connection-name",
+        "--connection-name",
+        type=str,
+        dest="connection_name",
+        help="Override the default connections.toml connection name. "
+        "Can also be set via SCHEMACHANGE_CONNECTION_NAME environment variable. "
+        "(Deprecated alias: --connection-name)",
+        required=False,
+    )
+    parser_verify.add_argument(
+        "--schemachange-connections-file-path",
+        "--connections-file-path",
+        type=str,
+        dest="connections_file_path",
+        help="Override the default connections.toml file path at snowflake.connector.constants.CONNECTIONS_FILE (OS specific). "
+        "Can also be set via SCHEMACHANGE_CONNECTIONS_FILE_PATH environment variable. "
+        "(Deprecated alias: --connections-file-path)",
+        required=False,
+    )
+
     # The original parameters did not support subcommands. Check if a subcommand has been supplied
     # if not default to deploy to match original behaviour.
-    if len(args) == 0 or not any(subcommand in args[0].upper() for subcommand in ["DEPLOY", "RENDER"]):
+    if len(args) == 0 or not any(subcommand in args[0].upper() for subcommand in ["DEPLOY", "RENDER", "VERIFY"]):
         args = ["deploy"] + args
 
     parsed_args = parser.parse_args(args)

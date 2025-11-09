@@ -15,49 +15,29 @@ not break any existing functionality.
 
 ## Environment Variable Support (Version 4.1.0+)
 
-Starting with version 4.1.0, schemachange natively supports `SNOWFLAKE_*` environment variables for all connection and authentication parameters. This eliminates the need for workarounds like `populateConnection.sh` or `connections.toml` generation scripts.
+Starting with version 4.1.0, schemachange natively supports `SNOWFLAKE_*` environment variables for all connection and authentication parameters.
 
-### Configuration Priority Order
+**For complete documentation on environment variables, configuration priority, and all authentication methods, see:**
+- [Main README: Environment Variables](../README.md#environment-variables)
+- [Main README: Configuration Priority](../README.md#configuration-priority)
+- [SECURITY.md](../SECURITY.md) for authentication best practices
 
-Schemachange uses the following priority order when loading configuration (highest priority first):
+### Quick Reference
 
-1. **CLI arguments** - Explicitly provided command-line flags
-2. **Environment variables** - `SNOWFLAKE_*` prefixed variables
-3. **YAML configuration file** - `schemachange-config.yml`
-4. **Snowflake connections.toml** - Snowflake Python Connector's connection file
+**Configuration Priority:** CLI > ENV > YAML > connections.toml
 
-This means you can:
-- Set base configuration in `connections.toml` or YAML
-- Override with environment variables for CI/CD
-- Further override with CLI arguments for specific runs
+**Key Environment Variables:**
+- `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_PASSWORD`
+- `SNOWFLAKE_ROLE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_DATABASE`
+- `SNOWFLAKE_AUTHENTICATOR`, `SNOWFLAKE_PRIVATE_KEY_PATH`
 
-### Supported Environment Variables
-
-#### Connection Parameters
-- `SNOWFLAKE_ACCOUNT` - Snowflake account identifier
-- `SNOWFLAKE_USER` - Username for authentication
-- `SNOWFLAKE_PASSWORD` - Password for authentication
-- `SNOWFLAKE_ROLE` - Role to use after connecting
-- `SNOWFLAKE_WAREHOUSE` - Default warehouse
-- `SNOWFLAKE_DATABASE` - Default database
-- `SNOWFLAKE_SCHEMA` - Default schema
-
-#### Authentication Parameters
-- `SNOWFLAKE_AUTHENTICATOR` - Authentication method (e.g., `snowflake`, `oauth`, `externalbrowser`, `snowflake_jwt`)
-- `SNOWFLAKE_PRIVATE_KEY_PATH` - Path to private key file for key-pair authentication
-- `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` - Passphrase for encrypted private key
-- `SNOWFLAKE_TOKEN_FILE_PATH` - Path to OAuth token file (for external OAuth only, NOT for PAT)
-
-#### Configuration Parameters
-- `SNOWFLAKE_CONNECTIONS_FILE_PATH` - Custom path to `connections.toml`
-- `SNOWFLAKE_HOME` - Custom Snowflake home directory
-- `SNOWFLAKE_DEFAULT_CONNECTION_NAME` - Default connection name from `connections.toml`
+See main README for complete list and examples.
 
 ### Example Usage
 
 #### Basic Password Authentication
 ```bash
-export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
 export SNOWFLAKE_USER="demo_user"
 export SNOWFLAKE_PASSWORD="secure_password"
 export SNOWFLAKE_ROLE="SCHEMACHANGE_DEMO-DEPLOY"
@@ -70,7 +50,7 @@ schemachange deploy --config-folder ./demo/basics_demo
 
 #### Key-Pair Authentication
 ```bash
-export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
 export SNOWFLAKE_USER="demo_user"
 export SNOWFLAKE_AUTHENTICATOR="snowflake_jwt"
 export SNOWFLAKE_PRIVATE_KEY_PATH="~/.ssh/snowflake_key.p8"
@@ -93,7 +73,7 @@ schemachange deploy --config-folder ./demo/basics_demo
 echo "your_generated_token_here" > ~/.snowflake/pat_token.txt
 chmod 600 ~/.snowflake/pat_token.txt
 
-export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
 export SNOWFLAKE_USER="service_account"
 export SNOWFLAKE_PASSWORD=$(cat ~/.snowflake/pat_token.txt)
 export SNOWFLAKE_ROLE="SCHEMACHANGE_DEMO-DEPLOY"
@@ -141,7 +121,7 @@ All argument variants are documented in `schemachange deploy --help`.
 
 #### External Browser (SSO) Authentication
 ```bash
-export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
 export SNOWFLAKE_USER="demo_user"
 export SNOWFLAKE_AUTHENTICATOR="externalbrowser"
 export SNOWFLAKE_ROLE="SCHEMACHANGE_DEMO-DEPLOY"

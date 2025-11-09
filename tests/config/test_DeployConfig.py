@@ -248,29 +248,37 @@ def test_authentication_parameters_cli_takes_precedence_over_env(
     mock_get_authenticator,
     mock_get_password,
 ):
-    """Test that CLI authentication parameters take precedence over ENV variables"""
+    """Test that explicitly provided config parameters take precedence over ENV variables
+
+    Note: This tests the factory method's precedence logic. Parameters can come from
+    CLI args, YAML, or connections.toml. The private_key_passphrase can only come from
+    ENV or connections.toml (CLI support removed for security).
+    """
     # Set up ENV values
     mock_get_password.return_value = "env_password"
     mock_get_authenticator.return_value = "env_authenticator"
     mock_get_key_path.return_value = "/env/path/to/key.pem"
     mock_get_passphrase.return_value = "env_passphrase"
 
-    # Set up CLI values (these should win)
+    # Set up explicitly provided config values (from YAML, connections.toml, or CLI where supported)
+    # Note: authenticator and private_key_path CAN come from CLI
+    # private_key_passphrase can only come from ENV or connections.toml (not CLI)
     config_kwargs = {
         **minimal_deploy_config_kwargs,
-        "authenticator": "cli_authenticator",
-        "private_key_path": "/cli/path/to/key.pem",
-        "private_key_passphrase": "cli_passphrase",
+        "authenticator": "explicit_authenticator",
+        "private_key_path": "/explicit/path/to/key.pem",
+        # This would typically come from connections.toml, not CLI (CLI not supported for security)
+        "private_key_passphrase": "explicit_passphrase",
     }
 
     config = DeployConfig.factory(config_file_path=Path("."), **config_kwargs)
     session_kwargs = config.get_session_kwargs()
 
-    # CLI values should take precedence
-    assert session_kwargs["authenticator"] == "cli_authenticator"
-    assert session_kwargs["private_key_path"] == "/cli/path/to/key.pem"
-    assert session_kwargs["private_key_passphrase"] == "cli_passphrase"
-    # Password is only from ENV (not overridden by CLI in this test)
+    # Explicitly provided values should take precedence over ENV
+    assert session_kwargs["authenticator"] == "explicit_authenticator"
+    assert session_kwargs["private_key_path"] == "/explicit/path/to/key.pem"
+    assert session_kwargs["private_key_passphrase"] == "explicit_passphrase"
+    # Password is only from ENV (not overridden in this test)
     assert session_kwargs["password"] == "env_password"
 
 

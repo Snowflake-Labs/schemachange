@@ -308,15 +308,18 @@ def test_parse_args_parameter_precedence():
 
 
 def test_parse_args_authentication_parameters():
-    """Test that authentication parameters can be passed via CLI arguments"""
+    """Test that authentication parameters can be passed via CLI arguments
+
+    Note: --snowflake-private-key-passphrase is intentionally NOT supported via CLI
+    for security reasons (would be visible in process list and shell history).
+    Use SNOWFLAKE_PRIVATE_KEY_PASSPHRASE environment variable instead.
+    """
     args = [
         "deploy",
         "--snowflake-authenticator",
         "snowflake_jwt",
         "--snowflake-private-key-path",
         "/path/to/key.pem",
-        "--snowflake-private-key-passphrase",
-        "my_passphrase",
         "--snowflake-token-file-path",
         "/path/to/token.txt",
     ]
@@ -324,8 +327,28 @@ def test_parse_args_authentication_parameters():
 
     assert parsed_args["authenticator"] == "snowflake_jwt"
     assert parsed_args["private_key_path"] == "/path/to/key.pem"
-    assert parsed_args["private_key_passphrase"] == "my_passphrase"
     assert parsed_args["token_file_path"] == "/path/to/token.txt"
+    # private_key_passphrase should NOT be in parsed_args (CLI support removed for security)
+    assert "private_key_passphrase" not in parsed_args
+
+
+def test_parse_args_private_key_passphrase_cli_not_supported():
+    """Test that --snowflake-private-key-passphrase is NOT accepted via CLI
+
+    This CLI argument was intentionally removed for security reasons.
+    It should cause argparse to fail with "unrecognized arguments".
+    """
+    import pytest
+
+    args = [
+        "deploy",
+        "--snowflake-private-key-passphrase",
+        "my_passphrase",
+    ]
+
+    # Should raise SystemExit (argparse error for unrecognized argument)
+    with pytest.raises(SystemExit):
+        parse_cli_args(args)
 
 
 def test_parse_args_all_argument_variants():

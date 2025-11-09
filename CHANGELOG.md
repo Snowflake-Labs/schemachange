@@ -3,8 +3,32 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
-## [4.1.0] - 2025-11-14
+## [4.1.0] - Unreleased
 ### Added
+- **New `verify` command**: Test Snowflake connectivity and display configuration parameters
+  - Tests actual connection to Snowflake with configured credentials
+  - Displays all configuration parameters with secrets properly masked
+  - Shows connection details after successful connection (session ID, Snowflake version)
+  - Provides clear troubleshooting guidance if connection fails
+  - Useful for CI/CD validation, troubleshooting, security audits, and onboarding
+  - Example: `schemachange verify` or `schemachange verify -C production`
+- **Enhanced error handling**: Graceful handling of Snowflake connection errors with clear, actionable messages
+  - No more raw Python tracebacks for connection failures
+  - User-friendly error messages with troubleshooting hints
+  - Proper exit codes for all error types
+  - References `schemachange verify` command for diagnostics
+- **Security warnings for insecure configurations**:
+  - Automatic validation of `connections.toml` file permissions with warnings if readable/writable by others
+  - Detection and warnings for sensitive credentials (passwords, tokens, passphrases) in YAML files
+  - Actionable remediation steps provided (e.g., `chmod 600` commands)
+  - Security warnings are non-blocking but educate users on best practices
+- **Comprehensive security documentation**: New `SECURITY.md` file with:
+  - Authentication best practices (PATs, JWT, OAuth, connections.toml)
+  - Parameter source decision tree diagram
+  - Scenario-based examples (local dev, CI/CD, production, multi-environment)
+  - Security checklist for deployments
+  - Incident response procedures for credential leaks
+  - Quick reference table for all credential types
 - **YAML Config Version 2**: New structured YAML format with separate `schemachange` and `snowflake` sections for better organization
   - `config-version: 2` enables the new format
   - Backward compatible with `config-version: 1` (flat structure)
@@ -30,9 +54,9 @@ All notable changes to this project will be documented in this file.
 - **CLI Authentication Arguments**: Added command-line support for authentication parameters (previously only available via ENV and YAML)
   - `--snowflake-authenticator`: Specify authentication method (snowflake, oauth, externalbrowser, snowflake_jwt, or Okta URL)
   - `--snowflake-private-key-path`: Path to private key file for JWT authentication
-  - `--snowflake-private-key-passphrase`: Passphrase for encrypted private key
   - `--snowflake-token-file-path`: Path to OAuth token file
   - Configuration precedence: CLI > ENV > YAML > connections.toml
+  - Note: `--snowflake-private-key-passphrase` intentionally NOT supported via CLI for security (see "Removed" section)
 - **Snowflake Programmatic Access Token (PAT) support** via `SNOWFLAKE_PASSWORD` with default authenticator - recommended for CI/CD and service accounts with MFA requirements
 - **OAuth token support** via `SNOWFLAKE_TOKEN_FILE_PATH` with `SNOWFLAKE_AUTHENTICATOR=oauth` for external OAuth providers
 - Token file reading with automatic whitespace handling and comprehensive error messages
@@ -64,6 +88,13 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - Fixed secret redaction functionality to properly handle configuration secrets (#312 by @zanebclark)
+
+### Removed
+- **`--snowflake-private-key-passphrase` CLI argument** (BREAKING CHANGE for security)
+  - Removed to prevent credential exposure in process lists and shell history
+  - **Migration**: Use `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` environment variable or store in `connections.toml` (with proper file permissions)
+  - This is an intentional security improvement to protect credentials
+  - See `SECURITY.md` for best practices
 
 ### Deprecated
 - Old unprefixed CLI arguments (`--vars`, `--query-tag`, `--log-level`) in favor of `--schemachange-*` prefixed versions

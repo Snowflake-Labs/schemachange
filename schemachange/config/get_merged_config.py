@@ -23,9 +23,11 @@ from schemachange.config.utils import (
     get_snowflake_user,
     get_snowflake_warehouse,
     load_yaml_config,
+    validate_connections_file_permissions,
     validate_directory,
     validate_file_path,
 )
+from schemachange.config.VerifyConfig import VerifyConfig
 
 
 def get_env_config_kwargs() -> dict:
@@ -106,7 +108,7 @@ def get_yaml_config_kwargs(config_file_path: Optional[Path]) -> dict:
 
 def get_merged_config(
     logger: structlog.BoundLogger,
-) -> Union[DeployConfig, RenderConfig]:
+) -> Union[DeployConfig, RenderConfig, VerifyConfig]:
     cli_kwargs = parse_cli_args(sys.argv[1:])
     logger.debug("cli_kwargs", **cli_kwargs)
 
@@ -145,6 +147,8 @@ def get_merged_config(
     if connections_file_path is not None:
         try:
             connections_file_path = validate_file_path(file_path=connections_file_path)
+            # Validate file permissions for security
+            validate_connections_file_permissions(connections_file_path)
         except ValueError:
             logger.debug(
                 "connections-file-path specified but file does not exist, "
@@ -217,5 +221,7 @@ def get_merged_config(
         return DeployConfig.factory(**kwargs)
     elif cli_kwargs["subcommand"] == "render":
         return RenderConfig.factory(**kwargs)
+    elif cli_kwargs["subcommand"] == "verify":
+        return VerifyConfig.factory(**kwargs)
     else:
         raise Exception(f"unhandled subcommand: {cli_kwargs['subcommand']}")

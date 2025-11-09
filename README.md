@@ -55,11 +55,17 @@ support or warranty.
         1. [Yaml Jinja support](#yaml-jinja-support)
     1. [Environment Variables](#environment-variables)
     1. [Configuration Priority](#configuration-priority)
+    1. [Account Identifier Format](#account-identifier-format)
+    1. [Required Snowflake Privileges](#required-snowflake-privileges)
+1. [Upgrading to 4.1.0](#upgrading-to-410)
 1. [Commands](#commands)
     1. [deploy](#deploy)
     1. [render](#render)
+    1. [verify](#verify)
+1. [Troubleshooting](#troubleshooting)
 1. [Running schemachange](#running-schemachange)
     1. [Prerequisites](#prerequisites)
+    1. [Supported Python Versions](#supported-python-versions)
     1. [Running the Script](#running-the-script)
 1. [Integrating With DevOps](#integrating-with-devops)
     1. [Sample DevOps Process Flow](#sample-devops-process-flow)
@@ -310,13 +316,44 @@ The following authenticators are supported:
 
 If an authenticator is unsupported, an exception will be raised.
 
+**Security Note:** For detailed security guidance on credential management, authentication best practices, and preventing credential leakage, please see [SECURITY.md](SECURITY.md).
+
 ### Password Authentication
 
-Password authentication is the default authenticator. Supplying `snowflake` as your authenticator will set it
-explicitly. A `password` may be supplied in the [connections.toml](#connectionstoml-file) file but can also
-passed via environment variable `SNOWFLAKE_PASSWORD` (recommended).
+Password authentication is the default authenticator (or set `authenticator: snowflake` explicitly).
 
-The password parameter also accepts the Programmatic Access Token as long as the value for password is the PAT value.
+#### For Accounts WITHOUT MFA
+
+Use your regular Snowflake password via `SNOWFLAKE_PASSWORD` environment variable (recommended) or in [connections.toml](#connectionstoml-file):
+
+```bash
+export SNOWFLAKE_PASSWORD="your_password"
+schemachange deploy
+```
+
+#### For Accounts WITH MFA (Required)
+
+If your account has Multi-Factor Authentication (MFA) enabled, you **must** use a **Programmatic Access Token (PAT)** instead of your password.
+
+**What is a PAT?**
+A Programmatic Access Token is a long-lived token that allows automated tools to authenticate without MFA prompts. It's more secure than disabling MFA for service accounts.
+
+**How to use a PAT:**
+
+```bash
+export SNOWFLAKE_PASSWORD="<your_pat_token>"  # Use PAT, not your actual password
+schemachange deploy
+```
+
+**How to generate a PAT:**
+1. Log into Snowflake Web UI
+2. Go to your user preferences
+3. Generate a new Programmatic Access Token
+4. Copy the token and use it as your password
+
+For detailed PAT setup and best practices, see:
+- [Snowflake PAT Documentation](https://docs.snowflake.com/en/user-guide/ui-snowsight-profile#generate-a-programmatic-access-token)
+- [SECURITY.md](SECURITY.md) for comprehensive authentication guidance
 
 ### External OAuth Authentication
 
@@ -449,7 +486,7 @@ schemachange:
 
 snowflake:
   # Snowflake connection parameters (these can also come from connections.toml or environment variables)
-  account: 'myaccount.us-east-1'
+  account: 'myaccount.us-east-1.aws'
   user: 'my_user'
   role: 'MY_ROLE'
   warehouse: 'MY_WH'
@@ -579,7 +616,7 @@ These Snowflake-specific environment variables are explicitly handled by schemac
 
 | Environment Variable | Description | Example |
 |---------------------|-------------|---------|
-| `SNOWFLAKE_ACCOUNT` | Snowflake account identifier | `myaccount.us-east-1` |
+| `SNOWFLAKE_ACCOUNT` | Snowflake account identifier | `myaccount.us-east-1.aws` |
 | `SNOWFLAKE_USER` | Username for authentication | `my_user` |
 | `SNOWFLAKE_PASSWORD` | Password for authentication (also supports PATs) | `my_password` or `<pat_token>` |
 | `SNOWFLAKE_ROLE` | Role to use after connecting | `TRANSFORMER` |
@@ -632,7 +669,7 @@ For a complete list of supported connector parameters, see the [Snowflake Python
 
 **Basic Password Authentication:**
 ```bash
-export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
 export SNOWFLAKE_USER="deploy_user"
 export SNOWFLAKE_PASSWORD="secure_password"
 export SNOWFLAKE_ROLE="DEPLOY_ROLE"
@@ -644,7 +681,7 @@ schemachange deploy --config-folder ./migrations
 
 **Key-Pair Authentication:**
 ```bash
-export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
 export SNOWFLAKE_USER="deploy_user"
 export SNOWFLAKE_AUTHENTICATOR="snowflake_jwt"
 export SNOWFLAKE_PRIVATE_KEY_PATH="~/.ssh/snowflake_key.p8"
@@ -656,7 +693,7 @@ schemachange deploy --config-folder ./migrations
 
 **Programmatic Access Token (PAT):**
 ```bash
-export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
 export SNOWFLAKE_USER="service_account"
 export SNOWFLAKE_PASSWORD="<your_pat_token>"
 export SNOWFLAKE_ROLE="DEPLOY_ROLE"
@@ -727,7 +764,7 @@ snowflake:
 
 ```bash
 # Environment Variables
-export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
 export SNOWFLAKE_CLIENT_SESSION_KEEP_ALIVE="true"
 export SNOWFLAKE_LOGIN_TIMEOUT="60"
 export SNOWFLAKE_NETWORK_TIMEOUT="120"
@@ -735,7 +772,139 @@ export SNOWFLAKE_NETWORK_TIMEOUT="120"
 schemachange deploy
 ```
 
-For comprehensive connector documentation and the full list of connection parameters, see the [Snowflake Python Connector documentation](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect).
+For comprehensive connector documentation and the full list of connection parameters, see:
+- [Snowflake Python Connector Documentation](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect)
+- [Snowflake Connector API Reference](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-api) - Complete parameter reference for additional_snowflake_params
+
+### Account Identifier Format
+
+Snowflake account identifiers can be specified in multiple formats. Choose the format that matches your account setup:
+
+#### Legacy Format (Account Locator)
+```
+<account_locator>.<region>.<cloud>
+```
+**Examples:**
+- `xy12345.us-east-1.aws`
+- `ab67890.us-central1.gcp`
+- `cd34567.west-europe.azure`
+
+#### Preferred Format (Organization Name)
+```
+<orgname>-<account_name>
+```
+**Examples:**
+- `myorg-myaccount`
+- `acme-production`
+
+**How to find your account identifier:**
+1. Log into Snowflake Web UI
+2. Look at the URL or account locator in your profile
+3. Or run: `SELECT CURRENT_ACCOUNT_NAME();` in Snowflake
+
+**Important:** Do NOT include `snowflakecomputing.com` in the account identifier when configuring schemachange.
+
+For detailed information about account identifiers, see:
+- [Snowflake Account Identifiers](https://docs.snowflake.com/en/user-guide/admin-account-identifier)
+- [Connection Parameter Reference](https://docs.snowflake.com/en/user-guide/python-connector-api.html#label-account-format-info)
+
+### Required Snowflake Privileges
+
+The Snowflake user running schemachange needs appropriate privileges:
+
+**Minimum Required:**
+- `USAGE` on the target database and schema
+- `SELECT` and `INSERT` on the change history table
+- Privileges to execute your change scripts (e.g., `CREATE TABLE`, `CREATE VIEW`, etc.)
+
+**For automatic change history table creation:**
+- `CREATE SCHEMA` on the metadata database (if using `--create-change-history-table`)
+
+**Example privilege grants:**
+```sql
+-- Grant database and schema access
+GRANT USAGE ON DATABASE my_database TO ROLE deployment_role;
+GRANT USAGE ON SCHEMA my_database.my_schema TO ROLE deployment_role;
+
+-- Grant change history table access
+GRANT SELECT, INSERT ON TABLE metadata.schemachange.change_history TO ROLE deployment_role;
+
+-- Grant privileges for change scripts
+GRANT CREATE TABLE, CREATE VIEW ON SCHEMA my_database.my_schema TO ROLE deployment_role;
+```
+
+For more information about Snowflake access control:
+- [Snowflake Access Control Overview](https://docs.snowflake.com/en/user-guide/security-access-control-overview)
+- [GRANT Command Reference](https://docs.snowflake.com/en/sql-reference/sql/grant-privilege)
+
+## Upgrading to 4.1.0
+
+### Breaking Change: `--snowflake-private-key-passphrase` CLI Argument Removed
+
+**Why was this removed?** For security reasons, schemachange 4.1.0 intentionally removes the `--snowflake-private-key-passphrase` CLI argument. Command-line arguments are visible in process lists (`ps aux`) and shell history files (`.bash_history`, `.zsh_history`), which exposes sensitive credentials to other users on the system and in log files.
+
+#### Migration Guide
+
+❌ **This no longer works in 4.1.0+:**
+```bash
+# This will fail with "unrecognized arguments: --snowflake-private-key-passphrase"
+schemachange deploy \
+  --snowflake-authenticator snowflake_jwt \
+  --snowflake-private-key-path ~/.ssh/snowflake_key.p8 \
+  --snowflake-private-key-passphrase "my_passphrase"
+```
+
+✅ **Option 1: Use environment variable (recommended for CI/CD):**
+```bash
+export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="my_passphrase"
+schemachange deploy \
+  --snowflake-authenticator snowflake_jwt \
+  --snowflake-private-key-path ~/.ssh/snowflake_key.p8
+```
+
+✅ **Option 2: Use connections.toml (recommended for local development):**
+
+Create or update `~/.snowflake/connections.toml`:
+```toml
+[production]
+account = "myaccount.us-east-1.aws"
+user = "service_account"
+authenticator = "snowflake_jwt"
+private_key_path = "~/.ssh/snowflake_key.p8"
+private_key_passphrase = "my_passphrase"
+```
+
+**Important:** Set secure file permissions:
+```bash
+chmod 600 ~/.snowflake/connections.toml
+```
+
+Then deploy with the connection profile:
+```bash
+schemachange deploy -C production
+```
+
+✅ **Option 3: Use YAML config v2 + environment variable:**
+
+In `schemachange-config.yml`:
+```yaml
+config-version: 2
+
+snowflake:
+  account: myaccount.us-east-1
+  user: service_account
+  authenticator: snowflake_jwt
+  private-key-path: ~/.ssh/snowflake_key.p8
+  # Do NOT put private-key-passphrase here!
+```
+
+Then use environment variable for the passphrase:
+```bash
+export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="my_passphrase"
+schemachange deploy
+```
+
+**See [SECURITY.md](SECURITY.md) for comprehensive security best practices and authentication guidance.**
 
 ## Commands
 
@@ -791,7 +960,7 @@ Most arguments also support short forms (single dash, single letter) for conveni
 | -s, --snowflake-schema | -s | SNOWFLAKE_SCHEMA | Default schema |
 | --snowflake-authenticator | | SNOWFLAKE_AUTHENTICATOR | Authentication method (e.g., 'snowflake', 'oauth', 'externalbrowser', 'snowflake_jwt') |
 | --snowflake-private-key-path | | SNOWFLAKE_PRIVATE_KEY_PATH | Path to private key file for JWT authentication |
-| --snowflake-private-key-passphrase | | SNOWFLAKE_PRIVATE_KEY_PASSPHRASE | Passphrase for encrypted private key |
+| (none - ENV only) | | SNOWFLAKE_PRIVATE_KEY_PASSPHRASE | Passphrase for encrypted private key (environment variable or connections.toml only, not available via CLI for security) |
 | --snowflake-token-file-path | | SNOWFLAKE_TOKEN_FILE_PATH | Path to OAuth token file (use with --snowflake-authenticator oauth) |
 
 **Note on Argument Aliases:**
@@ -817,15 +986,69 @@ troubleshooting of script that use features from the jinja template engine.
 | -L, --schemachange-log-level, --log-level | Logging level: DEBUG, INFO, WARNING, ERROR, or CRITICAL (default: INFO) |
 | script | Path to the script to render |
 
+### verify
+
+This subcommand tests Snowflake connectivity and displays all configuration parameters being used. It is useful for troubleshooting connection issues, validating credentials before deployment, and auditing configuration in CI/CD pipelines.
+
+`usage: schemachange verify [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-V VARS] [-L LOG_LEVEL] [-a ACCOUNT] [-u USER] [-r ROLE] [-w WAREHOUSE] [-d DATABASE] [-s SCHEMA] [--snowflake-authenticator AUTHENTICATOR] [--snowflake-private-key-path PATH] [--snowflake-token-file-path PATH] [-C CONNECTION_NAME] [--schemachange-connections-file-path PATH]`
+
+**What it does:**
+- Tests connection to Snowflake with your configured credentials
+- Displays all configuration parameters (with secrets masked)
+- Shows connection details after successful connection (session ID, Snowflake version)
+- Provides clear troubleshooting guidance if connection fails
+
+**Common Use Cases:**
+```bash
+# Test connection with environment variables
+schemachange verify
+
+# Test connection with specific credentials
+schemachange verify -a myaccount.us-east-1 -u myuser -r MYROLE
+
+# Test connection with connections.toml profile
+schemachange verify -C production
+
+# Test configuration from YAML file
+schemachange verify --config-folder ./config
+```
+
+**Configuration Parameters:**
+
+The verify command accepts the same configuration parameters as deploy (except deployment-specific options like `--change-history-table`, `--autocommit`, etc.):
+
+| Parameter Category | Parameters |
+|-------------------|------------|
+| **Schemachange Config** | --config-folder, -f/--schemachange-root-folder, -m/--schemachange-modules-folder, -V/--schemachange-vars, -L/--schemachange-log-level |
+| **Snowflake Connection** | -a/--snowflake-account, -u/--snowflake-user, -r/--snowflake-role, -w/--snowflake-warehouse, -d/--snowflake-database, -s/--snowflake-schema |
+| **Authentication** | --snowflake-authenticator, --snowflake-private-key-path, --snowflake-token-file-path |
+| **Connection Profile** | -C/--schemachange-connection-name, --schemachange-connections-file-path |
+
+**Note:** For security, passwords and private key passphrases are NOT accepted via CLI arguments. Use `SNOWFLAKE_PASSWORD` and `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` environment variables, or store them in `connections.toml` (with proper file permissions). See [SECURITY.md](SECURITY.md) for security best practices.
+
+## Troubleshooting
+
+For detailed troubleshooting guidance including common errors and solutions, see **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)**.
+
+**Quick diagnostics:** Use the [`verify` command](#verify) to test connectivity and validate your configuration:
+```bash
+schemachange verify
+```
+
+Common issues covered in the troubleshooting guide:
+- Connection errors (authentication failures, network issues)
+- Permission and access errors (missing tables, insufficient privileges)
+- Security warnings (insecure file permissions, credentials in YAML)
+- Configuration and script errors (Jinja templates, invalid JSON)
+
 ## Running schemachange
 
 ### Prerequisites
 
 In order to run schemachange you must have the following:
 
-* You will need to have a recent version of python 3 installed
-* You will need to have the
-  latest [Snowflake Python driver installed](https://docs.snowflake.com/en/user-guide/python-connector-install.html)
+* **Python 3.9 or later** - schemachange requires Python 3.9 or newer (see [Supported Python Versions](#supported-python-versions) below)
+* **Snowflake Python Connector (version 2.8+, but < 4.0)** - Install via `pip install schemachange` which includes the appropriate connector version. See the [Snowflake Python Connector documentation](https://docs.snowflake.com/en/user-guide/python-connector-install.html) for more details
 * You will need to create the change history table used by schemachange in Snowflake (
   see [Change History Table](#change-history-table) above for more details)
     * First, you will need to create a database to store your change history table (schemachange will not help you with
@@ -840,6 +1063,19 @@ In order to run schemachange you must have the following:
       schemachange with has privileges to create a schema and table in that database)
 * You will need to create (or choose) a user account that has privileges to apply the changes in your change script
     * Don't forget that this user also needs the SELECT and INSERT privileges on the change history table
+
+### Supported Python Versions
+
+schemachange follows Python's official [end-of-life schedule](https://endoflife.date/python). When a Python version reaches EOL, support may be dropped in the next major schemachange release.
+
+| Python Version | Status | Notes |
+|----------------|--------|-------|
+| 3.13+ | ⚠️ Not tested | May work but not officially tested |
+| 3.12 | ✅ Supported | Fully tested and supported |
+| 3.11 | ✅ Supported | Fully tested and supported |
+| 3.10 | ✅ Supported | Fully tested and supported |
+| 3.9 | ✅ Supported | Minimum required version |
+| 3.8 | ❌ Not supported | Dropped in version 4.1.0 |
 
 ### Running the Script
 
