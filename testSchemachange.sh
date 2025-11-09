@@ -1,5 +1,21 @@
 #!/bin/bash
 # Script used in github actions to run test the schemachange functionality against the demo scenarios included in the repository.
+
+# Verify connectivity and configuration before attempting deployments
+echo "::group::Verifying Snowflake Connectivity and Configuration"
+uv run schemachange verify \
+--config-folder ./demo \
+--config-file-name schemachange-config-setup.yml
+VERIFY_RESULT=$?
+
+if [ $VERIFY_RESULT -ne 0 ]; then
+    echo "::error::Connectivity verification failed! Check credentials and configuration."
+    echo "::endgroup::"
+    exit 1
+fi
+echo "✅ Connectivity verified successfully!"
+echo "::endgroup::"
+
 echo "::group::Setting up ${MY_TARGET_SCHEMA}"
 uv run schemachange deploy \
 --config-folder ./demo \
