@@ -101,6 +101,11 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - Fixed secret redaction functionality to properly handle configuration secrets (#312 by @zanebclark)
+- **Fixed config_vars merging to properly include environment variables**: `SCHEMACHANGE_VARS` environment variable now correctly merges with YAML and CLI vars following the documented precedence (CLI > ENV > YAML). Previously, ENV vars were incorrectly ignored in the merging process.
+  - **Impact**: Users setting `SCHEMACHANGE_VARS` environment variable will now see those variables properly merged into their configuration
+  - **Behavior**: When the same variable key exists in multiple sources, CLI takes precedence over ENV, which takes precedence over YAML
+  - **Example**: If CLI sets `{"var1": "cli"}`, ENV sets `{"var2": "env"}`, and YAML sets `{"var3": "yaml"}`, all three will be available: `{"var1": "cli", "var2": "env", "var3": "yaml"}`
+- **Improved missing config file handling**: Added informative log message when specified config file is not found. Schemachange now clearly indicates it's using CLI arguments, environment variables, and defaults instead of silently proceeding.
 
 ### Deprecated
 - Old unprefixed CLI arguments (`--vars`, `--query-tag`, `--log-level`) in favor of `--schemachange-*` prefixed versions

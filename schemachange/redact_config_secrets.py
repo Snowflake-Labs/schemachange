@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import copy
 import warnings
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import structlog
 from structlog import PrintLogger
@@ -15,7 +16,7 @@ def get_redact_config_secrets_processor(
         def redact_value(level: int, value: Any):
             if level > 6:
                 warnings.warn(
-                    "Unable to redact deeply nested secrets in log: {event}".format(event=event_dict["event"]),
+                    f"Unable to redact deeply nested secrets in log: {event_dict['event']}",
                     stacklevel=2,
                 )
                 return value

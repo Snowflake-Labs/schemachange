@@ -35,14 +35,14 @@ class TestSnowflakeSession:
         result = session.fetch_change_history_metadata()
         assert result == {"created": "created", "last_altered": "last_altered"}
         assert session.con.execute_string.call_count == 1
-        assert session.logger.calls[1][1][0] == "Executing query"
+        assert session.logger.calls[2][1][0] == "Executing query"
 
     def test_fetch_change_history_metadata_does_not_exist(self, session: SnowflakeSession):
         session.con.execute_string.return_value = [[]]
         result = session.fetch_change_history_metadata()
         assert result == {}
         assert session.con.execute_string.call_count == 1
-        assert session.logger.calls[1][1][0] == "Executing query"
+        assert session.logger.calls[2][1][0] == "Executing query"
 
     def test_snowflake_session_with_additional_params_from_yaml_v2(self):
         """Test that additional_snowflake_params from YAML v2 are passed to connector."""

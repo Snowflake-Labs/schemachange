@@ -166,14 +166,19 @@ def get_merged_config(
     if connection_name is None:
         connection_name = yaml_kwargs.pop("connection_name", None)
 
-    # Handle config_vars merging (CLI > YAML)
+    # Handle config_vars merging (CLI > ENV > YAML)
     yaml_config_vars = yaml_kwargs.pop("config_vars", None)
     if yaml_config_vars is None:
         yaml_config_vars = {}
+    
+    env_config_vars = env_kwargs.pop("config_vars", None)
+    if env_config_vars is None:
+        env_config_vars = {}
 
     config_vars = {
-        **yaml_config_vars,
-        **cli_config_vars,
+        **yaml_config_vars,   # P3: YAML (lowest priority)
+        **env_config_vars,    # P2: ENV (middle priority)
+        **cli_config_vars,    # P1: CLI (highest priority)
     }
 
     # Handle additional_snowflake_params merging (ENV > YAML)

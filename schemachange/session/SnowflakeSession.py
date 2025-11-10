@@ -100,7 +100,7 @@ class SnowflakeSession:
 
         self.logger.debug("snowflake.connector.connect kwargs", **connect_kwargs)
         self.con = snowflake.connector.connect(**connect_kwargs)
-        print(f"Current session ID: {self.con.session_id}")
+        self.logger.info("Snowflake connection established", session_id=self.con.session_id)
         self.account = self.con.account
         self.user = get_snowflake_identifier_string(self.con.user, "user")
         self.role = get_snowflake_identifier_string(self.con.role, "role")

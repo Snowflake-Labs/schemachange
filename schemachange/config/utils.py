@@ -213,6 +213,13 @@ def load_yaml_config(config_file_path: Path | None) -> dict[str, Any]:
                 logger.info("Using config file (version 1)", config_file_path=str(config_file_path))
             else:
                 raise ValueError(f"Unsupported config-version: {config_version}. Supported versions are 1 and 2.")
+    elif config_file_path is not None:
+        # Config file path was specified but file doesn't exist
+        logger.info(
+            f"Config file '{config_file_path}' not found. "
+            f"Using configuration from CLI arguments, environment variables, and defaults. "
+            f"Setting config_file_path={config_file_path}"
+        )
 
     return config
 

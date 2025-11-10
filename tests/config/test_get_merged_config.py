@@ -1526,3 +1526,203 @@ def test_additional_snowflake_params_precedence(
     for key, expected_value in expected.items():
         assert key in factory_kwargs, f"Expected key '{key}' not found in factory_kwargs"
         assert factory_kwargs[key] == expected_value, f"Expected {key}={expected_value}, got {factory_kwargs[key]}"
+
+
+# ============================================================================
+# Config Vars (--vars) Merging Tests
+# ============================================================================
+# These tests verify that config_vars are correctly merged from CLI > ENV > YAML
+
+
+@pytest.mark.parametrize(
+    "env_vars, cli_kwargs, yaml_kwargs, expected_config_vars",
+    [
+        pytest.param(
+            # env_vars with SCHEMACHANGE_VARS
+            {"SCHEMACHANGE_VARS": '{"test_var1": "env_val"}'},
+            # cli_kwargs (no vars)
+            {**default_cli_kwargs},
+            # yaml_kwargs with vars
+            {"config_vars": {"test_var1": "yaml_val"}},
+            # expected (ENV should override YAML)
+            {"test_var1": "env_val"},
+            id="Config vars: ENV overrides YAML",
+        ),
+        pytest.param(
+            # env_vars with SCHEMACHANGE_VARS
+            {"SCHEMACHANGE_VARS": '{"test_var1": "env_val"}'},
+            # cli_kwargs with vars
+            {**default_cli_kwargs, "config_vars": {"test_var1": "cli_val"}},
+            # yaml_kwargs with vars
+            {"config_vars": {"test_var1": "yaml_val"}},
+            # expected (CLI should override ENV and YAML)
+            {"test_var1": "cli_val"},
+            id="Config vars: CLI overrides ENV overrides YAML",
+        ),
+        pytest.param(
+            # env_vars (no SCHEMACHANGE_VARS)
+            {},
+            # cli_kwargs with vars
+            {**default_cli_kwargs, "config_vars": {"test_var1": "cli_val"}},
+            # yaml_kwargs with vars
+            {"config_vars": {"test_var1": "yaml_val"}},
+            # expected (CLI should override YAML)
+            {"test_var1": "cli_val"},
+            id="Config vars: CLI overrides YAML (no ENV)",
+        ),
+        pytest.param(
+            # env_vars with SCHEMACHANGE_VARS
+            {"SCHEMACHANGE_VARS": '{"test_var1": "env_val"}'},
+            # cli_kwargs (no vars)
+            {**default_cli_kwargs},
+            # yaml_kwargs (no vars)
+            {},
+            # expected (only ENV)
+            {"test_var1": "env_val"},
+            id="Config vars: ENV only",
+        ),
+        pytest.param(
+            # env_vars (no SCHEMACHANGE_VARS)
+            {},
+            # cli_kwargs (no vars)
+            {**default_cli_kwargs},
+            # yaml_kwargs with vars
+            {"config_vars": {"test_var1": "yaml_val"}},
+            # expected (only YAML)
+            {"test_var1": "yaml_val"},
+            id="Config vars: YAML only",
+        ),
+        pytest.param(
+            # env_vars with different var
+            {"SCHEMACHANGE_VARS": '{"test_var2": "env_val"}'},
+            # cli_kwargs with different var
+            {**default_cli_kwargs, "config_vars": {"test_var1": "cli_val"}},
+            # yaml_kwargs with different var
+            {"config_vars": {"test_var3": "yaml_val"}},
+            # expected (ALL THREE should merge)
+            {
+                "test_var1": "cli_val",
+                "test_var2": "env_val",
+                "test_var3": "yaml_val",
+            },
+            id="Config vars: all different keys merge together",
+        ),
+        pytest.param(
+            # env_vars with overlapping vars
+            {"SCHEMACHANGE_VARS": '{"var1": "env_val1", "var2": "env_val2"}'},
+            # cli_kwargs with partial overlap
+            {**default_cli_kwargs, "config_vars": {"var1": "cli_val1", "var3": "cli_val3"}},
+            # yaml_kwargs with partial overlap
+            {"config_vars": {"var1": "yaml_val1", "var2": "yaml_val2", "var4": "yaml_val4"}},
+            # expected (CLI > ENV > YAML with all unique keys present)
+            {
+                "var1": "cli_val1",  # CLI wins
+                "var2": "env_val2",  # ENV wins (not in CLI)
+                "var3": "cli_val3",  # CLI only
+                "var4": "yaml_val4",  # YAML only
+            },
+            id="Config vars: complex merge with overlapping keys",
+        ),
+        pytest.param(
+            # env_vars with empty JSON
+            {"SCHEMACHANGE_VARS": "{}"},
+            # cli_kwargs (no vars)
+            {**default_cli_kwargs},
+            # yaml_kwargs with vars
+            {"config_vars": {"test_var1": "yaml_val"}},
+            # expected (YAML should remain)
+            {"test_var1": "yaml_val"},
+            id="Config vars: empty ENV JSON does not clear YAML",
+        ),
+        pytest.param(
+            # env_vars with multiple vars
+            {"SCHEMACHANGE_VARS": '{"db": "ENV_DB", "schema": "ENV_SCHEMA", "env": "staging"}'},
+            # cli_kwargs override one
+            {**default_cli_kwargs, "config_vars": {"db": "CLI_DB"}},
+            # yaml_kwargs base config
+            {"config_vars": {"db": "YAML_DB", "schema": "YAML_SCHEMA", "default_role": "ANALYST"}},
+            # expected
+            {
+                "db": "CLI_DB",  # CLI wins
+                "schema": "ENV_SCHEMA",  # ENV wins (not in CLI)
+                "env": "staging",  # ENV only
+                "default_role": "ANALYST",  # YAML only
+            },
+            id="Config vars: real-world scenario with database config",
+        ),
+    ],
+)
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("pathlib.Path.is_file", return_value=True)
+@mock.patch("schemachange.config.get_merged_config.parse_cli_args")
+@mock.patch("schemachange.config.get_merged_config.get_yaml_config_kwargs")
+@mock.patch("schemachange.config.get_merged_config.DeployConfig.factory")
+def test_config_vars_merging(
+    mock_deploy_config_factory,
+    mock_get_yaml_config_kwargs,
+    mock_parse_cli_args,
+    _,
+    __,
+    env_vars,
+    cli_kwargs,
+    yaml_kwargs,
+    expected_config_vars,
+):
+    """Test that config_vars are correctly merged from CLI > ENV > YAML."""
+    mock_parse_cli_args.return_value = cli_kwargs
+    mock_get_yaml_config_kwargs.return_value = yaml_kwargs
+
+    logger = structlog.testing.CapturingLogger()
+
+    with mock.patch.dict(os.environ, env_vars, clear=True):
+        # noinspection PyTypeChecker
+        get_merged_config(logger=logger)
+
+    factory_kwargs = mock_deploy_config_factory.call_args.kwargs
+
+    # Verify config_vars
+    actual_config_vars = factory_kwargs.get("config_vars", {})
+    assert actual_config_vars == expected_config_vars, (
+        f"Expected config_vars={expected_config_vars}, " f"got {actual_config_vars}"
+    )
+
+
+@pytest.mark.parametrize(
+    "env_vars, expected_error_pattern",
+    [
+        pytest.param(
+            {"SCHEMACHANGE_VARS": "not valid json"},
+            "Invalid JSON in SCHEMACHANGE_VARS",
+            id="Config vars: invalid JSON in ENV var",
+        ),
+        pytest.param(
+            {"SCHEMACHANGE_VARS": '{"unclosed": '},
+            "Invalid JSON in SCHEMACHANGE_VARS",
+            id="Config vars: malformed JSON in ENV var",
+        ),
+    ],
+)
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("pathlib.Path.is_file", return_value=True)
+@mock.patch("schemachange.config.get_merged_config.parse_cli_args")
+@mock.patch("schemachange.config.get_merged_config.get_yaml_config_kwargs")
+def test_config_vars_invalid_json(
+    mock_get_yaml_config_kwargs,
+    mock_parse_cli_args,
+    _,
+    __,
+    env_vars,
+    expected_error_pattern,
+):
+    """Test that invalid JSON in SCHEMACHANGE_VARS raises appropriate error."""
+    mock_parse_cli_args.return_value = {**default_cli_kwargs}
+    mock_get_yaml_config_kwargs.return_value = {}
+
+    logger = structlog.testing.CapturingLogger()
+
+    with pytest.raises(ValueError) as exc_info:
+        with mock.patch.dict(os.environ, env_vars, clear=True):
+            # noinspection PyTypeChecker
+            get_merged_config(logger=logger)
+
+    assert expected_error_pattern in str(exc_info.value)
