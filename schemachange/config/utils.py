@@ -182,8 +182,9 @@ def load_yaml_config(config_file_path: Path | None) -> dict[str, Any]:
                 extensions=[JinjaEnvVar],
             )
 
-            # The FullLoader parameter handles the conversion from YAML scalar values to Python the dictionary format
-            raw_config = yaml.load(config_template.render(), Loader=yaml.FullLoader)
+            # The SafeLoader parameter handles the conversion from YAML scalar values to Python the dictionary format
+            # SafeLoader is used instead of FullLoader for security - prevents arbitrary code execution
+            raw_config = yaml.load(config_template.render(), Loader=yaml.SafeLoader)
 
             if raw_config is None:
                 raw_config = {}

@@ -249,30 +249,29 @@ def main():
             deploy(config=config, session=session)
 
     except ValueError as e:
-        module_logger.error(f"Configuration error: {str(e)}")
+        module_logger.error("Configuration error", error=str(e), exc_info=True)
         sys.exit(1)
     except FileNotFoundError as e:
-        module_logger.error(f"File not found: {str(e)}")
+        module_logger.error("File not found", error=str(e), exc_info=True)
         sys.exit(1)
     except PermissionError as e:
-        module_logger.error(f"Permission denied: {str(e)}")
+        module_logger.error("Permission denied", error=str(e), exc_info=True)
         sys.exit(1)
     except snowflake.connector.errors.DatabaseError as e:
-        module_logger.error(f"Snowflake connection error: {str(e)}")
+        module_logger.error("Snowflake connection error", error=str(e), exc_info=True)
         module_logger.error("Please check your Snowflake credentials and connection parameters.")
         module_logger.error("Use 'schemachange verify' to test your connection and view configuration.")
         sys.exit(1)
     except snowflake.connector.errors.ProgrammingError as e:
-        module_logger.error(f"Snowflake authentication error: {str(e)}")
+        module_logger.error("Snowflake authentication error", error=str(e), exc_info=True)
         module_logger.error("Please verify your account, username, and authentication method.")
         module_logger.error("Use 'schemachange verify' to test your connection and view configuration.")
         sys.exit(1)
     except KeyboardInterrupt:
-        module_logger.warning("Operation cancelled by user.")
+        module_logger.warning("Operation cancelled by user")
         sys.exit(130)  # Standard exit code for SIGINT
     except Exception as e:
-        module_logger.error(f"Unexpected error: {str(e)}")
-        module_logger.exception("Full traceback:")
+        module_logger.error("Unexpected error", error=str(e), exc_info=True)
         sys.exit(1)
 
 

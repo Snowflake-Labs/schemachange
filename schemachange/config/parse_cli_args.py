@@ -58,7 +58,7 @@ def deprecate_verbose(args: list[str], verbose: argparse.Action, parsed_args: ar
             continue
 
         warnings.warn(
-            "Argument %s is deprecated and will be interpreted as a DEBUG log level." % verbose.option_strings,
+            f"Argument {verbose.option_strings} is deprecated and will be interpreted as a DEBUG log level.",
             stacklevel=2,
         )
 

@@ -1,7 +1,6 @@
 import logging
 import sys
 from pathlib import Path
-from typing import Optional, Union
 
 import structlog
 
@@ -28,6 +27,8 @@ from schemachange.config.utils import (
     validate_file_path,
 )
 from schemachange.config.VerifyConfig import VerifyConfig
+
+logger = structlog.getLogger(__name__)
 
 
 def get_env_config_kwargs() -> dict:
@@ -80,7 +81,7 @@ def get_env_config_kwargs() -> dict:
     return env_kwargs
 
 
-def get_yaml_config_kwargs(config_file_path: Optional[Path]) -> dict:
+def get_yaml_config_kwargs(config_file_path: Path | None) -> dict:
     # load YAML inputs and convert kebabs to snakes
     kwargs = {k.replace("-", "_"): v for (k, v) in load_yaml_config(config_file_path).items()}
 
@@ -101,14 +102,14 @@ def get_yaml_config_kwargs(config_file_path: Optional[Path]) -> dict:
         "snowflake_schema",
     ]:
         if deprecated_arg in kwargs:
-            sys.stderr.write(f"DEPRECATED - Set in connections.toml instead: {deprecated_arg}\n")
+            logger.warning("DEPRECATED - Set in connections.toml instead", parameter=deprecated_arg)
 
     return {k: v for k, v in kwargs.items() if v is not None}
 
 
 def get_merged_config(
     logger: structlog.BoundLogger,
-) -> Union[DeployConfig, RenderConfig, VerifyConfig]:
+) -> DeployConfig | RenderConfig | VerifyConfig:
     cli_kwargs = parse_cli_args(sys.argv[1:])
     logger.debug("cli_kwargs", **cli_kwargs)
 
@@ -170,15 +171,15 @@ def get_merged_config(
     yaml_config_vars = yaml_kwargs.pop("config_vars", None)
     if yaml_config_vars is None:
         yaml_config_vars = {}
-    
+
     env_config_vars = env_kwargs.pop("config_vars", None)
     if env_config_vars is None:
         env_config_vars = {}
 
     config_vars = {
-        **yaml_config_vars,   # P3: YAML (lowest priority)
-        **env_config_vars,    # P2: ENV (middle priority)
-        **cli_config_vars,    # P1: CLI (highest priority)
+        **yaml_config_vars,  # P3: YAML (lowest priority)
+        **env_config_vars,  # P2: ENV (middle priority)
+        **cli_config_vars,  # P1: CLI (highest priority)
     }
 
     # Handle additional_snowflake_params merging (ENV > YAML)
