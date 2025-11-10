@@ -792,12 +792,68 @@ Return the value of the environmental variable if it exists, otherwise raise an 
 
 ### Environment Variables
 
-schemachange supports two types of environment variables for configuration:
+#### Why Use Environment Variables?
 
-1. **`SCHEMACHANGE_*`** - For schemachange-specific settings (e.g., `SCHEMACHANGE_ROOT_FOLDER`)
-2. **`SNOWFLAKE_*`** - For Snowflake connection and connector parameters (e.g., `SNOWFLAKE_ACCOUNT`)
+Environment variables are the **go-to choice for CI/CD pipelines** and production deployments because:
 
-Environment variables follow the naming convention where the prefix (`SCHEMACHANGE_` or `SNOWFLAKE_`) is followed by the parameter name in UPPERCASE with underscores replacing hyphens.
+- **🔐 Secrets stay secret** - Credentials never touch your code repository
+- **🌍 Environment-specific** - Same code, different configs for dev/staging/prod
+- **🤖 CI/CD native** - GitHub Actions, GitLab CI, Jenkins all inject secrets as ENV vars
+- **🔄 Easy rotation** - Update credentials without touching code
+
+#### Quick Start: Common Scenarios
+
+**Scenario: GitHub Actions CI/CD**
+```yaml
+# .github/workflows/deploy.yml
+env:
+  SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+  SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+  SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PAT }}  # Use a PAT!
+  SNOWFLAKE_ROLE: DEPLOY_ROLE
+  SNOWFLAKE_WAREHOUSE: DEPLOY_WH
+  SNOWFLAKE_DATABASE: ${{ vars.TARGET_DATABASE }}  # Environment-specific
+
+steps:
+  - run: schemachange deploy -f migrations
+```
+
+**Scenario: Local development with vault**
+```bash
+# Fetch secrets from your vault (1Password, AWS Secrets Manager, etc.)
+export SNOWFLAKE_ACCOUNT=$(op read "op://Engineering/Snowflake/account")
+export SNOWFLAKE_PASSWORD=$(op read "op://Engineering/Snowflake/pat")
+export SNOWFLAKE_USER="my_user"
+export SNOWFLAKE_ROLE="DEV_ROLE"
+
+schemachange deploy -f migrations
+```
+
+**Scenario: Docker container**
+```bash
+docker run --rm \
+  -e SNOWFLAKE_ACCOUNT \
+  -e SNOWFLAKE_USER \
+  -e SNOWFLAKE_PASSWORD \
+  -e SNOWFLAKE_ROLE \
+  -v "$PWD":/workspace \
+  -w /workspace \
+  schemachange/schemachange:latest deploy -f migrations
+```
+
+#### Variable Types
+
+schemachange supports two prefixes:
+
+| Prefix | Purpose | Example |
+|--------|---------|---------|
+| **`SCHEMACHANGE_*`** | schemachange behavior | `SCHEMACHANGE_ROOT_FOLDER`, `SCHEMACHANGE_DRY_RUN` |
+| **`SNOWFLAKE_*`** | Snowflake connection | `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_PASSWORD` |
+
+**Naming convention:** `PREFIX_PARAMETER_NAME` in UPPERCASE (hyphens become underscores)
+
+<details>
+<summary>📘 <strong>Complete reference: All supported environment variables</strong></summary>
 
 #### SCHEMACHANGE_* Environment Variables
 
@@ -876,7 +932,9 @@ For a complete list of supported connector parameters, see the [Snowflake Python
 |---------------------|-------------|--------|
 | `SNOWSQL_PWD` | Legacy password variable | **Deprecated** - Use `SNOWFLAKE_PASSWORD` instead |
 
-#### Example Usage
+</details>
+
+#### Real-World Authentication Examples
 
 **Key-Pair (JWT) Authentication (Recommended for Production):**
 ```bash

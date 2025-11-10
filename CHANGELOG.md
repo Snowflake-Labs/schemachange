@@ -106,7 +106,20 @@ All notable changes to this project will be documented in this file.
   - **Behavior**: When the same variable key exists in multiple sources, CLI takes precedence over ENV, which takes precedence over YAML
   - **Example**: If CLI sets `{"var1": "cli"}`, ENV sets `{"var2": "env"}`, and YAML sets `{"var3": "yaml"}`, all three will be available: `{"var1": "cli", "var2": "env", "var3": "yaml"}`
 - **Improved missing config file handling**: Added informative log message when specified config file is not found. Schemachange now clearly indicates it's using CLI arguments, environment variables, and defaults instead of silently proceeding.
-- **Enhanced session parameters support with full merging across all configuration sources**: Session parameters can now be specified via CLI (`--snowflake-session-parameters`), environment variables (`SNOWFLAKE_SESSION_PARAMETERS`), YAML v2 (`snowflake.session-parameters`), and `connections.toml` (`[connection.parameters]`). All sources are deep-merged following the standard precedence: CLI > ENV > YAML > connections.toml. Only explicitly-set parameters from connections.toml are included (not defaults), avoiding dictionary bloat. `QUERY_TAG` receives special treatment by appending values from all sources (semicolon-separated) rather than overriding, allowing layered tracking from connections.toml, CLI/ENV/YAML, query_tag argument, and schemachange's own tag. All merged session parameters are passed once to `snowflake.connector.connect()` for efficiency (#355, thanks to @coder-jatin-s for identifying the original issue and initial implementation)
+- **Fixed session parameters from `connections.toml` being ignored** (#355, thanks to @coder-jatin-s for identifying the issue and initial implementation):
+  - Session parameters can now be specified from **four sources** and are properly merged:
+    - CLI: `--snowflake-session-parameters '{"QUOTED_IDENTIFIERS_IGNORE_CASE": false}'`
+    - Environment variables: `SNOWFLAKE_SESSION_PARAMETERS='{...}'`
+    - YAML v2: `snowflake.session-parameters` section
+    - `connections.toml`: `[connection.parameters]` section
+  - **Merging behavior**: All sources deep-merge with standard precedence (CLI > ENV > YAML > connections.toml)
+  - **Efficiency**: Only explicitly-set parameters from `connections.toml` are included (not Snowflake defaults), preventing bloat
+  - **Special `QUERY_TAG` handling**: Values from all sources are **appended** (semicolon-separated) rather than overriding, enabling layered tracking across:
+    - `connections.toml` base tag
+    - CLI/ENV/YAML override tag
+    - `--query-tag` argument
+    - schemachange's own tracking tag (e.g., `schemachange 4.1.0`)
+  - **Implementation**: All merged parameters pass to `snowflake.connector.connect()` once for optimal performance
 
 ### Deprecated
 - Old unprefixed CLI arguments (`--vars`, `--query-tag`, `--log-level`) in favor of `--schemachange-*` prefixed versions
