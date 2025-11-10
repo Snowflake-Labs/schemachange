@@ -431,6 +431,8 @@ The `connections.toml` filepath can be supplied in the following ways (in order 
 3. The `connections-file-path` [YAML value](#yaml-config-file)
 4. Default location determined by the Snowflake Python Connector (typically `~/.snowflake/connections.toml`, or `$SNOWFLAKE_HOME/connections.toml` if `SNOWFLAKE_HOME` is set)
 
+**Note:** Tilde (`~`) expansion is automatically supported for `connections-file-path`, so you can use `~/.snowflake/connections.toml` instead of absolute paths. This makes CI/CD configurations portable across different environments.
+
 A connection profile name can be supplied in the following ways (in order of priority):
 
 1. The `--connection-name` [command-line argument](#commands)

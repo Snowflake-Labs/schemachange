@@ -34,11 +34,12 @@ class VerifyConfig(BaseConfig):
     snowflake_schema: str | None = None
     connections_file_path: Path | None = None
     connection_name: str | None = None
-    # Authentication parameters (CLI > ENV precedence)
-    authenticator: str | None = None
-    private_key_path: str | None = None
-    private_key_passphrase: str | None = None
-    token_file_path: str | None = None
+    # Authentication parameters - All Snowflake connector params use snowflake_ prefix internally
+    # (Prefix is stripped when building connect_kwargs)
+    snowflake_authenticator: str | None = None
+    snowflake_private_key_path: str | None = None
+    snowflake_private_key_passphrase: str | None = None
+    snowflake_token_file_path: str | None = None
     session_parameters: dict | None = None  # Session parameters from CLI/ENV/YAML (merged with connections.toml)
     additional_snowflake_params: dict | None = None  # Parameters from YAML v2 or generic SNOWFLAKE_* env vars
 
@@ -62,6 +63,8 @@ class VerifyConfig(BaseConfig):
             "root_folder",
             "modules_folder",
             "vars",
+            "version_number_validation_regex",
+            "raise_exception_on_ignored_versioned_script",
         ]
         for param in deployment_only_params:
             kwargs.pop(param, None)
@@ -75,6 +78,10 @@ class VerifyConfig(BaseConfig):
         ]:
             if sf_input in kwargs and kwargs[sf_input] is not None:
                 kwargs[sf_input] = get_snowflake_identifier_string(kwargs[sf_input], sf_input)
+
+        # Convert connections_file_path to Path object and expand ~ if needed
+        if "connections_file_path" in kwargs and kwargs["connections_file_path"] is not None:
+            kwargs["connections_file_path"] = Path(kwargs["connections_file_path"]).expanduser()
 
         return super().factory(
             subcommand="verify",
@@ -95,8 +102,8 @@ class VerifyConfig(BaseConfig):
             "warehouse": self.snowflake_warehouse,
             "database": self.snowflake_database,
             "schema": self.snowflake_schema,
-            "connections_file_path": self.connections_file_path,
-            "connection_name": self.connection_name,
+            # NOTE: connections_file_path and connection_name are NOT passed
+            # All parameters from connections.toml have already been merged in get_merged_config.py
             "autocommit": False,  # Default for verify
             "query_tag": None,  # Not needed for verify
             "session_parameters": self.session_parameters,
@@ -108,27 +115,37 @@ class VerifyConfig(BaseConfig):
         if snowflake_password is not None and snowflake_password:
             session_kwargs["password"] = snowflake_password
 
-        # Add authentication parameters with priority: CLI/YAML > ENV
-        authenticator = self.authenticator if self.authenticator is not None else get_snowflake_authenticator()
+        # Add authentication parameters with priority: Config (CLI/ENV/YAML/connections.toml merged) > ENV fallback
+        # Note: Field names have snowflake_ prefix internally, but we strip it for connect()
+
+        authenticator = (
+            self.snowflake_authenticator if self.snowflake_authenticator is not None else get_snowflake_authenticator()
+        )
         if authenticator is not None:
             session_kwargs["authenticator"] = authenticator
 
         private_key_path = (
-            self.private_key_path if self.private_key_path is not None else get_snowflake_private_key_path()
+            self.snowflake_private_key_path
+            if self.snowflake_private_key_path is not None
+            else get_snowflake_private_key_path()
         )
         if private_key_path is not None:
             session_kwargs["private_key_path"] = private_key_path
 
         private_key_passphrase = (
-            self.private_key_passphrase
-            if self.private_key_passphrase is not None
+            self.snowflake_private_key_passphrase
+            if self.snowflake_private_key_passphrase is not None
             else get_snowflake_private_key_passphrase()
         )
         if private_key_passphrase is not None:
             session_kwargs["private_key_passphrase"] = private_key_passphrase
 
         # Read OAuth token from file if specified
-        token_file_path = self.token_file_path if self.token_file_path is not None else get_snowflake_token_file_path()
+        token_file_path = (
+            self.snowflake_token_file_path
+            if self.snowflake_token_file_path is not None
+            else get_snowflake_token_file_path()
+        )
         if token_file_path is not None:
             try:
                 expanded_path = Path(token_file_path).expanduser()

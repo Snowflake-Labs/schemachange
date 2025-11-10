@@ -33,11 +33,12 @@ class DeployConfig(BaseConfig):
     autocommit: bool = False
     dry_run: bool = False
     query_tag: str | None = None
-    # Authentication parameters (CLI > ENV precedence)
-    authenticator: str | None = None
-    private_key_path: str | None = None
-    private_key_passphrase: str | None = None
-    token_file_path: str | None = None
+    # Authentication parameters - All Snowflake connector params use snowflake_ prefix internally
+    # (Prefix is stripped when building connect_kwargs)
+    snowflake_authenticator: str | None = None
+    snowflake_private_key_path: str | None = None
+    snowflake_private_key_passphrase: str | None = None
+    snowflake_token_file_path: str | None = None
     version_number_validation_regex: str | None = None
     raise_exception_on_ignored_versioned_script: bool = False
     session_parameters: dict | None = None  # Session parameters from CLI/ENV/YAML (merged with connections.toml)
@@ -63,6 +64,10 @@ class DeployConfig(BaseConfig):
             if sf_input in kwargs and kwargs[sf_input] is not None:
                 kwargs[sf_input] = get_snowflake_identifier_string(kwargs[sf_input], sf_input)
 
+        # Convert connections_file_path to Path object and expand ~ if needed
+        if "connections_file_path" in kwargs and kwargs["connections_file_path"] is not None:
+            kwargs["connections_file_path"] = Path(kwargs["connections_file_path"]).expanduser()
+
         change_history_table = ChangeHistoryTable.from_str(table_str=change_history_table)
 
         return super().factory(
@@ -80,8 +85,8 @@ class DeployConfig(BaseConfig):
             "warehouse": self.snowflake_warehouse,  # TODO: Remove when connections.toml is enforced
             "database": self.snowflake_database,  # TODO: Remove when connections.toml is enforced
             "schema": self.snowflake_schema,  # TODO: Remove when connections.toml is enforced
-            "connections_file_path": self.connections_file_path,
-            "connection_name": self.connection_name,
+            # NOTE: connections_file_path and connection_name are NOT passed to SnowflakeSession
+            # All parameters from connections.toml have already been merged in get_merged_config.py
             "change_history_table": self.change_history_table,
             "autocommit": self.autocommit,
             "query_tag": self.query_tag,
@@ -98,25 +103,30 @@ class DeployConfig(BaseConfig):
         if snowflake_password is not None and snowflake_password:
             session_kwargs["password"] = snowflake_password
 
-        # Add authentication parameters with priority: CLI/YAML > ENV
+        # Add authentication parameters with priority: Config (CLI/ENV/YAML/connections.toml merged) > ENV fallback
         # These are used for OAuth, JWT, and other auth methods
+        # Note: Field names have snowflake_ prefix internally, but we strip it for connect()
 
-        # Authenticator: CLI/YAML takes precedence over ENV
-        authenticator = self.authenticator if self.authenticator is not None else get_snowflake_authenticator()
+        # Authenticator: Use merged config value, fallback to ENV
+        authenticator = (
+            self.snowflake_authenticator if self.snowflake_authenticator is not None else get_snowflake_authenticator()
+        )
         if authenticator is not None:
             session_kwargs["authenticator"] = authenticator
 
-        # Private key path: CLI/YAML takes precedence over ENV
+        # Private key path: Use merged config value, fallback to ENV
         private_key_path = (
-            self.private_key_path if self.private_key_path is not None else get_snowflake_private_key_path()
+            self.snowflake_private_key_path
+            if self.snowflake_private_key_path is not None
+            else get_snowflake_private_key_path()
         )
         if private_key_path is not None:
             session_kwargs["private_key_path"] = private_key_path
 
-        # Private key passphrase: CLI/YAML takes precedence over ENV
+        # Private key passphrase: Use merged config value, fallback to ENV
         private_key_passphrase = (
-            self.private_key_passphrase
-            if self.private_key_passphrase is not None
+            self.snowflake_private_key_passphrase
+            if self.snowflake_private_key_passphrase is not None
             else get_snowflake_private_key_passphrase()
         )
         if private_key_passphrase is not None:
@@ -126,8 +136,12 @@ class DeployConfig(BaseConfig):
         # NOTE: SNOWFLAKE_TOKEN_FILE_PATH is for OAUTH ONLY (external OAuth providers)
         #       It should be used with SNOWFLAKE_AUTHENTICATOR=oauth
         #       For PATs, use SNOWFLAKE_PASSWORD instead (see above)
-        # Token file path: CLI/YAML takes precedence over ENV
-        token_file_path = self.token_file_path if self.token_file_path is not None else get_snowflake_token_file_path()
+        # Token file path: Use merged config value, fallback to ENV
+        token_file_path = (
+            self.snowflake_token_file_path
+            if self.snowflake_token_file_path is not None
+            else get_snowflake_token_file_path()
+        )
         if token_file_path is not None:
             try:
                 # Expand user paths like ~/tokens/oauth.token

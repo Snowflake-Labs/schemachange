@@ -772,22 +772,22 @@ def test_integration_get_merged_config_inheritance(
                 "SNOWFLAKE_AUTHENTICATOR": "snowflake_jwt",
                 "SNOWFLAKE_PRIVATE_KEY_PATH": "/env/path/to/key.pem",
             },
-            # yaml_kwargs
+            # yaml_kwargs - use snowflake_ prefix for auth params
             {
                 "snowflake_account": "yaml_snowflake_account",
                 "snowflake_user": "yaml_snowflake_user",
-                "authenticator": "password",
-                "private_key_path": "/yaml/path/to/key.pem",
+                "snowflake_authenticator": "password",  # Updated to use snowflake_ prefix
+                "snowflake_private_key_path": "/yaml/path/to/key.pem",  # Updated to use snowflake_ prefix
             },
-            # expected (ENV should override YAML for auth params too)
+            # expected (ENV should override YAML for auth params too) - use snowflake_ prefix
             {
                 "config_file_path": Path("schemachange-config.yml"),
                 "config_vars": {},
                 "subcommand": "deploy",
                 "snowflake_account": "env_snowflake_account",
                 "snowflake_user": "env_snowflake_user",
-                "authenticator": "snowflake_jwt",  # ENV overrides YAML
-                "private_key_path": "/env/path/to/key.pem",  # ENV overrides YAML
+                "snowflake_authenticator": "snowflake_jwt",  # ENV overrides YAML (updated to use snowflake_ prefix)
+                "snowflake_private_key_path": "/env/path/to/key.pem",  # ENV overrides YAML (updated to use snowflake_ prefix)
             },
             id="ENV overrides YAML: authentication parameters",
         ),
@@ -967,25 +967,27 @@ def test_priority_env_overrides_yaml(
                 "SNOWFLAKE_PRIVATE_KEY_PATH": "/env/key.pem",
                 "SNOWFLAKE_CONNECTIONS_FILE_PATH": "/env/connections.toml",
             },
-            # cli_kwargs (CLI overrides authenticator only)
+            # cli_kwargs (CLI overrides authenticator only) - use snowflake_ prefix
             {
                 **default_cli_kwargs,
-                "authenticator": "cli_authenticator",
+                "snowflake_authenticator": "cli_authenticator",
             },
-            # yaml_kwargs
+            # yaml_kwargs - use snowflake_ prefix for auth params
             {
-                "authenticator": "yaml_authenticator",
-                "private_key_path": "/yaml/key.pem",
+                "snowflake_authenticator": "yaml_authenticator",
+                "snowflake_private_key_path": "/yaml/key.pem",
                 "connections_file_path": "/yaml/connections.toml",
             },
-            # expected
+            # expected - use snowflake_ prefix for auth params
+            # Note: Since connections_file_path is provided, connection_name defaults to "default"
             {
                 "config_file_path": Path("schemachange-config.yml"),
                 "config_vars": {},
                 "subcommand": "deploy",
-                "authenticator": "cli_authenticator",  # CLI wins
-                "private_key_path": "/env/key.pem",  # ENV overrides YAML
+                "snowflake_authenticator": "cli_authenticator",  # CLI wins
+                "snowflake_private_key_path": "/env/key.pem",  # ENV overrides YAML
                 "connections_file_path": Path("/env/connections.toml"),  # ENV overrides YAML
+                "connection_name": "default",  # Defaulted since connections_file_path was provided
             },
             id="CLI overrides ENV overrides YAML: authentication parameters",
         ),
@@ -1033,8 +1035,8 @@ def test_priority_cli_overrides_env_overrides_yaml(
                 "SNOWFLAKE_PRIVATE_KEY_PATH": "/path/to/private_key.pem",
             },
             {
-                "authenticator": "snowflake_jwt",
-                "private_key_path": "/path/to/private_key.pem",
+                "snowflake_authenticator": "snowflake_jwt",  # Updated to use snowflake_ prefix
+                "snowflake_private_key_path": "/path/to/private_key.pem",  # Updated to use snowflake_ prefix
             },
             id="Authentication: JWT with private key",
         ),
@@ -1045,9 +1047,9 @@ def test_priority_cli_overrides_env_overrides_yaml(
                 "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE": "secret_passphrase",
             },
             {
-                "authenticator": "snowflake_jwt",
-                "private_key_path": "/path/to/private_key.pem",
-                "private_key_passphrase": "secret_passphrase",
+                "snowflake_authenticator": "snowflake_jwt",  # Updated to use snowflake_ prefix
+                "snowflake_private_key_path": "/path/to/private_key.pem",  # Updated to use snowflake_ prefix
+                "snowflake_private_key_passphrase": "secret_passphrase",  # Updated to use snowflake_ prefix
             },
             id="Authentication: JWT with encrypted private key",
         ),
@@ -1057,8 +1059,8 @@ def test_priority_cli_overrides_env_overrides_yaml(
                 "SNOWFLAKE_TOKEN_FILE_PATH": "/path/to/token.txt",
             },
             {
-                "authenticator": "oauth",
-                "token_file_path": "/path/to/token.txt",
+                "snowflake_authenticator": "oauth",  # Updated to use snowflake_ prefix
+                "snowflake_token_file_path": "/path/to/token.txt",  # Updated to use snowflake_ prefix
             },
             id="Authentication: OAuth with token file",
         ),
@@ -1067,7 +1069,7 @@ def test_priority_cli_overrides_env_overrides_yaml(
                 "SNOWFLAKE_AUTHENTICATOR": "externalbrowser",
             },
             {
-                "authenticator": "externalbrowser",
+                "snowflake_authenticator": "externalbrowser",  # Updated to use snowflake_ prefix
             },
             id="Authentication: External browser",
         ),
@@ -1076,7 +1078,7 @@ def test_priority_cli_overrides_env_overrides_yaml(
                 "SNOWFLAKE_PRIVATE_KEY_PATH": "/path/to/key.pem",
             },
             {
-                "private_key_path": "/path/to/key.pem",
+                "snowflake_private_key_path": "/path/to/key.pem",  # Updated to use snowflake_ prefix
             },
             id="Authentication: Private key path only",
         ),
@@ -1250,16 +1252,17 @@ def test_priority_env_edge_cases(
                 "snowflake_role": "cli_role",
                 "dry_run": True,
             },
-            # yaml_kwargs (partial)
+            # yaml_kwargs (partial) - use snowflake_ prefix for auth params
             {
                 "snowflake_account": "yaml_account",
                 "snowflake_user": "yaml_user",
                 "snowflake_role": "yaml_role",
                 "snowflake_warehouse": "yaml_warehouse",
-                "authenticator": "password",
+                "snowflake_authenticator": "password",  # Updated to use snowflake_ prefix
                 "connection_name": "yaml_connection",
             },
-            # expected
+            # expected - use snowflake_ prefix for auth params
+            # Note: Since connection_name is provided, connections_file_path defaults to ~/.snowflake/connections.toml
             {
                 "config_file_path": Path("schemachange-config.yml"),
                 "config_vars": {},
@@ -1267,11 +1270,12 @@ def test_priority_env_edge_cases(
                 "snowflake_role": "cli_role",  # CLI
                 "dry_run": True,  # CLI
                 "snowflake_warehouse": "env_warehouse",  # ENV > YAML
-                "authenticator": "snowflake_jwt",  # ENV > YAML
-                "private_key_path": "/env/key.pem",  # ENV
+                "snowflake_authenticator": "snowflake_jwt",  # ENV > YAML (updated to use snowflake_ prefix)
+                "snowflake_private_key_path": "/env/key.pem",  # ENV (updated to use snowflake_ prefix)
                 "snowflake_account": "yaml_account",  # YAML
                 "snowflake_user": "yaml_user",  # YAML
                 "connection_name": "yaml_connection",  # YAML
+                "connections_file_path": mock.ANY,  # Defaulted to ~/.snowflake/connections.toml (using ANY since home dir varies)
             },
             id="All 4 layers: partial configs from each layer",
         ),

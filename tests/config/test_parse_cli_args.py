@@ -325,11 +325,12 @@ def test_parse_args_authentication_parameters():
     ]
     parsed_args = parse_cli_args(args)
 
-    assert parsed_args["authenticator"] == "snowflake_jwt"
-    assert parsed_args["private_key_path"] == "/path/to/key.pem"
-    assert parsed_args["token_file_path"] == "/path/to/token.txt"
+    # Parser now uses snowflake_ prefix for all Snowflake connector params
+    assert parsed_args["snowflake_authenticator"] == "snowflake_jwt"
+    assert parsed_args["snowflake_private_key_path"] == "/path/to/key.pem"
+    assert parsed_args["snowflake_token_file_path"] == "/path/to/token.txt"
     # private_key_passphrase should NOT be in parsed_args (CLI support removed for security)
-    assert "private_key_passphrase" not in parsed_args
+    assert "snowflake_private_key_passphrase" not in parsed_args
 
 
 def test_parse_args_private_key_passphrase_cli_not_supported():

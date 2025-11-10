@@ -24,6 +24,7 @@ from schemachange.config.utils import (
     get_snowflake_user,
     get_snowflake_warehouse,
     load_yaml_config,
+    validate_file_path,
 )
 
 assets_path = Path(__file__).parent
@@ -251,19 +252,25 @@ def test_get_snowflake_connections_file_path(env_vars: dict, expected: str | Non
 
 
 @pytest.mark.parametrize(
-    "env_vars, expected",
+    "env_vars, expected_env_value",
     [
         ({"SNOWFLAKE_HOME": "/custom/snowflake"}, "/custom/snowflake"),
         ({"SNOWFLAKE_HOME": "~/.snowflake"}, "~/.snowflake"),
         ({"SNOWFLAKE_HOME": "/opt/snowflake/config"}, "/opt/snowflake/config"),
-        ({"SNOWFLAKE_HOME": ""}, None),
-        ({}, None),
+        ({"SNOWFLAKE_HOME": ""}, None),  # Empty string defaults to Path.home()
+        ({}, None),  # Not set defaults to Path.home()
     ],
 )
-def test_get_snowflake_home(env_vars: dict, expected: str | None):
+def test_get_snowflake_home(env_vars: dict, expected_env_value: str | None):
+    """Test get_snowflake_home returns SNOWFLAKE_HOME env var or defaults to user home"""
     with mock.patch.dict(os.environ, env_vars, clear=True):
         result = get_snowflake_home()
-        assert result == expected
+        if expected_env_value is not None:
+            # When SNOWFLAKE_HOME is set to a non-empty value, use it
+            assert result == expected_env_value
+        else:
+            # When SNOWFLAKE_HOME is empty or not set, defaults to user's home directory
+            assert result == str(Path.home())
 
 
 @pytest.mark.parametrize(
@@ -535,12 +542,49 @@ def test_get_connections_toml_session_parameters_nonexistent_file():
 
 
 def test_get_connections_toml_session_parameters_none_inputs():
-    """Test that None inputs return empty dict"""
+    """Test that None connection_name returns empty dict"""
     result = get_connections_toml_session_parameters(None, None)
     assert result == {}
 
     result = get_connections_toml_session_parameters(Path("connections.toml"), None)
     assert result == {}
 
+    # When connection_name is provided but path is None, it tries to use default ~/.snowflake/connections.toml
+    # This will return empty dict if the file doesn't exist
     result = get_connections_toml_session_parameters(None, "production")
-    assert result == {}
+    # Result depends on whether ~/.snowflake/connections.toml exists, so we just check it returns a dict
+    assert isinstance(result, dict)
+
+
+def test_validate_file_path_with_tilde_expansion(tmp_path):
+    """Test that validate_file_path expands ~ to home directory"""
+    # Create a test file in a subdirectory under home
+    home = Path.home()
+    test_dir = home / ".schemachange_test_temp"
+    test_dir.mkdir(exist_ok=True)
+    test_file = test_dir / "test_connections.toml"
+
+    try:
+        # Create test file
+        test_file.write_text("[test]\naccount = 'test'\n")
+
+        # Test with tilde path
+        relative_to_home = test_file.relative_to(home)
+        tilde_path = f"~/{relative_to_home}"
+
+        result = validate_file_path(tilde_path)
+        assert result is not None
+        assert result.is_absolute()
+        assert result == test_file
+    finally:
+        # Clean up
+        if test_file.exists():
+            test_file.unlink()
+        if test_dir.exists():
+            test_dir.rmdir()
+
+
+def test_validate_file_path_nonexistent_with_tilde():
+    """Test that validate_file_path with nonexistent file raises error even with tilde"""
+    with pytest.raises(ValueError, match="invalid file path"):
+        validate_file_path("~/nonexistent_file_that_does_not_exist.toml")

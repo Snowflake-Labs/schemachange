@@ -221,7 +221,7 @@ def parse_cli_args(args) -> dict:
     parser_deploy.add_argument(
         "--snowflake-authenticator",
         type=str,
-        dest="authenticator",
+        dest="snowflake_authenticator",  # Changed to match dataclass field name
         help="The authenticator method to use (e.g. 'snowflake', 'oauth', 'externalbrowser', "
         "'snowflake_jwt', or Okta URL). "
         "Can also be set via SNOWFLAKE_AUTHENTICATOR environment variable.",
@@ -230,7 +230,7 @@ def parse_cli_args(args) -> dict:
     parser_deploy.add_argument(
         "--snowflake-private-key-path",
         type=str,
-        dest="private_key_path",
+        dest="snowflake_private_key_path",  # Changed to match dataclass field name
         help="Path to private key file for JWT (snowflake_jwt) authentication. "
         "Can also be set via SNOWFLAKE_PRIVATE_KEY_PATH environment variable.",
         required=False,
@@ -241,7 +241,7 @@ def parse_cli_args(args) -> dict:
     parser_deploy.add_argument(
         "--snowflake-token-file-path",
         type=str,
-        dest="token_file_path",
+        dest="snowflake_token_file_path",  # Changed to match dataclass field name
         help="Path to OAuth token file (for use with --snowflake-authenticator oauth). "
         "Can also be set via SNOWFLAKE_TOKEN_FILE_PATH environment variable.",
         required=False,
@@ -429,7 +429,7 @@ def parse_cli_args(args) -> dict:
     parser_verify.add_argument(
         "--snowflake-authenticator",
         type=str,
-        dest="authenticator",
+        dest="snowflake_authenticator",  # Changed to match dataclass field name
         help="The authenticator method to use (e.g. 'snowflake', 'oauth', 'externalbrowser', "
         "'snowflake_jwt', or Okta URL). "
         "Can also be set via SNOWFLAKE_AUTHENTICATOR environment variable.",
@@ -438,7 +438,7 @@ def parse_cli_args(args) -> dict:
     parser_verify.add_argument(
         "--snowflake-private-key-path",
         type=str,
-        dest="private_key_path",
+        dest="snowflake_private_key_path",  # Changed to match dataclass field name
         help="Path to private key file for JWT (snowflake_jwt) authentication. "
         "Can also be set via SNOWFLAKE_PRIVATE_KEY_PATH environment variable.",
         required=False,
@@ -449,7 +449,7 @@ def parse_cli_args(args) -> dict:
     parser_verify.add_argument(
         "--snowflake-token-file-path",
         type=str,
-        dest="token_file_path",
+        dest="snowflake_token_file_path",  # Changed to match dataclass field name
         help="Path to OAuth token file (for use with --snowflake-authenticator oauth). "
         "Can also be set via SNOWFLAKE_TOKEN_FILE_PATH environment variable.",
         required=False,

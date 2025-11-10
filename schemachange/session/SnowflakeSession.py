@@ -36,19 +36,19 @@ class SnowflakeSession:
         application: str,
         change_history_table: ChangeHistoryTable,
         logger: structlog.BoundLogger,
-        connection_name: str | None = None,
-        connections_file_path: str | None = None,
-        account: str | None = None,  # TODO: Remove when connections.toml is enforced
-        user: str | None = None,  # TODO: Remove when connections.toml is enforced
-        role: str | None = None,  # TODO: Remove when connections.toml is enforced
-        warehouse: str | None = None,  # TODO: Remove when connections.toml is enforced
-        database: str | None = None,  # TODO: Remove when connections.toml is enforced
-        schema: str | None = None,  # TODO: Remove when connections.toml is enforced
+        # NOTE: connection_name and connections_file_path are no longer passed here
+        # All parameters from connections.toml are merged in get_merged_config.py before creating SnowflakeSession
+        account: str | None = None,  # Merged from CLI > ENV > YAML > connections.toml
+        user: str | None = None,  # Merged from CLI > ENV > YAML > connections.toml
+        role: str | None = None,  # Merged from CLI > ENV > YAML > connections.toml
+        warehouse: str | None = None,  # Merged from CLI > ENV > YAML > connections.toml
+        database: str | None = None,  # Merged from CLI > ENV > YAML > connections.toml
+        schema: str | None = None,  # Merged from CLI > ENV > YAML > connections.toml
         query_tag: str | None = None,
         autocommit: bool = False,
-        session_parameters: dict | None = None,  # Merged session params from CLI/ENV/YAML
+        session_parameters: dict | None = None,  # Merged session params from CLI/ENV/YAML/connections.toml
         additional_snowflake_params: dict | None = None,
-        **kwargs,  # TODO: Remove when connections.toml is enforced
+        **kwargs,  # password, authenticator, private_key_path, etc.
     ):
         self.change_history_table = change_history_table
         self.autocommit = autocommit
@@ -110,13 +110,9 @@ class SnowflakeSession:
         # Merge explicit params, overriding any additional params
         connect_kwargs.update({k: v for k, v in explicit_params.items() if v is not None})
 
-        # Add connection_name and connections_file_path if specified
-        # The connector will load from connections.toml, and explicit parameters above will override it
-        # This gives us the correct priority: CLI > ENV > YAML > connections.toml
-        if connection_name:
-            connect_kwargs["connection_name"] = connection_name
-        if connections_file_path:
-            connect_kwargs["connections_file_path"] = connections_file_path
+        # NOTE: We do NOT pass connection_name or connections_file_path to connect()
+        # All parameters from connections.toml have already been read and merged in get_merged_config.py
+        # This ensures proper precedence: CLI > ENV > YAML > connections.toml
 
         self.logger.debug("snowflake.connector.connect kwargs", **connect_kwargs)
         self.con = snowflake.connector.connect(**connect_kwargs)

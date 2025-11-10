@@ -81,6 +81,8 @@ def validate_file_path(file_path: Path | str | None) -> Path | None:
         return None
     if isinstance(file_path, str):
         file_path = Path(file_path)
+    # Expand ~ to user's home directory
+    file_path = file_path.expanduser()
     if not file_path.is_file():
         raise ValueError(f"invalid file path: {str(file_path)}")
     return file_path
@@ -148,6 +150,8 @@ def validate_directory(path: Path | str | None) -> Path | None:
         return None
     if isinstance(path, str):
         path = Path(path)
+    # Expand ~ to user's home directory
+    path = path.expanduser()
     if not path.is_dir():
         raise ValueError(f"Path is not valid directory: {str(path)}")
     return path
@@ -539,20 +543,21 @@ def get_snowflake_connections_file_path() -> str | None:
     return None
 
 
-def get_snowflake_home() -> str | None:
+def get_snowflake_home() -> str:
     """
-    Get Snowflake home directory from environment variable.
+    Get Snowflake home directory from environment variable or user's home directory.
 
     Returns:
-        Home directory from SNOWFLAKE_HOME environment variable,
-        or None if not set or empty.
+        Home directory from SNOWFLAKE_HOME environment variable if set,
+        otherwise defaults to the current user's home directory.
 
     Used to locate the connections.toml file (default: ~/.snowflake).
     """
     home = os.getenv("SNOWFLAKE_HOME")
     if home is not None and home:
         return home
-    return None
+    # Default to user's home directory
+    return str(Path.home())
 
 
 def get_snowflake_default_connection_name() -> str | None:
@@ -591,73 +596,149 @@ def get_snowflake_session_parameters() -> dict | None:
     return None
 
 
+def get_connections_toml_parameters(
+    connections_file_path: Path | str | None, connection_name: str | None
+) -> tuple[dict, dict]:
+    """
+    Read ALL connection parameters from connections.toml file for a specific connection.
+
+    Returns both connection parameters and session parameters separately.
+
+    Note: Connection parameters are returned WITHOUT the "snowflake_" prefix (e.g., "account", "user", "role").
+    The caller is responsible for adding the prefix when merging with config objects that expect
+    "snowflake_account", "snowflake_user", etc.
+
+    Args:
+        connections_file_path: Path to connections.toml file (defaults to ~/.snowflake/connections.toml if None)
+        connection_name: Name of the connection profile to read
+
+    Returns:
+        Tuple of (connection_params, session_params) dictionaries
+        - connection_params: Keys like "account", "user", "role" (snake_case, no "snowflake_" prefix)
+        - session_params: Keys like "QUERY_TAG", "QUOTED_IDENTIFIERS_IGNORE_CASE" (UPPER_CASE)
+
+    Example connections.toml:
+        [production]
+        account = "myaccount"
+        user = "myuser"
+        password = "mypassword"
+        role = "MYROLE"
+        warehouse = "MYWH"
+        database = "MYDB"
+        schema = "MYSCHEMA"
+
+        [production.parameters]
+        QUERY_TAG = "my_app"
+        QUOTED_IDENTIFIERS_IGNORE_CASE = false
+    """
+    if not connection_name:
+        return {}, {}
+
+    # Default to ~/.snowflake/connections.toml if path not specified (matches Snowflake connector behavior)
+    if not connections_file_path:
+        snowflake_home = get_snowflake_home()
+        connections_file_path = Path(snowflake_home) / ".snowflake" / "connections.toml"
+        logger.debug(
+            "Using default connections.toml path",
+            path=str(connections_file_path),
+            connection_name=connection_name,
+        )
+
+    if tomllib is None:
+        logger.warning(
+            "tomli/tomllib not available - cannot read parameters from connections.toml. "
+            "Install tomli for Python < 3.11"
+        )
+        return {}, {}
+
+    try:
+        connections_file_path = Path(connections_file_path)
+
+        # Expand ~ in path
+        connections_file_path = connections_file_path.expanduser()
+
+        logger.debug(
+            "Attempting to read from connections.toml",
+            file_path=str(connections_file_path),
+            connection_name=connection_name,
+            file_exists=connections_file_path.exists(),
+        )
+
+        if not connections_file_path.exists():
+            logger.debug(
+                f"connections.toml file not found at: {connections_file_path}",
+                connection_name=connection_name,
+            )
+            return {}, {}
+
+        with open(connections_file_path, "rb") as f:
+            toml_data = tomllib.load(f)
+
+        # Check if connection exists
+        logger.debug(
+            f"connections.toml loaded, available connections: {list(toml_data.keys())}",
+            looking_for=connection_name,
+        )
+
+        if connection_name not in toml_data:
+            logger.debug(
+                f"Connection '{connection_name}' not found in connections.toml",
+                available_connections=list(toml_data.keys()),
+            )
+            return {}, {}
+
+        # Check if connection has parameters section
+        connection_data = toml_data[connection_name]
+        if not isinstance(connection_data, dict):
+            return {}, {}
+
+        # Extract connection parameters (excluding 'parameters' subsection)
+        connection_params = {}
+        for key, value in connection_data.items():
+            if key != "parameters" and not isinstance(value, dict):
+                # Convert kebab-case to snake_case for consistency with connector
+                snake_key = key.replace("-", "_")
+                connection_params[snake_key] = value
+
+        # Get session parameters from [connection_name.parameters] section
+        session_params = connection_data.get("parameters", {})
+        if not isinstance(session_params, dict):
+            session_params = {}
+
+        logger.debug(
+            f"Successfully read connection '{connection_name}' from connections.toml",
+            connection_params_keys=list(connection_params.keys()),
+            session_params_keys=list(session_params.keys()),
+        )
+
+        return connection_params, session_params
+
+    except Exception as e:
+        logger.warning(
+            f"Failed to read parameters from connections.toml: {e}",
+            connections_file=str(connections_file_path),
+            connection_name=connection_name,
+        )
+        return {}, {}
+
+
 def get_connections_toml_session_parameters(
     connections_file_path: Path | str | None, connection_name: str | None
 ) -> dict:
     """
     Read session parameters from connections.toml file for a specific connection.
 
-    Returns only the explicitly-set session parameters from the [connection_name.parameters] section,
-    not the defaults.
+    This is a convenience wrapper around get_connections_toml_parameters() that only returns session parameters.
 
     Args:
-        connections_file_path: Path to connections.toml file
+        connections_file_path: Path to connections.toml file (defaults to ~/.snowflake/connections.toml if None)
         connection_name: Name of the connection profile to read
 
     Returns:
-        Dictionary of session parameters explicitly set in connections.toml,
-        or empty dict if file doesn't exist, connection not found, or no parameters section.
-
-    Example connections.toml:
-        [production]
-        account = "myaccount"
-        user = "myuser"
-
-        [production.parameters]
-        QUERY_TAG = "my_app"
-        QUOTED_IDENTIFIERS_IGNORE_CASE = false
+        Dictionary of session parameters explicitly set in connections.toml
     """
-    if not connections_file_path or not connection_name:
-        return {}
-
-    if tomllib is None:
-        logger.warning(
-            "tomli/tomllib not available - cannot read session parameters from connections.toml. "
-            "Install tomli for Python < 3.11"
-        )
-        return {}
-
-    try:
-        connections_file_path = Path(connections_file_path)
-        if not connections_file_path.exists():
-            return {}
-
-        with open(connections_file_path, "rb") as f:
-            toml_data = tomllib.load(f)
-
-        # Check if connection exists
-        if connection_name not in toml_data:
-            return {}
-
-        # Check if connection has parameters section
-        connection_data = toml_data[connection_name]
-        if not isinstance(connection_data, dict):
-            return {}
-
-        # Get session parameters from [connection_name.parameters] section
-        session_params = connection_data.get("parameters", {})
-        if not isinstance(session_params, dict):
-            return {}
-
-        return session_params
-
-    except Exception as e:
-        logger.warning(
-            f"Failed to read session parameters from connections.toml: {e}",
-            connections_file=str(connections_file_path),
-            connection_name=connection_name,
-        )
-        return {}
+    _, session_params = get_connections_toml_parameters(connections_file_path, connection_name)
+    return session_params
 
 
 def get_schemachange_config_from_env() -> dict:

@@ -72,11 +72,44 @@ def verify(config, logger: BoundLogger) -> None:
     logger.info("")
     logger.info("Snowflake Connection Configuration:")
 
-    # Display connections.toml settings if used
-    if session_kwargs.get("connections_file_path"):
-        logger.info(f"  Connections File: {session_kwargs['connections_file_path']}")
-    if session_kwargs.get("connection_name"):
-        logger.info(f"  Connection Name: {session_kwargs['connection_name']}")
+    # Display connections.toml settings if used (read from config object, not session_kwargs)
+    # Check both the attribute existence and value
+    has_file_path = hasattr(config, "connections_file_path")
+    file_path_value = getattr(config, "connections_file_path", None) if has_file_path else None
+    has_conn_name = hasattr(config, "connection_name")
+    conn_name_value = getattr(config, "connection_name", None) if has_conn_name else None
+
+    if file_path_value:
+        logger.info(f"  Connections File: {file_path_value}")
+    if conn_name_value:
+        logger.info(f"  Connection Name: {conn_name_value}")
+
+    # Add diagnostic output when using connections.toml
+    if config.log_level <= logging.DEBUG:
+        logger.debug("")
+        logger.debug("=== DIAGNOSTIC INFO ===")
+        logger.debug(f"Config object has connections_file_path: {hasattr(config, 'connections_file_path')}")
+        if hasattr(config, "connections_file_path"):
+            logger.debug(f"  Value: {config.connections_file_path}")
+            logger.debug(f"  Type: {type(config.connections_file_path)}")
+        logger.debug(f"Config object has connection_name: {hasattr(config, 'connection_name')}")
+        if hasattr(config, "connection_name"):
+            logger.debug(f"  Value: {config.connection_name}")
+        logger.debug(f"Session kwargs keys: {list(session_kwargs.keys())}")
+        logger.debug(
+            f"Session kwargs (masked): {', '.join([k for k in session_kwargs.keys() if k not in ['password', 'token', 'private_key_passphrase']])}"
+        )
+
+        # Check what snowflake_ parameters are in the config
+        config_attrs = {
+            k: getattr(config, k) for k in dir(config) if k.startswith("snowflake_") and not k.startswith("__")
+        }
+        logger.debug(f"Config snowflake_* attributes: {list(config_attrs.keys())}")
+        for k, v in config_attrs.items():
+            if k not in ["snowflake_password", "snowflake_token", "snowflake_private_key_passphrase"]:
+                logger.debug(f"  {k}: {v}")
+        logger.debug("======================")
+        logger.debug("")
 
     # Display connection parameters (mask sensitive data)
     if session_kwargs.get("account"):
@@ -114,12 +147,11 @@ def verify(config, logger: BoundLogger) -> None:
         # Prepare connection parameters
         connect_params = {}
 
-        # Handle connections.toml if specified
-        if session_kwargs.get("connections_file_path") and session_kwargs.get("connection_name"):
-            connect_params["connections_file_path"] = str(session_kwargs["connections_file_path"])
-            connect_params["connection_name"] = session_kwargs["connection_name"]
+        # NOTE: We do NOT pass connection_name or connections_file_path to connect()
+        # All parameters from connections.toml have already been read and merged in get_merged_config.py
+        # This ensures proper precedence: CLI > ENV > YAML > connections.toml
 
-        # Add explicit connection parameters (these override connections.toml)
+        # Add explicit connection parameters
         for param in [
             "account",
             "user",
@@ -142,9 +174,20 @@ def verify(config, logger: BoundLogger) -> None:
                 snake_case_key = key.replace("-", "_")
                 connect_params[snake_case_key] = value
 
+        # Merge session_parameters from config with schemachange's QUERY_TAG
+        config_session_params = session_kwargs.get("session_parameters", {})
+        if config_session_params:
+            connect_params["session_parameters"] = dict(config_session_params)
+            # Append schemachange's QUERY_TAG to existing QUERY_TAG if present
+            if "QUERY_TAG" in connect_params["session_parameters"]:
+                connect_params["session_parameters"]["QUERY_TAG"] += f";schemachange {SCHEMACHANGE_VERSION}"
+            else:
+                connect_params["session_parameters"]["QUERY_TAG"] = f"schemachange {SCHEMACHANGE_VERSION}"
+        else:
+            connect_params["session_parameters"] = {"QUERY_TAG": f"schemachange {SCHEMACHANGE_VERSION}"}
+
         # Set application identifier
         connect_params["application"] = f"{SNOWFLAKE_APPLICATION_NAME}_{SCHEMACHANGE_VERSION}"
-        connect_params["session_parameters"] = {"QUERY_TAG": f"schemachange {SCHEMACHANGE_VERSION}"}
 
         # Connect
         con = snowflake.connector.connect(**connect_params)
@@ -177,6 +220,18 @@ def verify(config, logger: BoundLogger) -> None:
 
         # Close the connection
         con.close()
+
+    except snowflake.connector.errors.HttpError as e:
+        logger.error("")
+        logger.error("✗ Connection Failed!")
+        logger.error(f"  Error: {str(e)}")
+        logger.error("")
+        logger.error("Troubleshooting:")
+        logger.error("  - Verify your Snowflake account identifier is correct")
+        logger.error("  - Check your network connectivity to Snowflake")
+        logger.error("  - Ensure the account name format is correct (e.g., 'myorg-account' or 'xy12345.us-east-1.aws')")
+        logger.error("=" * 80)
+        raise
 
     except snowflake.connector.errors.DatabaseError as e:
         logger.error("")
@@ -249,29 +304,29 @@ def main():
             deploy(config=config, session=session)
 
     except ValueError as e:
-        module_logger.error("Configuration error", error=str(e), exc_info=True)
+        module_logger.error("Configuration error", error=str(e))
         sys.exit(1)
     except FileNotFoundError as e:
-        module_logger.error("File not found", error=str(e), exc_info=True)
+        module_logger.error("File not found", error=str(e))
         sys.exit(1)
     except PermissionError as e:
-        module_logger.error("Permission denied", error=str(e), exc_info=True)
+        module_logger.error("Permission denied", error=str(e))
         sys.exit(1)
-    except snowflake.connector.errors.DatabaseError as e:
-        module_logger.error("Snowflake connection error", error=str(e), exc_info=True)
-        module_logger.error("Please check your Snowflake credentials and connection parameters.")
+    except snowflake.connector.errors.HttpError as e:
+        module_logger.error("Snowflake HTTP error", error=str(e))
+        module_logger.error("Please check your Snowflake account identifier and network connectivity.")
         module_logger.error("Use 'schemachange verify' to test your connection and view configuration.")
         sys.exit(1)
-    except snowflake.connector.errors.ProgrammingError as e:
-        module_logger.error("Snowflake authentication error", error=str(e), exc_info=True)
-        module_logger.error("Please verify your account, username, and authentication method.")
+    except (snowflake.connector.errors.DatabaseError, snowflake.connector.errors.ProgrammingError) as e:
+        module_logger.error("Snowflake connection/authentication error", error=str(e))
+        module_logger.error("Please check your Snowflake credentials and connection parameters.")
         module_logger.error("Use 'schemachange verify' to test your connection and view configuration.")
         sys.exit(1)
     except KeyboardInterrupt:
         module_logger.warning("Operation cancelled by user")
         sys.exit(130)  # Standard exit code for SIGINT
     except Exception as e:
-        module_logger.error("Unexpected error", error=str(e), exc_info=True)
+        module_logger.error("Unexpected error", error=str(e))
         sys.exit(1)
 
 

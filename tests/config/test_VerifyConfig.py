@@ -55,10 +55,15 @@ def test_verify_config_with_connection_name(_):
         **minimal_verify_config_kwargs,
     )
 
-    session_kwargs = config.get_session_kwargs()
+    # Verify config object has connection_name and connections_file_path (for logging/display)
+    assert config.connection_name == "test_connection"
+    assert config.connections_file_path == Path("/path/to/connections.toml")
 
-    assert session_kwargs["connection_name"] == "test_connection"
-    assert session_kwargs["connections_file_path"] == Path("/path/to/connections.toml")
+    # Verify they are NOT in session_kwargs (shouldn't be passed to connector)
+    # All parameters from connections.toml are read and merged in get_merged_config.py
+    session_kwargs = config.get_session_kwargs()
+    assert "connection_name" not in session_kwargs
+    assert "connections_file_path" not in session_kwargs
 
 
 @mock.patch("pathlib.Path.is_dir", return_value=True)
@@ -115,14 +120,15 @@ def test_verify_config_cli_auth_takes_precedence_over_env(_):
         with mock.patch("schemachange.config.VerifyConfig.get_snowflake_private_key_path", return_value="/env/key"):
             config = VerifyConfig.factory(
                 config_file_path=Path("."),
-                authenticator="cli_auth",
-                private_key_path="/cli/key",
+                snowflake_authenticator="cli_auth",  # Updated to use snowflake_ prefix
+                snowflake_private_key_path="/cli/key",  # Updated to use snowflake_ prefix
                 **minimal_verify_config_kwargs,
             )
 
             session_kwargs = config.get_session_kwargs()
 
             # CLI values should take precedence
+            # Note: get_session_kwargs() strips snowflake_ prefix for connector
             assert session_kwargs["authenticator"] == "cli_auth"
             assert session_kwargs["private_key_path"] == "/cli/key"
 

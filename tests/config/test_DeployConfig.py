@@ -263,18 +263,20 @@ def test_authentication_parameters_cli_takes_precedence_over_env(
     # Set up explicitly provided config values (from YAML, connections.toml, or CLI where supported)
     # Note: authenticator and private_key_path CAN come from CLI
     # private_key_passphrase can only come from ENV or connections.toml (not CLI)
+    # Fields use snowflake_ prefix internally, stripped when passed to connect()
     config_kwargs = {
         **minimal_deploy_config_kwargs,
-        "authenticator": "explicit_authenticator",
-        "private_key_path": "/explicit/path/to/key.pem",
+        "snowflake_authenticator": "explicit_authenticator",
+        "snowflake_private_key_path": "/explicit/path/to/key.pem",
         # This would typically come from connections.toml, not CLI (CLI not supported for security)
-        "private_key_passphrase": "explicit_passphrase",
+        "snowflake_private_key_passphrase": "explicit_passphrase",
     }
 
     config = DeployConfig.factory(config_file_path=Path("."), **config_kwargs)
     session_kwargs = config.get_session_kwargs()
 
     # Explicitly provided values should take precedence over ENV
+    # Note: get_session_kwargs() strips snowflake_ prefix for connector
     assert session_kwargs["authenticator"] == "explicit_authenticator"
     assert session_kwargs["private_key_path"] == "/explicit/path/to/key.pem"
     assert session_kwargs["private_key_passphrase"] == "explicit_passphrase"
