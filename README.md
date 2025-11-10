@@ -424,21 +424,23 @@ Please see [Usage Notes for the account Parameter (for the connect Method)](http
 
 A [connections.toml](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect#connecting-using-the-connections-toml-file) file is used by the Snowflake Python Connector to store connection parameters. schemachange supports loading connection configurations from this file.
 
-The `connections.toml` filepath can be supplied in the following ways (in order of priority):
+**Important:** `connections.toml` is only used if **at least one** of `connection-name` or `connections-file-path` is explicitly specified (via CLI, ENV, or YAML). If **neither** is specified, `connections.toml` is skipped entirely and parameters are resolved from CLI > ENV > YAML only.
+
+When using `connections.toml`, the filepath can be supplied in the following ways (in order of priority):
 
 1. The `--connections-file-path` [command-line argument](#commands)
 2. The `SNOWFLAKE_CONNECTIONS_FILE_PATH` [environment variable](#environment-variables)
 3. The `connections-file-path` [YAML value](#yaml-config-file)
-4. Default location determined by the Snowflake Python Connector (typically `~/.snowflake/connections.toml`, or `$SNOWFLAKE_HOME/connections.toml` if `SNOWFLAKE_HOME` is set)
+4. If only `connection-name` is specified without `connections-file-path`: defaults to `~/.snowflake/connections.toml` (or `$SNOWFLAKE_HOME/.snowflake/connections.toml` if `SNOWFLAKE_HOME` is set)
 
 **Note:** Tilde (`~`) expansion is automatically supported for `connections-file-path`, so you can use `~/.snowflake/connections.toml` instead of absolute paths. This makes CI/CD configurations portable across different environments.
 
-A connection profile name can be supplied in the following ways (in order of priority):
+When using `connections.toml`, the connection profile name can be supplied in the following ways (in order of priority):
 
 1. The `--connection-name` [command-line argument](#commands)
 2. The `SNOWFLAKE_DEFAULT_CONNECTION_NAME` [environment variable](#environment-variables)
 3. The `connection-name` [YAML value](#yaml-config-file)
-4. Default: `default` (the Snowflake Python Connector uses the `[default]` profile if no name is specified)
+4. If only `connections-file-path` is specified without `connection-name`: defaults to `default`
 
 **Session Parameters Support:**
 
