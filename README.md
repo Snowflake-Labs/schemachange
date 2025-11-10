@@ -1064,8 +1064,8 @@ Common issues covered in the troubleshooting guide:
 
 In order to run schemachange you must have the following:
 
-* **Python 3.9 or later** - schemachange requires Python 3.9 or newer (see [Supported Python Versions](#supported-python-versions) below)
-* **Snowflake Python Connector (version 2.8+, but < 4.0)** - Install via `pip install schemachange` which includes the appropriate connector version. See the [Snowflake Python Connector documentation](https://docs.snowflake.com/en/user-guide/python-connector-install.html) for more details
+* **Python 3.10 or later** - schemachange requires Python 3.10 or newer (see [Supported Python Versions](#supported-python-versions) below)
+* **Snowflake Python Connector (version 2.8+, but < 5.0)** - Install via `pip install schemachange` which includes the appropriate connector version. See the [Snowflake Python Connector documentation](https://docs.snowflake.com/en/user-guide/python-connector-install.html) for more details
 * You will need to create the change history table used by schemachange in Snowflake (
   see [Change History Table](#change-history-table) above for more details)
     * First, you will need to create a database to store your change history table (schemachange will not help you with
@@ -1087,12 +1087,12 @@ schemachange follows Python's official [end-of-life schedule](https://endoflife.
 
 | Python Version | Status | Notes |
 |----------------|--------|-------|
-| 3.13+ | ⚠️ Not tested | May work but not officially tested |
+| 3.13 | ✅ Supported | Fully tested and supported |
 | 3.12 | ✅ Supported | Fully tested and supported |
 | 3.11 | ✅ Supported | Fully tested and supported |
-| 3.10 | ✅ Supported | Fully tested and supported |
-| 3.9 | ✅ Supported | Minimum required version |
-| 3.8 | ❌ Not supported | Dropped in version 4.1.0 |
+| 3.10 | ✅ Supported | Minimum required version |
+| 3.9 | ❌ Not supported | Dropped in version 4.1.0 (reached EOL October 31, 2025) |
+| 3.8 | ❌ Not supported | Dropped in version 4.0.0 |
 
 ### Running the Script
 
