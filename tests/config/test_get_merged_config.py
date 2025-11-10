@@ -1306,7 +1306,11 @@ def test_priority_all_four_layers(
     def is_file_mock(path_self):
         return "missing-connections.toml" not in str(path_self)
 
-    with mock.patch.dict(os.environ, env_vars, clear=True):
+    # Mock get_snowflake_home() to avoid RuntimeError on Windows when env vars are cleared
+    with (
+        mock.patch.dict(os.environ, env_vars, clear=True),
+        mock.patch("schemachange.config.get_merged_config.get_snowflake_home", return_value="/mock/home"),
+    ):
         with mock.patch.object(Path, "is_file", new=is_file_mock):
             # noinspection PyTypeChecker
             get_merged_config(logger=logger)

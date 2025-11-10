@@ -263,14 +263,18 @@ def test_get_snowflake_connections_file_path(env_vars: dict, expected: str | Non
 )
 def test_get_snowflake_home(env_vars: dict, expected_env_value: str | None):
     """Test get_snowflake_home returns SNOWFLAKE_HOME env var or defaults to user home"""
-    with mock.patch.dict(os.environ, env_vars, clear=True):
+    # Mock Path.home() to avoid RuntimeError on Windows when env vars are cleared
+    with (
+        mock.patch.dict(os.environ, env_vars, clear=True),
+        mock.patch("schemachange.config.utils.Path.home", return_value=Path("/mock/home")),
+    ):
         result = get_snowflake_home()
         if expected_env_value is not None:
             # When SNOWFLAKE_HOME is set to a non-empty value, use it
             assert result == expected_env_value
         else:
             # When SNOWFLAKE_HOME is empty or not set, defaults to user's home directory
-            assert result == str(Path.home())
+            assert result == "/mock/home"
 
 
 @pytest.mark.parametrize(

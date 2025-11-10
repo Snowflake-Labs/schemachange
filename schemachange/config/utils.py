@@ -552,12 +552,23 @@ def get_snowflake_home() -> str:
         otherwise defaults to the current user's home directory.
 
     Used to locate the connections.toml file (default: ~/.snowflake).
+
+    Raises:
+        RuntimeError: If home directory cannot be determined from environment variables.
     """
     home = os.getenv("SNOWFLAKE_HOME")
     if home is not None and home:
         return home
     # Default to user's home directory
-    return str(Path.home())
+    # Path.home() can raise RuntimeError if it cannot determine the home directory
+    # (e.g., on Windows when USERPROFILE is not set, or Unix when HOME is not set)
+    try:
+        return str(Path.home())
+    except RuntimeError as e:
+        raise RuntimeError(
+            "Could not determine home directory. Please set SNOWFLAKE_HOME environment variable, "
+            "or ensure HOME (Unix) or USERPROFILE (Windows) environment variables are set."
+        ) from e
 
 
 def get_snowflake_default_connection_name() -> str | None:

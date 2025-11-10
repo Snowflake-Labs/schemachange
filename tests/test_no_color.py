@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import os
+import platform
 import subprocess
 import sys
 from pathlib import Path
@@ -52,10 +53,18 @@ logger.info("Test message", key="value")
         assert "Test message" in output_with_colors
         assert "Test message" in output_without_colors
 
-        # Verify ANSI escape codes are present with colors
-        assert "\x1b[" in output_with_colors
-        # Verify ANSI escape codes are absent without colors
-        assert "\x1b[" not in output_without_colors
+        # On Windows, ANSI color codes might not be present by default
+        # So we only verify that NO_COLOR prevents them if they would otherwise be present
+        is_windows = platform.system() == "Windows"
+        has_ansi_with_colors = "\x1b[" in output_with_colors
+
+        if not is_windows:
+            # On Unix-like systems, ANSI codes should be present
+            assert has_ansi_with_colors, "ANSI escape codes should be present on Unix-like systems"
+
+        # Verify ANSI escape codes are absent when NO_COLOR is set
+        # This should work on all platforms
+        assert "\x1b[" not in output_without_colors, "NO_COLOR should disable ANSI escape codes"
 
     def test_no_color_env_var_with_schemachange_import(self):
         """Test that NO_COLOR works when importing schemachange module."""
@@ -91,5 +100,15 @@ logger.info("Schemachange test", foo="bar")
         assert "Schemachange test" in output_with_colors
         assert "Schemachange test" in output_without_colors
 
-        assert "\x1b[" in output_with_colors
-        assert "\x1b[" not in output_without_colors
+        # On Windows, ANSI color codes might not be present by default
+        # So we only verify that NO_COLOR prevents them if they would otherwise be present
+        is_windows = platform.system() == "Windows"
+        has_ansi_with_colors = "\x1b[" in output_with_colors
+
+        if not is_windows:
+            # On Unix-like systems, ANSI codes should be present
+            assert has_ansi_with_colors, "ANSI escape codes should be present on Unix-like systems"
+
+        # Verify ANSI escape codes are absent when NO_COLOR is set
+        # This should work on all platforms
+        assert "\x1b[" not in output_without_colors, "NO_COLOR should disable ANSI escape codes"

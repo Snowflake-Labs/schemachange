@@ -19,7 +19,11 @@ from schemachange.config.get_merged_config import get_merged_config
 @pytest.fixture
 def clean_env():
     """Fixture to provide a clean environment for each test."""
-    with mock.patch.dict(os.environ, {}, clear=True):
+    # Mock get_snowflake_home() to avoid RuntimeError on Windows when env vars are cleared
+    with (
+        mock.patch.dict(os.environ, {}, clear=True),
+        mock.patch("schemachange.config.get_merged_config.get_snowflake_home", return_value="/mock/home"),
+    ):
         yield
 
 
