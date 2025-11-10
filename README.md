@@ -1280,6 +1280,8 @@ compatibility with versions prior to 3.2.
 
 This is the main command that runs the deployment process.
 
+**Usage:** `schemachange deploy [-h] [--config-folder CONFIG_FOLDER] [--config-file-name CONFIG_FILE_NAME] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-c CHANGE_HISTORY_TABLE] [-V VARS] [--create-change-history-table] [-ac] [--dry-run] [-Q QUERY_TAG] [-L LOG_LEVEL] [-C CONNECTION_NAME] [--connections-file-path CONNECTIONS_FILE_PATH] [-a ACCOUNT] [-u USER] [-r ROLE] [-w WAREHOUSE] [-d DATABASE] [-s SCHEMA] [--snowflake-authenticator AUTHENTICATOR] [--snowflake-private-key-path PATH] [--snowflake-token-file-path PATH]`
+
 #### Command-Line Arguments
 
 schemachange supports prefixed CLI arguments for better clarity and organization:
