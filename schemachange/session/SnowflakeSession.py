@@ -52,10 +52,26 @@ class SnowflakeSession:
         self.change_history_table = change_history_table
         self.autocommit = autocommit
         self.logger = logger
-
-        self.session_parameters = {"QUERY_TAG": f"schemachange {schemachange_version}"}
+        self.session_parameters = {}
+        snowflake_kwargs = {
+            "connection_name": connection_name, 
+            "connections_file_path": connections_file_path,
+            "application": application
+        }
+        snowflake_kwargs = {k: v for k, v in snowflake_kwargs.items() if v is not None}
+        temp_con = snowflake.connector.connect(**snowflake_kwargs)
+        if hasattr(temp_con, '_session_parameters'):
+            self.session_parameters.update(temp_con._session_parameters)
+        temp_con.close()
+        
+        query_tag_value = f"schemachange {schemachange_version}"
         if query_tag:
-            self.session_parameters["QUERY_TAG"] += f";{query_tag}"
+            query_tag_value += f";{query_tag}"
+            
+        if "QUERY_TAG" in self.session_parameters:
+            self.session_parameters["QUERY_TAG"] += f";{query_tag_value}"
+        else:
+            self.session_parameters["QUERY_TAG"] = query_tag_value
 
         # Start with additional_snowflake_params (lowest priority for these params)
         # These come from YAML v2 snowflake section or generic SNOWFLAKE_* env vars
