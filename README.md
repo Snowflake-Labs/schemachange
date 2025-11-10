@@ -28,9 +28,78 @@ To learn more about making a contribution to schemachange, please see our [Contr
 **Please note** that schemachange is a community-developed tool, not an official Snowflake offering. It comes with no
 support or warranty.
 
+## Quick Start
+
+Get schemachange running in 5 minutes:
+
+### 1. Install schemachange
+```bash
+pip install schemachange
+```
+
+### 2. Create your first migration script
+```bash
+mkdir -p migrations
+cat > migrations/V1.0.0__initial_setup.sql << 'EOF'
+CREATE SCHEMA IF NOT EXISTS my_app;
+CREATE TABLE IF NOT EXISTS my_app.customers (
+    id INTEGER,
+    name VARCHAR(100)
+);
+EOF
+```
+
+### 3. Run your first deployment
+
+**Option A: Using environment variables (recommended for CI/CD)**
+```bash
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
+export SNOWFLAKE_USER="my_user"
+export SNOWFLAKE_PASSWORD="my_password"  # Or use a PAT token
+export SNOWFLAKE_ROLE="MY_ROLE"
+export SNOWFLAKE_WAREHOUSE="MY_WH"
+export SNOWFLAKE_DATABASE="MY_DB"
+
+schemachange deploy -f migrations
+```
+
+**Option B: Using CLI arguments (quick tests)**
+```bash
+schemachange deploy \
+  -f migrations \
+  -a myaccount.us-east-1.aws \
+  -u my_user \
+  -r MY_ROLE \
+  -w MY_WH \
+  -d MY_DB
+# You'll be prompted for password
+```
+
+**Option C: Using connections.toml (local development)**
+```bash
+# Create ~/.snowflake/connections.toml with your credentials
+schemachange deploy -f migrations -C my_connection
+```
+
+### 4. Verify your deployment
+```bash
+# Check what schemachange sees
+schemachange verify -f migrations
+
+# Check Snowflake
+snowsql -q "SELECT * FROM metadata.schemachange.change_history ORDER BY installed_on DESC LIMIT 5;"
+```
+
+### 🎯 Next Steps
+- **Learn the basics:** [Change Scripts](#change-scripts) - Understand versioned, repeatable, and always scripts
+- **Configure properly:** [Configuration](#configuration) - Choose the right config method for your environment
+- **Secure your setup:** [Authentication](#authentication) - Use JWT, PATs, or SSO instead of passwords
+- **CI/CD integration:** [Using in a CI/CD Pipeline](#using-in-a-cicd-pipeline) - Automate your deployments
+
 ## Table of Contents
 
 1. [Overview](#overview)
+1. [Quick Start](#quick-start)
 1. [Project Structure](#project-structure)
     1. [Folder Structure](#folder-structure)
 1. [Change Scripts](#change-scripts)
@@ -422,57 +491,149 @@ Please see [Usage Notes for the account Parameter (for the connect Method)](http
 
 ### connections.toml File
 
-A [connections.toml](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect#connecting-using-the-connections-toml-file) file is used by the Snowflake Python Connector to store connection parameters. schemachange supports loading connection configurations from this file.
+#### What is connections.toml?
 
-**Important:** `connections.toml` is only used if **at least one** of `connection-name` or `connections-file-path` is explicitly specified (via CLI, ENV, or YAML). If **neither** is specified, `connections.toml` is skipped entirely and parameters are resolved from CLI > ENV > YAML only.
+A standard [Snowflake configuration file](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect#connecting-using-the-connections-toml-file) for storing connection parameters and credentials. Think of it as your personal Snowflake address book.
 
-When using `connections.toml`, the filepath can be supplied in the following ways (in order of priority):
+#### When should you use it?
 
-1. The `--connections-file-path` [command-line argument](#commands)
-2. The `SNOWFLAKE_CONNECTIONS_FILE_PATH` [environment variable](#environment-variables)
-3. The `connections-file-path` [YAML value](#yaml-config-file)
-4. If only `connection-name` is specified without `connections-file-path`: defaults to `~/.snowflake/connections.toml` (or `$SNOWFLAKE_HOME/.snowflake/connections.toml` if `SNOWFLAKE_HOME` is set)
+**✅ Great for:**
+- **Local development** - Juggle multiple Snowflake accounts (dev, staging, prod) without juggling credentials
+- **Team consistency** - Share connection configurations (without secrets) across your team
+- **Secure storage** - Keep credentials in one secure file with proper permissions (`chmod 600`)
 
-**Note:** Tilde (`~`) expansion is automatically supported for `connections-file-path`, so you can use `~/.snowflake/connections.toml` instead of absolute paths. This makes CI/CD configurations portable across different environments.
+**❌ Skip it for:**
+- **CI/CD pipelines** - Use environment variables instead (easier secret management)
+- **Production deployments** - Service accounts should use ENV vars or vault systems
+- **Quick experiments** - Just use CLI arguments
 
-When using `connections.toml`, the connection profile name can be supplied in the following ways (in order of priority):
+#### How does schemachange find connections.toml?
 
-1. The `--connection-name` [command-line argument](#commands)
-2. The `SNOWFLAKE_DEFAULT_CONNECTION_NAME` [environment variable](#environment-variables)
-3. The `connection-name` [YAML value](#yaml-config-file)
-4. If only `connections-file-path` is specified without `connection-name`: defaults to `default`
+**Important:** schemachange only uses `connections.toml` when you explicitly opt-in by specifying **at least one** of:
+- A `connection-name` (which profile to use)
+- A `connections-file-path` (where to find the file)
 
-**Session Parameters Support:**
+If you specify **neither**, `connections.toml` is skipped entirely and parameters come from CLI > ENV > YAML only.
 
-Session parameters can be specified via multiple sources and are automatically merged following the standard precedence:
+**When you do use it:**
 
-- **CLI**: `--snowflake-session-parameters '{"QUOTED_IDENTIFIERS_IGNORE_CASE": false}'`
-- **ENV**: `SNOWFLAKE_SESSION_PARAMETERS='{"TIMESTAMP_OUTPUT_FORMAT": "YYYY-MM-DD"}'`
-- **YAML v2**: `snowflake.session-parameters` section
-- **connections.toml**: `[connection_name.parameters]` section
+| What you specify | How schemachange finds it |
+|-----------------|---------------------------|
+| Only `--connection-name dev` | Looks in `~/.snowflake/connections.toml` for `[dev]` profile |
+| Only `--connections-file-path ./team.toml` | Looks in `./team.toml` for `[default]` profile |
+| Both specified | Uses exactly what you specified |
 
-**Merging Behavior:**
-- All session parameters are **deep-merged** with precedence: CLI > ENV > YAML > connections.toml
-- Each key in the session_parameters dict follows this precedence independently
-- Only **explicitly-set** parameters from connections.toml are included (not defaults), avoiding bloat
-- `QUERY_TAG` is **special**: values from all sources are **appended** (semicolon-separated) rather than overriding
-- All merged session parameters are passed once to `snowflake.connector.connect()` for efficiency
+**File path precedence** (highest to lowest):
+1. CLI: `--connections-file-path` or `-F`
+2. ENV: `SNOWFLAKE_CONNECTIONS_FILE_PATH`
+3. YAML: `connections-file-path`
+4. Default: `~/.snowflake/connections.toml`
 
-**QUERY_TAG Example:**
-If you have:
-- `connections.toml` with `QUERY_TAG = "my_app"`
-- CLI `--snowflake-session-parameters '{"QUERY_TAG": "deployment"}'`
-- CLI `--schemachange-query-tag "production"`
+**Connection name precedence** (highest to lowest):
+1. CLI: `--connection-name` or `-C`
+2. ENV: `SNOWFLAKE_DEFAULT_CONNECTION_NAME`
+3. YAML: `connection-name`
+4. Default: `default`
 
-Final QUERY_TAG will be: `my_app;deployment;schemachange 4.1.0;production`
+**💡 Pro tip:** Paths support tilde expansion (`~`), so `~/configs/snowflake.toml` works everywhere.
 
-This layered approach allows tracking at multiple levels:
-1. Application-level tracking (connections.toml)
-2. Deployment-level tracking (CLI/ENV/YAML session_parameters)
-3. Run-specific tracking (query_tag argument)
-4. Tool tracking (schemachange's automatic tag)
+#### Example: Create a connections.toml file
 
-**Priority**: All connection and session parameters follow the consistent priority: CLI > ENV > YAML > connections.toml
+Create `~/.snowflake/connections.toml`:
+
+```toml
+# Development environment
+[dev]
+account = "myorg-dev"
+user = "developer"
+role = "DEV_ROLE"
+warehouse = "DEV_WH"
+database = "DEV_DB"
+
+# Production environment
+[prod]
+account = "myorg-prod"
+user = "deploy_service"
+authenticator = "snowflake_jwt"
+private_key_path = "~/.ssh/snowflake_prod.p8"
+private_key_passphrase = "my_secure_passphrase"
+role = "DEPLOY_ROLE"
+warehouse = "PROD_WH"
+database = "PROD_DB"
+
+# Optional: Set session parameters for this connection
+[prod.parameters]
+QUERY_TAG = "my_app_prod"
+QUOTED_IDENTIFIERS_IGNORE_CASE = false
+```
+
+**Secure your file:**
+```bash
+chmod 600 ~/.snowflake/connections.toml
+```
+
+**Use it:**
+```bash
+# Deploy to dev
+schemachange deploy -f migrations -C dev
+
+# Deploy to prod
+schemachange deploy -f migrations -C prod
+```
+
+#### Session Parameters in connections.toml
+
+Session parameters let you control Snowflake session behavior (like `QUERY_TAG`, date formats, query timeouts, etc.).
+
+**Quick example:**
+```toml
+[my_connection.parameters]
+QUERY_TAG = "my_app"
+TIMESTAMP_OUTPUT_FORMAT = "YYYY-MM-DD HH24:MI:SS"
+```
+
+<details>
+<summary>📘 <strong>Advanced: How session parameters merge across all config sources</strong></summary>
+
+You can set session parameters in multiple places, and schemachange intelligently merges them:
+
+**Sources** (in priority order):
+1. **CLI**: `--snowflake-session-parameters '{"PARAM": "value"}'`
+2. **ENV**: `SNOWFLAKE_SESSION_PARAMETERS='{"PARAM": "value"}'`
+3. **YAML v2**: Under `snowflake.session-parameters`
+4. **connections.toml**: Under `[connection_name.parameters]`
+
+**How merging works:**
+- Higher priority sources override lower ones **per parameter**
+- Only explicitly-set parameters from connections.toml are used (not Snowflake defaults)
+- Parameters from all sources are combined and passed once to Snowflake (efficient!)
+
+**Special case: QUERY_TAG appends instead of overriding:**
+
+`QUERY_TAG` is special - values are **appended** with semicolons instead of replaced. This lets you track queries at multiple levels:
+
+| Layer | Source | Value |
+|-------|--------|-------|
+| 🏠 Application | connections.toml | `"my_app"` |
+| 🌍 Environment | CLI session params | `"deployment"` |
+| 🎯 Run-specific | `--query-tag` | `"production"` |
+| 🔧 Tool | schemachange (auto) | `"schemachange 4.1.0"` |
+| **📊 Final** | **Snowflake sees** | **`"my_app;deployment;production;schemachange 4.1.0"`** |
+
+**Example:**
+
+```bash
+# connections.toml has QUERY_TAG = "my_app"
+export SNOWFLAKE_SESSION_PARAMETERS='{"QUERY_TAG": "ci_pipeline"}'
+schemachange deploy -C prod --query-tag "release-v2.0"
+
+# Snowflake query history shows:
+# QUERY_TAG = "my_app;ci_pipeline;release-v2.0;schemachange 4.1.0"
+```
+
+This makes it easy to filter queries by application, environment, or specific deployment in Snowflake's query history!
+
+</details>
 
 ### YAML Config File
 
@@ -757,34 +918,88 @@ schemachange deploy --config-folder ./migrations
 
 ### Configuration Priority
 
-schemachange uses a layered configuration approach with the following priority order (highest to lowest):
+#### The Simple Rule
 
-1. **Command Line Arguments** - Explicitly provided CLI flags (e.g., `--snowflake-account`)
-2. **Environment Variables** - `SNOWFLAKE_*` prefixed variables
-3. **YAML Configuration File** - Settings in `schemachange-config.yml`
-4. **connections.toml File** - Snowflake Python Connector's connection file
+**Higher wins.** When the same parameter is set in multiple places, the highest priority source wins:
 
-This means:
-- CLI arguments override everything
-- Environment variables override YAML and connections.toml
-- YAML configuration overrides connections.toml
-- connections.toml provides base defaults
+```
+🥇 CLI Arguments (--flags)
+  ↓ overrides
+🥈 Environment Variables (SNOWFLAKE_*, SCHEMACHANGE_*)
+  ↓ overrides
+🥉 YAML Config File (schemachange-config.yml)
+  ↓ overrides
+🏅 connections.toml (when explicitly enabled)
+```
 
-**Example Priority Resolution:**
+#### How It Works in Practice
 
-If you have:
-- `connections.toml` with `user = "toml_user"`
-- YAML with `snowflake-user: yaml_user`
-- Environment variable `SNOWFLAKE_USER=env_user`
-- CLI argument `--snowflake-user cli_user`
+**Example:** You set `user` in all four places. Which one does schemachange use?
 
-The effective user will be `cli_user` (CLI wins).
+| Source | Value | Result |
+|--------|-------|--------|
+| connections.toml | `user = "toml_user"` | ❌ Overridden |
+| YAML config | `snowflake-user: yaml_user` | ❌ Overridden |
+| ENV variable | `SNOWFLAKE_USER=env_user` | ❌ Overridden |
+| CLI argument | `--snowflake-user cli_user` | ✅ **Winner!** |
 
-This priority system allows you to:
-- Set base configuration in `connections.toml`
-- Override per-environment in YAML files
-- Override for CI/CD with environment variables
-- Override for specific runs with CLI arguments
+**Schemachange connects as:** `cli_user`
+
+#### When to Use Each Method
+
+Think about **who** needs to change the value and **when**:
+
+| Method | Best For | Example Scenario |
+|--------|----------|-----------------|
+| **connections.toml** | Personal defaults | "I always connect to DEV_DB when developing locally" |
+| **YAML Config** | Team/project standards | "Our staging environment always uses STAGE_WH warehouse" |
+| **Environment Variables** | CI/CD & secrets | "GitHub Actions sets credentials per environment" |
+| **CLI Arguments** | One-off overrides | "Just this once, use a different warehouse" |
+
+#### Real-World Scenarios
+
+**Scenario 1: Local Development**
+```toml
+# ~/.snowflake/connections.toml - Your personal defaults
+[dev]
+account = "myorg-dev"
+user = "alice"
+database = "DEV_DB"
+```
+```bash
+# Override just the database for testing
+schemachange deploy -C dev -d TEST_DB
+# Uses: account=myorg-dev, user=alice, database=TEST_DB (CLI wins)
+```
+
+**Scenario 2: CI/CD Pipeline**
+```yaml
+# schemachange-config.yml - Team config checked into git
+snowflake:
+  warehouse: PROD_WH
+  role: DEPLOY_ROLE
+```
+```bash
+# GitHub Actions - Secrets from vault, override account per environment
+export SNOWFLAKE_USER=github_deploy_bot
+export SNOWFLAKE_PASSWORD=${{ secrets.SNOWFLAKE_PAT }}
+export SNOWFLAKE_ACCOUNT="myorg-prod"  # ENV overrides YAML
+schemachange deploy
+```
+
+**Scenario 3: Multi-Environment**
+```yaml
+# config-staging.yml
+snowflake:
+  account: myorg-staging
+  warehouse: STAGE_WH
+```
+```bash
+# Use staging config, but override warehouse for load testing
+export SNOWFLAKE_ACCOUNT="myorg-staging"
+schemachange deploy --config-folder ./configs -w LOAD_TEST_WH
+# ENV (account) + CLI (warehouse) both win over YAML
+```
 
 **Snowflake Python Connector Parameters:**
 
