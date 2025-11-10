@@ -1253,43 +1253,51 @@ Most arguments also support short forms (single dash, single letter) for conveni
 
 **General Configuration**
 
-| Parameter | Short Form | Description |
-|-----------|------------|-------------|
-| -h, --help | | Show the help message and exit |
-| --config-folder CONFIG_FOLDER | | The folder to look in for the schemachange config file (default: current working directory) |
-| --config-file-name CONFIG_FILE_NAME | | The file name of the schemachange config file (default: schemachange-config.yml) |
+| Parameter | Description |
+|-----------|-------------|
+| `-h`, `--help` | Show the help message and exit |
+| `--config-folder` | The folder to look in for the schemachange config file (default: current working directory) |
+| `--config-file-name` | The file name of the schemachange config file (default: `schemachange-config.yml`) |
 
 **Schemachange Parameters**
 
-| Parameter | Short Form | Environment Variable | Description |
-|-----------|------------|---------------------|-------------|
-| `-f`<br/>`--schemachange-root-folder`<br/>`--root-folder` *(deprecated)* | `-f` | `SCHEMACHANGE_ROOT_FOLDER` | The root folder for database change scripts (default: current directory) |
-| `-m`<br/>`--schemachange-modules-folder`<br/>`--modules-folder` *(deprecated)* | `-m` | `SCHEMACHANGE_MODULES_FOLDER` | The modules folder for jinja macros and templates |
-| `-c`<br/>`--schemachange-change-history-table`<br/>`--change-history-table` *(deprecated)* | `-c` | `SCHEMACHANGE_CHANGE_HISTORY_TABLE` | Override the default change history table name (default: `METADATA.SCHEMACHANGE.CHANGE_HISTORY`) |
-| `-V`<br/>`--schemachange-vars`<br/>`--vars` *(deprecated)* | `-V` | `SCHEMACHANGE_VARS` | Define variables for scripts in JSON format. Merged with YAML vars (e.g., `'{"var1": "val1"}'`) |
-| `--schemachange-create-change-history-table`<br/>`--create-change-history-table` *(deprecated)* | | `SCHEMACHANGE_CREATE_CHANGE_HISTORY_TABLE` | Create the change history table if it doesn't exist (default: false) |
-| `-ac`<br/>`--schemachange-autocommit`<br/>`--autocommit` *(deprecated)* | `-ac` | `SCHEMACHANGE_AUTOCOMMIT` | Enable autocommit for DML commands (default: false) |
-| `--schemachange-dry-run`<br/>`--dry-run` *(deprecated)* | | `SCHEMACHANGE_DRY_RUN` | Run in dry run mode (default: false) |
-| `-Q`<br/>`--schemachange-query-tag`<br/>`--query-tag` *(deprecated)* | `-Q` | `SCHEMACHANGE_QUERY_TAG` | String to include in `QUERY_TAG` attached to every SQL statement |
-| `-L`<br/>`--schemachange-log-level`<br/>`--log-level` *(deprecated)* | `-L` | `SCHEMACHANGE_LOG_LEVEL` | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` (default: `INFO`) |
-| `-C`<br/>`--schemachange-connection-name`<br/>`--connection-name` *(deprecated)* | `-C` | `SCHEMACHANGE_CONNECTION_NAME` | Connection profile name from `connections.toml` |
-| `--schemachange-connections-file-path`<br/>`--connections-file-path` *(deprecated)* | | `SCHEMACHANGE_CONNECTIONS_FILE_PATH` | Path to `connections.toml` file |
-| `-v`<br/>`--verbose` *(deprecated)* | `-v` | | Use `-L DEBUG` or `--schemachange-log-level DEBUG` instead |
+| Parameter | Environment Variable | Description |
+|-----------|---------------------|-------------|
+| `-f`<br/>`--schemachange-root-folder`<br/>`--root-folder` *(deprecated)* | `SCHEMACHANGE_ROOT_FOLDER` | The root folder for database change scripts (default: current directory) |
+| `-m`<br/>`--schemachange-modules-folder`<br/>`--modules-folder` *(deprecated)* | `SCHEMACHANGE_MODULES_FOLDER` | The modules folder for jinja macros and templates |
+| `-c`<br/>`--schemachange-change-history-table`<br/>`--change-history-table` *(deprecated)* | `SCHEMACHANGE_CHANGE_HISTORY_TABLE` | Override the default change history table name (default: `METADATA.SCHEMACHANGE.CHANGE_HISTORY`) |
+| `-V`<br/>`--schemachange-vars`<br/>`--vars` *(deprecated)* | `SCHEMACHANGE_VARS` | Define variables for scripts in JSON format. Merged with YAML vars (e.g., `'{"var1": "val1"}'`) |
+| `--schemachange-create-change-history-table`<br/>`--create-change-history-table` *(deprecated)* | `SCHEMACHANGE_CREATE_CHANGE_HISTORY_TABLE` | Create the change history table if it doesn't exist (default: false) |
+| `-ac`<br/>`--schemachange-autocommit`<br/>`--autocommit` *(deprecated)* | `SCHEMACHANGE_AUTOCOMMIT` | Enable autocommit for DML commands (default: false) |
+| `--schemachange-dry-run`<br/>`--dry-run` *(deprecated)* | `SCHEMACHANGE_DRY_RUN` | Run in dry run mode (default: false) |
+| `-Q`<br/>`--schemachange-query-tag`<br/>`--query-tag` *(deprecated)* | `SCHEMACHANGE_QUERY_TAG` | String to include in `QUERY_TAG` attached to every SQL statement |
+| `-L`<br/>`--schemachange-log-level`<br/>`--log-level` *(deprecated)* | `SCHEMACHANGE_LOG_LEVEL` | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` (default: `INFO`) |
+| `-C`<br/>`--schemachange-connection-name`<br/>`--connection-name` *(deprecated)* | `SCHEMACHANGE_CONNECTION_NAME` | Connection profile name from `connections.toml` |
+| `--schemachange-connections-file-path`<br/>`--connections-file-path` *(deprecated)* | `SCHEMACHANGE_CONNECTIONS_FILE_PATH` | Path to `connections.toml` file |
+| `-v`<br/>`--verbose` *(deprecated)* | | Use `-L DEBUG` or `--schemachange-log-level DEBUG` instead |
 
 **Snowflake Connection Parameters**
 
-| Parameter | Short Form | Environment Variable | Description |
-|-----------|------------|---------------------|-------------|
-| `-a`<br/>`--snowflake-account` | `-a` | `SNOWFLAKE_ACCOUNT` | Snowflake account identifier (e.g., `myaccount.us-east-1`) |
-| `-u`<br/>`--snowflake-user` | `-u` | `SNOWFLAKE_USER` | Username for authentication |
-| `-r`<br/>`--snowflake-role` | `-r` | `SNOWFLAKE_ROLE` | Role to use after connecting |
-| `-w`<br/>`--snowflake-warehouse` | `-w` | `SNOWFLAKE_WAREHOUSE` | Default warehouse |
-| `-d`<br/>`--snowflake-database` | `-d` | `SNOWFLAKE_DATABASE` | Default database |
-| `-s`<br/>`--snowflake-schema` | `-s` | `SNOWFLAKE_SCHEMA` | Default schema |
-| `--snowflake-authenticator` | | `SNOWFLAKE_AUTHENTICATOR` | Authentication method (e.g., `snowflake`, `oauth`, `externalbrowser`, `snowflake_jwt`) |
-| `--snowflake-private-key-path` | | `SNOWFLAKE_PRIVATE_KEY_PATH` | Path to private key file for JWT authentication |
-| *(ENV/YAML/toml only)* | | `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` | Passphrase for encrypted private key (**not** available via CLI for security) |
-| `--snowflake-token-file-path` | | `SNOWFLAKE_TOKEN_FILE_PATH` | Path to OAuth token file |
+| Parameter | Environment Variable | Description |
+|-----------|---------------------|-------------|
+| `-a`<br/>`--snowflake-account` | `SNOWFLAKE_ACCOUNT` | Snowflake account identifier (e.g., `myaccount.us-east-1`) |
+| `-u`<br/>`--snowflake-user` | `SNOWFLAKE_USER` | Username for authentication |
+| `-r`<br/>`--snowflake-role` | `SNOWFLAKE_ROLE` | Role to use after connecting |
+| `-w`<br/>`--snowflake-warehouse` | `SNOWFLAKE_WAREHOUSE` | Default warehouse |
+| `-d`<br/>`--snowflake-database` | `SNOWFLAKE_DATABASE` | Default database |
+| `-s`<br/>`--snowflake-schema` | `SNOWFLAKE_SCHEMA` | Default schema |
+| `--snowflake-authenticator` | `SNOWFLAKE_AUTHENTICATOR` | Authentication method (e.g., `snowflake`, `oauth`, `externalbrowser`, `snowflake_jwt`) |
+| `--snowflake-private-key-path` | `SNOWFLAKE_PRIVATE_KEY_PATH` | Path to private key file for JWT authentication |
+| `--snowflake-token-file-path` | `SNOWFLAKE_TOKEN_FILE_PATH` | Path to OAuth token file |
+
+**Snowflake Parameters (ENV/YAML/connections.toml only)**
+
+These parameters are **not available via CLI** for security reasons:
+
+| Environment Variable | YAML v2 Path | connections.toml | Description |
+|---------------------|--------------|------------------|-------------|
+| `SNOWFLAKE_PASSWORD` | `snowflake.password` | `password` | Password or Programmatic Access Token (PAT) for authentication |
+| `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` | `snowflake.private-key-passphrase` | `private_key_passphrase` | Passphrase for encrypted private key files |
 
 **Note on Argument Aliases:**
 - Multiple argument forms are supported for backward compatibility (e.g., `-f`, `--schemachange-root-folder`, `--root-folder`)
@@ -1303,7 +1311,7 @@ Most arguments also support short forms (single dash, single letter) for conveni
 This subcommand is used to render a single script to the console. It is intended to support the development and
 troubleshooting of script that use features from the jinja template engine.
 
-`usage: schemachange render [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-V VARS] [-L LOG_LEVEL] script`
+**Usage:** `schemachange render [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-V VARS] [-L LOG_LEVEL] script`
 
 | Parameter | Description |
 |-----------|-------------|
@@ -1318,7 +1326,7 @@ troubleshooting of script that use features from the jinja template engine.
 
 This subcommand tests Snowflake connectivity and displays all configuration parameters being used. It is useful for troubleshooting connection issues, validating credentials before deployment, and auditing configuration in CI/CD pipelines.
 
-`usage: schemachange verify [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-V VARS] [-L LOG_LEVEL] [-a ACCOUNT] [-u USER] [-r ROLE] [-w WAREHOUSE] [-d DATABASE] [-s SCHEMA] [--snowflake-authenticator AUTHENTICATOR] [--snowflake-private-key-path PATH] [--snowflake-token-file-path PATH] [-C CONNECTION_NAME] [--schemachange-connections-file-path PATH]`
+**Usage:** `schemachange verify [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-V VARS] [-L LOG_LEVEL] [-a ACCOUNT] [-u USER] [-r ROLE] [-w WAREHOUSE] [-d DATABASE] [-s SCHEMA] [--snowflake-authenticator AUTHENTICATOR] [--snowflake-private-key-path PATH] [--snowflake-token-file-path PATH] [-C CONNECTION_NAME] [--schemachange-connections-file-path PATH]`
 
 **What it does:**
 - Tests connection to Snowflake with your configured credentials
