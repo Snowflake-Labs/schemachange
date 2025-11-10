@@ -274,7 +274,8 @@ def test_get_snowflake_home(env_vars: dict, expected_env_value: str | None):
             assert result == expected_env_value
         else:
             # When SNOWFLAKE_HOME is empty or not set, defaults to user's home directory
-            assert result == "/mock/home"
+            # Use str(Path(...)) to handle Windows path separators correctly
+            assert result == str(Path("/mock/home"))
 
 
 @pytest.mark.parametrize(
