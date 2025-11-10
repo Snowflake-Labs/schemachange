@@ -526,14 +526,14 @@ If you specify **neither**, `connections.toml` is skipped entirely and parameter
 | Both specified | Uses exactly what you specified |
 
 **File path precedence** (highest to lowest):
-1. CLI: `--connections-file-path` or `-F`
-2. ENV: `SNOWFLAKE_CONNECTIONS_FILE_PATH`
+1. CLI: `--connections-file-path`
+2. ENV: `SCHEMACHANGE_CONNECTIONS_FILE_PATH` (or legacy `SNOWFLAKE_CONNECTIONS_FILE_PATH`)
 3. YAML: `connections-file-path`
-4. Default: `~/.snowflake/connections.toml`
+4. Default: `$SNOWFLAKE_HOME/.snowflake/connections.toml` (where `$SNOWFLAKE_HOME` defaults to your home directory)
 
 **Connection name precedence** (highest to lowest):
 1. CLI: `--connection-name` or `-C`
-2. ENV: `SNOWFLAKE_DEFAULT_CONNECTION_NAME`
+2. ENV: `SCHEMACHANGE_CONNECTION_NAME` (or legacy `SNOWFLAKE_DEFAULT_CONNECTION_NAME`)
 3. YAML: `connection-name`
 4. Default: `default`
 
@@ -863,6 +863,8 @@ These environment variables configure schemachange-specific behavior:
 
 | Environment Variable | Description | Example | Type |
 |---------------------|-------------|---------|------|
+| `SCHEMACHANGE_CONFIG_FOLDER` | The folder to look for schemachange config file. **Important:** Must be set via `--config-folder` CLI argument to control YAML file loading location. ENV variable is loaded after YAML, so it only affects the config object property. Useful for CI/CD with no YAML file. | `.` (current directory) | string |
+| `SCHEMACHANGE_CONFIG_FILE_NAME` | The schemachange config YAML file name. **Important:** Must be set via `--config-file-name` CLI argument to control YAML file loading. ENV variable is loaded after YAML, so it only affects the config object property. Useful for CI/CD with no YAML file. | `schemachange-config.yml` | string |
 | `SCHEMACHANGE_ROOT_FOLDER` | The root folder for database change scripts | `./migrations` | string |
 | `SCHEMACHANGE_MODULES_FOLDER` | The modules folder for jinja macros and templates | `./modules` | string |
 | `SCHEMACHANGE_CHANGE_HISTORY_TABLE` | Override the default change history table name | `METADATA.SCHEMACHANGE.CHANGE_HISTORY` | string |
@@ -872,10 +874,43 @@ These environment variables configure schemachange-specific behavior:
 | `SCHEMACHANGE_DRY_RUN` | Run in dry run mode | `true` or `false` | boolean |
 | `SCHEMACHANGE_QUERY_TAG` | String to include in QUERY_TAG for SQL statements | `my-project` | string |
 | `SCHEMACHANGE_LOG_LEVEL` | Logging level | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` | string |
-| `SCHEMACHANGE_CONNECTIONS_FILE_PATH` | Path to connections.toml file | `~/.snowflake/connections.toml` | string |
-| `SCHEMACHANGE_CONNECTION_NAME` | Connection profile name from connections.toml | `production` | string |
+| `SCHEMACHANGE_CONNECTIONS_FILE_PATH` | Path to connections.toml file (controls where schemachange looks for connection config) | `~/.snowflake/connections.toml` | string |
+| `SCHEMACHANGE_CONNECTION_NAME` | Connection profile name from connections.toml (controls which profile schemachange uses) | `production` | string |
 
 **Note:** Boolean values accept `true`/`false`, `yes`/`no`, `1`/`0` (case-insensitive).
+
+**🏗️ Architecture Note:** `SCHEMACHANGE_CONNECTION_NAME` and `SCHEMACHANGE_CONNECTIONS_FILE_PATH` use the `SCHEMACHANGE_` prefix because they control **where schemachange looks for configuration** (first-pass resolution), not what gets passed to Snowflake. These are config-lookup parameters, not Snowflake connector parameters.
+
+**📋 Configuration Resolution Flow:**
+
+```
+Phase 0: Parse CLI Arguments
+├─ Parse: --config-folder (default: .)
+├─ Parse: --config-file-name (default: schemachange-config.yml)  
+└─ Result: Use these values immediately to locate YAML file
+
+Phase 1: Load Configuration Sources (in order)
+├─ 1. Load YAML config (using config_folder from Phase 0)
+├─ 2. Load ENV config (including SCHEMACHANGE_CONFIG_FOLDER, etc.)
+└─ 3. Already have CLI config from Phase 0
+
+Phase 2: First Pass - Determine connections.toml Usage
+├─ Resolve: connection_name (precedence: CLI > ENV > YAML)
+├─ Resolve: connections_file_path (precedence: CLI > ENV > YAML)
+├─ Decision: Use connections.toml? (YES if either is set, NO if neither)
+└─ If YES: Load parameters from connections.toml
+
+Phase 3: Second Pass - Merge All Parameters  
+├─ Merge Snowflake connection params: CLI > ENV > YAML > toml
+├─ Merge session_parameters: CLI > ENV > YAML > toml (QUERY_TAG appends)
+└─ Merge additional_snowflake_params: ENV > YAML
+```
+
+**Key Architectural Points:**
+- **YAML location** determined by Phase 0 CLI args only (ENV vars for config_folder/config_file_name loaded too late)
+- **connections.toml usage** determined by Phase 2 (CLI > ENV > YAML precedence)
+- **Parameter values** merged in Phase 3 with full precedence chain (CLI > ENV > YAML > toml)
+- **No conflicts** because each phase has a distinct purpose and resolution order
 
 #### SNOWFLAKE_* Environment Variables
 
@@ -924,15 +959,17 @@ For a complete list of supported connector parameters, see the [Snowflake Python
 
 | Environment Variable | Description | Example |
 |---------------------|-------------|---------|
-| `SNOWFLAKE_CONNECTIONS_FILE_PATH` | Custom path to `connections.toml` file | `/custom/path/connections.toml` |
-| `SNOWFLAKE_HOME` | Custom Snowflake home directory (default: `~/.snowflake`) | `~/.snowflake` |
-| `SNOWFLAKE_DEFAULT_CONNECTION_NAME` | Default connection profile name from `connections.toml` | `production` |
+| `SNOWFLAKE_HOME` | Snowflake home directory (default: your user home directory, e.g., `/Users/tmathew`). Schemachange uses `$SNOWFLAKE_HOME/.snowflake/connections.toml` as the default connections file path. | `/Users/tmathew` |
 
 #### Legacy Environment Variables
 
-| Environment Variable | Description | Status |
-|---------------------|-------------|--------|
-| `SNOWSQL_PWD` | Legacy password variable | **Deprecated** - Use `SNOWFLAKE_PASSWORD` instead |
+These variables are supported for backward compatibility but are superseded by `SCHEMACHANGE_*` prefixed versions:
+
+| Environment Variable | Modern Equivalent | Description |
+|---------------------|-------------------|-------------|
+| `SNOWFLAKE_CONNECTIONS_FILE_PATH` | `SCHEMACHANGE_CONNECTIONS_FILE_PATH` | Custom path to `connections.toml` file. Use `SCHEMACHANGE_CONNECTIONS_FILE_PATH` instead. |
+| `SNOWFLAKE_DEFAULT_CONNECTION_NAME` | `SCHEMACHANGE_CONNECTION_NAME` | Connection profile name from `connections.toml`. Use `SCHEMACHANGE_CONNECTION_NAME` instead. |
+| `SNOWSQL_PWD` | `SNOWFLAKE_PASSWORD` | Legacy password variable. Use `SNOWFLAKE_PASSWORD` instead. |
 
 </details>
 
