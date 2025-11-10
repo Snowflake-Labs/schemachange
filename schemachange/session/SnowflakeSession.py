@@ -46,36 +46,28 @@ class SnowflakeSession:
         schema: str | None = None,  # TODO: Remove when connections.toml is enforced
         query_tag: str | None = None,
         autocommit: bool = False,
+        session_parameters: dict | None = None,  # Merged session params from CLI/ENV/YAML
         additional_snowflake_params: dict | None = None,
         **kwargs,  # TODO: Remove when connections.toml is enforced
     ):
         self.change_history_table = change_history_table
         self.autocommit = autocommit
         self.logger = logger
-        self.session_parameters = {}
-        snowflake_kwargs = {
-            "connection_name": connection_name, 
-            "connections_file_path": connections_file_path,
-            "application": application
-        }
-        snowflake_kwargs = {k: v for k, v in snowflake_kwargs.items() if v is not None}
-        temp_con = snowflake.connector.connect(**snowflake_kwargs)
-        if hasattr(temp_con, '_session_parameters'):
-            self.session_parameters.update(temp_con._session_parameters)
-        temp_con.close()
-        
-        query_tag_value = f"schemachange {schemachange_version}"
+
+        # Build schemachange's QUERY_TAG value
+        # We'll apply this after connection is established to preserve any QUERY_TAG from connections.toml
+        schemachange_query_tag = f"schemachange {schemachange_version}"
         if query_tag:
-            query_tag_value += f";{query_tag}"
-            
-        if "QUERY_TAG" in self.session_parameters:
-            self.session_parameters["QUERY_TAG"] += f";{query_tag_value}"
-        else:
-            self.session_parameters["QUERY_TAG"] = query_tag_value
+            schemachange_query_tag += f";{query_tag}"
+
+        # Prepare session_parameters from CLI/ENV/YAML (already merged in get_merged_config)
+        if session_parameters is None:
+            session_parameters = {}
 
         # Start with additional_snowflake_params (lowest priority for these params)
         # These come from YAML v2 snowflake section or generic SNOWFLAKE_* env vars
         connect_kwargs = {}
+
         if additional_snowflake_params:
             # Convert kebab-case keys to snake_case for connector compatibility
             for key, value in additional_snowflake_params.items():
@@ -100,8 +92,20 @@ class SnowflakeSession:
             "password": kwargs.get("password"),
             "authenticator": kwargs.get("authenticator"),
             "application": application,
-            "session_parameters": self.session_parameters,
         }
+
+        # Merge session_parameters (already merged from CLI/ENV/YAML/connections.toml) with schemachange's QUERY_TAG
+        # session_parameters already contains merged params with precedence: CLI > ENV > YAML > connections.toml
+        final_session_params = {**session_parameters}  # Start with already-merged params
+
+        # Handle QUERY_TAG: append schemachange's tag to any existing QUERY_TAG
+        # QUERY_TAG might come from connections.toml, CLI/ENV/YAML session_parameters, or query_tag argument
+        if "QUERY_TAG" in final_session_params:
+            final_session_params["QUERY_TAG"] += f";{schemachange_query_tag}"
+        else:
+            final_session_params["QUERY_TAG"] = schemachange_query_tag
+
+        explicit_params["session_parameters"] = final_session_params
 
         # Merge explicit params, overriding any additional params
         connect_kwargs.update({k: v for k, v in explicit_params.items() if v is not None})
@@ -126,6 +130,10 @@ class SnowflakeSession:
 
         if not self.autocommit:
             self.con.autocommit(False)
+
+        # Store final merged session parameters that were passed to connect()
+        # (already merged in get_merged_config with CLI > ENV > YAML > connections.toml precedence)
+        self.session_parameters = explicit_params.get("session_parameters", {})
 
     def __del__(self):
         if hasattr(self, "con"):

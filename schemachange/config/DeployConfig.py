@@ -40,6 +40,7 @@ class DeployConfig(BaseConfig):
     token_file_path: str | None = None
     version_number_validation_regex: str | None = None
     raise_exception_on_ignored_versioned_script: bool = False
+    session_parameters: dict | None = None  # Session parameters from CLI/ENV/YAML (merged with connections.toml)
     additional_snowflake_params: dict | None = None  # Parameters from YAML v2 or generic SNOWFLAKE_* env vars
 
     @classmethod
@@ -84,6 +85,7 @@ class DeployConfig(BaseConfig):
             "change_history_table": self.change_history_table,
             "autocommit": self.autocommit,
             "query_tag": self.query_tag,
+            "session_parameters": self.session_parameters,
             "additional_snowflake_params": self.additional_snowflake_params,
         }
 

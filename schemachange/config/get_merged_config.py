@@ -9,6 +9,7 @@ from schemachange.config.parse_cli_args import parse_cli_args
 from schemachange.config.RenderConfig import RenderConfig
 from schemachange.config.utils import (
     get_all_snowflake_env_vars,
+    get_connections_toml_session_parameters,
     get_schemachange_config_from_env,
     get_snowflake_account,
     get_snowflake_authenticator,
@@ -18,6 +19,7 @@ from schemachange.config.utils import (
     get_snowflake_private_key_path,
     get_snowflake_role,
     get_snowflake_schema,
+    get_snowflake_session_parameters,
     get_snowflake_token_file_path,
     get_snowflake_user,
     get_snowflake_warehouse,
@@ -72,7 +74,12 @@ def get_env_config_kwargs() -> dict:
         if env_value is not None:
             env_kwargs[param] = env_value
 
-    # 3. Get generic SNOWFLAKE_* environment variables for pass-through
+    # 3. Get session parameters from SNOWFLAKE_SESSION_PARAMETERS
+    env_session_parameters = get_snowflake_session_parameters()
+    if env_session_parameters:
+        env_kwargs["session_parameters"] = env_session_parameters
+
+    # 4. Get generic SNOWFLAKE_* environment variables for pass-through
     generic_snowflake_params = get_all_snowflake_env_vars()
     if generic_snowflake_params:
         # Store these for pass-through to Snowflake connector
@@ -182,6 +189,56 @@ def get_merged_config(
         **cli_config_vars,  # P1: CLI (highest priority)
     }
 
+    # Handle session_parameters merging (CLI > ENV > YAML > connections.toml)
+    # Read connections.toml session parameters (P4: lowest priority)
+    toml_session_params = get_connections_toml_session_parameters(connections_file_path, connection_name)
+
+    # Extract session_parameters from YAML additional_snowflake_params if present
+    yaml_session_params = yaml_kwargs.pop("session_parameters", None)
+    if yaml_session_params is None:
+        # Check if it's in additional_snowflake_params from YAML v2
+        yaml_additional = yaml_kwargs.get("additional_snowflake_params", {})
+        yaml_session_params = yaml_additional.pop("session_parameters", {}) if yaml_additional else {}
+    if yaml_session_params is None:
+        yaml_session_params = {}
+
+    env_session_params = env_kwargs.pop("session_parameters", None)
+    if env_session_params is None:
+        env_session_params = {}
+
+    cli_session_params = cli_kwargs.pop("session_parameters", None)
+    if cli_session_params is None:
+        cli_session_params = {}
+
+    # Deep merge session_parameters (CLI > ENV > YAML > connections.toml)
+    # Only explicitly-set parameters from connections.toml, not defaults
+    # QUERY_TAG gets special treatment: append from all sources instead of override
+    merged_session_params = {
+        **toml_session_params,  # P4: connections.toml (lowest priority)
+        **yaml_session_params,  # P3: YAML
+        **env_session_params,  # P2: ENV
+        **cli_session_params,  # P1: CLI (highest priority)
+    }
+
+    # Special handling for QUERY_TAG: append values from all sources
+    query_tag_parts = []
+    for params_dict in [toml_session_params, yaml_session_params, env_session_params, cli_session_params]:
+        if "QUERY_TAG" in params_dict and params_dict["QUERY_TAG"]:
+            query_tag_parts.append(str(params_dict["QUERY_TAG"]))
+
+    if query_tag_parts:
+        merged_session_params["QUERY_TAG"] = ";".join(query_tag_parts)
+
+    logger.debug(
+        "Merged session_parameters",
+        toml_params=list(toml_session_params.keys()),
+        yaml_params=list(yaml_session_params.keys()),
+        env_params=list(env_session_params.keys()),
+        cli_params=list(cli_session_params.keys()),
+        final_merged=list(merged_session_params.keys()),
+        query_tag_parts=query_tag_parts,
+    )
+
     # Handle additional_snowflake_params merging (ENV > YAML)
     # These are parameters to pass through to snowflake.connector.connect()
     yaml_snowflake_params = yaml_kwargs.pop("additional_snowflake_params", {})
@@ -210,6 +267,10 @@ def get_merged_config(
         **{k: v for k, v in env_kwargs.items() if v is not None},  # P2: ENV
         **{k: v for k, v in cli_kwargs.items() if v is not None},  # P1: CLI (highest)
     }
+
+    # Add merged session_parameters (CLI > ENV > YAML, will be merged with connections.toml in SnowflakeSession)
+    if merged_session_params:
+        kwargs["session_parameters"] = merged_session_params
 
     # Add additional_snowflake_params if any
     if additional_snowflake_params:

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
+import sys
 import warnings
 from pathlib import Path
 from typing import Any
@@ -11,6 +13,15 @@ import jinja2
 import jinja2.ext
 import structlog
 import yaml
+
+# Python 3.11+ has tomllib built-in, older versions need tomli
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    try:
+        import tomli as tomllib
+    except ImportError:
+        tomllib = None  # type: ignore
 
 from schemachange.JinjaEnvVar import JinjaEnvVar
 
@@ -560,6 +571,95 @@ def get_snowflake_default_connection_name() -> str | None:
     return None
 
 
+def get_snowflake_session_parameters() -> dict | None:
+    """
+    Get Snowflake session parameters from environment variable.
+
+    Returns:
+        Session parameters dict from SNOWFLAKE_SESSION_PARAMETERS environment variable (JSON format),
+        or None if not set or empty.
+
+    Example:
+        SNOWFLAKE_SESSION_PARAMETERS='{"QUOTED_IDENTIFIERS_IGNORE_CASE": false}'
+    """
+    session_params_str = os.getenv("SNOWFLAKE_SESSION_PARAMETERS")
+    if session_params_str:
+        try:
+            return json.loads(session_params_str)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in SNOWFLAKE_SESSION_PARAMETERS environment variable: {e}") from e
+    return None
+
+
+def get_connections_toml_session_parameters(
+    connections_file_path: Path | str | None, connection_name: str | None
+) -> dict:
+    """
+    Read session parameters from connections.toml file for a specific connection.
+
+    Returns only the explicitly-set session parameters from the [connection_name.parameters] section,
+    not the defaults.
+
+    Args:
+        connections_file_path: Path to connections.toml file
+        connection_name: Name of the connection profile to read
+
+    Returns:
+        Dictionary of session parameters explicitly set in connections.toml,
+        or empty dict if file doesn't exist, connection not found, or no parameters section.
+
+    Example connections.toml:
+        [production]
+        account = "myaccount"
+        user = "myuser"
+
+        [production.parameters]
+        QUERY_TAG = "my_app"
+        QUOTED_IDENTIFIERS_IGNORE_CASE = false
+    """
+    if not connections_file_path or not connection_name:
+        return {}
+
+    if tomllib is None:
+        logger.warning(
+            "tomli/tomllib not available - cannot read session parameters from connections.toml. "
+            "Install tomli for Python < 3.11"
+        )
+        return {}
+
+    try:
+        connections_file_path = Path(connections_file_path)
+        if not connections_file_path.exists():
+            return {}
+
+        with open(connections_file_path, "rb") as f:
+            toml_data = tomllib.load(f)
+
+        # Check if connection exists
+        if connection_name not in toml_data:
+            return {}
+
+        # Check if connection has parameters section
+        connection_data = toml_data[connection_name]
+        if not isinstance(connection_data, dict):
+            return {}
+
+        # Get session parameters from [connection_name.parameters] section
+        session_params = connection_data.get("parameters", {})
+        if not isinstance(session_params, dict):
+            return {}
+
+        return session_params
+
+    except Exception as e:
+        logger.warning(
+            f"Failed to read session parameters from connections.toml: {e}",
+            connections_file=str(connections_file_path),
+            connection_name=connection_name,
+        )
+        return {}
+
+
 def get_schemachange_config_from_env() -> dict:
     """
     Get schemachange-specific configuration from SCHEMACHANGE_* environment variables.
@@ -680,6 +780,7 @@ def get_all_snowflake_env_vars() -> dict:
         "SNOWFLAKE_CONNECTIONS_FILE_PATH",
         "SNOWFLAKE_DEFAULT_CONNECTION_NAME",
         "SNOWFLAKE_HOME",
+        "SNOWFLAKE_SESSION_PARAMETERS",  # Handled separately as JSON
         "SNOWSQL_PWD",
     }
 

@@ -438,6 +438,38 @@ A connection profile name can be supplied in the following ways (in order of pri
 3. The `connection-name` [YAML value](#yaml-config-file)
 4. Default: `default` (the Snowflake Python Connector uses the `[default]` profile if no name is specified)
 
+**Session Parameters Support:**
+
+Session parameters can be specified via multiple sources and are automatically merged following the standard precedence:
+
+- **CLI**: `--snowflake-session-parameters '{"QUOTED_IDENTIFIERS_IGNORE_CASE": false}'`
+- **ENV**: `SNOWFLAKE_SESSION_PARAMETERS='{"TIMESTAMP_OUTPUT_FORMAT": "YYYY-MM-DD"}'`
+- **YAML v2**: `snowflake.session-parameters` section
+- **connections.toml**: `[connection_name.parameters]` section
+
+**Merging Behavior:**
+- All session parameters are **deep-merged** with precedence: CLI > ENV > YAML > connections.toml
+- Each key in the session_parameters dict follows this precedence independently
+- Only **explicitly-set** parameters from connections.toml are included (not defaults), avoiding bloat
+- `QUERY_TAG` is **special**: values from all sources are **appended** (semicolon-separated) rather than overriding
+- All merged session parameters are passed once to `snowflake.connector.connect()` for efficiency
+
+**QUERY_TAG Example:**
+If you have:
+- `connections.toml` with `QUERY_TAG = "my_app"`
+- CLI `--snowflake-session-parameters '{"QUERY_TAG": "deployment"}'`
+- CLI `--schemachange-query-tag "production"`
+
+Final QUERY_TAG will be: `my_app;deployment;schemachange 4.1.0;production`
+
+This layered approach allows tracking at multiple levels:
+1. Application-level tracking (connections.toml)
+2. Deployment-level tracking (CLI/ENV/YAML session_parameters)
+3. Run-specific tracking (query_tag argument)
+4. Tool tracking (schemachange's automatic tag)
+
+**Priority**: All connection and session parameters follow the consistent priority: CLI > ENV > YAML > connections.toml
+
 ### YAML Config File
 
 By default, Schemachange expects the YAML config file to be named `schemachange-config.yml`, located in the current

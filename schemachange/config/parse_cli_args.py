@@ -246,6 +246,17 @@ def parse_cli_args(args) -> dict:
         "Can also be set via SNOWFLAKE_TOKEN_FILE_PATH environment variable.",
         required=False,
     )
+    parser_deploy.add_argument(
+        "--snowflake-session-parameters",
+        type=json.loads,
+        dest="session_parameters",
+        help="Snowflake session parameters in JSON format "
+        '(e.g. {"QUOTED_IDENTIFIERS_IGNORE_CASE": false, "TIMESTAMP_OUTPUT_FORMAT": "YYYY-MM-DD"}). '
+        "These parameters will be merged with those from connections.toml following the precedence: "
+        "CLI > ENV > YAML > connections.toml. QUERY_TAG is handled separately and appended. "
+        "Can also be set via SNOWFLAKE_SESSION_PARAMETERS environment variable.",
+        required=False,
+    )
 
     # Schemachange deploy arguments with consolidated old/new forms
     parser_deploy.add_argument(
@@ -441,6 +452,17 @@ def parse_cli_args(args) -> dict:
         dest="token_file_path",
         help="Path to OAuth token file (for use with --snowflake-authenticator oauth). "
         "Can also be set via SNOWFLAKE_TOKEN_FILE_PATH environment variable.",
+        required=False,
+    )
+    parser_verify.add_argument(
+        "--snowflake-session-parameters",
+        type=json.loads,
+        dest="session_parameters",
+        help="Snowflake session parameters in JSON format "
+        '(e.g. {"QUOTED_IDENTIFIERS_IGNORE_CASE": false, "TIMESTAMP_OUTPUT_FORMAT": "YYYY-MM-DD"}). '
+        "These parameters will be merged with those from connections.toml following the precedence: "
+        "CLI > ENV > YAML > connections.toml. QUERY_TAG is handled separately and appended. "
+        "Can also be set via SNOWFLAKE_SESSION_PARAMETERS environment variable.",
         required=False,
     )
 

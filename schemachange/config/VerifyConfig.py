@@ -39,6 +39,7 @@ class VerifyConfig(BaseConfig):
     private_key_path: str | None = None
     private_key_passphrase: str | None = None
     token_file_path: str | None = None
+    session_parameters: dict | None = None  # Session parameters from CLI/ENV/YAML (merged with connections.toml)
     additional_snowflake_params: dict | None = None  # Parameters from YAML v2 or generic SNOWFLAKE_* env vars
 
     @classmethod
@@ -98,6 +99,7 @@ class VerifyConfig(BaseConfig):
             "connection_name": self.connection_name,
             "autocommit": False,  # Default for verify
             "query_tag": None,  # Not needed for verify
+            "session_parameters": self.session_parameters,
             "additional_snowflake_params": self.additional_snowflake_params,
         }
 

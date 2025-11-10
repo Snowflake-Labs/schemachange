@@ -8,6 +8,7 @@ import pytest
 
 from schemachange.config.utils import (
     _parse_yaml_v2,
+    get_connections_toml_session_parameters,
     get_snowflake_account,
     get_snowflake_authenticator,
     get_snowflake_connections_file_path,
@@ -459,4 +460,87 @@ def test_load_yaml_config_nonexistent_file():
 def test_load_yaml_config_none_path():
     """Test loading None config file returns empty dict"""
     result = load_yaml_config(None)
+    assert result == {}
+
+
+def test_get_connections_toml_session_parameters(tmp_path):
+    """Test reading session parameters from connections.toml"""
+    # Create a temporary connections.toml file
+    toml_file = tmp_path / "connections.toml"
+    toml_content = """
+[production]
+account = "myaccount"
+user = "myuser"
+
+[production.parameters]
+QUERY_TAG = "my_app"
+QUOTED_IDENTIFIERS_IGNORE_CASE = false
+TIMESTAMP_OUTPUT_FORMAT = "YYYY-MM-DD HH24:MI:SS"
+
+[development]
+account = "devaccount"
+user = "devuser"
+
+[development.parameters]
+QUERY_TAG = "dev_app"
+"""
+    toml_file.write_text(toml_content)
+
+    # Test reading production connection parameters
+    result = get_connections_toml_session_parameters(toml_file, "production")
+    assert result == {
+        "QUERY_TAG": "my_app",
+        "QUOTED_IDENTIFIERS_IGNORE_CASE": False,
+        "TIMESTAMP_OUTPUT_FORMAT": "YYYY-MM-DD HH24:MI:SS",
+    }
+
+    # Test reading development connection parameters
+    result = get_connections_toml_session_parameters(toml_file, "development")
+    assert result == {
+        "QUERY_TAG": "dev_app",
+    }
+
+
+def test_get_connections_toml_session_parameters_nonexistent_connection(tmp_path):
+    """Test that non-existent connection returns empty dict"""
+    toml_file = tmp_path / "connections.toml"
+    toml_content = """
+[production]
+account = "myaccount"
+"""
+    toml_file.write_text(toml_content)
+
+    result = get_connections_toml_session_parameters(toml_file, "nonexistent")
+    assert result == {}
+
+
+def test_get_connections_toml_session_parameters_no_parameters_section(tmp_path):
+    """Test that connection without parameters section returns empty dict"""
+    toml_file = tmp_path / "connections.toml"
+    toml_content = """
+[production]
+account = "myaccount"
+user = "myuser"
+"""
+    toml_file.write_text(toml_content)
+
+    result = get_connections_toml_session_parameters(toml_file, "production")
+    assert result == {}
+
+
+def test_get_connections_toml_session_parameters_nonexistent_file():
+    """Test that nonexistent file returns empty dict"""
+    result = get_connections_toml_session_parameters(Path("/nonexistent/connections.toml"), "production")
+    assert result == {}
+
+
+def test_get_connections_toml_session_parameters_none_inputs():
+    """Test that None inputs return empty dict"""
+    result = get_connections_toml_session_parameters(None, None)
+    assert result == {}
+
+    result = get_connections_toml_session_parameters(Path("connections.toml"), None)
+    assert result == {}
+
+    result = get_connections_toml_session_parameters(None, "production")
     assert result == {}
