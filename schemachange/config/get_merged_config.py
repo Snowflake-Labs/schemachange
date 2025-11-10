@@ -195,8 +195,8 @@ def get_merged_config(
 
     if not use_connections_toml:
         # Neither specified - skip connections.toml entirely
-        logger.info("✓ No connection_name or connections_file_path specified")
-        logger.info("✓ Connection parameters will be resolved from CLI > ENV > YAML (connections.toml not used)")
+        logger.info("No connection_name or connections_file_path specified")
+        logger.info("Connection parameters will be resolved from CLI > ENV > YAML (connections.toml not used)")
         connections_file_path = None
         connection_name = None
     else:
@@ -205,17 +205,17 @@ def get_merged_config(
         # Default connection_name to 'default' if not specified
         if resolved_connection_name is None:
             connection_name = "default"
-            logger.info("✓ connection_name not specified, using default: 'default'")
+            logger.info("connection_name not specified, using default: 'default'")
         else:
             connection_name = resolved_connection_name
-            logger.info(f"✓ connection_name resolved from {connection_name_source}: {connection_name}")
+            logger.info(f"connection_name resolved from {connection_name_source}: {connection_name}")
 
         # Default connections_file_path to ~/.snowflake/connections.toml if not specified
         if resolved_connections_file_path is None:
             snowflake_home = get_snowflake_home()
             resolved_connections_file_path = Path(snowflake_home) / ".snowflake" / "connections.toml"
             connections_file_path_source = "default"
-            logger.info(f"✓ connections_file_path not specified, using default: {resolved_connections_file_path}")
+            logger.info(f"connections_file_path not specified, using default: {resolved_connections_file_path}")
 
         # Validate the resolved connections_file_path if we're using connections.toml
         if use_connections_toml:
@@ -224,11 +224,11 @@ def get_merged_config(
                 connections_file_path = validate_file_path(file_path=resolved_connections_file_path)
                 validate_connections_file_permissions(connections_file_path)
                 logger.info(
-                    f"✓ connections_file_path validated from {connections_file_path_source}: {connections_file_path}"
+                    f"connections_file_path validated from {connections_file_path_source}: {connections_file_path}"
                 )
             except ValueError as e:
                 logger.warning(
-                    f"✗ connections_file_path from {connections_file_path_source} is invalid: {resolved_connections_file_path}",
+                    f"connections_file_path from {connections_file_path_source} is invalid: {resolved_connections_file_path}",
                     error=str(e),
                 )
                 logger.info("Connection parameters will be resolved from CLI > ENV > YAML")
@@ -266,7 +266,7 @@ def get_merged_config(
 
         if toml_connection_params or toml_session_params:
             logger.info(
-                f"✓ Successfully loaded {len(toml_connection_params)} connection parameter(s) "
+                f"Successfully loaded {len(toml_connection_params)} connection parameter(s) "
                 f"and {len(toml_session_params)} session parameter(s) from connections.toml"
             )
             logger.debug(
@@ -275,9 +275,7 @@ def get_merged_config(
                 session_param_keys=list(toml_session_params.keys()),
             )
         else:
-            logger.warning(
-                f"✗ Connection '{connection_name}' not found or has no parameters in {connections_file_path}"
-            )
+            logger.warning(f"Connection '{connection_name}' not found or has no parameters in {connections_file_path}")
             logger.info("Connection parameters will be resolved from CLI > ENV > YAML")
 
     logger.info("=" * 80)

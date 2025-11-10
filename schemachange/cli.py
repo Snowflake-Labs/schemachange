@@ -193,7 +193,7 @@ def verify(config, logger: BoundLogger) -> None:
         con = snowflake.connector.connect(**connect_params)
 
         logger.info("")
-        logger.info("✓ Connection Successful!")
+        logger.info("[OK] Connection Successful!")
         logger.info("")
         logger.info("Connection Details:")
         logger.info(f"  Account: {connect_params.get('account', 'N/A')}")
@@ -215,7 +215,7 @@ def verify(config, logger: BoundLogger) -> None:
 
         logger.info("")
         logger.info("=" * 80)
-        logger.info("✓ Verification Complete - All checks passed!")
+        logger.info("[OK] Verification Complete - All checks passed!")
         logger.info("=" * 80)
 
         # Close the connection
@@ -223,7 +223,7 @@ def verify(config, logger: BoundLogger) -> None:
 
     except snowflake.connector.errors.HttpError as e:
         logger.error("")
-        logger.error("✗ Connection Failed!")
+        logger.error("[ERROR] Connection Failed!")
         logger.error(f"  Error: {str(e)}")
         logger.error("")
         logger.error("Troubleshooting:")
@@ -235,7 +235,7 @@ def verify(config, logger: BoundLogger) -> None:
 
     except snowflake.connector.errors.DatabaseError as e:
         logger.error("")
-        logger.error("✗ Connection Failed!")
+        logger.error("[ERROR] Connection Failed!")
         logger.error(f"  Error: {str(e)}")
         logger.error("")
         logger.error("Troubleshooting:")
@@ -247,7 +247,7 @@ def verify(config, logger: BoundLogger) -> None:
 
     except snowflake.connector.errors.ProgrammingError as e:
         logger.error("")
-        logger.error("✗ Authentication Failed!")
+        logger.error("[ERROR] Authentication Failed!")
         logger.error(f"  Error: {str(e)}")
         logger.error("")
         logger.error("Troubleshooting:")
@@ -260,7 +260,7 @@ def verify(config, logger: BoundLogger) -> None:
 
     except Exception as e:
         logger.error("")
-        logger.error("✗ Verification Failed!")
+        logger.error("[ERROR] Verification Failed!")
         logger.error(f"  Error: {str(e)}")
         logger.error("=" * 80)
         raise
