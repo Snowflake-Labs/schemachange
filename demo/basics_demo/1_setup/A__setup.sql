@@ -1,9 +1,7 @@
 SET TARGET_SCHEMA_NAME = '{{ schema_name }}';
 SET TARGET_DB_NAME = '{{ database_name }}'; -- Name of database that will have the SCHEMACHANGE Schema for change tracking.
 -- Dependent Variables; Change the naming pattern if you want but not necessary
-SET ADMIN_ROLE = $TARGET_DB_NAME || '_ADMIN'; -- This role will own the database and schemas.
--- Including hyphen in the role to test for hyphenated role support
-SET DEPLOY_ROLE = '"' || $TARGET_DB_NAME || '-DEPLOY"'; -- This role will be granted privileges to create objects in any schema in the database
+SET ADMIN_ROLE = '"' || $TARGET_DB_NAME || '-ADMIN"'; -- This role will be granted privileges to create objects in any schema in the database
 SET WAREHOUSE_NAME = $TARGET_DB_NAME || '_WH';
 SET SCHEMACHANGE_NAMESPACE = $TARGET_DB_NAME || '.' || $TARGET_SCHEMA_NAME;
 SET SC_M = 'SC_M_' || $TARGET_SCHEMA_NAME;
@@ -28,10 +26,7 @@ GRANT DATABASE ROLE IDENTIFIER($SC_M) TO DATABASE ROLE IDENTIFIER($SC_R);
 GRANT DATABASE ROLE IDENTIFIER($SC_R) TO DATABASE ROLE IDENTIFIER($SC_W);
 GRANT DATABASE ROLE IDENTIFIER($SC_W) TO DATABASE ROLE IDENTIFIER($SC_C);
 
-CREATE SCHEMA IF NOT EXISTS IDENTIFIER($TARGET_SCHEMA_NAME) WITH MANAGED ACCESS;
--- USE SCHEMA INFORMATION_SCHEMA;
--- DROP SCHEMA IF EXISTS PUBLIC;
-GRANT OWNERSHIP ON SCHEMA IDENTIFIER($TARGET_SCHEMA_NAME) TO ROLE IDENTIFIER($DEPLOY_ROLE) REVOKE CURRENT GRANTS;
+CREATE TRANSIENT SCHEMA IF NOT EXISTS IDENTIFIER($TARGET_SCHEMA_NAME) WITH MANAGED ACCESS;
 
 USE SCHEMA IDENTIFIER($SCHEMACHANGE_NAMESPACE);
 -- SCHEMA

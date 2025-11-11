@@ -51,10 +51,26 @@ class SnowflakeSession:
         self.change_history_table = change_history_table
         self.autocommit = autocommit
         self.logger = logger
-
-        self.session_parameters = {"QUERY_TAG": f"schemachange {schemachange_version}"}
+        self.session_parameters = {}
+        snowflake_kwargs = {
+            "connection_name": connection_name, 
+            "connections_file_path": connections_file_path,
+            "application": application
+        }
+        snowflake_kwargs = {k: v for k, v in snowflake_kwargs.items() if v is not None}
+        temp_con = snowflake.connector.connect(**snowflake_kwargs)
+        if hasattr(temp_con, '_session_parameters'):
+            self.session_parameters.update(temp_con._session_parameters)
+        temp_con.close()
+        
+        query_tag_value = f"schemachange {schemachange_version}"
         if query_tag:
-            self.session_parameters["QUERY_TAG"] += f";{query_tag}"
+            query_tag_value += f";{query_tag}"
+            
+        if "QUERY_TAG" in self.session_parameters:
+            self.session_parameters["QUERY_TAG"] += f";{query_tag_value}"
+        else:
+            self.session_parameters["QUERY_TAG"] = query_tag_value
 
         connect_kwargs = {
             "account": account,  # TODO: Remove when connections.toml is enforced
@@ -151,7 +167,7 @@ class SnowflakeSession:
     def create_change_history_schema(self, dry_run: bool) -> None:
         query = f"CREATE SCHEMA IF NOT EXISTS {self.change_history_table.fully_qualified_schema_name}"
         if dry_run:
-            self.logger.debug(
+            self.logger.info(
                 "Running in dry-run mode. Skipping execution.",
                 query=indent(dedent(query), prefix="\t"),
             )
@@ -173,7 +189,7 @@ class SnowflakeSession:
             )
         """
         if dry_run:
-            self.logger.debug(
+            self.logger.info(
                 "Running in dry-run mode. Skipping execution.",
                 query=indent(dedent(query), prefix="\t"),
             )
@@ -308,7 +324,7 @@ class SnowflakeSession:
         logger: structlog.BoundLogger,
     ) -> None:
         if dry_run:
-            logger.debug("Running in dry-run mode. Skipping execution")
+            logger.info("Running in dry-run mode. Skipping execution")
             return
         logger.info("Applying change script")
         # Define a few other change related variables

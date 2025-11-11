@@ -44,6 +44,8 @@ default_deploy_config = {
     "autocommit": False,
     "dry_run": False,
     "query_tag": None,
+    "version_number_validation_regex": None,
+    "raise_exception_on_ignored_versioned_script": False,
 }
 
 required_args = [

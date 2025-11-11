@@ -29,6 +29,9 @@ schemachange_config_full_no_connection = get_yaml_config_kwargs(
 schemachange_config_partial_with_connection = get_yaml_config_kwargs(
     assets_path / "schemachange-config-partial-with-connection.yml"
 )
+schemachange_config_with_missing_connection_file = get_yaml_config_kwargs(
+    assets_path / "schemachange-config-with-missing-connection-file.yml"
+)
 
 
 @pytest.mark.parametrize(
@@ -180,81 +183,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
                 "query_tag": "cli_query_tag",
             },
             id="Deploy: all cli, all yaml, all connection_kwargs",
-        ),
-        pytest.param(
-            {  # cli_kwargs
-                **default_cli_kwargs,
-                "config_folder": "cli_config_folder",
-                "root_folder": "cli_root_folder",
-                "modules_folder": "cli_modules_folder",
-                "config_vars": {
-                    "variable_1": "cli_variable_1",
-                    "variable_2": "cli_variable_2",
-                },
-                "log_level": logging.INFO,
-                "snowflake_account": "cli_snowflake_account",
-                "snowflake_user": "cli_snowflake_user",
-                "snowflake_role": "cli_snowflake_role",
-                "snowflake_warehouse": "cli_snowflake_warehouse",
-                "snowflake_database": "cli_snowflake_database",
-                "snowflake_schema": "cli_snowflake_schema",
-                "connections_file_path": "cli_connections_file_path",
-                "connection_name": "cli_connection_name",
-                "change_history_table": "cli_change_history_table",
-                "create_change_history_table": False,
-                "autocommit": False,
-                "dry_run": False,
-                "query_tag": "cli_query_tag",
-            },
-            {  # yaml_kwargs
-                "root_folder": "yaml_root_folder",
-                "modules_folder": "yaml_modules_folder",
-                "config_vars": {
-                    "variable_1": "yaml_variable_1",
-                    "variable_2": "yaml_variable_2",
-                    "variable_3": "yaml_variable_3",
-                },
-                "log_level": logging.DEBUG,
-                "snowflake_account": "yaml_snowflake_account",
-                "snowflake_user": "yaml_snowflake_user",
-                "snowflake_role": "yaml_snowflake_role",
-                "snowflake_warehouse": "yaml_snowflake_warehouse",
-                "snowflake_database": "yaml_snowflake_database",
-                "snowflake_schema": "yaml_snowflake_schema",
-                "connections_file_path": "yaml_connections_file_path",
-                "connection_name": "yaml_connection_name",
-                "change_history_table": "yaml_change_history_table",
-                "create_change_history_table": True,
-                "autocommit": True,
-                "dry_run": True,
-                "query_tag": "yaml_query_tag",
-            },
-            {  # expected
-                "log_level": logging.INFO,
-                "config_file_path": Path("cli_config_folder/schemachange-config.yml"),
-                "config_vars": {
-                    "variable_1": "cli_variable_1",
-                    "variable_2": "cli_variable_2",
-                    "variable_3": "yaml_variable_3",
-                },
-                "subcommand": "deploy",
-                "root_folder": "cli_root_folder",
-                "modules_folder": "cli_modules_folder",
-                "snowflake_account": "cli_snowflake_account",
-                "snowflake_user": "cli_snowflake_user",
-                "snowflake_role": "cli_snowflake_role",
-                "snowflake_warehouse": "cli_snowflake_warehouse",
-                "snowflake_database": "cli_snowflake_database",
-                "snowflake_schema": "cli_snowflake_schema",
-                "connections_file_path": Path("cli_connections_file_path"),
-                "connection_name": "cli_connection_name",
-                "change_history_table": "cli_change_history_table",
-                "create_change_history_table": False,
-                "autocommit": False,
-                "dry_run": False,
-                "query_tag": "cli_query_tag",
-            },
-            id="Deploy: all env, all cli, all yaml, all connection_kwargs",
         ),
     ],
 )
@@ -562,6 +490,9 @@ param_full_yaml_and_connection_and_cli_and_env = pytest.param(
         "--dry-run",
         "--query-tag",
         "query-tag-from-cli",
+        "--version-number-validation-regex",
+        "version_number_validation_regex-from-cli",
+        "--raise-exception-on-ignored-versioned-script",
     ],
     {  # expected
         "subcommand": "deploy",
@@ -588,6 +519,8 @@ param_full_yaml_and_connection_and_cli_and_env = pytest.param(
         "query_tag": "query-tag-from-cli",
         "connection_name": "myaltconnection",
         "connections_file_path": assets_path / "alt-connections.toml",
+        "version_number_validation_regex": "version_number_validation_regex-from-cli",
+        "raise_exception_on_ignored_versioned_script": True,
     },
     id="Deploy: full yaml, connections.toml, cli, and env",
 )
@@ -650,6 +583,45 @@ param_partial_yaml_and_connection = pytest.param(
     id="Deploy: partial yaml and connections.toml",
 )
 
+param_yaml_with_missing_connection_file = pytest.param(
+    [  # cli_args
+        "schemachange",
+        "--config-folder",
+        str(assets_path),
+        "--config-file-name",
+        "schemachange-config-with-missing-connection-file.yml",
+    ],
+    {  # expected
+        "subcommand": "deploy",
+        "config_file_path": assets_path
+        / "schemachange-config-with-missing-connection-file.yml",
+        "log_level": logging.INFO,
+        **{
+            k: v
+            for k, v in schemachange_config_with_missing_connection_file.items()
+            if k
+            in [
+                "config_version",
+                "root_folder",
+                "modules_folder",
+                "snowflake_account",
+                "snowflake_user",
+                "snowflake_role",
+                "snowflake_warehouse",
+                "snowflake_database",
+                "snowflake_schema",
+                "change_history_table",
+                "config_vars",
+                "create_change_history_table",
+                "autocommit",
+                "dry_run",
+                "query_tag",
+            ]
+        },
+    },
+    id="Deploy: yaml with missing connections.toml file (backward compatibility for env vars)",
+)
+
 
 @pytest.mark.parametrize(
     "cli_args, expected",
@@ -662,24 +634,28 @@ param_partial_yaml_and_connection = pytest.param(
         param_full_yaml_and_connection_and_cli_and_env,
         param_connection_no_yaml,
         param_partial_yaml_and_connection,
+        param_yaml_with_missing_connection_file,
     ],
 )
 @mock.patch("pathlib.Path.is_dir", return_value=True)
-@mock.patch("pathlib.Path.is_file", return_value=True)
 @mock.patch("schemachange.config.get_merged_config.DeployConfig.factory")
 def test_integration_get_merged_config_inheritance(
     mock_deploy_config_factory,
     _,
-    __,
     cli_args,
     expected,
 ):
     logger = structlog.testing.CapturingLogger()
+
+    def is_file_mock(path_self):
+        return "missing-connections.toml" not in str(path_self)
+
     with mock.patch("sys.argv", cli_args):
-        # noinspection PyTypeChecker
-        get_merged_config(logger=logger)
-        factory_kwargs = mock_deploy_config_factory.call_args.kwargs
-        for actual_key, actual_value in factory_kwargs.items():
-            assert expected[actual_key] == actual_value
-            del expected[actual_key]
-        assert len(expected.keys()) == 0
+        with mock.patch.object(Path, "is_file", new=is_file_mock):
+            # noinspection PyTypeChecker
+            get_merged_config(logger=logger)
+            factory_kwargs = mock_deploy_config_factory.call_args.kwargs
+            for actual_key, actual_value in factory_kwargs.items():
+                assert expected[actual_key] == actual_value
+                del expected[actual_key]
+            assert len(expected.keys()) == 0

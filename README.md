@@ -1,6 +1,6 @@
 # schemachange
 
-<img src="images/schemachange-logo-title.png" alt="schemachange" title="schemachange logo" width="600" />
+<img src="https://github.com/user-attachments/assets/8bc170c9-4171-48c7-812c-6d76c07ee364" alt="schemachange" title="schemachange logo" width="600" />
 
 *Looking for snowchange? You've found the right spot. snowchange has been renamed to schemachange.*
 
@@ -11,7 +11,7 @@
 
 schemachange is a simple python based tool to manage all of your [Snowflake](https://www.snowflake.com/) objects. It
 follows an Imperative-style approach to Database Change Management (DCM) and was inspired by
-the [Flyway database migration tool](https://flywaydb.org). When combined with a version control system and a CI/CD
+the [Flyway database migration tool](https://www.red-gate.com/products/flyway/community/). When combined with a version control system and a CI/CD
 tool, database changes can be approved and deployed through a pipeline using modern software delivery practices. As such
 schemachange plays a critical role in enabling Database (or Data) DevOps.
 
@@ -96,11 +96,11 @@ subfolders (and nested subfolders) as you would like.
 ### Versioned Script Naming
 
 Versioned change scripts follow a similar naming convention to that used
-by [Flyway Versioned Migrations](https://flywaydb.org/documentation/migrations#versioned-migrations). The script name
+by [Flyway Versioned Migrations](https://documentation.red-gate.com/fd/versioned-migrations-273973333.html). The script name
 must follow this pattern (image taken
-from [Flyway docs](https://flywaydb.org/documentation/migrations#versioned-migrations)):
+from [Flyway docs](https://documentation.red-gate.com/fd/versioned-migrations-273973333.html)):
 
-<img src="images/flyway-naming-convention.png" alt="Flyway naming conventions" title="Flyway naming conventions" width="300" />
+<img src="https://github.com/user-attachments/assets/a71297d9-4a3c-4d30-82d3-c634be88fe54" alt="Flyway naming conventions" title="Flyway naming conventions" width="300" />
 
 With the following rules for each part of the filename:
 
@@ -127,11 +127,11 @@ accidentally (re-)use the same version number.
 ### Repeatable Script Naming
 
 Repeatable change scripts follow a similar naming convention to that used
-by [Flyway Versioned Migrations](https://flywaydb.org/documentation/concepts/migrations.html#repeatable-migrations). The
+by [Flyway Versioned Migrations](https://documentation.red-gate.com/fd/repeatable-migrations-273973335.html). The
 script name must follow this pattern (image taken
-from [Flyway docs](https://flywaydb.org/documentation/concepts/migrations.html#repeatable-migrations):
+from [Flyway docs](https://documentation.red-gate.com/fd/repeatable-migrations-273973335.html):
 
-<img src="images/flyway-repeatable-naming-convention.png" alt="Flyway naming conventions" title="Flyway naming conventions" width="300" />
+<img src="https://github.com/user-attachments/assets/06abd883-58b7-42d5-97b2-581158d8b121" alt="Flyway naming conventions" title="Flyway naming conventions" width="300" />
 
 e.g:
 
@@ -149,7 +149,7 @@ scripts have been executed. Repeatable scripts are applied in alphabetical order
 ### Always Script Naming
 
 Always change scripts are executed with every run of schemachange. This is an addition to the implementation
-of [Flyway Versioned Migrations](https://flywaydb.org/documentation/concepts/migrations.html#repeatable-migrations).
+of [Flyway Versioned Migrations](https://documentation.red-gate.com/fd/versioned-migrations-273973333.html).
 The script name must follow this pattern:
 
 `A__Some_description.sql`
@@ -225,6 +225,10 @@ and [template inheritance](https://jinja.palletsprojects.com/en/3.0.x/templates/
 These files can be stored in the root-folder but schemachange also provides a separate modules
 folder `--modules-folder`. This allows common logic to be stored outside of the main changes scripts.
 The [demo/citibike_demo_jinja](demo/citibike_demo_jinja) has a simple example that demonstrates this.
+
+schemachange uses Jinja's [`PrefixLoader`](https://jinja.palletsprojects.com/en/stable/api/#jinja2.PrefixLoader), so
+regardless of the `--modules-folder` that's used, the file paths (such as those passed to [`include`](https://jinja.palletsprojects.com/en/stable/templates/#include))
+should be prefixed with `modules/`.
 
 The Jinja auto-escaping feature is disabled in schemachange, this feature in Jinja is currently designed for where the
 output language is HTML/XML. So if you are using schemachange with untrusted inputs you will need to handle this within
@@ -338,7 +342,7 @@ your Okta administrator for more information._
 
 ### Private Key Authentication
 
-External browser authentication can be selected by supplying `snowflake_jwt` as your authenticator. The filepath to a
+Private key authentication can be selected by supplying `snowflake_jwt` as your authenticator. The filepath to a
 Snowflake user-encrypted private key must be supplied as `private_key_file` in the [connections.toml](#connectionstoml-file)
 file. If the private key file is password protected, supply the password as `private_key_file_pwd` in
 the [connections.toml](#connectionstoml-file) file. If the variable is not set, the Snowflake Python connector will
@@ -560,7 +564,7 @@ To get started with schemachange and these demo scripts follow these steps:
 
 Here is a sample DevOps development lifecycle with schemachange:
 
-<img src="images/diagram.png" alt="schemachange DevOps process" title="schemachange DevOps process" />
+<img src="https://github.com/user-attachments/assets/42eae968-ae76-4fcb-a0ba-3995ec977818" alt="schemachange DevOps process" title="schemachange DevOps process" />
 
 ### Using in a CI/CD Pipeline
 

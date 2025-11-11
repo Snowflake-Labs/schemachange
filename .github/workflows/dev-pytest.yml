@@ -30,11 +30,15 @@ jobs:
       SNOWFLAKE_ACCOUNT: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_ACCOUNT }}
       SNOWFLAKE_DATABASE: SCHEMACHANGE_DEMO
       SNOWFLAKE_WAREHOUSE: SCHEMACHANGE_DEMO_WH
-      SNOWFLAKE_ROLE: SCHEMACHANGE_DEMO-DEPLOY
+      SNOWFLAKE_ROLE: SCHEMACHANGE_DEMO-ADMIN
       MY_TARGET_SCHEMA: ${{ matrix.scenario-name }}_${{ github.run_number }}_${{ strategy.job-index }}
       SCENARIO_NAME: ${{ matrix.scenario-name }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -44,16 +48,13 @@ jobs:
       # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install flake8 pytest
-          python -m pip install -e .[dev]
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          uv sync --all-extras
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          uv run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          uv run flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Create and populate connections.toml
         run: |
           echo "Current Directory: ${PWD}"
@@ -64,7 +65,7 @@ jobs:
       - name: Test with pytest
         id: pytest
         run: |
-          pytest
+          uv run pytest
       # Testing Schemachange demo projects
       - name: Test Schemachange on ${{ matrix.os }} targeting ${{ env.SNOWFLAKE_DATABASE }}.${{ env.MY_TARGET_SCHEMA }} schema
         run: |

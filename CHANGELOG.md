@@ -3,6 +3,21 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [4.1.0] - 2024-10-04
+### Added
+- Added flag `--error-on-ignored-versioned-migration` to throw an error when versioned migrations are ignored due to being out of order (#287 by @zanebclark)
+- Added `py.typed` marker file for better MyPy type checking support (#332 by @fozcodes)
+- Added support for `NO_COLOR` environment variable to disable colored output (#357)
+
+### Changed
+- Updated Flyway documentation links to current Red Gate community documentation (#333 by @sfc-gh-adamle)
+
+### Fixed
+- Fixed secret redaction functionality to properly handle configuration secrets (#312 by @zanebclark)
+
+### Deprecated
+- Deprecated the `--verbose` flag in favor of structured logging (#288 by @zanebclark)
+
 ## [4.0.1] - 2025-02-17
 ### Changed
 - Added back the ability to pass the Snowflake password in the `SNOWFLAKE_PASSWORD` environment variable.
