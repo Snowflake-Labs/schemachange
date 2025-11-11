@@ -79,6 +79,7 @@ All notable changes to this project will be documented in this file.
 - Added flag `--error-on-ignored-versioned-migration` to throw an error when versioned migrations are ignored due to being out of order (#287 by @zanebclark)
 - Added `py.typed` marker file for better MyPy type checking support (#332 by @fozcodes)
 - Added support for `NO_COLOR` environment variable to disable colored output (#357)
+- Corrected `private_key_path` reference in README (#330 by @gudbrand3)
 
 ### Changed
 - **Documentation updated to reflect Snowflake's deprecation of password-only authentication**:
