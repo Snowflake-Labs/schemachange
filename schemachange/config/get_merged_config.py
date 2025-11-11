@@ -16,6 +16,8 @@ from schemachange.config.utils import (
     get_snowflake_database,
     get_snowflake_default_connection_name,
     get_snowflake_home,
+    get_snowflake_private_key_file,
+    get_snowflake_private_key_file_pwd,
     get_snowflake_private_key_passphrase,
     get_snowflake_private_key_path,
     get_snowflake_role,
@@ -65,8 +67,10 @@ def get_env_config_kwargs() -> dict:
     # Authentication parameters (stored with snowflake_ prefix for consistency)
     auth_mapping = {
         "snowflake_authenticator": get_snowflake_authenticator,
-        "snowflake_private_key_path": get_snowflake_private_key_path,
-        "snowflake_private_key_passphrase": get_snowflake_private_key_passphrase,
+        "snowflake_private_key_path": get_snowflake_private_key_path,  # Deprecated
+        "snowflake_private_key_file": get_snowflake_private_key_file,  # Recommended
+        "snowflake_private_key_passphrase": get_snowflake_private_key_passphrase,  # Deprecated
+        "snowflake_private_key_file_pwd": get_snowflake_private_key_file_pwd,  # Recommended
         "snowflake_token_file_path": get_snowflake_token_file_path,
     }
 
@@ -309,9 +313,11 @@ def get_merged_config(
         else:
             skipped_params.append(key)
 
-    # Handle private_key_path → private_key_file mapping ONLY from connections.toml (backwards compatibility)
-    # CLI/ENV use private_key_path (user-friendly), connections.toml should use private_key_file (connector name)
-    # Check if this private_key_path came from connections.toml by checking if it wasn't in higher priority sources
+    # Handle deprecated parameter name mapping from connections.toml (backwards compatibility)
+    # private_key_path -> private_key_file
+    # private_key_passphrase -> private_key_file_pwd
+    # Only apply mapping if the deprecated name came from connections.toml (not overridden by higher priority sources)
+
     if (
         "snowflake_private_key_path" in yaml_kwargs
         and "snowflake_private_key_file" not in yaml_kwargs
@@ -320,12 +326,26 @@ def get_merged_config(
     ):
         # This private_key_path came from connections.toml (lowest priority) - show deprecation warning
         logger.warning(
-            "⚠️  DEPRECATION WARNING: 'private_key_path' in connections.toml is deprecated. "
+            "DEPRECATION WARNING: 'private_key_path' in connections.toml is deprecated. "
             "Please use 'private_key_file' instead to match the Snowflake Python Connector parameter name. "
             "'private_key_path' will be removed in a future version."
         )
-        # Map private_key_path → private_key_file for internal consistency
+        # Map private_key_path -> private_key_file for internal consistency
         yaml_kwargs["snowflake_private_key_file"] = yaml_kwargs.pop("snowflake_private_key_path")
+
+    if (
+        "snowflake_private_key_passphrase" in yaml_kwargs
+        and "snowflake_private_key_file_pwd" not in yaml_kwargs
+        and "snowflake_private_key_passphrase" not in env_kwargs
+    ):
+        # This private_key_passphrase came from connections.toml (lowest priority) - show deprecation warning
+        logger.warning(
+            "DEPRECATION WARNING: 'private_key_passphrase' in connections.toml is deprecated. "
+            "Please use 'private_key_file_pwd' instead to match the Snowflake Python Connector parameter name. "
+            "'private_key_passphrase' will be removed in a future version."
+        )
+        # Map private_key_passphrase -> private_key_file_pwd for internal consistency
+        yaml_kwargs["snowflake_private_key_file_pwd"] = yaml_kwargs.pop("snowflake_private_key_passphrase")
 
     logger.debug(
         "Merged connections.toml connection parameters",

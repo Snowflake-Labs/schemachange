@@ -251,7 +251,8 @@ def _check_yaml_v1_for_sensitive_params(config: dict) -> None:
 
     sensitive_params_v1 = {
         "snowflake-password": "SNOWFLAKE_PASSWORD environment variable or connections.toml",
-        "snowflake-private-key-passphrase": "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE environment variable or connections.toml",
+        "snowflake-private-key-passphrase": "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE environment variable or connections.toml (deprecated: use SNOWFLAKE_PRIVATE_KEY_FILE_PWD)",
+        "snowflake-private-key-file-pwd": "SNOWFLAKE_PRIVATE_KEY_FILE_PWD environment variable or connections.toml",
     }
 
     found_sensitive = []
@@ -307,7 +308,8 @@ def _parse_yaml_v2(raw_config: dict) -> dict[str, Any]:
         # Check for sensitive parameters in YAML (security warning)
         sensitive_params = {
             "password": "SNOWFLAKE_PASSWORD environment variable or connections.toml",
-            "private-key-passphrase": "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE environment variable or connections.toml",
+            "private-key-passphrase": "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE environment variable or connections.toml (deprecated: use SNOWFLAKE_PRIVATE_KEY_FILE_PWD)",
+            "private-key-file-pwd": "SNOWFLAKE_PRIVATE_KEY_FILE_PWD environment variable or connections.toml",
             "token": "token-file-path with SNOWFLAKE_TOKEN_FILE_PATH or connections.toml",
         }
 
@@ -481,13 +483,16 @@ def get_snowflake_authenticator() -> str | None:
 
 def get_snowflake_private_key_path() -> str | None:
     """
-    Get Snowflake private key file path from environment variable.
+    Get Snowflake private key file path from environment variable (deprecated).
 
     Returns:
         Private key file path from SNOWFLAKE_PRIVATE_KEY_PATH environment variable,
         or None if not set or empty.
 
     Used for JWT (snowflake_jwt) authentication.
+
+    NOTE: DEPRECATED - Use get_snowflake_private_key_file() instead.
+    This function is maintained for backward compatibility.
     """
     private_key_path = os.getenv("SNOWFLAKE_PRIVATE_KEY_PATH")
     if private_key_path is not None and private_key_path:
@@ -495,17 +500,54 @@ def get_snowflake_private_key_path() -> str | None:
     return None
 
 
+def get_snowflake_private_key_file() -> str | None:
+    """
+    Get Snowflake private key file path from environment variable.
+
+    Returns:
+        Private key file path from SNOWFLAKE_PRIVATE_KEY_FILE environment variable,
+        or None if not set or empty.
+
+    Used for JWT (snowflake_jwt) authentication.
+    This is the recommended parameter name (matches Snowflake Python Connector).
+    """
+    private_key_file = os.getenv("SNOWFLAKE_PRIVATE_KEY_FILE")
+    if private_key_file is not None and private_key_file:
+        return private_key_file
+    return None
+
+
 def get_snowflake_private_key_passphrase() -> str | None:
     """
-    Get Snowflake private key passphrase from environment variable.
+    Get Snowflake private key passphrase from environment variable (deprecated).
 
     Returns:
         Private key passphrase from SNOWFLAKE_PRIVATE_KEY_PASSPHRASE environment variable,
         or None if not set or empty.
 
     Used when the private key file is encrypted.
+
+    NOTE: DEPRECATED - Use get_snowflake_private_key_file_pwd() instead.
+    This function is maintained for backward compatibility.
     """
     passphrase = os.getenv("SNOWFLAKE_PRIVATE_KEY_PASSPHRASE")
+    if passphrase is not None and passphrase:
+        return passphrase
+    return None
+
+
+def get_snowflake_private_key_file_pwd() -> str | None:
+    """
+    Get Snowflake private key passphrase from environment variable.
+
+    Returns:
+        Private key passphrase from SNOWFLAKE_PRIVATE_KEY_FILE_PWD environment variable,
+        or None if not set or empty.
+
+    Used for decrypting encrypted private keys in JWT authentication.
+    This is the recommended parameter name (matches Snowflake Python Connector).
+    """
+    passphrase = os.getenv("SNOWFLAKE_PRIVATE_KEY_FILE_PWD")
     if passphrase is not None and passphrase:
         return passphrase
     return None

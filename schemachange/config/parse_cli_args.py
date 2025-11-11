@@ -232,12 +232,22 @@ def parse_cli_args(args) -> dict:
         type=str,
         dest="snowflake_private_key_path",  # Changed to match dataclass field name
         help="Path to private key file for JWT (snowflake_jwt) authentication. "
+        "DEPRECATED: Use --snowflake-private-key-file instead. "
         "Can also be set via SNOWFLAKE_PRIVATE_KEY_PATH environment variable.",
         required=False,
     )
-    # NOTE: --snowflake-private-key-passphrase intentionally NOT supported via CLI for security
-    # (would be visible in process list and shell history)
-    # Use SNOWFLAKE_PRIVATE_KEY_PASSPHRASE environment variable or connections.toml instead
+    parser_deploy.add_argument(
+        "--snowflake-private-key-file",
+        type=str,
+        dest="snowflake_private_key_file",
+        help="Path to private key file for JWT (snowflake_jwt) authentication. "
+        "This matches the Snowflake connector parameter name. "
+        "Can also be set via SNOWFLAKE_PRIVATE_KEY_FILE environment variable.",
+        required=False,
+    )
+    # NOTE: --snowflake-private-key-passphrase and --snowflake-private-key-file-pwd
+    # intentionally NOT supported via CLI for security (would be visible in process list and shell history)
+    # Use SNOWFLAKE_PRIVATE_KEY_PASSPHRASE/SNOWFLAKE_PRIVATE_KEY_FILE_PWD environment variable or connections.toml instead
     parser_deploy.add_argument(
         "--snowflake-token-file-path",
         type=str,
@@ -440,12 +450,22 @@ def parse_cli_args(args) -> dict:
         type=str,
         dest="snowflake_private_key_path",  # Changed to match dataclass field name
         help="Path to private key file for JWT (snowflake_jwt) authentication. "
+        "DEPRECATED: Use --snowflake-private-key-file instead. "
         "Can also be set via SNOWFLAKE_PRIVATE_KEY_PATH environment variable.",
         required=False,
     )
-    # NOTE: --snowflake-private-key-passphrase intentionally NOT supported via CLI for security
-    # (would be visible in process list and shell history)
-    # Use SNOWFLAKE_PRIVATE_KEY_PASSPHRASE environment variable or connections.toml instead
+    parser_verify.add_argument(
+        "--snowflake-private-key-file",
+        type=str,
+        dest="snowflake_private_key_file",
+        help="Path to private key file for JWT (snowflake_jwt) authentication. "
+        "This matches the Snowflake connector parameter name. "
+        "Can also be set via SNOWFLAKE_PRIVATE_KEY_FILE environment variable.",
+        required=False,
+    )
+    # NOTE: --snowflake-private-key-passphrase and --snowflake-private-key-file-pwd
+    # intentionally NOT supported via CLI for security (would be visible in process list and shell history)
+    # Use SNOWFLAKE_PRIVATE_KEY_PASSPHRASE/SNOWFLAKE_PRIVATE_KEY_FILE_PWD environment variable or connections.toml instead
     parser_verify.add_argument(
         "--snowflake-token-file-path",
         type=str,

@@ -276,10 +276,10 @@ def test_authentication_parameters_cli_takes_precedence_over_env(
     session_kwargs = config.get_session_kwargs()
 
     # Explicitly provided values should take precedence over ENV
-    # Note: private_key_path internally maps to private_key_file for the connector
+    # Note: private_key_path maps to private_key_file, private_key_passphrase maps to private_key_file_pwd
     assert session_kwargs["authenticator"] == "explicit_authenticator"
     assert session_kwargs["private_key_file"] == "/explicit/path/to/key.pem"
-    assert session_kwargs["private_key_passphrase"] == "explicit_passphrase"
+    assert session_kwargs["private_key_file_pwd"] == "explicit_passphrase"
     # Password is only from ENV (not overridden in this test)
     assert session_kwargs["password"] == "env_password"
 

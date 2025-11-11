@@ -471,13 +471,29 @@ your Okta administrator for more information._
 
 Private key authentication can be selected by supplying `snowflake_jwt` as your authenticator. The filepath to a
 Snowflake user-encrypted private key must be supplied as `private_key_file` in the [connections.toml](#connectionstoml-file)
-file. If the private key file is password protected, supply the password as `private_key_passphrase` in
+file. If the private key file is password protected, supply the password as `private_key_file_pwd` in
 the [connections.toml](#connectionstoml-file) file. If the variable is not set, the Snowflake Python connector will
 assume the private key is not encrypted.
 
-**Note:** `private_key_path` is deprecated but still supported for backwards compatibility. Please use `private_key_file`
-to match the Snowflake Python Connector's parameter naming convention. For CLI and environment variables, continue
-using `--snowflake-private-key-path` and `SNOWFLAKE_PRIVATE_KEY_PATH` (these remain unchanged for user-friendliness).
+**Parameter Name Migration:**
+
+For better alignment with the Snowflake Python Connector, schemachange now supports both old and new parameter names:
+
+| Configuration Source | Old Name (Deprecated) | New Name (Recommended) |
+|---------------------|----------------------|------------------------|
+| **Private Key Path** | | |
+| CLI | `--snowflake-private-key-path` | `--snowflake-private-key-file` |
+| Environment Variable | `SNOWFLAKE_PRIVATE_KEY_PATH` | `SNOWFLAKE_PRIVATE_KEY_FILE` |
+| connections.toml | `private_key_path` | `private_key_file` |
+| YAML Config | `snowflake-private-key-path` | `snowflake-private-key-file` |
+| **Private Key Passphrase** | | |
+| Environment Variable | `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` | `SNOWFLAKE_PRIVATE_KEY_FILE_PWD` |
+| connections.toml | `private_key_passphrase` | `private_key_file_pwd` |
+| YAML Config | `snowflake-private-key-passphrase` | `snowflake-private-key-file-pwd` |
+
+**Note:** Passphrases are **not** supported via CLI for security reasons (they would be visible in process lists and shell history).
+
+The old parameter names continue to work but show deprecation warnings. Please migrate to the new names to match the Snowflake Python Connector's parameter naming convention.
 
 ## Configuration
 
@@ -561,8 +577,8 @@ database = "DEV_DB"
 account = "myorg-prod"
 user = "deploy_service"
 authenticator = "snowflake_jwt"
-private_key_file = "~/.ssh/snowflake_prod.p8"  # Use private_key_file (matches Snowflake connector)
-private_key_passphrase = "my_secure_passphrase"
+private_key_file = "~/.ssh/snowflake_prod.p8"  # Recommended parameter name (matches Snowflake connector)
+private_key_file_pwd = "my_secure_passphrase"   # Recommended parameter name (matches Snowflake connector)
 role = "DEPLOY_ROLE"
 warehouse = "PROD_WH"
 database = "PROD_DB"
@@ -1236,8 +1252,8 @@ Create or update `~/.snowflake/connections.toml`:
 account = "myaccount.us-east-1.aws"
 user = "service_account"
 authenticator = "snowflake_jwt"
-private_key_file = "~/.ssh/snowflake_key.p8"  # Use private_key_file to match Snowflake connector
-private_key_passphrase = "my_passphrase"
+private_key_file = "~/.ssh/snowflake_key.p8"  # Recommended parameter name (matches Snowflake connector)
+private_key_file_pwd = "my_passphrase"         # Recommended parameter name (matches Snowflake connector)
 ```
 
 **Important:** Set secure file permissions:

@@ -9,6 +9,8 @@ from schemachange.config.utils import (
     get_snowflake_authenticator,
     get_snowflake_identifier_string,
     get_snowflake_password,
+    get_snowflake_private_key_file,
+    get_snowflake_private_key_file_pwd,
     get_snowflake_private_key_passphrase,
     get_snowflake_private_key_path,
     get_snowflake_token_file_path,
@@ -37,9 +39,10 @@ class VerifyConfig(BaseConfig):
     # Authentication parameters - All Snowflake connector params use snowflake_ prefix internally
     # (Prefix is stripped when building connect_kwargs)
     snowflake_authenticator: str | None = None
-    snowflake_private_key_path: str | None = None  # From CLI/ENV (user-friendly name)
-    snowflake_private_key_file: str | None = None  # From connections.toml (connector's parameter name)
-    snowflake_private_key_passphrase: str | None = None
+    snowflake_private_key_path: str | None = None  # DEPRECATED - use snowflake_private_key_file
+    snowflake_private_key_file: str | None = None  # Recommended (matches Snowflake connector)
+    snowflake_private_key_passphrase: str | None = None  # DEPRECATED - use snowflake_private_key_file_pwd
+    snowflake_private_key_file_pwd: str | None = None  # Recommended (matches Snowflake connector)
     snowflake_token_file_path: str | None = None
     session_parameters: dict | None = None  # Session parameters from CLI/ENV/YAML (merged with connections.toml)
     additional_snowflake_params: dict | None = None  # Parameters from YAML v2 or generic SNOWFLAKE_* env vars
@@ -125,26 +128,90 @@ class VerifyConfig(BaseConfig):
         if authenticator is not None:
             session_kwargs["authenticator"] = authenticator
 
-        # Private key file: prefer private_key_file (from connections.toml), fallback to private_key_path (from CLI/ENV)
-        # Both map to 'private_key_file' for the Snowflake connector
-        private_key_file = (
-            self.snowflake_private_key_file
-            if self.snowflake_private_key_file is not None
-            else self.snowflake_private_key_path
-            if self.snowflake_private_key_path is not None
-            else get_snowflake_private_key_path()
-        )
+        # Private key file: Priority is Config (new/old) > ENV (new/old)
+        private_key_file = None
+        used_deprecated_key_path = False
+
+        # Check config first (new name, then old name)
+        if self.snowflake_private_key_file is not None:
+            private_key_file = self.snowflake_private_key_file
+        elif self.snowflake_private_key_path is not None:
+            private_key_file = self.snowflake_private_key_path
+            used_deprecated_key_path = True
+
+        # If not in config, check ENV (new name, then old name)
+        if private_key_file is None:
+            env_new = get_snowflake_private_key_file()
+            if env_new is not None:
+                private_key_file = env_new
+            else:
+                env_old = get_snowflake_private_key_path()
+                if env_old is not None:
+                    private_key_file = env_old
+                    used_deprecated_key_path = True
+
+        # Show deprecation warning if old name was actually used
+        if used_deprecated_key_path and private_key_file is not None:
+            import warnings
+
+            warnings.warn(
+                "DEPRECATION WARNING: 'private_key_path' is deprecated. "
+                "Please use 'private_key_file' instead to match the Snowflake Python Connector parameter name. "
+                "Update your configuration:\n"
+                "  - CLI: Use --snowflake-private-key-file instead of --snowflake-private-key-path\n"
+                "  - ENV: Use SNOWFLAKE_PRIVATE_KEY_FILE instead of SNOWFLAKE_PRIVATE_KEY_PATH\n"
+                "  - connections.toml: Use private_key_file instead of private_key_path\n"
+                "  - YAML: Use snowflake-private-key-file instead of snowflake-private-key-path\n"
+                "'private_key_path' will be removed in a future version.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         if private_key_file is not None:
             # Expand ~ to home directory before passing to Snowflake connector
             session_kwargs["private_key_file"] = str(Path(private_key_file).expanduser())
 
-        private_key_passphrase = (
-            self.snowflake_private_key_passphrase
-            if self.snowflake_private_key_passphrase is not None
-            else get_snowflake_private_key_passphrase()
-        )
-        if private_key_passphrase is not None:
-            session_kwargs["private_key_passphrase"] = private_key_passphrase
+        # Private key passphrase: Priority is Config (new/old) > ENV (new/old)
+        private_key_pwd = None
+        used_deprecated_passphrase = False
+
+        # Check config first (new name, then old name)
+        if self.snowflake_private_key_file_pwd is not None:
+            private_key_pwd = self.snowflake_private_key_file_pwd
+        elif self.snowflake_private_key_passphrase is not None:
+            private_key_pwd = self.snowflake_private_key_passphrase
+            used_deprecated_passphrase = True
+
+        # If not in config, check ENV (new name, then old name)
+        if private_key_pwd is None:
+            env_new = get_snowflake_private_key_file_pwd()
+            if env_new is not None:
+                private_key_pwd = env_new
+            else:
+                env_old = get_snowflake_private_key_passphrase()
+                if env_old is not None:
+                    private_key_pwd = env_old
+                    used_deprecated_passphrase = True
+
+        # Show deprecation warning if old name was actually used
+        if used_deprecated_passphrase and private_key_pwd is not None:
+            import warnings
+
+            warnings.warn(
+                "DEPRECATION WARNING: 'private_key_passphrase' is deprecated. "
+                "Please use 'private_key_file_pwd' instead to match the Snowflake Python Connector parameter name. "
+                "Update your configuration:\n"
+                "  - ENV: Use SNOWFLAKE_PRIVATE_KEY_FILE_PWD instead of SNOWFLAKE_PRIVATE_KEY_PASSPHRASE\n"
+                "  - connections.toml: Use private_key_file_pwd instead of private_key_passphrase\n"
+                "  - YAML: Use snowflake-private-key-file-pwd instead of snowflake-private-key-passphrase\n"
+                "'private_key_passphrase' will be removed in a future version.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        if private_key_pwd is not None:
+            # Map to Snowflake connector's parameter name
+            session_kwargs["private_key_file_pwd"] = private_key_pwd
 
         # Read OAuth token from file if specified
         token_file_path = (

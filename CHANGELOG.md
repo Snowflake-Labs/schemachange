@@ -5,142 +5,65 @@ All notable changes to this project will be documented in this file.
 
 ## [4.1.0] - 2025-11-14
 ### Added
-- **New `verify` command**: Test Snowflake connectivity and display configuration parameters
-  - Tests actual connection to Snowflake with configured credentials
-  - Displays all configuration parameters with secrets properly masked
-  - Shows connection details after successful connection (session ID, Snowflake version)
-  - Provides clear troubleshooting guidance if connection fails
-  - Useful for CI/CD validation, troubleshooting, security audits, and onboarding
-  - Example: `schemachange verify` or `schemachange verify -C production`
-- **Enhanced error handling**: Graceful handling of Snowflake connection errors with clear, actionable messages
-  - No more raw Python tracebacks for connection failures
-  - User-friendly error messages with troubleshooting hints
-  - Proper exit codes for all error types
-  - References `schemachange verify` command for diagnostics
-- **Security warnings for insecure configurations**:
-  - Automatic validation of `connections.toml` file permissions with warnings if readable/writable by others
-  - Detection and warnings for sensitive credentials (passwords, tokens, passphrases) in YAML files
-  - Actionable remediation steps provided (e.g., `chmod 600` commands)
-  - Security warnings are non-blocking but educate users on best practices
-- **Comprehensive security documentation**: New `SECURITY.md` file with:
-  - Authentication best practices (PATs, JWT, OAuth, connections.toml)
-  - Parameter source decision tree diagram
-  - Scenario-based examples (local dev, CI/CD, production, multi-environment)
-  - Security checklist for deployments
-  - Incident response procedures for credential leaks
-  - Quick reference table for all credential types
-- **Dedicated troubleshooting guide**: New `TROUBLESHOOTING.md` file with:
-  - Organized by error category (connection, permission, security, configuration)
-  - Step-by-step diagnostic procedures
-  - Common error patterns and solutions
-  - Links to relevant documentation sections
-- **YAML Config Version 2**: New structured YAML format with separate `schemachange` and `snowflake` sections for better organization
-  - `config-version: 2` enables the new format
-  - Backward compatible with `config-version: 1` (flat structure)
-  - All Snowflake Python Connector parameters can be specified in the `snowflake` section
-  - Example config files: `demo/schemachange-config-v1-example.yml` and `demo/schemachange-config-v2-example.yml`
-- **SCHEMACHANGE_* Environment Variables**: Complete environment variable support for schemachange-specific settings
-  - `SCHEMACHANGE_ROOT_FOLDER`, `SCHEMACHANGE_MODULES_FOLDER`, `SCHEMACHANGE_CHANGE_HISTORY_TABLE`
-  - `SCHEMACHANGE_VARS` (JSON format), `SCHEMACHANGE_CREATE_CHANGE_HISTORY_TABLE`
-  - `SCHEMACHANGE_AUTOCOMMIT`, `SCHEMACHANGE_DRY_RUN`, `SCHEMACHANGE_QUERY_TAG`
-  - `SCHEMACHANGE_LOG_LEVEL`, `SCHEMACHANGE_CONNECTIONS_FILE_PATH`, `SCHEMACHANGE_CONNECTION_NAME`
-- **SNOWFLAKE_* Environment Variables**: Comprehensive environment variable support for Snowflake connection parameters
-  - Connection parameters: `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_ROLE`, `SNOWFLAKE_WAREHOUSE`, `SNOWFLAKE_DATABASE`, `SNOWFLAKE_SCHEMA`
-  - Authentication parameters: `SNOWFLAKE_AUTHENTICATOR`, `SNOWFLAKE_PRIVATE_KEY_PATH`, `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE`, `SNOWFLAKE_TOKEN_FILE_PATH`
-  - Configuration parameters: `SNOWFLAKE_HOME`, `SNOWFLAKE_DEFAULT_CONNECTION_NAME`, `SNOWFLAKE_CONNECTIONS_FILE_PATH`
-  - **Generic SNOWFLAKE_* Pass-through**: Any `SNOWFLAKE_*` environment variable is automatically passed to the Snowflake Python Connector
-    - Enables support for connector parameters like `SNOWFLAKE_CLIENT_SESSION_KEEP_ALIVE`, `SNOWFLAKE_LOGIN_TIMEOUT`, `SNOWFLAKE_NETWORK_TIMEOUT`, etc.
-    - Full flexibility for all connector parameters via environment variables
-- **New CLI Argument Naming Convention**:
-  - `--schemachange-*` prefixed arguments for schemachange-specific parameters (e.g., `--schemachange-root-folder`)
-  - `--snowflake-*` prefixed arguments for Snowflake connection parameters (e.g., `--snowflake-account`)
-  - New capital letter short forms: `-V` (vars), `-L` (log-level), `-Q` (query-tag), `-C` (connection-name)
-  - Retained existing lowercase short forms: `-f`, `-m`, `-c`, `-ac` (no deprecation for backward compatibility)
-- **CLI Authentication Arguments**: Added command-line support for authentication parameters (NEW in 4.1.0 - not available in 4.0.x)
-  - `--snowflake-authenticator`: Specify authentication method (snowflake, oauth, externalbrowser, snowflake_jwt, or Okta URL)
-  - `--snowflake-private-key-path`: Path to private key file for JWT authentication
-  - `--snowflake-token-file-path`: Path to OAuth token file
-  - Configuration precedence: CLI > ENV > YAML > connections.toml
-  - **Security Note**: `--snowflake-private-key-passphrase` intentionally NOT supported via CLI for security (use ENV or connections.toml only)
-    - CLI arguments are visible in process lists and shell history
-    - Prevents credential exposure to other users and log files
-- **Snowflake Programmatic Access Token (PAT) support** via `SNOWFLAKE_PASSWORD` with default authenticator - recommended for CI/CD and service accounts with MFA requirements
-- **OAuth token support** via `SNOWFLAKE_TOKEN_FILE_PATH` with `SNOWFLAKE_AUTHENTICATOR=oauth` for external OAuth providers
-- Token file reading with automatic whitespace handling and comprehensive error messages
-- Enhanced configuration precedence system for `additional_snowflake_params` from YAML v2 and generic `SNOWFLAKE_*` env vars
-- Well-defined configuration priority order: CLI > ENV > YAML > connections.toml
-- Comprehensive documentation in README for:
-  - YAML config-version 2 with examples
-  - Complete environment variables reference tables (SCHEMACHANGE_* and SNOWFLAKE_*)
-  - New CLI arguments with short forms
-  - Configuration priority and precedence rules
-  - Migration guide for deprecated arguments
-- Comprehensive documentation for environment variable usage in CI/CD pipelines with command-line examples for PAT, Key-Pair (JWT), OAuth, and SSO authentication methods
-- Added flag `--error-on-ignored-versioned-migration` to throw an error when versioned migrations are ignored due to being out of order (#287 by @zanebclark)
-- Added `py.typed` marker file for better MyPy type checking support (#332 by @fozcodes)
-- Added support for `NO_COLOR` environment variable to disable colored output (#357)
+- **New `verify` command** for testing Snowflake connectivity and displaying configuration with secrets masked. Useful for troubleshooting, CI/CD validation, and security audits. Example: `schemachange verify -C production`
+- **Enhanced error handling** with user-friendly messages instead of raw tracebacks, including troubleshooting hints and proper exit codes
+- **Security warnings** for insecure configurations:
+  - Validates `connections.toml` file permissions (warns if world-readable)
+  - Detects credentials in YAML files with remediation steps
+  - Non-blocking warnings that educate on best practices
+- **New documentation files**:
+  - `SECURITY.md` - Authentication best practices, decision trees, security checklist
+  - `TROUBLESHOOTING.md` - Common errors and solutions organized by category
+- **YAML Config Version 2** with separate `schemachange` and `snowflake` sections (backward compatible with v1). See `demo/schemachange-config-v2-example.yml`
+- **Comprehensive environment variable support**:
+  - `SCHEMACHANGE_*` for schemachange settings (root folder, vars, log level, etc.)
+  - `SNOWFLAKE_*` for connection parameters (account, user, role, warehouse, etc.)
+  - Generic `SNOWFLAKE_*` pass-through for any connector parameter (e.g., `SNOWFLAKE_CLIENT_SESSION_KEEP_ALIVE`)
+- **New CLI argument naming**:
+  - `--schemachange-*` for schemachange parameters, `--snowflake-*` for Snowflake connection
+  - New short forms: `-V` (vars), `-L` (log-level), `-Q` (query-tag), `-C` (connection-name)
+  - Existing short forms retained: `-f`, `-m`, `-c`, `-ac`
+- **CLI authentication arguments** (NEW in 4.1.0):
+  - `--snowflake-authenticator`, `--snowflake-private-key-path`, `--snowflake-token-file-path`
+  - Note: `--snowflake-private-key-passphrase` intentionally excluded (visible in process lists)
+- **Authentication improvements**:
+  - Programmatic Access Token (PAT) support via `SNOWFLAKE_PASSWORD` (recommended for MFA accounts)
+  - OAuth token file support via `SNOWFLAKE_TOKEN_FILE_PATH`
+  - Automatic whitespace handling for token files
+- **Configuration precedence** clearly defined: CLI > ENV > YAML > connections.toml
+- Added `--error-on-ignored-versioned-migration` flag (#287 by @zanebclark)
+- Added `py.typed` marker for MyPy support (#332 by @fozcodes)
+- Added `NO_COLOR` environment variable support (#357)
 - Corrected `private_key_path` reference in README (#330 by @gudbrand3)
 
 ### Changed
-- **Documentation updated to reflect Snowflake's deprecation of password-only authentication**:
-  - All documentation now leads with secure authentication methods (JWT, PAT, SSO)
-  - Password-only authentication marked as deprecated with migration guidance
-  - Examples reordered to prioritize JWT/Key-Pair authentication for production
-  - Added warnings that Snowflake requires MFA or alternative authentication for most accounts
-  - Updated README, SECURITY.md, and demo documentation
-- Updated `SnowflakeSession` to accept and pass `additional_snowflake_params` to Snowflake Python Connector
-- Updated `DeployConfig` to manage `additional_snowflake_params` with proper precedence
-- Updated `DeployConfig` to support authentication parameters from CLI/YAML with CLI > ENV precedence
-- Improved configuration merging logic to handle YAML v2 `snowflake` section and generic `SNOWFLAKE_*` env vars
-- Enhanced type conversion for environment variables (booleans, JSON, log levels)
-- CLI arguments now support both old (unprefixed) and new (prefixed) forms with deprecation guidance
-- Environment variables now follow Snowflake Python Connector naming conventions with `SNOWFLAKE_` prefix
-- Improved configuration merge logic to properly handle priority across all four configuration sources
-- Updated README with detailed environment variable documentation and usage examples
-- Updated demo README with comprehensive environment variable usage examples for various authentication methods
-- Updated Flyway documentation links to current Red Gate community documentation (#333 by @sfc-gh-adamle)
+- **Documentation updated for Snowflake's password authentication deprecation**: All docs now lead with secure methods (JWT, PAT, SSO) and include MFA warnings
+- **Configuration system improvements**:
+  - Unified precedence across all sources: CLI > ENV > YAML > connections.toml
+  - Enhanced type conversion for environment variables (booleans, JSON, log levels)
+  - Support for YAML v2 `snowflake` section and generic `SNOWFLAKE_*` pass-through
+- **CLI arguments** support both old (unprefixed) and new (prefixed) forms with deprecation messages
+- Updated Flyway documentation links (#333 by @sfc-gh-adamle)
 
 ### Fixed
-- Fixed secret redaction functionality to properly handle configuration secrets (#312 by @zanebclark)
-- **Fixed config_vars merging to properly include environment variables**: `SCHEMACHANGE_VARS` environment variable now correctly merges with YAML and CLI vars following the documented precedence (CLI > ENV > YAML). Previously, ENV vars were incorrectly ignored in the merging process.
-  - **Impact**: Users setting `SCHEMACHANGE_VARS` environment variable will now see those variables properly merged into their configuration
-- **Fixed JWT authentication in verify command**: Two critical bugs prevented JWT/RSA key pair authentication from working in the verify command
-  - **Bug 1**: Private key paths with tilde (e.g., `~/.snowflake/snowflake_key.p8`) were not expanded to absolute paths before being passed to the Snowflake connector
-  - **Bug 2**: The verify command was using the wrong parameter name (`private_key_path`) instead of `private_key_file` when calling `snowflake.connector.connect()`
-  - **Impact**: JWT/RSA key pair authentication now works correctly in both `deploy` and `verify` commands when private_key_file/private_key_path uses tilde in connections.toml, YAML config, environment variables, or CLI arguments
-  - Previously, both issues would cause authentication to fail with "Expected bytes or RSAPrivateKey, got <class 'NoneType'>" error
-  - The deploy command only had Bug 1 (tilde expansion), which has also been fixed
-- **Architectural consistency for private key parameter naming**:
-  - **connections.toml** now properly supports `private_key_file` (matching Snowflake Python Connector's parameter name)
-  - **Backwards compatibility**: `private_key_path` in connections.toml still works but shows deprecation warning
-  - **CLI/ENV unchanged**: `--snowflake-private-key-path` and `SNOWFLAKE_PRIVATE_KEY_PATH` remain unchanged (user-friendly names)
-  - **Migration path**: connections.toml users should migrate from `private_key_path` to `private_key_file` for consistency with Snowflake connector
-  - **Why**: All other Snowflake connector parameters (account, user, role, etc.) use the connector's exact parameter names; private key should too
-  - **Behavior**: When the same variable key exists in multiple sources, CLI takes precedence over ENV, which takes precedence over YAML
-  - **Example**: If CLI sets `{"var1": "cli"}`, ENV sets `{"var2": "env"}`, and YAML sets `{"var3": "yaml"}`, all three will be available: `{"var1": "cli", "var2": "env", "var3": "yaml"}`
-- **Improved missing config file handling**: Added informative log message when specified config file is not found. Schemachange now clearly indicates it's using CLI arguments, environment variables, and defaults instead of silently proceeding.
-- **Fixed session parameters from `connections.toml` being ignored** (#355, thanks to @coder-jatin-s for identifying the issue and initial implementation):
-  - Session parameters can now be specified from **four sources** and are properly merged:
-    - CLI: `--snowflake-session-parameters '{"QUOTED_IDENTIFIERS_IGNORE_CASE": false}'`
-    - Environment variables: `SNOWFLAKE_SESSION_PARAMETERS='{...}'`
-    - YAML v2: `snowflake.session-parameters` section
-    - `connections.toml`: `[connection.parameters]` section
-  - **Merging behavior**: All sources deep-merge with standard precedence (CLI > ENV > YAML > connections.toml)
-  - **Efficiency**: Only explicitly-set parameters from `connections.toml` are included (not Snowflake defaults), preventing bloat
-  - **Special `QUERY_TAG` handling**: Values from all sources are **appended** (semicolon-separated) rather than overriding, enabling layered tracking across:
-    - `connections.toml` base tag
-    - CLI/ENV/YAML override tag
-    - `--query-tag` argument
-    - schemachange's own tracking tag (e.g., `schemachange 4.1.0`)
-  - **Implementation**: All merged parameters pass to `snowflake.connector.connect()` once for optimal performance
+- **Secret redaction** now properly handles configuration secrets (#312 by @zanebclark)
+- **Config vars merging** now correctly includes `SCHEMACHANGE_VARS` environment variables (previously ignored)
+- **JWT authentication** now works correctly in both `deploy` and `verify` commands:
+  - Fixed tilde expansion for paths like `~/.snowflake/key.p8`
+  - Fixed parameter naming mismatches with Snowflake connector
+  - Fixed encrypted key support (no more "Expected bytes or RSAPrivateKey" errors)
+- **Private key parameter names** now align with Snowflake Python Connector:
+  - Use `private_key_file` instead of `private_key_path`
+  - Use `private_key_file_pwd` instead of `private_key_passphrase`
+  - Old names still work everywhere with helpful migration warnings
+  - Works in CLI, ENV, YAML, and connections.toml
+- **Session parameters from `connections.toml`** now merge correctly across all sources (CLI > ENV > YAML > connections.toml) with `QUERY_TAG` values appended instead of overridden (#355, thanks @coder-jatin-s)
+- **Missing config file** now logs informative message instead of silently proceeding
 
 ### Deprecated
-- Old unprefixed CLI arguments (`--vars`, `--query-tag`, `--log-level`) in favor of `--schemachange-*` prefixed versions
-  - Deprecated arguments still functional with migration messages
-  - Users guided to use new prefixed forms (`--schemachange-*`) or short forms (`-V`, `-L`, `-Q`)
-  - Example: `--vars` → `--schemachange-vars` or `-V`
-- `SNOWSQL_PWD` environment variable (use `SNOWFLAKE_PASSWORD` instead for consistency)
-- Deprecated the `--verbose` flag in favor of structured logging with `--log-level` or `-L` (#288 by @zanebclark)
+- **CLI arguments**: Old unprefixed forms (`--vars`, `--query-tag`, `--log-level`) deprecated in favor of `--schemachange-*` or short forms (`-V`, `-L`, `-Q`). Old forms still work with migration messages.
+- **Environment variable**: `SNOWSQL_PWD` replaced by `SNOWFLAKE_PASSWORD`
+- **`--verbose` flag** replaced by `--log-level` or `-L` (#288 by @zanebclark)
 
 ## [4.0.1] - 2025-02-17
 ### Changed

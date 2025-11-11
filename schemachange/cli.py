@@ -132,7 +132,7 @@ def verify(config, logger: BoundLogger) -> None:
         logger.info("  Token: ****** (set)")
     if session_kwargs.get("private_key_file"):
         logger.info(f"  Private Key Path: {session_kwargs['private_key_file']}")
-    if session_kwargs.get("private_key_passphrase"):
+    if session_kwargs.get("private_key_file_pwd"):
         logger.info("  Private Key Passphrase: ****** (set)")
 
     # Test Snowflake connectivity
@@ -163,7 +163,7 @@ def verify(config, logger: BoundLogger) -> None:
             "password",
             "token",
             "private_key_file",  # Already mapped in get_session_kwargs()
-            "private_key_passphrase",
+            "private_key_file_pwd",  # Already mapped in get_session_kwargs()
         ]:
             if param in session_kwargs and session_kwargs[param] is not None:
                 connect_params[param] = session_kwargs[param]
