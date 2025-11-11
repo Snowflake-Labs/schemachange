@@ -59,6 +59,7 @@ All notable changes to this project will be documented in this file.
   - Works in CLI, ENV, YAML, and connections.toml
 - **Session parameters from `connections.toml`** now merge correctly across all sources (CLI > ENV > YAML > connections.toml) with `QUERY_TAG` values appended instead of overridden (#355, thanks @coder-jatin-s)
 - **Missing config file** now logs informative message instead of silently proceeding
+- Environment variable handling improvements (contributed by @yassun7010)
 
 ### Deprecated
 - **CLI arguments**: Old unprefixed forms (`--vars`, `--query-tag`, `--log-level`) deprecated in favor of `--schemachange-*` or short forms (`-V`, `-L`, `-Q`). Old forms still work with migration messages.
