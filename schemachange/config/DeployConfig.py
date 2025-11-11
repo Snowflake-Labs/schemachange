@@ -158,8 +158,11 @@ class DeployConfig(BaseConfig):
             )
 
         if private_key_file is not None:
-            # Expand ~ to home directory before passing to Snowflake connector
-            session_kwargs["private_key_file"] = str(Path(private_key_file).expanduser())
+            # Expand ~ to home directory if present (preserves path separators otherwise)
+            if "~" in private_key_file:
+                session_kwargs["private_key_file"] = str(Path(private_key_file).expanduser())
+            else:
+                session_kwargs["private_key_file"] = private_key_file
 
         # Private key passphrase: Priority is Config (new/old) > ENV (new/old)
         private_key_pwd = None
