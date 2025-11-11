@@ -471,9 +471,13 @@ your Okta administrator for more information._
 
 Private key authentication can be selected by supplying `snowflake_jwt` as your authenticator. The filepath to a
 Snowflake user-encrypted private key must be supplied as `private_key_file` in the [connections.toml](#connectionstoml-file)
-file. If the private key file is password protected, supply the password as `private_key_file_pwd` in
+file. If the private key file is password protected, supply the password as `private_key_passphrase` in
 the [connections.toml](#connectionstoml-file) file. If the variable is not set, the Snowflake Python connector will
 assume the private key is not encrypted.
+
+**Note:** `private_key_path` is deprecated but still supported for backwards compatibility. Please use `private_key_file`
+to match the Snowflake Python Connector's parameter naming convention. For CLI and environment variables, continue
+using `--snowflake-private-key-path` and `SNOWFLAKE_PRIVATE_KEY_PATH` (these remain unchanged for user-friendliness).
 
 ## Configuration
 
@@ -552,16 +556,19 @@ role = "DEV_ROLE"
 warehouse = "DEV_WH"
 database = "DEV_DB"
 
-# Production environment
+# Production environment (using JWT authentication)
 [prod]
 account = "myorg-prod"
 user = "deploy_service"
 authenticator = "snowflake_jwt"
-private_key_path = "~/.ssh/snowflake_prod.p8"
+private_key_file = "~/.ssh/snowflake_prod.p8"  # Use private_key_file (matches Snowflake connector)
 private_key_passphrase = "my_secure_passphrase"
 role = "DEPLOY_ROLE"
 warehouse = "PROD_WH"
 database = "PROD_DB"
+
+# NOTE: private_key_path is deprecated but still supported for backwards compatibility
+# Please migrate to private_key_file to match Snowflake Python Connector naming
 
 # Optional: Set session parameters for this connection
 [prod.parameters]
@@ -886,7 +893,7 @@ These environment variables configure schemachange-specific behavior:
 ```
 Phase 0: Parse CLI Arguments
 ├─ Parse: --config-folder (default: .)
-├─ Parse: --config-file-name (default: schemachange-config.yml)  
+├─ Parse: --config-file-name (default: schemachange-config.yml)
 └─ Result: Use these values immediately to locate YAML file
 
 Phase 1: Load Configuration Sources (in order)
@@ -900,7 +907,7 @@ Phase 2: First Pass - Determine connections.toml Usage
 ├─ Decision: Use connections.toml? (YES if either is set, NO if neither)
 └─ If YES: Load parameters from connections.toml
 
-Phase 3: Second Pass - Merge All Parameters  
+Phase 3: Second Pass - Merge All Parameters
 ├─ Merge Snowflake connection params: CLI > ENV > YAML > toml
 ├─ Merge session_parameters: CLI > ENV > YAML > toml (QUERY_TAG appends)
 └─ Merge additional_snowflake_params: ENV > YAML
@@ -1229,7 +1236,7 @@ Create or update `~/.snowflake/connections.toml`:
 account = "myaccount.us-east-1.aws"
 user = "service_account"
 authenticator = "snowflake_jwt"
-private_key_path = "~/.ssh/snowflake_key.p8"
+private_key_file = "~/.ssh/snowflake_key.p8"  # Use private_key_file to match Snowflake connector
 private_key_passphrase = "my_passphrase"
 ```
 

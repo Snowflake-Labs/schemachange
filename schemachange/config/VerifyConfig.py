@@ -37,7 +37,8 @@ class VerifyConfig(BaseConfig):
     # Authentication parameters - All Snowflake connector params use snowflake_ prefix internally
     # (Prefix is stripped when building connect_kwargs)
     snowflake_authenticator: str | None = None
-    snowflake_private_key_path: str | None = None
+    snowflake_private_key_path: str | None = None  # From CLI/ENV (user-friendly name)
+    snowflake_private_key_file: str | None = None  # From connections.toml (connector's parameter name)
     snowflake_private_key_passphrase: str | None = None
     snowflake_token_file_path: str | None = None
     session_parameters: dict | None = None  # Session parameters from CLI/ENV/YAML (merged with connections.toml)
@@ -124,13 +125,18 @@ class VerifyConfig(BaseConfig):
         if authenticator is not None:
             session_kwargs["authenticator"] = authenticator
 
-        private_key_path = (
-            self.snowflake_private_key_path
+        # Private key file: prefer private_key_file (from connections.toml), fallback to private_key_path (from CLI/ENV)
+        # Both map to 'private_key_file' for the Snowflake connector
+        private_key_file = (
+            self.snowflake_private_key_file
+            if self.snowflake_private_key_file is not None
+            else self.snowflake_private_key_path
             if self.snowflake_private_key_path is not None
             else get_snowflake_private_key_path()
         )
-        if private_key_path is not None:
-            session_kwargs["private_key_path"] = private_key_path
+        if private_key_file is not None:
+            # Expand ~ to home directory before passing to Snowflake connector
+            session_kwargs["private_key_file"] = str(Path(private_key_file).expanduser())
 
         private_key_passphrase = (
             self.snowflake_private_key_passphrase

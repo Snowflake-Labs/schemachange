@@ -104,6 +104,18 @@ All notable changes to this project will be documented in this file.
 - Fixed secret redaction functionality to properly handle configuration secrets (#312 by @zanebclark)
 - **Fixed config_vars merging to properly include environment variables**: `SCHEMACHANGE_VARS` environment variable now correctly merges with YAML and CLI vars following the documented precedence (CLI > ENV > YAML). Previously, ENV vars were incorrectly ignored in the merging process.
   - **Impact**: Users setting `SCHEMACHANGE_VARS` environment variable will now see those variables properly merged into their configuration
+- **Fixed JWT authentication in verify command**: Two critical bugs prevented JWT/RSA key pair authentication from working in the verify command
+  - **Bug 1**: Private key paths with tilde (e.g., `~/.snowflake/snowflake_key.p8`) were not expanded to absolute paths before being passed to the Snowflake connector
+  - **Bug 2**: The verify command was using the wrong parameter name (`private_key_path`) instead of `private_key_file` when calling `snowflake.connector.connect()`
+  - **Impact**: JWT/RSA key pair authentication now works correctly in both `deploy` and `verify` commands when private_key_file/private_key_path uses tilde in connections.toml, YAML config, environment variables, or CLI arguments
+  - Previously, both issues would cause authentication to fail with "Expected bytes or RSAPrivateKey, got <class 'NoneType'>" error
+  - The deploy command only had Bug 1 (tilde expansion), which has also been fixed
+- **Architectural consistency for private key parameter naming**:
+  - **connections.toml** now properly supports `private_key_file` (matching Snowflake Python Connector's parameter name)
+  - **Backwards compatibility**: `private_key_path` in connections.toml still works but shows deprecation warning
+  - **CLI/ENV unchanged**: `--snowflake-private-key-path` and `SNOWFLAKE_PRIVATE_KEY_PATH` remain unchanged (user-friendly names)
+  - **Migration path**: connections.toml users should migrate from `private_key_path` to `private_key_file` for consistency with Snowflake connector
+  - **Why**: All other Snowflake connector parameters (account, user, role, etc.) use the connector's exact parameter names; private key should too
   - **Behavior**: When the same variable key exists in multiple sources, CLI takes precedence over ENV, which takes precedence over YAML
   - **Example**: If CLI sets `{"var1": "cli"}`, ENV sets `{"var2": "env"}`, and YAML sets `{"var3": "yaml"}`, all three will be available: `{"var1": "cli", "var2": "env", "var3": "yaml"}`
 - **Improved missing config file handling**: Added informative log message when specified config file is not found. Schemachange now clearly indicates it's using CLI arguments, environment variables, and defaults instead of silently proceeding.

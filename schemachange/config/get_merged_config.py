@@ -309,6 +309,24 @@ def get_merged_config(
         else:
             skipped_params.append(key)
 
+    # Handle private_key_path → private_key_file mapping ONLY from connections.toml (backwards compatibility)
+    # CLI/ENV use private_key_path (user-friendly), connections.toml should use private_key_file (connector name)
+    # Check if this private_key_path came from connections.toml by checking if it wasn't in higher priority sources
+    if (
+        "snowflake_private_key_path" in yaml_kwargs
+        and "snowflake_private_key_file" not in yaml_kwargs
+        and "snowflake_private_key_path" not in env_kwargs
+        and "snowflake_private_key_path" not in cli_kwargs
+    ):
+        # This private_key_path came from connections.toml (lowest priority) - show deprecation warning
+        logger.warning(
+            "⚠️  DEPRECATION WARNING: 'private_key_path' in connections.toml is deprecated. "
+            "Please use 'private_key_file' instead to match the Snowflake Python Connector parameter name. "
+            "'private_key_path' will be removed in a future version."
+        )
+        # Map private_key_path → private_key_file for internal consistency
+        yaml_kwargs["snowflake_private_key_file"] = yaml_kwargs.pop("snowflake_private_key_path")
+
     logger.debug(
         "Merged connections.toml connection parameters",
         merged_count=merged_count,

@@ -128,9 +128,9 @@ def test_verify_config_cli_auth_takes_precedence_over_env(_):
             session_kwargs = config.get_session_kwargs()
 
             # CLI values should take precedence
-            # Note: get_session_kwargs() strips snowflake_ prefix for connector
+            # Note: private_key_path internally maps to private_key_file for the connector
             assert session_kwargs["authenticator"] == "cli_auth"
-            assert session_kwargs["private_key_path"] == "/cli/key"
+            assert session_kwargs["private_key_file"] == "/cli/key"
 
 
 @mock.patch("pathlib.Path.is_dir", return_value=True)
@@ -159,3 +159,42 @@ def test_verify_config_filters_deployment_specific_params(_):
     assert not hasattr(config, "create_change_history_table")
     assert not hasattr(config, "dry_run")
     assert not hasattr(config, "query_tag")
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+def test_verify_config_expands_tilde_in_private_key_path(_):
+    """Test that VerifyConfig expands ~ in private_key_path before passing to connector"""
+    home_dir = Path.home()
+
+    config = VerifyConfig.factory(
+        config_file_path=Path("."),
+        snowflake_authenticator="snowflake_jwt",
+        snowflake_private_key_path="~/.snowflake/snowflake_key.p8",
+        **minimal_verify_config_kwargs,
+    )
+
+    session_kwargs = config.get_session_kwargs()
+
+    # Verify that tilde is expanded to full path and mapped to private_key_file
+    assert session_kwargs["private_key_file"] == str(home_dir / ".snowflake/snowflake_key.p8")
+    assert "~" not in session_kwargs["private_key_file"]
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("schemachange.config.VerifyConfig.get_snowflake_private_key_path")
+def test_verify_config_expands_tilde_in_private_key_path_from_env(mock_get_key_path, _):
+    """Test that VerifyConfig expands ~ in private_key_path from ENV variable"""
+    mock_get_key_path.return_value = "~/keys/rsa_key.pem"
+    home_dir = Path.home()
+
+    config = VerifyConfig.factory(
+        config_file_path=Path("."),
+        snowflake_authenticator="snowflake_jwt",
+        **minimal_verify_config_kwargs,
+    )
+
+    session_kwargs = config.get_session_kwargs()
+
+    # Verify that tilde from ENV is expanded to full path and mapped to private_key_file
+    assert session_kwargs["private_key_file"] == str(home_dir / "keys/rsa_key.pem")
+    assert "~" not in session_kwargs["private_key_file"]

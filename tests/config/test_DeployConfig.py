@@ -276,9 +276,9 @@ def test_authentication_parameters_cli_takes_precedence_over_env(
     session_kwargs = config.get_session_kwargs()
 
     # Explicitly provided values should take precedence over ENV
-    # Note: get_session_kwargs() strips snowflake_ prefix for connector
+    # Note: private_key_path internally maps to private_key_file for the connector
     assert session_kwargs["authenticator"] == "explicit_authenticator"
-    assert session_kwargs["private_key_path"] == "/explicit/path/to/key.pem"
+    assert session_kwargs["private_key_file"] == "/explicit/path/to/key.pem"
     assert session_kwargs["private_key_passphrase"] == "explicit_passphrase"
     # Password is only from ENV (not overridden in this test)
     assert session_kwargs["password"] == "env_password"
@@ -305,6 +305,46 @@ def test_authentication_parameters_fallback_to_env(
     session_kwargs = config.get_session_kwargs()
 
     # ENV values should be used
+    # Note: private_key_path internally maps to private_key_file for the connector
     assert session_kwargs["authenticator"] == "snowflake_jwt"
-    assert session_kwargs["private_key_path"] == "/env/path/to/key.pem"
+    assert session_kwargs["private_key_file"] == "/env/path/to/key.pem"
     assert session_kwargs["password"] == "env_password"
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+def test_deploy_config_expands_tilde_in_private_key_path(_):
+    """Test that DeployConfig expands ~ in private_key_path before passing to connector"""
+    home_dir = Path.home()
+
+    config_kwargs = {
+        **minimal_deploy_config_kwargs,
+        "snowflake_authenticator": "snowflake_jwt",
+        "snowflake_private_key_path": "~/.snowflake/snowflake_key.p8",
+    }
+
+    config = DeployConfig.factory(config_file_path=Path("."), **config_kwargs)
+    session_kwargs = config.get_session_kwargs()
+
+    # Verify that tilde is expanded to full path and mapped to private_key_file
+    assert session_kwargs["private_key_file"] == str(home_dir / ".snowflake/snowflake_key.p8")
+    assert "~" not in session_kwargs["private_key_file"]
+
+
+@mock.patch("schemachange.config.DeployConfig.get_snowflake_private_key_path")
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+def test_deploy_config_expands_tilde_in_private_key_path_from_env(_, mock_get_key_path):
+    """Test that DeployConfig expands ~ in private_key_path from ENV variable"""
+    mock_get_key_path.return_value = "~/keys/rsa_key.pem"
+    home_dir = Path.home()
+
+    config_kwargs = {
+        **minimal_deploy_config_kwargs,
+        "snowflake_authenticator": "snowflake_jwt",
+    }
+
+    config = DeployConfig.factory(config_file_path=Path("."), **config_kwargs)
+    session_kwargs = config.get_session_kwargs()
+
+    # Verify that tilde from ENV is expanded to full path and mapped to private_key_file
+    assert session_kwargs["private_key_file"] == str(home_dir / "keys/rsa_key.pem")
+    assert "~" not in session_kwargs["private_key_file"]

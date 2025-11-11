@@ -130,8 +130,8 @@ def verify(config, logger: BoundLogger) -> None:
         logger.info("  Password: ****** (set)")
     if session_kwargs.get("token"):
         logger.info("  Token: ****** (set)")
-    if session_kwargs.get("private_key_path"):
-        logger.info(f"  Private Key Path: {session_kwargs['private_key_path']}")
+    if session_kwargs.get("private_key_file"):
+        logger.info(f"  Private Key Path: {session_kwargs['private_key_file']}")
     if session_kwargs.get("private_key_passphrase"):
         logger.info("  Private Key Passphrase: ****** (set)")
 
@@ -162,7 +162,7 @@ def verify(config, logger: BoundLogger) -> None:
             "authenticator",
             "password",
             "token",
-            "private_key_path",
+            "private_key_file",  # Already mapped in get_session_kwargs()
             "private_key_passphrase",
         ]:
             if param in session_kwargs and session_kwargs[param] is not None:

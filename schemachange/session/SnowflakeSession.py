@@ -87,7 +87,9 @@ class SnowflakeSession:
             "schema": schema,
             "role": role,
             "warehouse": warehouse,
-            "private_key_file": kwargs.get("private_key_path"),
+            "private_key_file": kwargs.get(
+                "private_key_file"
+            ),  # Already mapped from private_key_path in get_session_kwargs()
             "token": kwargs.get("token"),
             "password": kwargs.get("password"),
             "authenticator": kwargs.get("authenticator"),
