@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Added validation for unknown configuration keys with warning messages instead of errors for better backward and sideways compatibility (#352 by @MACKAT05)
 
 ### Fixed
+- Fixed dry-run command to work correctly when change history table doesn't exist yet with `--create-change-history-table` flag (#356 by @PavelPawlowski, fixes #326)
 - Fixed YAML configuration validation to show warnings for unknown keys instead of throwing TypeError exceptions (#352 by @MACKAT05)
 
 ## [4.1.0] - 2025-11-14
