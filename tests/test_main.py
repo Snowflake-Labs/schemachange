@@ -9,9 +9,9 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
-from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 
 import schemachange.cli as cli
+from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import get_snowflake_identifier_string
 
 assets_path = Path(__file__).parent / "config"
@@ -68,9 +68,7 @@ required_config = {
     "snowflake_warehouse": "warehouse",
     "snowflake_role": "role",
 }
-script_path = (
-    Path(__file__).parent.parent / "demo" / "basics_demo" / "2_test" / "A__basic001.sql"
-)
+script_path = Path(__file__).parent.parent / "demo" / "basics_demo" / "2_test" / "A__basic001.sql"
 
 no_command = pytest.param(
     "schemachange.cli.deploy",
@@ -136,18 +134,10 @@ deploy_all_cli_arg_names = pytest.param(
         "modules_folder": assets_path,
         "snowflake_account": "snowflake-account-from-cli",
         "snowflake_user": "snowflake-user-from-cli",
-        "snowflake_role": get_snowflake_identifier_string(
-            "snowflake-role-from-cli", "placeholder"
-        ),
-        "snowflake_warehouse": get_snowflake_identifier_string(
-            "snowflake-warehouse-from-cli", "placeholder"
-        ),
-        "snowflake_database": get_snowflake_identifier_string(
-            "snowflake-database-from-cli", "placeholder"
-        ),
-        "snowflake_schema": get_snowflake_identifier_string(
-            "snowflake-schema-from-cli", "placeholder"
-        ),
+        "snowflake_role": get_snowflake_identifier_string("snowflake-role-from-cli", "placeholder"),
+        "snowflake_warehouse": get_snowflake_identifier_string("snowflake-warehouse-from-cli", "placeholder"),
+        "snowflake_database": get_snowflake_identifier_string("snowflake-database-from-cli", "placeholder"),
+        "snowflake_schema": get_snowflake_identifier_string("snowflake-schema-from-cli", "placeholder"),
         "change_history_table": ChangeHistoryTable(
             database_name="db",
             schema_name="schema",
@@ -217,18 +207,10 @@ deploy_all_cli_arg_flags = pytest.param(
         "modules_folder": assets_path,
         "snowflake_account": "snowflake-account-from-cli",
         "snowflake_user": "snowflake-user-from-cli",
-        "snowflake_role": get_snowflake_identifier_string(
-            "snowflake-role-from-cli", "placeholder"
-        ),
-        "snowflake_warehouse": get_snowflake_identifier_string(
-            "snowflake-warehouse-from-cli", "placeholder"
-        ),
-        "snowflake_database": get_snowflake_identifier_string(
-            "snowflake-database-from-cli", "placeholder"
-        ),
-        "snowflake_schema": get_snowflake_identifier_string(
-            "snowflake-schema-from-cli", "placeholder"
-        ),
+        "snowflake_role": get_snowflake_identifier_string("snowflake-role-from-cli", "placeholder"),
+        "snowflake_warehouse": get_snowflake_identifier_string("snowflake-warehouse-from-cli", "placeholder"),
+        "snowflake_database": get_snowflake_identifier_string("snowflake-database-from-cli", "placeholder"),
+        "snowflake_schema": get_snowflake_identifier_string("snowflake-schema-from-cli", "placeholder"),
         "change_history_table": ChangeHistoryTable(
             database_name="db",
             schema_name="schema",
@@ -298,18 +280,10 @@ deploy_all_env_all_cli = pytest.param(
         "modules_folder": assets_path,
         "snowflake_account": "snowflake-account-from-cli",
         "snowflake_user": "snowflake-user-from-cli",
-        "snowflake_role": get_snowflake_identifier_string(
-            "snowflake-role-from-cli", "placeholder"
-        ),
-        "snowflake_warehouse": get_snowflake_identifier_string(
-            "snowflake-warehouse-from-cli", "placeholder"
-        ),
-        "snowflake_database": get_snowflake_identifier_string(
-            "snowflake-database-from-cli", "placeholder"
-        ),
-        "snowflake_schema": get_snowflake_identifier_string(
-            "snowflake-schema-from-cli", "placeholder"
-        ),
+        "snowflake_role": get_snowflake_identifier_string("snowflake-role-from-cli", "placeholder"),
+        "snowflake_warehouse": get_snowflake_identifier_string("snowflake-warehouse-from-cli", "placeholder"),
+        "snowflake_database": get_snowflake_identifier_string("snowflake-database-from-cli", "placeholder"),
+        "snowflake_schema": get_snowflake_identifier_string("snowflake-schema-from-cli", "placeholder"),
         "change_history_table": ChangeHistoryTable(
             database_name="db",
             schema_name="schema",
@@ -432,19 +406,21 @@ def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
     expected_config: dict,
     expected_script_path: Path | None,
 ):
-    with mock.patch("sys.argv", cli_args):
-        with mock.patch(to_mock) as mock_command:
-            cli.main()
-            mock_command.assert_called_once()
-            _, call_kwargs = mock_command.call_args
-            for expected_arg, expected_value in expected_config.items():
-                actual_value = getattr(call_kwargs["config"], expected_arg)
-                if hasattr(actual_value, "table_name"):
-                    assert asdict(actual_value) == asdict(expected_value)
-                else:
-                    assert actual_value == expected_value
-            if expected_script_path is not None:
-                assert call_kwargs["script_path"] == expected_script_path
+    # Clear environment variables to prevent leakage from GitHub Actions
+    with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch("sys.argv", cli_args):
+            with mock.patch(to_mock) as mock_command:
+                cli.main()
+                mock_command.assert_called_once()
+                _, call_kwargs = mock_command.call_args
+                for expected_arg, expected_value in expected_config.items():
+                    actual_value = getattr(call_kwargs["config"], expected_arg)
+                    if hasattr(actual_value, "table_name"):
+                        assert asdict(actual_value) == asdict(expected_value)
+                    else:
+                        assert actual_value == expected_value
+                if expected_script_path is not None:
+                    assert call_kwargs["script_path"] == expected_script_path
 
 
 @pytest.mark.parametrize(
@@ -508,19 +484,21 @@ def test_main_deploy_config_folder(
         args[args.index("DUMMY")] = d
         expected_config["config_file_path"] = Path(d) / "schemachange-config.yml"
 
-        with mock.patch(to_mock) as mock_command:
-            with mock.patch("sys.argv", args):
-                cli.main()
-                mock_command.assert_called_once()
-                _, call_kwargs = mock_command.call_args
-                for expected_arg, expected_value in expected_config.items():
-                    actual_value = getattr(call_kwargs["config"], expected_arg)
-                    if hasattr(actual_value, "table_name"):
-                        assert asdict(actual_value) == asdict(expected_value)
-                    else:
-                        assert actual_value == expected_value
-                if expected_script_path is not None:
-                    assert call_kwargs["script_path"] == expected_script_path
+        # Clear environment variables to prevent leakage from GitHub Actions
+        with mock.patch.dict(os.environ, {}, clear=True):
+            with mock.patch(to_mock) as mock_command:
+                with mock.patch("sys.argv", args):
+                    cli.main()
+                    mock_command.assert_called_once()
+                    _, call_kwargs = mock_command.call_args
+                    for expected_arg, expected_value in expected_config.items():
+                        actual_value = getattr(call_kwargs["config"], expected_arg)
+                        if hasattr(actual_value, "table_name"):
+                            assert asdict(actual_value) == asdict(expected_value)
+                        else:
+                            assert actual_value == expected_value
+                    if expected_script_path is not None:
+                        assert call_kwargs["script_path"] == expected_script_path
 
 
 @pytest.mark.parametrize(
@@ -563,16 +541,18 @@ def test_main_deploy_modules_folder(
         args[args.index("DUMMY")] = d
         expected_config["modules_folder"] = Path(d)
 
-        with mock.patch(to_mock) as mock_command:
-            with mock.patch("sys.argv", args):
-                cli.main()
-                mock_command.assert_called_once()
-                _, call_kwargs = mock_command.call_args
-                for expected_arg, expected_value in expected_config.items():
-                    actual_value = getattr(call_kwargs["config"], expected_arg)
-                    if hasattr(actual_value, "table_name"):
-                        assert asdict(actual_value) == asdict(expected_value)
-                    else:
-                        assert actual_value == expected_value
-                if expected_script_path is not None:
-                    assert call_kwargs["script_path"] == expected_script_path
+        # Clear environment variables to prevent leakage from GitHub Actions
+        with mock.patch.dict(os.environ, {}, clear=True):
+            with mock.patch(to_mock) as mock_command:
+                with mock.patch("sys.argv", args):
+                    cli.main()
+                    mock_command.assert_called_once()
+                    _, call_kwargs = mock_command.call_args
+                    for expected_arg, expected_value in expected_config.items():
+                        actual_value = getattr(call_kwargs["config"], expected_arg)
+                        if hasattr(actual_value, "table_name"):
+                            assert asdict(actual_value) == asdict(expected_value)
+                        else:
+                            assert actual_value == expected_value
+                    if expected_script_path is not None:
+                        assert call_kwargs["script_path"] == expected_script_path

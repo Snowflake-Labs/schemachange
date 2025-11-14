@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Literal
 
 from schemachange.config.BaseConfig import BaseConfig
-from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import (
     get_snowflake_authenticator,
     get_snowflake_identifier_string,
@@ -19,22 +18,24 @@ from schemachange.config.utils import (
 
 
 @dataclasses.dataclass(frozen=True)
-class DeployConfig(BaseConfig):
-    subcommand: Literal["deploy"] = "deploy"
-    snowflake_account: str | None = None  # TODO: Remove when connections.toml is enforced
-    snowflake_user: str | None = None  # TODO: Remove when connections.toml is enforced
-    snowflake_role: str | None = None  # TODO: Remove when connections.toml is enforced
-    snowflake_warehouse: str | None = None  # TODO: Remove when connections.toml is enforced
-    snowflake_database: str | None = None  # TODO: Remove when connections.toml is enforced
-    snowflake_schema: str | None = None  # TODO: Remove when connections.toml is enforced
+class VerifyConfig(BaseConfig):
+    """
+    Configuration for the verify subcommand.
+
+    The verify command tests Snowflake connectivity and displays configuration
+    parameters. It requires the same connection parameters as deploy but doesn't
+    need deployment-specific settings like change_history_table.
+    """
+
+    subcommand: Literal["verify"] = "verify"
+    snowflake_account: str | None = None
+    snowflake_user: str | None = None
+    snowflake_role: str | None = None
+    snowflake_warehouse: str | None = None
+    snowflake_database: str | None = None
+    snowflake_schema: str | None = None
     connections_file_path: Path | None = None
     connection_name: str | None = None
-    # TODO: Turn change_history_table into three arguments. There's no need to parse it from a string
-    change_history_table: ChangeHistoryTable | None = dataclasses.field(default_factory=ChangeHistoryTable)
-    create_change_history_table: bool = False
-    autocommit: bool = False
-    dry_run: bool = False
-    query_tag: str | None = None
     # Authentication parameters - All Snowflake connector params use snowflake_ prefix internally
     # (Prefix is stripped when building connect_kwargs)
     snowflake_authenticator: str | None = None
@@ -43,8 +44,6 @@ class DeployConfig(BaseConfig):
     snowflake_private_key_passphrase: str | None = None  # DEPRECATED - use snowflake_private_key_file_pwd
     snowflake_private_key_file_pwd: str | None = None  # Recommended (matches Snowflake connector)
     snowflake_token_file_path: str | None = None
-    version_number_validation_regex: str | None = None
-    raise_exception_on_ignored_versioned_script: bool = False
     session_parameters: dict | None = None  # Session parameters from CLI/ENV/YAML (merged with connections.toml)
     additional_snowflake_params: dict | None = None  # Parameters from YAML v2 or generic SNOWFLAKE_* env vars
 
@@ -52,13 +51,29 @@ class DeployConfig(BaseConfig):
     def factory(
         cls,
         config_file_path: Path,
-        change_history_table: str | None = None,
         **kwargs,
     ):
         if "subcommand" in kwargs:
             kwargs.pop("subcommand")
 
-        # TODO: Remove when connections.toml is enforced
+        # Filter out deployment-specific parameters that verify doesn't support
+        # These are only relevant for the deploy command
+        deployment_only_params = [
+            "change_history_table",
+            "create_change_history_table",
+            "dry_run",
+            "autocommit",
+            "query_tag",
+            "root_folder",
+            "modules_folder",
+            "vars",
+            "version_number_validation_regex",
+            "raise_exception_on_ignored_versioned_script",
+        ]
+        for param in deployment_only_params:
+            kwargs.pop(param, None)
+
+        # Validate Snowflake identifier strings
         for sf_input in [
             "snowflake_role",
             "snowflake_warehouse",
@@ -72,46 +87,41 @@ class DeployConfig(BaseConfig):
         if "connections_file_path" in kwargs and kwargs["connections_file_path"] is not None:
             kwargs["connections_file_path"] = Path(kwargs["connections_file_path"]).expanduser()
 
-        change_history_table = ChangeHistoryTable.from_str(table_str=change_history_table)
-
         return super().factory(
-            subcommand="deploy",
+            subcommand="verify",
             config_file_path=config_file_path,
-            change_history_table=change_history_table,
             **kwargs,
         )
 
     def get_session_kwargs(self) -> dict:
+        """
+        Get session kwargs for Snowflake connection.
+
+        Similar to DeployConfig but without deployment-specific parameters.
+        """
         session_kwargs = {
-            "account": self.snowflake_account,  # TODO: Remove when connections.toml is enforced
-            "user": self.snowflake_user,  # TODO: Remove when connections.toml is enforced
-            "role": self.snowflake_role,  # TODO: Remove when connections.toml is enforced
-            "warehouse": self.snowflake_warehouse,  # TODO: Remove when connections.toml is enforced
-            "database": self.snowflake_database,  # TODO: Remove when connections.toml is enforced
-            "schema": self.snowflake_schema,  # TODO: Remove when connections.toml is enforced
-            # NOTE: connections_file_path and connection_name are NOT passed to SnowflakeSession
+            "account": self.snowflake_account,
+            "user": self.snowflake_user,
+            "role": self.snowflake_role,
+            "warehouse": self.snowflake_warehouse,
+            "database": self.snowflake_database,
+            "schema": self.snowflake_schema,
+            # NOTE: connections_file_path and connection_name are NOT passed
             # All parameters from connections.toml have already been merged in get_merged_config.py
-            "change_history_table": self.change_history_table,
-            "autocommit": self.autocommit,
-            "query_tag": self.query_tag,
+            "autocommit": False,  # Default for verify
+            "query_tag": None,  # Not needed for verify
             "session_parameters": self.session_parameters,
             "additional_snowflake_params": self.additional_snowflake_params,
         }
 
         # Add password from environment variable if available
-        # NOTE: SNOWFLAKE_PASSWORD is used for:
-        #   1. Traditional password authentication (deprecated with MFA requirements)
-        #   2. Programmatic Access Tokens (PATs) - recommended for CI/CD
-        #      PATs use the default 'snowflake' authenticator (no need to set SNOWFLAKE_AUTHENTICATOR)
         snowflake_password = get_snowflake_password()
         if snowflake_password is not None and snowflake_password:
             session_kwargs["password"] = snowflake_password
 
         # Add authentication parameters with priority: Config (CLI/ENV/YAML/connections.toml merged) > ENV fallback
-        # These are used for OAuth, JWT, and other auth methods
         # Note: Field names have snowflake_ prefix internally, but we strip it for connect()
 
-        # Authenticator: Use merged config value, fallback to ENV
         authenticator = (
             self.snowflake_authenticator if self.snowflake_authenticator is not None else get_snowflake_authenticator()
         )
@@ -207,10 +217,6 @@ class DeployConfig(BaseConfig):
             session_kwargs["private_key_file_pwd"] = private_key_pwd
 
         # Read OAuth token from file if specified
-        # NOTE: SNOWFLAKE_TOKEN_FILE_PATH is for OAUTH ONLY (external OAuth providers)
-        #       It should be used with SNOWFLAKE_AUTHENTICATOR=oauth
-        #       For PATs, use SNOWFLAKE_PASSWORD instead (see above)
-        # Token file path: Use merged config value, fallback to ENV
         token_file_path = (
             self.snowflake_token_file_path
             if self.snowflake_token_file_path is not None
@@ -218,10 +224,8 @@ class DeployConfig(BaseConfig):
         )
         if token_file_path is not None:
             try:
-                # Expand user paths like ~/tokens/oauth.token
                 expanded_path = Path(token_file_path).expanduser()
                 with open(expanded_path) as token_file:
-                    # Read and strip whitespace/newlines from token
                     token = token_file.read().strip()
                     if token:
                         session_kwargs["token"] = token

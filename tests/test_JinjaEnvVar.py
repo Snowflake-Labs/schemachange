@@ -15,10 +15,7 @@ def test_env_var_with_no_default_and_no_environmental_variables_should_raise_exc
 
     with pytest.raises(ValueError) as e:
         JinjaEnvVar.env_var("SF_DATABASE")
-    assert (
-        str(e.value)
-        == "Could not find environmental variable SF_DATABASE and no default value was provided"
-    )
+    assert str(e.value) == "Could not find environmental variable SF_DATABASE and no default value was provided"
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
@@ -37,7 +34,5 @@ def test_env_var_with_default_and_environmental_variables_should_return_environm
 
 @mock.patch.dict(os.environ, {"SF_DATABASE": "SCHEMACHANGE_DEMO_3"}, clear=True)
 def test_jinjaenvvar_with_jinja_template():
-    template = jinja2.Template(
-        "{{env_var('SF_DATABASE', 'SCHEMACHANGE_DEMO')}}", extensions=[JinjaEnvVar]
-    )
+    template = jinja2.Template("{{env_var('SF_DATABASE', 'SCHEMACHANGE_DEMO')}}", extensions=[JinjaEnvVar])
     assert template.render() == "SCHEMACHANGE_DEMO_3"

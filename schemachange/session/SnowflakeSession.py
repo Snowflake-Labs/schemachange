@@ -10,7 +10,7 @@ import structlog
 
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import get_snowflake_identifier_string
-from schemachange.session.Script import VersionedScript, RepeatableScript, AlwaysScript
+from schemachange.session.Script import AlwaysScript, RepeatableScript, VersionedScript
 
 
 class SnowflakeSession:
@@ -36,65 +36,102 @@ class SnowflakeSession:
         application: str,
         change_history_table: ChangeHistoryTable,
         logger: structlog.BoundLogger,
-        connection_name: str | None = None,
-        connections_file_path: str | None = None,
-        account: str | None = None,  # TODO: Remove when connections.toml is enforced
-        user: str | None = None,  # TODO: Remove when connections.toml is enforced
-        role: str | None = None,  # TODO: Remove when connections.toml is enforced
-        warehouse: str | None = None,  # TODO: Remove when connections.toml is enforced
-        database: str | None = None,  # TODO: Remove when connections.toml is enforced
-        schema: str | None = None,  # TODO: Remove when connections.toml is enforced
+        # NOTE: connection_name and connections_file_path are no longer passed here
+        # All parameters from connections.toml are merged in get_merged_config.py before creating SnowflakeSession
+        account: str | None = None,  # Merged from CLI > ENV > YAML > connections.toml
+        user: str | None = None,  # Merged from CLI > ENV > YAML > connections.toml
+        role: str | None = None,  # Merged from CLI > ENV > YAML > connections.toml
+        warehouse: str | None = None,  # Merged from CLI > ENV > YAML > connections.toml
+        database: str | None = None,  # Merged from CLI > ENV > YAML > connections.toml
+        schema: str | None = None,  # Merged from CLI > ENV > YAML > connections.toml
         query_tag: str | None = None,
         autocommit: bool = False,
-        **kwargs,  # TODO: Remove when connections.toml is enforced
+        session_parameters: dict | None = None,  # Merged session params from CLI/ENV/YAML/connections.toml
+        additional_snowflake_params: dict | None = None,
+        **kwargs,  # password, authenticator, private_key_path, etc.
     ):
         self.change_history_table = change_history_table
         self.autocommit = autocommit
         self.logger = logger
 
-        self.session_parameters = {"QUERY_TAG": f"schemachange {schemachange_version}"}
+        # Build schemachange's QUERY_TAG value
+        # We'll apply this after connection is established to preserve any QUERY_TAG from connections.toml
+        schemachange_query_tag = f"schemachange {schemachange_version}"
         if query_tag:
-            self.session_parameters["QUERY_TAG"] += f";{query_tag}"
+            schemachange_query_tag += f";{query_tag}"
 
-        connect_kwargs = {
-            "account": account,  # TODO: Remove when connections.toml is enforced
-            "user": user,  # TODO: Remove when connections.toml is enforced
-            "database": database,  # TODO: Remove when connections.toml is enforced
-            "schema": schema,  # TODO: Remove when connections.toml is enforced
-            "role": role,  # TODO: Remove when connections.toml is enforced
-            "warehouse": warehouse,  # TODO: Remove when connections.toml is enforced
+        # Prepare session_parameters from CLI/ENV/YAML (already merged in get_merged_config)
+        if session_parameters is None:
+            session_parameters = {}
+
+        # Start with additional_snowflake_params (lowest priority for these params)
+        # These come from YAML v2 snowflake section or generic SNOWFLAKE_* env vars
+        connect_kwargs = {}
+
+        if additional_snowflake_params:
+            # Convert kebab-case keys to snake_case for connector compatibility
+            for key, value in additional_snowflake_params.items():
+                snake_case_key = key.replace("-", "_")
+                connect_kwargs[snake_case_key] = value
+            self.logger.debug(
+                "Using additional Snowflake parameters from YAML v2 or environment variables",
+                additional_params=list(connect_kwargs.keys()),
+            )
+
+        # Explicit parameters override additional_snowflake_params
+        # This ensures CLI > ENV > YAML precedence is maintained
+        explicit_params = {
+            "account": account,
+            "user": user,
+            "database": database,
+            "schema": schema,
+            "role": role,
+            "warehouse": warehouse,
             "private_key_file": kwargs.get(
-                "private_key_path"
-            ),  # TODO: Remove when connections.toml is enforced
-            "token": kwargs.get(
-                "oauth_token"
-            ),  # TODO: Remove when connections.toml is enforced
-            "password": kwargs.get(
-                "password"
-            ),  # TODO: Remove when connections.toml is enforced
-            "authenticator": kwargs.get(
-                "authenticator"
-            ),  # TODO: Remove when connections.toml is enforced
-            "connection_name": connection_name,
-            "connections_file_path": connections_file_path,
+                "private_key_file"
+            ),  # Already mapped from private_key_path in get_session_kwargs()
+            "token": kwargs.get("token"),
+            "password": kwargs.get("password"),
+            "authenticator": kwargs.get("authenticator"),
             "application": application,
-            "session_parameters": self.session_parameters,
         }
-        connect_kwargs = {k: v for k, v in connect_kwargs.items() if v is not None}
+
+        # Merge session_parameters (already merged from CLI/ENV/YAML/connections.toml) with schemachange's QUERY_TAG
+        # session_parameters already contains merged params with precedence: CLI > ENV > YAML > connections.toml
+        final_session_params = {**session_parameters}  # Start with already-merged params
+
+        # Handle QUERY_TAG: append schemachange's tag to any existing QUERY_TAG
+        # QUERY_TAG might come from connections.toml, CLI/ENV/YAML session_parameters, or query_tag argument
+        if "QUERY_TAG" in final_session_params:
+            final_session_params["QUERY_TAG"] += f";{schemachange_query_tag}"
+        else:
+            final_session_params["QUERY_TAG"] = schemachange_query_tag
+
+        explicit_params["session_parameters"] = final_session_params
+
+        # Merge explicit params, overriding any additional params
+        connect_kwargs.update({k: v for k, v in explicit_params.items() if v is not None})
+
+        # NOTE: We do NOT pass connection_name or connections_file_path to connect()
+        # All parameters from connections.toml have already been read and merged in get_merged_config.py
+        # This ensures proper precedence: CLI > ENV > YAML > connections.toml
+
         self.logger.debug("snowflake.connector.connect kwargs", **connect_kwargs)
         self.con = snowflake.connector.connect(**connect_kwargs)
-        print(f"Current session ID: {self.con.session_id}")
+        self.logger.info("Snowflake connection established", session_id=self.con.session_id)
         self.account = self.con.account
         self.user = get_snowflake_identifier_string(self.con.user, "user")
         self.role = get_snowflake_identifier_string(self.con.role, "role")
-        self.warehouse = get_snowflake_identifier_string(
-            self.con.warehouse, "warehouse"
-        )
+        self.warehouse = get_snowflake_identifier_string(self.con.warehouse, "warehouse")
         self.database = get_snowflake_identifier_string(self.con.database, "database")
         self.schema = get_snowflake_identifier_string(self.con.schema, "schema")
 
         if not self.autocommit:
             self.con.autocommit(False)
+
+        # Store final merged session parameters that were passed to connect()
+        # (already merged in get_merged_config with CLI > ENV > YAML > connections.toml precedence)
+        self.session_parameters = explicit_params.get("session_parameters", {})
 
     def __del__(self):
         if hasattr(self, "con"):
@@ -128,7 +165,7 @@ class SnowflakeSession:
         results = self.execute_snowflake_query(query=dedent(query), logger=self.logger)
 
         # Collect all the results into a list
-        change_history_metadata = dict()
+        change_history_metadata = {}
         for cursor in results:
             for row in cursor:
                 change_history_metadata["created"] = row[0]
@@ -151,7 +188,7 @@ class SnowflakeSession:
     def create_change_history_schema(self, dry_run: bool) -> None:
         query = f"CREATE SCHEMA IF NOT EXISTS {self.change_history_table.fully_qualified_schema_name}"
         if dry_run:
-            self.logger.debug(
+            self.logger.info(
                 "Running in dry-run mode. Skipping execution.",
                 query=indent(dedent(query), prefix="\t"),
             )
@@ -173,19 +210,15 @@ class SnowflakeSession:
             )
         """
         if dry_run:
-            self.logger.debug(
+            self.logger.info(
                 "Running in dry-run mode. Skipping execution.",
                 query=indent(dedent(query), prefix="\t"),
             )
         else:
             self.execute_snowflake_query(dedent(query), logger=self.logger)
-            self.logger.info(
-                f"Created change history table {self.change_history_table.fully_qualified}"
-            )
+            self.logger.info(f"Created change history table {self.change_history_table.fully_qualified}")
 
-    def change_history_table_exists(
-        self, create_change_history_table: bool, dry_run: bool
-    ) -> bool:
+    def change_history_table_exists(self, create_change_history_table: bool, dry_run: bool) -> bool:
         change_history_metadata = self.fetch_change_history_metadata()
         if change_history_metadata:
             self.logger.info(
@@ -203,9 +236,7 @@ class SnowflakeSession:
             self.logger.info("Created change history table")
             return True
         else:
-            raise ValueError(
-                f"Unable to find change history table {self.change_history_table.fully_qualified}"
-            )
+            raise ValueError(f"Unable to find change history table {self.change_history_table.fully_qualified}")
 
     def get_script_metadata(
         self, create_change_history_table: bool, dry_run: bool
@@ -219,15 +250,12 @@ class SnowflakeSession:
             dry_run=dry_run,
         )
         if not change_history_table_exists:
-            return None, None, None
+            return defaultdict(dict), None, None
 
         change_history, max_published_version = self.fetch_versioned_scripts()
         r_scripts_checksum = self.fetch_repeatable_scripts()
 
-        self.logger.info(
-            "Max applied change script version %(max_published_version)s"
-            % {"max_published_version": max_published_version}
-        )
+        self.logger.info(f"Max applied change script version {max_published_version}")
         return change_history, r_scripts_checksum, max_published_version
 
     def fetch_repeatable_scripts(self) -> dict[str, list[str]]:
@@ -296,9 +324,7 @@ class SnowflakeSession:
         if extra_tag:
             query_tag += f";{extra_tag}"
 
-        self.execute_snowflake_query(
-            f"ALTER SESSION SET QUERY_TAG = '{query_tag}'", logger=logger
-        )
+        self.execute_snowflake_query(f"ALTER SESSION SET QUERY_TAG = '{query_tag}'", logger=logger)
 
     def apply_change_script(
         self,
@@ -308,7 +334,7 @@ class SnowflakeSession:
         logger: structlog.BoundLogger,
     ) -> None:
         if dry_run:
-            logger.debug("Running in dry-run mode. Skipping execution")
+            logger.info("Running in dry-run mode. Skipping execution")
             return
         logger.info("Applying change script")
         # Define a few other change related variables

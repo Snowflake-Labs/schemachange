@@ -9,7 +9,6 @@ import pytest
 from schemachange.config.get_merged_config import get_yaml_config_kwargs
 from schemachange.config.utils import load_yaml_config
 
-
 # Note Parameters in config file are kebab case  and are re-rendered as snake case after
 # 'load_yaml_config' is called
 
@@ -68,10 +67,7 @@ vars:
 
     with pytest.raises(ValueError) as e:
         load_yaml_config(config_file)
-    assert (
-        str(e.value)
-        == "Could not find environmental variable TEST_VAR and no default value was provided"
-    )
+    assert str(e.value) == "Could not find environmental variable TEST_VAR and no default value was provided"
 
 
 @mock.patch("pathlib.Path.is_dir", return_value=True)

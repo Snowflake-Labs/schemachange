@@ -9,9 +9,9 @@ from typing import Literal, TypeVar
 import structlog
 
 from schemachange.config.utils import (
-    validate_directory,
-    validate_config_vars,
     get_config_secrets,
+    validate_config_vars,
+    validate_directory,
 )
 
 logger = structlog.getLogger(__name__)
@@ -43,9 +43,7 @@ class BaseConfig(ABC):
         try:
             secrets = get_config_secrets(config_vars)
         except Exception as e:
-            raise Exception(
-                "config_vars did not parse correctly, please check its configuration"
-            ) from e
+            raise Exception("config_vars did not parse correctly, please check its configuration") from e
 
         # Get the field names from the dataclass to validate against
         field_names = {field.name for field in dataclasses.fields(cls)}
@@ -74,8 +72,6 @@ class BaseConfig(ABC):
     def log_details(self):
         logger.info("Using root folder", root_folder=str(self.root_folder))
         if self.modules_folder:
-            logger.info(
-                "Using Jinja modules folder", modules_folder=str(self.modules_folder)
-            )
+            logger.info("Using Jinja modules folder", modules_folder=str(self.modules_folder))
 
         logger.info("Using variables", vars=self.config_vars)

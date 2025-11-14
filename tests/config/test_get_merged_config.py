@@ -1,10 +1,10 @@
 import logging
-
-import structlog
+import os
 from pathlib import Path
 from unittest import mock
 
 import pytest
+import structlog
 
 from schemachange.config.get_merged_config import (
     get_merged_config,
@@ -20,14 +20,15 @@ default_cli_kwargs = {
 assets_path = Path(__file__).parent
 
 schemachange_config = get_yaml_config_kwargs(assets_path / "schemachange-config.yml")
-schemachange_config_full = get_yaml_config_kwargs(
-    assets_path / "schemachange-config-full.yml"
-)
+schemachange_config_full = get_yaml_config_kwargs(assets_path / "schemachange-config-full.yml")
 schemachange_config_full_no_connection = get_yaml_config_kwargs(
     assets_path / "schemachange-config-full-no-connection.yml"
 )
 schemachange_config_partial_with_connection = get_yaml_config_kwargs(
     assets_path / "schemachange-config-partial-with-connection.yml"
+)
+schemachange_config_with_missing_connection_file = get_yaml_config_kwargs(
+    assets_path / "schemachange-config-with-missing-connection-file.yml"
 )
 
 
@@ -181,81 +182,6 @@ schemachange_config_partial_with_connection = get_yaml_config_kwargs(
             },
             id="Deploy: all cli, all yaml, all connection_kwargs",
         ),
-        pytest.param(
-            {  # cli_kwargs
-                **default_cli_kwargs,
-                "config_folder": "cli_config_folder",
-                "root_folder": "cli_root_folder",
-                "modules_folder": "cli_modules_folder",
-                "config_vars": {
-                    "variable_1": "cli_variable_1",
-                    "variable_2": "cli_variable_2",
-                },
-                "log_level": logging.INFO,
-                "snowflake_account": "cli_snowflake_account",
-                "snowflake_user": "cli_snowflake_user",
-                "snowflake_role": "cli_snowflake_role",
-                "snowflake_warehouse": "cli_snowflake_warehouse",
-                "snowflake_database": "cli_snowflake_database",
-                "snowflake_schema": "cli_snowflake_schema",
-                "connections_file_path": "cli_connections_file_path",
-                "connection_name": "cli_connection_name",
-                "change_history_table": "cli_change_history_table",
-                "create_change_history_table": False,
-                "autocommit": False,
-                "dry_run": False,
-                "query_tag": "cli_query_tag",
-            },
-            {  # yaml_kwargs
-                "root_folder": "yaml_root_folder",
-                "modules_folder": "yaml_modules_folder",
-                "config_vars": {
-                    "variable_1": "yaml_variable_1",
-                    "variable_2": "yaml_variable_2",
-                    "variable_3": "yaml_variable_3",
-                },
-                "log_level": logging.DEBUG,
-                "snowflake_account": "yaml_snowflake_account",
-                "snowflake_user": "yaml_snowflake_user",
-                "snowflake_role": "yaml_snowflake_role",
-                "snowflake_warehouse": "yaml_snowflake_warehouse",
-                "snowflake_database": "yaml_snowflake_database",
-                "snowflake_schema": "yaml_snowflake_schema",
-                "connections_file_path": "yaml_connections_file_path",
-                "connection_name": "yaml_connection_name",
-                "change_history_table": "yaml_change_history_table",
-                "create_change_history_table": True,
-                "autocommit": True,
-                "dry_run": True,
-                "query_tag": "yaml_query_tag",
-            },
-            {  # expected
-                "log_level": logging.INFO,
-                "config_file_path": Path("cli_config_folder/schemachange-config.yml"),
-                "config_vars": {
-                    "variable_1": "cli_variable_1",
-                    "variable_2": "cli_variable_2",
-                    "variable_3": "yaml_variable_3",
-                },
-                "subcommand": "deploy",
-                "root_folder": "cli_root_folder",
-                "modules_folder": "cli_modules_folder",
-                "snowflake_account": "cli_snowflake_account",
-                "snowflake_user": "cli_snowflake_user",
-                "snowflake_role": "cli_snowflake_role",
-                "snowflake_warehouse": "cli_snowflake_warehouse",
-                "snowflake_database": "cli_snowflake_database",
-                "snowflake_schema": "cli_snowflake_schema",
-                "connections_file_path": Path("cli_connections_file_path"),
-                "connection_name": "cli_connection_name",
-                "change_history_table": "cli_change_history_table",
-                "create_change_history_table": False,
-                "autocommit": False,
-                "dry_run": False,
-                "query_tag": "cli_query_tag",
-            },
-            id="Deploy: all env, all cli, all yaml, all connection_kwargs",
-        ),
     ],
 )
 @mock.patch("pathlib.Path.is_dir", return_value=True)
@@ -273,11 +199,18 @@ def test_get_merged_config_inheritance(
     yaml_kwargs,
     expected,
 ):
+    """
+    Test that the merged config is correctly inherited from the CLI, YAML, and ENV.
+    """
     mock_parse_cli_args.return_value = {**cli_kwargs}
     mock_get_yaml_config_kwargs.return_value = {**yaml_kwargs}
     logger = structlog.testing.CapturingLogger()
-    # noinspection PyTypeChecker
-    get_merged_config(logger=logger)
+
+    # Clear environment variables to prevent leakage from GitHub Actions
+    with mock.patch.dict(os.environ, {}, clear=True):
+        # noinspection PyTypeChecker
+        get_merged_config(logger=logger)
+
     factory_kwargs = mock_deploy_config_factory.call_args.kwargs
     for actual_key, actual_value in factory_kwargs.items():
         assert expected[actual_key] == actual_value
@@ -294,12 +227,14 @@ def test_invalid_config_folder(mock_parse_cli_args, _):
     }
     mock_parse_cli_args.return_value = {**cli_kwargs}
     logger = structlog.testing.CapturingLogger()
-    with pytest.raises(Exception) as e_info:
-        # noinspection PyTypeChecker
-        get_merged_config(logger=logger)
-    assert f"Path is not valid directory: {cli_kwargs['config_folder']}" in str(
-        e_info.value
-    )
+
+    # Clear environment variables to prevent leakage from GitHub Actions
+    with mock.patch.dict(os.environ, {}, clear=True):
+        with pytest.raises(Exception) as e_info:
+            # noinspection PyTypeChecker
+            get_merged_config(logger=logger)
+
+    assert f"Path is not valid directory: {cli_kwargs['config_folder']}" in str(e_info.value)
 
 
 param_only_required_cli_arguments = pytest.param(
@@ -630,8 +565,7 @@ param_partial_yaml_and_connection = pytest.param(
     ],
     {  # expected
         "subcommand": "deploy",
-        "config_file_path": assets_path
-        / "schemachange-config-partial-with-connection.yml",
+        "config_file_path": assets_path / "schemachange-config-partial-with-connection.yml",
         "log_level": logging.INFO,
         "connections_file_path": assets_path / "connections.toml",
         **{
@@ -655,6 +589,44 @@ param_partial_yaml_and_connection = pytest.param(
     id="Deploy: partial yaml and connections.toml",
 )
 
+param_yaml_with_missing_connection_file = pytest.param(
+    [  # cli_args
+        "schemachange",
+        "--config-folder",
+        str(assets_path),
+        "--config-file-name",
+        "schemachange-config-with-missing-connection-file.yml",
+    ],
+    {  # expected
+        "subcommand": "deploy",
+        "config_file_path": assets_path / "schemachange-config-with-missing-connection-file.yml",
+        "log_level": logging.INFO,
+        **{
+            k: v
+            for k, v in schemachange_config_with_missing_connection_file.items()
+            if k
+            in [
+                "config_version",
+                "root_folder",
+                "modules_folder",
+                "snowflake_account",
+                "snowflake_user",
+                "snowflake_role",
+                "snowflake_warehouse",
+                "snowflake_database",
+                "snowflake_schema",
+                "change_history_table",
+                "config_vars",
+                "create_change_history_table",
+                "autocommit",
+                "dry_run",
+                "query_tag",
+            ]
+        },
+    },
+    id="Deploy: yaml with missing connections.toml file (backward compatibility for env vars)",
+)
+
 
 @pytest.mark.parametrize(
     "cli_args, expected",
@@ -667,24 +639,1098 @@ param_partial_yaml_and_connection = pytest.param(
         param_full_yaml_and_connection_and_cli_and_env,
         param_connection_no_yaml,
         param_partial_yaml_and_connection,
+        param_yaml_with_missing_connection_file,
     ],
 )
 @mock.patch("pathlib.Path.is_dir", return_value=True)
-@mock.patch("pathlib.Path.is_file", return_value=True)
 @mock.patch("schemachange.config.get_merged_config.DeployConfig.factory")
 def test_integration_get_merged_config_inheritance(
     mock_deploy_config_factory,
     _,
-    __,
     cli_args,
     expected,
 ):
     logger = structlog.testing.CapturingLogger()
+
+    def is_file_mock(path_self):
+        return "missing-connections.toml" not in str(path_self)
+
     with mock.patch("sys.argv", cli_args):
+        # Clear environment variables to prevent leakage from GitHub Actions
+        with mock.patch.dict(os.environ, {}, clear=True):
+            with mock.patch.object(Path, "is_file", new=is_file_mock):
+                # noinspection PyTypeChecker
+                get_merged_config(logger=logger)
+            factory_kwargs = mock_deploy_config_factory.call_args.kwargs
+            for actual_key, actual_value in factory_kwargs.items():
+                assert (
+                    expected[actual_key] == actual_value
+                ), f"Mismatch for {actual_key}: expected {expected[actual_key]}, got {actual_value}"
+                del expected[actual_key]
+            assert len(expected.keys()) == 0
+
+
+# ============================================================================
+# Priority Order Integration Tests: ENV Variable Layer
+# ============================================================================
+# These tests verify that the configuration priority order works correctly:
+# Priority: CLI > ENV > YAML > connections.toml
+
+
+@pytest.mark.parametrize(
+    "env_vars, yaml_kwargs, expected",
+    [
+        pytest.param(
+            # env_vars
+            {
+                "SNOWFLAKE_ACCOUNT": "env_snowflake_account",
+                "SNOWFLAKE_USER": "env_snowflake_user",
+                "SNOWFLAKE_ROLE": "env_snowflake_role",
+                "SNOWFLAKE_WAREHOUSE": "env_snowflake_warehouse",
+                "SNOWFLAKE_DATABASE": "env_snowflake_database",
+                "SNOWFLAKE_SCHEMA": "env_snowflake_schema",
+            },
+            # yaml_kwargs
+            {
+                "root_folder": "yaml_root_folder",
+                "snowflake_account": "yaml_snowflake_account",
+                "snowflake_user": "yaml_snowflake_user",
+                "snowflake_role": "yaml_snowflake_role",
+                "snowflake_warehouse": "yaml_snowflake_warehouse",
+                "snowflake_database": "yaml_snowflake_database",
+                "snowflake_schema": "yaml_snowflake_schema",
+            },
+            # expected (ENV should override YAML)
+            {
+                "config_file_path": Path("schemachange-config.yml"),
+                "config_vars": {},
+                "subcommand": "deploy",
+                "root_folder": "yaml_root_folder",  # YAML (not in ENV)
+                "snowflake_account": "env_snowflake_account",  # ENV overrides YAML
+                "snowflake_user": "env_snowflake_user",  # ENV overrides YAML
+                "snowflake_role": "env_snowflake_role",  # ENV overrides YAML
+                "snowflake_warehouse": "env_snowflake_warehouse",  # ENV overrides YAML
+                "snowflake_database": "env_snowflake_database",  # ENV overrides YAML
+                "snowflake_schema": "env_snowflake_schema",  # ENV overrides YAML
+            },
+            id="ENV overrides YAML: connection parameters",
+        ),
+        pytest.param(
+            # env_vars (partial - only some parameters)
+            {
+                "SNOWFLAKE_ACCOUNT": "env_snowflake_account",
+                "SNOWFLAKE_WAREHOUSE": "env_snowflake_warehouse",
+            },
+            # yaml_kwargs
+            {
+                "snowflake_account": "yaml_snowflake_account",
+                "snowflake_user": "yaml_snowflake_user",
+                "snowflake_role": "yaml_snowflake_role",
+                "snowflake_warehouse": "yaml_snowflake_warehouse",
+                "snowflake_database": "yaml_snowflake_database",
+                "snowflake_schema": "yaml_snowflake_schema",
+            },
+            # expected (ENV overrides where set, YAML provides rest)
+            {
+                "config_file_path": Path("schemachange-config.yml"),
+                "config_vars": {},
+                "subcommand": "deploy",
+                "snowflake_account": "env_snowflake_account",  # ENV overrides YAML
+                "snowflake_user": "yaml_snowflake_user",  # From YAML
+                "snowflake_role": "yaml_snowflake_role",  # From YAML
+                "snowflake_warehouse": "env_snowflake_warehouse",  # ENV overrides YAML
+                "snowflake_database": "yaml_snowflake_database",  # From YAML
+                "snowflake_schema": "yaml_snowflake_schema",  # From YAML
+            },
+            id="ENV overrides YAML: partial ENV vars",
+        ),
+        pytest.param(
+            # env_vars (only ENV, no YAML)
+            {
+                "SNOWFLAKE_ACCOUNT": "env_snowflake_account",
+                "SNOWFLAKE_USER": "env_snowflake_user",
+                "SNOWFLAKE_ROLE": "env_snowflake_role",
+            },
+            # yaml_kwargs (empty)
+            {},
+            # expected
+            {
+                "config_file_path": Path("schemachange-config.yml"),
+                "config_vars": {},
+                "subcommand": "deploy",
+                "snowflake_account": "env_snowflake_account",
+                "snowflake_user": "env_snowflake_user",
+                "snowflake_role": "env_snowflake_role",
+            },
+            id="ENV only: no YAML config",
+        ),
+        pytest.param(
+            # env_vars (authentication parameters)
+            {
+                "SNOWFLAKE_ACCOUNT": "env_snowflake_account",
+                "SNOWFLAKE_USER": "env_snowflake_user",
+                "SNOWFLAKE_AUTHENTICATOR": "snowflake_jwt",
+                "SNOWFLAKE_PRIVATE_KEY_PATH": "/env/path/to/key.pem",
+            },
+            # yaml_kwargs - use snowflake_ prefix for auth params
+            {
+                "snowflake_account": "yaml_snowflake_account",
+                "snowflake_user": "yaml_snowflake_user",
+                "snowflake_authenticator": "password",  # Updated to use snowflake_ prefix
+                "snowflake_private_key_path": "/yaml/path/to/key.pem",  # Updated to use snowflake_ prefix
+            },
+            # expected (ENV should override YAML for auth params too) - use snowflake_ prefix
+            {
+                "config_file_path": Path("schemachange-config.yml"),
+                "config_vars": {},
+                "subcommand": "deploy",
+                "snowflake_account": "env_snowflake_account",
+                "snowflake_user": "env_snowflake_user",
+                "snowflake_authenticator": "snowflake_jwt",  # ENV overrides YAML (updated to use snowflake_ prefix)
+                "snowflake_private_key_path": "/env/path/to/key.pem",  # ENV overrides YAML (updated to use snowflake_ prefix)
+            },
+            id="ENV overrides YAML: authentication parameters",
+        ),
+        pytest.param(
+            # env_vars (connections file path)
+            {
+                "SNOWFLAKE_CONNECTIONS_FILE_PATH": "/env/connections.toml",
+                "SNOWFLAKE_DEFAULT_CONNECTION_NAME": "env_connection",
+            },
+            # yaml_kwargs
+            {
+                "connections_file_path": "/yaml/connections.toml",
+                "connection_name": "yaml_connection",
+            },
+            # expected
+            {
+                "config_file_path": Path("schemachange-config.yml"),
+                "config_vars": {},
+                "subcommand": "deploy",
+                "connections_file_path": Path("/env/connections.toml"),
+                "connection_name": "env_connection",
+            },
+            id="ENV overrides YAML: connections file path and connection name",
+        ),
+    ],
+)
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("pathlib.Path.is_file", return_value=True)
+@mock.patch("schemachange.config.get_merged_config.parse_cli_args")
+@mock.patch("schemachange.config.get_merged_config.get_yaml_config_kwargs")
+@mock.patch("schemachange.config.get_merged_config.DeployConfig.factory")
+def test_priority_env_overrides_yaml(
+    mock_deploy_config_factory,
+    mock_get_yaml_config_kwargs,
+    mock_parse_cli_args,
+    _,
+    __,
+    env_vars,
+    yaml_kwargs,
+    expected,
+):
+    """Test that ENV variables override YAML configuration (no CLI args)."""
+    # Setup CLI with minimal required args only
+    cli_kwargs = {**default_cli_kwargs}
+    mock_parse_cli_args.return_value = cli_kwargs
+    mock_get_yaml_config_kwargs.return_value = yaml_kwargs
+
+    logger = structlog.testing.CapturingLogger()
+
+    with mock.patch.dict(os.environ, env_vars, clear=True):
         # noinspection PyTypeChecker
         get_merged_config(logger=logger)
-        factory_kwargs = mock_deploy_config_factory.call_args.kwargs
-        for actual_key, actual_value in factory_kwargs.items():
-            assert expected[actual_key] == actual_value
-            del expected[actual_key]
-        assert len(expected.keys()) == 0
+
+    factory_kwargs = mock_deploy_config_factory.call_args.kwargs
+    for actual_key, actual_value in factory_kwargs.items():
+        assert expected[actual_key] == actual_value
+        del expected[actual_key]
+    assert len(expected.keys()) == 0
+
+
+@pytest.mark.parametrize(
+    "env_vars, cli_kwargs, yaml_kwargs, expected",
+    [
+        pytest.param(
+            # env_vars
+            {
+                "SNOWFLAKE_ACCOUNT": "env_snowflake_account",
+                "SNOWFLAKE_USER": "env_snowflake_user",
+                "SNOWFLAKE_ROLE": "env_snowflake_role",
+                "SNOWFLAKE_WAREHOUSE": "env_snowflake_warehouse",
+            },
+            # cli_kwargs
+            {
+                **default_cli_kwargs,
+                "snowflake_account": "cli_snowflake_account",
+                "snowflake_user": "cli_snowflake_user",
+            },
+            # yaml_kwargs
+            {
+                "snowflake_account": "yaml_snowflake_account",
+                "snowflake_user": "yaml_snowflake_user",
+                "snowflake_role": "yaml_snowflake_role",
+                "snowflake_warehouse": "yaml_snowflake_warehouse",
+                "snowflake_database": "yaml_snowflake_database",
+            },
+            # expected (CLI > ENV > YAML)
+            {
+                "config_file_path": Path("schemachange-config.yml"),
+                "config_vars": {},
+                "subcommand": "deploy",
+                "snowflake_account": "cli_snowflake_account",  # CLI wins
+                "snowflake_user": "cli_snowflake_user",  # CLI wins
+                "snowflake_role": "env_snowflake_role",  # ENV overrides YAML
+                "snowflake_warehouse": "env_snowflake_warehouse",  # ENV overrides YAML
+                "snowflake_database": "yaml_snowflake_database",  # From YAML
+            },
+            id="CLI overrides ENV overrides YAML: connection parameters",
+        ),
+        pytest.param(
+            # env_vars
+            {
+                "SNOWFLAKE_ACCOUNT": "env_snowflake_account",
+                "SNOWFLAKE_ROLE": "env_snowflake_role",
+                "SNOWFLAKE_WAREHOUSE": "env_snowflake_warehouse",
+            },
+            # cli_kwargs
+            {
+                **default_cli_kwargs,
+                "snowflake_warehouse": "cli_snowflake_warehouse",
+            },
+            # yaml_kwargs
+            {
+                "snowflake_account": "yaml_snowflake_account",
+                "snowflake_role": "yaml_snowflake_role",
+                "snowflake_warehouse": "yaml_snowflake_warehouse",
+                "root_folder": "yaml_root_folder",
+            },
+            # expected (CLI > ENV > YAML)
+            {
+                "config_file_path": Path("schemachange-config.yml"),
+                "config_vars": {},
+                "subcommand": "deploy",
+                "snowflake_account": "env_snowflake_account",  # ENV overrides YAML
+                "snowflake_role": "env_snowflake_role",  # ENV overrides YAML
+                "snowflake_warehouse": "cli_snowflake_warehouse",  # CLI overrides ENV
+                "root_folder": "yaml_root_folder",  # From YAML
+            },
+            id="CLI overrides ENV: single parameter",
+        ),
+        pytest.param(
+            # env_vars (all connection params)
+            {
+                "SNOWFLAKE_ACCOUNT": "env_snowflake_account",
+                "SNOWFLAKE_USER": "env_snowflake_user",
+                "SNOWFLAKE_ROLE": "env_snowflake_role",
+                "SNOWFLAKE_WAREHOUSE": "env_snowflake_warehouse",
+                "SNOWFLAKE_DATABASE": "env_snowflake_database",
+                "SNOWFLAKE_SCHEMA": "env_snowflake_schema",
+            },
+            # cli_kwargs (all connection params)
+            {
+                **default_cli_kwargs,
+                "snowflake_account": "cli_snowflake_account",
+                "snowflake_user": "cli_snowflake_user",
+                "snowflake_role": "cli_snowflake_role",
+                "snowflake_warehouse": "cli_snowflake_warehouse",
+                "snowflake_database": "cli_snowflake_database",
+                "snowflake_schema": "cli_snowflake_schema",
+            },
+            # yaml_kwargs
+            {
+                "snowflake_account": "yaml_snowflake_account",
+                "snowflake_user": "yaml_snowflake_user",
+                "snowflake_role": "yaml_snowflake_role",
+                "snowflake_warehouse": "yaml_snowflake_warehouse",
+                "snowflake_database": "yaml_snowflake_database",
+                "snowflake_schema": "yaml_snowflake_schema",
+            },
+            # expected (CLI should win for all)
+            {
+                "config_file_path": Path("schemachange-config.yml"),
+                "config_vars": {},
+                "subcommand": "deploy",
+                "snowflake_account": "cli_snowflake_account",
+                "snowflake_user": "cli_snowflake_user",
+                "snowflake_role": "cli_snowflake_role",
+                "snowflake_warehouse": "cli_snowflake_warehouse",
+                "snowflake_database": "cli_snowflake_database",
+                "snowflake_schema": "cli_snowflake_schema",
+            },
+            id="CLI overrides ENV and YAML: all connection parameters",
+        ),
+        pytest.param(
+            # env_vars (authentication parameters)
+            {
+                "SNOWFLAKE_AUTHENTICATOR": "env_authenticator",
+                "SNOWFLAKE_PRIVATE_KEY_PATH": "/env/key.pem",
+                "SNOWFLAKE_CONNECTIONS_FILE_PATH": "/env/connections.toml",
+            },
+            # cli_kwargs (CLI overrides authenticator only) - use snowflake_ prefix
+            {
+                **default_cli_kwargs,
+                "snowflake_authenticator": "cli_authenticator",
+            },
+            # yaml_kwargs - use snowflake_ prefix for auth params
+            {
+                "snowflake_authenticator": "yaml_authenticator",
+                "snowflake_private_key_path": "/yaml/key.pem",
+                "connections_file_path": "/yaml/connections.toml",
+            },
+            # expected - use snowflake_ prefix for auth params
+            # Note: Since connections_file_path is provided, connection_name defaults to "default"
+            {
+                "config_file_path": Path("schemachange-config.yml"),
+                "config_vars": {},
+                "subcommand": "deploy",
+                "snowflake_authenticator": "cli_authenticator",  # CLI wins
+                "snowflake_private_key_path": "/env/key.pem",  # ENV overrides YAML
+                "connections_file_path": Path("/env/connections.toml"),  # ENV overrides YAML
+                "connection_name": "default",  # Defaulted since connections_file_path was provided
+            },
+            id="CLI overrides ENV overrides YAML: authentication parameters",
+        ),
+    ],
+)
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("pathlib.Path.is_file", return_value=True)
+@mock.patch("schemachange.config.get_merged_config.parse_cli_args")
+@mock.patch("schemachange.config.get_merged_config.get_yaml_config_kwargs")
+@mock.patch("schemachange.config.get_merged_config.DeployConfig.factory")
+def test_priority_cli_overrides_env_overrides_yaml(
+    mock_deploy_config_factory,
+    mock_get_yaml_config_kwargs,
+    mock_parse_cli_args,
+    _,
+    __,
+    env_vars,
+    cli_kwargs,
+    yaml_kwargs,
+    expected,
+):
+    """Test that CLI args override ENV vars, which override YAML configuration."""
+    mock_parse_cli_args.return_value = cli_kwargs
+    mock_get_yaml_config_kwargs.return_value = yaml_kwargs
+
+    logger = structlog.testing.CapturingLogger()
+
+    with mock.patch.dict(os.environ, env_vars, clear=True):
+        # noinspection PyTypeChecker
+        get_merged_config(logger=logger)
+
+    factory_kwargs = mock_deploy_config_factory.call_args.kwargs
+    for actual_key, actual_value in factory_kwargs.items():
+        assert expected[actual_key] == actual_value
+        del expected[actual_key]
+    assert len(expected.keys()) == 0
+
+
+@pytest.mark.parametrize(
+    "env_vars, expected_auth_params",
+    [
+        pytest.param(
+            {
+                "SNOWFLAKE_AUTHENTICATOR": "snowflake_jwt",
+                "SNOWFLAKE_PRIVATE_KEY_PATH": "/path/to/private_key.pem",
+            },
+            {
+                "snowflake_authenticator": "snowflake_jwt",  # Updated to use snowflake_ prefix
+                "snowflake_private_key_path": "/path/to/private_key.pem",  # Updated to use snowflake_ prefix
+            },
+            id="Authentication: JWT with private key",
+        ),
+        pytest.param(
+            {
+                "SNOWFLAKE_AUTHENTICATOR": "snowflake_jwt",
+                "SNOWFLAKE_PRIVATE_KEY_PATH": "/path/to/private_key.pem",
+                "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE": "secret_passphrase",
+            },
+            {
+                "snowflake_authenticator": "snowflake_jwt",  # Updated to use snowflake_ prefix
+                "snowflake_private_key_path": "/path/to/private_key.pem",  # Updated to use snowflake_ prefix
+                "snowflake_private_key_passphrase": "secret_passphrase",  # Updated to use snowflake_ prefix
+            },
+            id="Authentication: JWT with encrypted private key",
+        ),
+        pytest.param(
+            {
+                "SNOWFLAKE_AUTHENTICATOR": "oauth",
+                "SNOWFLAKE_TOKEN_FILE_PATH": "/path/to/token.txt",
+            },
+            {
+                "snowflake_authenticator": "oauth",  # Updated to use snowflake_ prefix
+                "snowflake_token_file_path": "/path/to/token.txt",  # Updated to use snowflake_ prefix
+            },
+            id="Authentication: OAuth with token file",
+        ),
+        pytest.param(
+            {
+                "SNOWFLAKE_AUTHENTICATOR": "externalbrowser",
+            },
+            {
+                "snowflake_authenticator": "externalbrowser",  # Updated to use snowflake_ prefix
+            },
+            id="Authentication: External browser",
+        ),
+        pytest.param(
+            {
+                "SNOWFLAKE_PRIVATE_KEY_PATH": "/path/to/key.pem",
+            },
+            {
+                "snowflake_private_key_path": "/path/to/key.pem",  # Updated to use snowflake_ prefix
+            },
+            id="Authentication: Private key path only",
+        ),
+    ],
+)
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("pathlib.Path.is_file", return_value=True)
+@mock.patch("schemachange.config.get_merged_config.parse_cli_args")
+@mock.patch("schemachange.config.get_merged_config.get_yaml_config_kwargs")
+@mock.patch("schemachange.config.get_merged_config.DeployConfig.factory")
+def test_priority_env_authentication_parameters(
+    mock_deploy_config_factory,
+    mock_get_yaml_config_kwargs,
+    mock_parse_cli_args,
+    _,
+    __,
+    env_vars,
+    expected_auth_params,
+):
+    """Test that authentication parameters from ENV vars are correctly passed through."""
+    cli_kwargs = {**default_cli_kwargs}
+    mock_parse_cli_args.return_value = cli_kwargs
+    mock_get_yaml_config_kwargs.return_value = {}
+
+    logger = structlog.testing.CapturingLogger()
+
+    with mock.patch.dict(os.environ, env_vars, clear=True):
+        # noinspection PyTypeChecker
+        get_merged_config(logger=logger)
+
+    factory_kwargs = mock_deploy_config_factory.call_args.kwargs
+
+    # Verify authentication parameters are present
+    for key, expected_value in expected_auth_params.items():
+        assert key in factory_kwargs, f"Expected key '{key}' not found in factory_kwargs"  # noqa: E713
+        assert factory_kwargs[key] == expected_value, f"Expected {key}={expected_value}, got {factory_kwargs[key]}"
+
+
+@pytest.mark.parametrize(
+    "env_vars, yaml_kwargs, expected_has_param",
+    [
+        pytest.param(
+            # Empty string ENV var should not override YAML
+            {"SNOWFLAKE_ACCOUNT": ""},
+            {"snowflake_account": "yaml_account"},
+            {"snowflake_account": "yaml_account"},
+            id="Empty ENV var does not override YAML",
+        ),
+        pytest.param(
+            # No ENV vars
+            {},
+            {"snowflake_account": "yaml_account", "snowflake_user": "yaml_user"},
+            {"snowflake_account": "yaml_account", "snowflake_user": "yaml_user"},
+            id="No ENV vars: YAML values used",
+        ),
+        pytest.param(
+            # Mixed: some empty, some with values
+            {
+                "SNOWFLAKE_ACCOUNT": "env_account",
+                "SNOWFLAKE_USER": "",  # Empty should not override
+            },
+            {
+                "snowflake_account": "yaml_account",
+                "snowflake_user": "yaml_user",
+            },
+            {
+                "snowflake_account": "env_account",
+                "snowflake_user": "yaml_user",
+            },
+            id="Mixed ENV vars: only non-empty override",
+        ),
+    ],
+)
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("pathlib.Path.is_file", return_value=True)
+@mock.patch("schemachange.config.get_merged_config.parse_cli_args")
+@mock.patch("schemachange.config.get_merged_config.get_yaml_config_kwargs")
+@mock.patch("schemachange.config.get_merged_config.DeployConfig.factory")
+def test_priority_env_edge_cases(
+    mock_deploy_config_factory,
+    mock_get_yaml_config_kwargs,
+    mock_parse_cli_args,
+    _,
+    __,
+    env_vars,
+    yaml_kwargs,
+    expected_has_param,
+):
+    """Test edge cases with empty ENV vars and None values."""
+    cli_kwargs = {**default_cli_kwargs}
+    mock_parse_cli_args.return_value = cli_kwargs
+    mock_get_yaml_config_kwargs.return_value = yaml_kwargs
+
+    logger = structlog.testing.CapturingLogger()
+
+    with mock.patch.dict(os.environ, env_vars, clear=True):
+        # noinspection PyTypeChecker
+        get_merged_config(logger=logger)
+
+    factory_kwargs = mock_deploy_config_factory.call_args.kwargs
+
+    # Verify expected parameters
+    for key, expected_value in expected_has_param.items():
+        assert (
+            factory_kwargs.get(key) == expected_value
+        ), f"Expected {key}={expected_value}, got {factory_kwargs.get(key)}"
+
+
+@pytest.mark.parametrize(
+    "env_vars, cli_kwargs, yaml_kwargs, expected",
+    [
+        pytest.param(
+            # env_vars (connection params)
+            {
+                "SNOWFLAKE_ACCOUNT": "env_account",
+                "SNOWFLAKE_USER": "env_user",
+                "SNOWFLAKE_ROLE": "env_role",
+                "SNOWFLAKE_WAREHOUSE": "env_warehouse",
+                "SNOWFLAKE_DATABASE": "env_database",
+                "SNOWFLAKE_SCHEMA": "env_schema",
+            },
+            # cli_kwargs (override some, plus connection file)
+            {
+                **default_cli_kwargs,
+                "snowflake_account": "cli_account",
+                "connections_file_path": "/cli/connections.toml",
+                "connection_name": "cli_connection",
+            },
+            # yaml_kwargs (base config, lowest priority for connection params)
+            {
+                "snowflake_account": "yaml_account",
+                "snowflake_user": "yaml_user",
+                "snowflake_role": "yaml_role",
+                "snowflake_warehouse": "yaml_warehouse",
+                "snowflake_database": "yaml_database",
+                "snowflake_schema": "yaml_schema",
+                "connections_file_path": "/yaml/connections.toml",
+                "connection_name": "yaml_connection",
+                "root_folder": "yaml_root_folder",
+            },
+            # expected: CLI > ENV > YAML > connections.toml
+            {
+                "config_file_path": Path("schemachange-config.yml"),
+                "config_vars": {},
+                "subcommand": "deploy",
+                # CLI wins for these
+                "snowflake_account": "cli_account",
+                "connections_file_path": Path("/cli/connections.toml"),
+                "connection_name": "cli_connection",
+                # ENV wins for these (CLI didn't specify)
+                "snowflake_user": "env_user",
+                "snowflake_role": "env_role",
+                "snowflake_warehouse": "env_warehouse",
+                "snowflake_database": "env_database",
+                "snowflake_schema": "env_schema",
+                # YAML wins for these (not in CLI or ENV)
+                "root_folder": "yaml_root_folder",
+            },
+            id="All 4 layers: CLI > ENV > YAML > connections.toml",
+        ),
+        pytest.param(
+            # env_vars (partial)
+            {
+                "SNOWFLAKE_WAREHOUSE": "env_warehouse",
+                "SNOWFLAKE_AUTHENTICATOR": "snowflake_jwt",
+                "SNOWFLAKE_PRIVATE_KEY_PATH": "/env/key.pem",
+            },
+            # cli_kwargs (partial)
+            {
+                **default_cli_kwargs,
+                "snowflake_role": "cli_role",
+                "dry_run": True,
+            },
+            # yaml_kwargs (partial) - use snowflake_ prefix for auth params
+            {
+                "snowflake_account": "yaml_account",
+                "snowflake_user": "yaml_user",
+                "snowflake_role": "yaml_role",
+                "snowflake_warehouse": "yaml_warehouse",
+                "snowflake_authenticator": "password",  # Updated to use snowflake_ prefix
+                "connection_name": "yaml_connection",
+            },
+            # expected - use snowflake_ prefix for auth params
+            # Note: Since connection_name is provided, connections_file_path defaults to ~/.snowflake/connections.toml
+            {
+                "config_file_path": Path("schemachange-config.yml"),
+                "config_vars": {},
+                "subcommand": "deploy",
+                "snowflake_role": "cli_role",  # CLI
+                "dry_run": True,  # CLI
+                "snowflake_warehouse": "env_warehouse",  # ENV > YAML
+                "snowflake_authenticator": "snowflake_jwt",  # ENV > YAML (updated to use snowflake_ prefix)
+                "snowflake_private_key_path": "/env/key.pem",  # ENV (updated to use snowflake_ prefix)
+                "snowflake_account": "yaml_account",  # YAML
+                "snowflake_user": "yaml_user",  # YAML
+                "connection_name": "yaml_connection",  # YAML
+                "connections_file_path": mock.ANY,  # Defaulted to ~/.snowflake/connections.toml (using ANY since home dir varies)
+            },
+            id="All 4 layers: partial configs from each layer",
+        ),
+    ],
+)
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("pathlib.Path.is_file", return_value=True)
+@mock.patch("schemachange.config.get_merged_config.parse_cli_args")
+@mock.patch("schemachange.config.get_merged_config.get_yaml_config_kwargs")
+@mock.patch("schemachange.config.get_merged_config.DeployConfig.factory")
+def test_priority_all_four_layers(
+    mock_deploy_config_factory,
+    mock_get_yaml_config_kwargs,
+    mock_parse_cli_args,
+    _,
+    __,
+    env_vars,
+    cli_kwargs,
+    yaml_kwargs,
+    expected,
+):
+    """Test all 4 configuration layers working together: CLI > ENV > YAML > connections.toml."""
+    mock_parse_cli_args.return_value = cli_kwargs
+    mock_get_yaml_config_kwargs.return_value = yaml_kwargs
+
+    logger = structlog.testing.CapturingLogger()
+
+    def is_file_mock(path_self):
+        return "missing-connections.toml" not in str(path_self)
+
+    # Mock get_snowflake_home() to avoid RuntimeError on Windows when env vars are cleared
+    with (
+        mock.patch.dict(os.environ, env_vars, clear=True),
+        mock.patch("schemachange.config.get_merged_config.get_snowflake_home", return_value="/mock/home"),
+    ):
+        with mock.patch.object(Path, "is_file", new=is_file_mock):
+            # noinspection PyTypeChecker
+            get_merged_config(logger=logger)
+            factory_kwargs = mock_deploy_config_factory.call_args.kwargs
+            for actual_key, actual_value in factory_kwargs.items():
+                assert (
+                    expected[actual_key] == actual_value
+                ), f"Mismatch for {actual_key}: expected {expected[actual_key]}, got {actual_value}"
+                del expected[actual_key]
+            assert len(expected.keys()) == 0
+
+
+# ============================================================================
+# Additional Snowflake Parameters Integration Tests
+# ============================================================================
+# These tests verify that additional_snowflake_params from YAML v2 and
+# generic SNOWFLAKE_* env vars are correctly passed through and merged
+
+
+@pytest.mark.parametrize(
+    "env_vars, yaml_kwargs, expected_additional_params",
+    [
+        pytest.param(
+            # env_vars (generic SNOWFLAKE_* params)
+            {
+                "SNOWFLAKE_CLIENT_SESSION_KEEP_ALIVE": "true",
+                "SNOWFLAKE_LOGIN_TIMEOUT": "60",
+                "SNOWFLAKE_NETWORK_TIMEOUT": "120",
+            },
+            # yaml_kwargs (no additional params)
+            {},
+            # expected additional_snowflake_params
+            {
+                "client_session_keep_alive": True,
+                "login_timeout": 60,
+                "network_timeout": 120,
+            },
+            id="Additional params: from ENV only",
+        ),
+        pytest.param(
+            # env_vars (empty)
+            {},
+            # yaml_kwargs with additional_snowflake_params (from YAML v2, in kebab-case)
+            {
+                "additional_snowflake_params": {
+                    "client-session-keep-alive": True,
+                    "login-timeout": 30,
+                    "network-timeout": 60,
+                }
+            },
+            # expected additional_snowflake_params (converted to snake_case)
+            {
+                "client_session_keep_alive": True,
+                "login_timeout": 30,
+                "network_timeout": 60,
+            },
+            id="Additional params: from YAML v2 only",
+        ),
+        pytest.param(
+            # env_vars (ENV overrides YAML)
+            {
+                "SNOWFLAKE_CLIENT_SESSION_KEEP_ALIVE": "false",
+                "SNOWFLAKE_LOGIN_TIMEOUT": "90",
+            },
+            # yaml_kwargs (from YAML v2)
+            {
+                "additional_snowflake_params": {
+                    "client-session-keep-alive": True,
+                    "login-timeout": 30,
+                    "network-timeout": 60,
+                }
+            },
+            # expected (ENV overrides YAML)
+            {
+                "client_session_keep_alive": False,
+                "login_timeout": 90,
+                "network_timeout": 60,  # Only in YAML
+            },
+            id="Additional params: ENV overrides YAML v2",
+        ),
+        pytest.param(
+            # env_vars (generic params that don't conflict with explicit params)
+            {
+                "SNOWFLAKE_CLIENT_SESSION_KEEP_ALIVE": "true",
+                "SNOWFLAKE_CLIENT_PREFETCH_THREADS": "4",
+            },
+            # yaml_kwargs
+            {},
+            # expected
+            {
+                "client_session_keep_alive": True,
+                "client_prefetch_threads": 4,
+            },
+            id="Additional params: non-conflicting generic params",
+        ),
+    ],
+)
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("pathlib.Path.is_file", return_value=True)
+@mock.patch("schemachange.config.get_merged_config.parse_cli_args")
+@mock.patch("schemachange.config.get_merged_config.get_yaml_config_kwargs")
+@mock.patch("schemachange.config.get_merged_config.DeployConfig.factory")
+def test_additional_snowflake_params(
+    mock_deploy_config_factory,
+    mock_get_yaml_config_kwargs,
+    mock_parse_cli_args,
+    _,
+    __,
+    env_vars,
+    yaml_kwargs,
+    expected_additional_params,
+):
+    """Test that additional_snowflake_params are correctly merged from ENV and YAML."""
+    cli_kwargs = {**default_cli_kwargs}
+    mock_parse_cli_args.return_value = cli_kwargs
+    mock_get_yaml_config_kwargs.return_value = yaml_kwargs
+
+    logger = structlog.testing.CapturingLogger()
+
+    with mock.patch.dict(os.environ, env_vars, clear=True):
+        # noinspection PyTypeChecker
+        get_merged_config(logger=logger)
+
+    factory_kwargs = mock_deploy_config_factory.call_args.kwargs
+
+    # Verify additional_snowflake_params
+    actual_additional_params = factory_kwargs.get("additional_snowflake_params", {})
+    assert actual_additional_params == expected_additional_params, (
+        f"Expected additional_snowflake_params={expected_additional_params}, " f"got {actual_additional_params}"
+    )
+
+
+@pytest.mark.parametrize(
+    "env_vars, cli_kwargs, yaml_kwargs, expected",
+    [
+        pytest.param(
+            # env_vars (generic params + explicit params)
+            {
+                "SNOWFLAKE_ACCOUNT": "env_account",
+                "SNOWFLAKE_CLIENT_SESSION_KEEP_ALIVE": "true",
+                "SNOWFLAKE_LOGIN_TIMEOUT": "60",
+            },
+            # cli_kwargs (explicit account overrides ENV)
+            {
+                **default_cli_kwargs,
+                "snowflake_account": "cli_account",
+            },
+            # yaml_kwargs (has additional params too)
+            {
+                "snowflake_account": "yaml_account",
+                "additional_snowflake_params": {
+                    "client-session-keep-alive": False,
+                    "network-timeout": 30,
+                },
+            },
+            # expected
+            {
+                "snowflake_account": "cli_account",  # CLI explicit wins
+                "additional_snowflake_params": {
+                    "client_session_keep_alive": True,  # ENV generic wins over YAML
+                    "login_timeout": 60,  # ENV generic only
+                    "network_timeout": 30,  # YAML only
+                },
+            },
+            id="Priority: CLI explicit > ENV generic > YAML generic",
+        ),
+        pytest.param(
+            # env_vars (explicit snowflake params should NOT go to additional_snowflake_params)
+            {
+                "SNOWFLAKE_ACCOUNT": "env_account",
+                "SNOWFLAKE_USER": "env_user",
+                "SNOWFLAKE_CLIENT_SESSION_KEEP_ALIVE": "true",
+            },
+            # cli_kwargs
+            {
+                **default_cli_kwargs,
+            },
+            # yaml_kwargs
+            {},
+            # expected (explicit params stay separate from additional)
+            {
+                "snowflake_account": "env_account",
+                "snowflake_user": "env_user",
+                "additional_snowflake_params": {
+                    "client_session_keep_alive": True,
+                },
+            },
+            id="Explicit params separate from additional_snowflake_params",
+        ),
+    ],
+)
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("pathlib.Path.is_file", return_value=True)
+@mock.patch("schemachange.config.get_merged_config.parse_cli_args")
+@mock.patch("schemachange.config.get_merged_config.get_yaml_config_kwargs")
+@mock.patch("schemachange.config.get_merged_config.DeployConfig.factory")
+def test_additional_snowflake_params_precedence(
+    mock_deploy_config_factory,
+    mock_get_yaml_config_kwargs,
+    mock_parse_cli_args,
+    _,
+    __,
+    env_vars,
+    cli_kwargs,
+    yaml_kwargs,
+    expected,
+):
+    """Test that additional_snowflake_params respect precedence and stay separate from explicit params."""
+    mock_parse_cli_args.return_value = cli_kwargs
+    mock_get_yaml_config_kwargs.return_value = yaml_kwargs
+
+    logger = structlog.testing.CapturingLogger()
+
+    with mock.patch.dict(os.environ, env_vars, clear=True):
+        # noinspection PyTypeChecker
+        get_merged_config(logger=logger)
+
+    factory_kwargs = mock_deploy_config_factory.call_args.kwargs
+
+    # Verify each expected key
+    for key, expected_value in expected.items():
+        assert key in factory_kwargs, f"Expected key '{key}' not found in factory_kwargs"
+        assert factory_kwargs[key] == expected_value, f"Expected {key}={expected_value}, got {factory_kwargs[key]}"
+
+
+# ============================================================================
+# Config Vars (--vars) Merging Tests
+# ============================================================================
+# These tests verify that config_vars are correctly merged from CLI > ENV > YAML
+
+
+@pytest.mark.parametrize(
+    "env_vars, cli_kwargs, yaml_kwargs, expected_config_vars",
+    [
+        pytest.param(
+            # env_vars with SCHEMACHANGE_VARS
+            {"SCHEMACHANGE_VARS": '{"test_var1": "env_val"}'},
+            # cli_kwargs (no vars)
+            {**default_cli_kwargs},
+            # yaml_kwargs with vars
+            {"config_vars": {"test_var1": "yaml_val"}},
+            # expected (ENV should override YAML)
+            {"test_var1": "env_val"},
+            id="Config vars: ENV overrides YAML",
+        ),
+        pytest.param(
+            # env_vars with SCHEMACHANGE_VARS
+            {"SCHEMACHANGE_VARS": '{"test_var1": "env_val"}'},
+            # cli_kwargs with vars
+            {**default_cli_kwargs, "config_vars": {"test_var1": "cli_val"}},
+            # yaml_kwargs with vars
+            {"config_vars": {"test_var1": "yaml_val"}},
+            # expected (CLI should override ENV and YAML)
+            {"test_var1": "cli_val"},
+            id="Config vars: CLI overrides ENV overrides YAML",
+        ),
+        pytest.param(
+            # env_vars (no SCHEMACHANGE_VARS)
+            {},
+            # cli_kwargs with vars
+            {**default_cli_kwargs, "config_vars": {"test_var1": "cli_val"}},
+            # yaml_kwargs with vars
+            {"config_vars": {"test_var1": "yaml_val"}},
+            # expected (CLI should override YAML)
+            {"test_var1": "cli_val"},
+            id="Config vars: CLI overrides YAML (no ENV)",
+        ),
+        pytest.param(
+            # env_vars with SCHEMACHANGE_VARS
+            {"SCHEMACHANGE_VARS": '{"test_var1": "env_val"}'},
+            # cli_kwargs (no vars)
+            {**default_cli_kwargs},
+            # yaml_kwargs (no vars)
+            {},
+            # expected (only ENV)
+            {"test_var1": "env_val"},
+            id="Config vars: ENV only",
+        ),
+        pytest.param(
+            # env_vars (no SCHEMACHANGE_VARS)
+            {},
+            # cli_kwargs (no vars)
+            {**default_cli_kwargs},
+            # yaml_kwargs with vars
+            {"config_vars": {"test_var1": "yaml_val"}},
+            # expected (only YAML)
+            {"test_var1": "yaml_val"},
+            id="Config vars: YAML only",
+        ),
+        pytest.param(
+            # env_vars with different var
+            {"SCHEMACHANGE_VARS": '{"test_var2": "env_val"}'},
+            # cli_kwargs with different var
+            {**default_cli_kwargs, "config_vars": {"test_var1": "cli_val"}},
+            # yaml_kwargs with different var
+            {"config_vars": {"test_var3": "yaml_val"}},
+            # expected (ALL THREE should merge)
+            {
+                "test_var1": "cli_val",
+                "test_var2": "env_val",
+                "test_var3": "yaml_val",
+            },
+            id="Config vars: all different keys merge together",
+        ),
+        pytest.param(
+            # env_vars with overlapping vars
+            {"SCHEMACHANGE_VARS": '{"var1": "env_val1", "var2": "env_val2"}'},
+            # cli_kwargs with partial overlap
+            {**default_cli_kwargs, "config_vars": {"var1": "cli_val1", "var3": "cli_val3"}},
+            # yaml_kwargs with partial overlap
+            {"config_vars": {"var1": "yaml_val1", "var2": "yaml_val2", "var4": "yaml_val4"}},
+            # expected (CLI > ENV > YAML with all unique keys present)
+            {
+                "var1": "cli_val1",  # CLI wins
+                "var2": "env_val2",  # ENV wins (not in CLI)
+                "var3": "cli_val3",  # CLI only
+                "var4": "yaml_val4",  # YAML only
+            },
+            id="Config vars: complex merge with overlapping keys",
+        ),
+        pytest.param(
+            # env_vars with empty JSON
+            {"SCHEMACHANGE_VARS": "{}"},
+            # cli_kwargs (no vars)
+            {**default_cli_kwargs},
+            # yaml_kwargs with vars
+            {"config_vars": {"test_var1": "yaml_val"}},
+            # expected (YAML should remain)
+            {"test_var1": "yaml_val"},
+            id="Config vars: empty ENV JSON does not clear YAML",
+        ),
+        pytest.param(
+            # env_vars with multiple vars
+            {"SCHEMACHANGE_VARS": '{"db": "ENV_DB", "schema": "ENV_SCHEMA", "env": "staging"}'},
+            # cli_kwargs override one
+            {**default_cli_kwargs, "config_vars": {"db": "CLI_DB"}},
+            # yaml_kwargs base config
+            {"config_vars": {"db": "YAML_DB", "schema": "YAML_SCHEMA", "default_role": "ANALYST"}},
+            # expected
+            {
+                "db": "CLI_DB",  # CLI wins
+                "schema": "ENV_SCHEMA",  # ENV wins (not in CLI)
+                "env": "staging",  # ENV only
+                "default_role": "ANALYST",  # YAML only
+            },
+            id="Config vars: real-world scenario with database config",
+        ),
+    ],
+)
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("pathlib.Path.is_file", return_value=True)
+@mock.patch("schemachange.config.get_merged_config.parse_cli_args")
+@mock.patch("schemachange.config.get_merged_config.get_yaml_config_kwargs")
+@mock.patch("schemachange.config.get_merged_config.DeployConfig.factory")
+def test_config_vars_merging(
+    mock_deploy_config_factory,
+    mock_get_yaml_config_kwargs,
+    mock_parse_cli_args,
+    _,
+    __,
+    env_vars,
+    cli_kwargs,
+    yaml_kwargs,
+    expected_config_vars,
+):
+    """Test that config_vars are correctly merged from CLI > ENV > YAML."""
+    mock_parse_cli_args.return_value = cli_kwargs
+    mock_get_yaml_config_kwargs.return_value = yaml_kwargs
+
+    logger = structlog.testing.CapturingLogger()
+
+    with mock.patch.dict(os.environ, env_vars, clear=True):
+        # noinspection PyTypeChecker
+        get_merged_config(logger=logger)
+
+    factory_kwargs = mock_deploy_config_factory.call_args.kwargs
+
+    # Verify config_vars
+    actual_config_vars = factory_kwargs.get("config_vars", {})
+    assert actual_config_vars == expected_config_vars, (
+        f"Expected config_vars={expected_config_vars}, " f"got {actual_config_vars}"
+    )
+
+
+@pytest.mark.parametrize(
+    "env_vars, expected_error_pattern",
+    [
+        pytest.param(
+            {"SCHEMACHANGE_VARS": "not valid json"},
+            "Invalid JSON in SCHEMACHANGE_VARS",
+            id="Config vars: invalid JSON in ENV var",
+        ),
+        pytest.param(
+            {"SCHEMACHANGE_VARS": '{"unclosed": '},
+            "Invalid JSON in SCHEMACHANGE_VARS",
+            id="Config vars: malformed JSON in ENV var",
+        ),
+    ],
+)
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("pathlib.Path.is_file", return_value=True)
+@mock.patch("schemachange.config.get_merged_config.parse_cli_args")
+@mock.patch("schemachange.config.get_merged_config.get_yaml_config_kwargs")
+def test_config_vars_invalid_json(
+    mock_get_yaml_config_kwargs,
+    mock_parse_cli_args,
+    _,
+    __,
+    env_vars,
+    expected_error_pattern,
+):
+    """Test that invalid JSON in SCHEMACHANGE_VARS raises appropriate error."""
+    mock_parse_cli_args.return_value = {**default_cli_kwargs}
+    mock_get_yaml_config_kwargs.return_value = {}
+
+    logger = structlog.testing.CapturingLogger()
+
+    with pytest.raises(ValueError) as exc_info:
+        with mock.patch.dict(os.environ, env_vars, clear=True):
+            # noinspection PyTypeChecker
+            get_merged_config(logger=logger)
+
+    assert expected_error_pattern in str(exc_info.value)

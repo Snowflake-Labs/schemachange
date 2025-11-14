@@ -38,9 +38,7 @@ class TestJinjaTemplateProcessor:
 
         assert str(e.value) == "'myvar' is undefined"
 
-    def test_render_simple_string_expecting_variable(
-        self, processor: JinjaTemplateProcessor
-    ):
+    def test_render_simple_string_expecting_variable(self, processor: JinjaTemplateProcessor):
         # overide the default loader
         templates = {"test.sql": "Hello {{ myvar }}!"}
         processor.override_loader(DictLoader(templates))
@@ -75,10 +73,7 @@ class TestJinjaTemplateProcessor:
         with pytest.raises(ValueError) as e:
             processor.render("test.sql", None)
 
-        assert (
-            str(e.value)
-            == "Could not find environmental variable MYVAR and no default value was provided"
-        )
+        assert str(e.value) == "Could not find environmental variable MYVAR and no default value was provided"
 
     def test_from_environ_set(self, processor: JinjaTemplateProcessor):
         # set MYVAR env variable

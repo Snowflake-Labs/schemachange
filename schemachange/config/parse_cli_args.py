@@ -3,32 +3,12 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import sys
 import warnings
 from enum import Enum
 
 import structlog
 
 logger = structlog.getLogger(__name__)
-
-
-class DeprecateConnectionArgAction(argparse.Action):
-    def __init__(self, *args, **kwargs):
-        self.call_count = 0
-        if "help" in kwargs:
-            kwargs["help"] = (
-                f'[DEPRECATED - Set in connections.toml instead.] {kwargs["help"]}'
-            )
-        super().__init__(*args, **kwargs)
-
-    def __call__(self, parser, namespace, values, option_string=None):
-        if self.call_count == 0:
-            sys.stderr.write(
-                f"{', '.join(self.option_strings)} is deprecated. It will be ignored in future versions.\n"
-            )
-            sys.stderr.write(self.help + "\n")
-        self.call_count += 1
-        setattr(namespace, self.dest, values)
 
 
 class EnumAction(argparse.Action):
@@ -71,17 +51,15 @@ class LogLevel(Enum):
     DEBUG = logging.DEBUG
 
 
-def deprecate_verbose(
-    args: list[str], verbose: argparse.Action, parsed_args: argparse.Namespace
-):
-    # If --verbose or -v were supplied, warn the user and interpret it as a
+def deprecate_verbose(args: list[str], verbose: argparse.Action, parsed_args: argparse.Namespace):
+    # If --verbose or -v were supplied, warn the user and interpret it as a DEBUG log level
     for option_string in verbose.option_strings:
         if option_string not in args:
             continue
 
         warnings.warn(
-            "Argument %s is deprecated and will be interpreted as a DEBUG log level."
-            % verbose.option_strings
+            f"Argument {verbose.option_strings} is deprecated and will be interpreted as a DEBUG log level.",
+            stacklevel=2,
         )
 
         parsed_args.log_level = logging.DEBUG
@@ -100,57 +78,89 @@ def parse_cli_args(args) -> dict:
     )
 
     parent_parser = argparse.ArgumentParser(add_help=False)
+
+    # Configuration file location arguments
+    # Note: --schemachange-config-folder and --schemachange-config-file-name are consolidated
+    # with their unprefixed variants for backward compatibility
     parent_parser.add_argument(
         "--config-folder",
+        "--schemachange-config-folder",
         type=str,
+        dest="config_folder",
         default=".",
         help="The folder to look in for the schemachange-config.yml file "
-        "(the default is the current working directory)",
+        "(the default is the current working directory). "
+        "Can also be set via SCHEMACHANGE_CONFIG_FOLDER environment variable.",
         required=False,
     )
     parent_parser.add_argument(
         "--config-file-name",
+        "--schemachange-config-file-name",
         type=str,
+        dest="config_file_name",
         default="schemachange-config.yml",
         help="The schemachange config YAML file name. Must be in the directory supplied as the config-folder "
-        "(Default: schemachange-config.yml)",
+        "(Default: schemachange-config.yml). "
+        "Can also be set via SCHEMACHANGE_CONFIG_FILE_NAME environment variable.",
         required=False,
     )
+
+    # Schemachange application arguments with consolidated old/new forms
     parent_parser.add_argument(
         "-f",
+        "--schemachange-root-folder",
         "--root-folder",
         type=str,
-        help="The root folder for the database change scripts",
+        dest="root_folder",
+        help="The root folder for the database change scripts. "
+        "Can also be set via SCHEMACHANGE_ROOT_FOLDER environment variable. "
+        "(Deprecated alias: --root-folder)",
         required=False,
     )
     parent_parser.add_argument(
         "-m",
+        "--schemachange-modules-folder",
         "--modules-folder",
         type=str,
-        help="The modules folder for jinja macros and templates to be used across multiple scripts",
+        dest="modules_folder",
+        help="The modules folder for jinja macros and templates to be used across multiple scripts. "
+        "Can also be set via SCHEMACHANGE_MODULES_FOLDER environment variable. "
+        "(Deprecated alias: --modules-folder)",
         required=False,
     )
     parent_parser.add_argument(
+        "-V",
+        "--schemachange-vars",
         "--vars",
         type=json.loads,
-        help='Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": '
-        '"value1", "variable2": "value2"})',
+        dest="vars",
+        help="Define values for the variables to replaced in change scripts, given in JSON format "
+        '(e.g. {"variable1": "value1", "variable2": "value2"}). '
+        "Can also be set via SCHEMACHANGE_VARS environment variable. "
+        "(Deprecated alias: --vars)",
         required=False,
     )
     parent_parser.add_argument(
+        "-L",
+        "--schemachange-log-level",
         "--log-level",
         type=LogLevel,
         action=EnumAction,
+        dest="log_level",
         default=logging.INFO,
-        help="Set the log level. Defaults to INFO.",
+        help="Set the log level. Defaults to INFO. "
+        "Can also be set via SCHEMACHANGE_LOG_LEVEL environment variable. "
+        "(Deprecated alias: --log-level)",
     )
+
+    # Keep -v/--verbose deprecated as before
     verbose = parent_parser.add_argument(
         "-v",
         "--verbose",
         action="store_const",
         const=True,
         default=None,
-        help="DEPRECATED: Use --log-level instead. Display verbose debugging details "
+        help="DEPRECATED: Use -L/--schemachange-log-level instead. Display verbose debugging details "
         "during execution (the default is False)",
         required=False,
     )
@@ -158,118 +168,208 @@ def parse_cli_args(args) -> dict:
     subcommands = parser.add_subparsers(dest="subcommand")
     parser_deploy = subcommands.add_parser("deploy", parents=[parent_parser])
 
-    parser_deploy.register("action", "deprecate", DeprecateConnectionArgAction)
+    # Snowflake connection arguments (these are correctly prefixed and not deprecated)
     parser_deploy.add_argument(
         "-a",
         "--snowflake-account",
         type=str,
-        help="The name of the snowflake account (e.g. xy12345.east-us-2.azure, xy12345.east-us-2.azure.privatelink, org-accountname, org-accountname.privatelink)",
+        help="The name of the snowflake account (e.g. xy12345.east-us-2.azure, "
+        "xy12345.east-us-2.azure.privatelink, org-accountname, org-accountname.privatelink). "
+        "Can also be set via SNOWFLAKE_ACCOUNT environment variable.",
         required=False,
-        action="deprecate",
     )
     parser_deploy.add_argument(
         "-u",
         "--snowflake-user",
         type=str,
-        help="The name of the snowflake user",
+        help="The name of the snowflake user. " "Can also be set via SNOWFLAKE_USER environment variable.",
         required=False,
-        action="deprecate",
     )
     parser_deploy.add_argument(
         "-r",
         "--snowflake-role",
         type=str,
-        help="The name of the default role to use",
+        help="The name of the default role to use. " "Can also be set via SNOWFLAKE_ROLE environment variable.",
         required=False,
-        action="deprecate",
     )
     parser_deploy.add_argument(
         "-w",
         "--snowflake-warehouse",
         type=str,
-        help="The name of the default warehouse to use. Can be overridden in the change scripts.",
+        help="The name of the default warehouse to use. Can be overridden in the change scripts. "
+        "Can also be set via SNOWFLAKE_WAREHOUSE environment variable.",
         required=False,
-        action="deprecate",
     )
     parser_deploy.add_argument(
         "-d",
         "--snowflake-database",
         type=str,
-        help="The name of the default database to use. Can be overridden in the change scripts.",
+        help="The name of the default database to use. Can be overridden in the change scripts. "
+        "Can also be set via SNOWFLAKE_DATABASE environment variable.",
         required=False,
-        action="deprecate",
     )
     parser_deploy.add_argument(
         "-s",
         "--snowflake-schema",
         type=str,
-        help="The name of the default schema to use. Can be overridden in the change scripts.",
+        help="The name of the default schema to use. Can be overridden in the change scripts. "
+        "Can also be set via SNOWFLAKE_SCHEMA environment variable.",
         required=False,
-        action="deprecate",
+    )
+
+    # Snowflake authentication arguments
+    parser_deploy.add_argument(
+        "--snowflake-authenticator",
+        type=str,
+        dest="snowflake_authenticator",  # Changed to match dataclass field name
+        help="The authenticator method to use (e.g. 'snowflake', 'oauth', 'externalbrowser', "
+        "'snowflake_jwt', or Okta URL). "
+        "Can also be set via SNOWFLAKE_AUTHENTICATOR environment variable.",
+        required=False,
     )
     parser_deploy.add_argument(
-        "--connections-file-path",
+        "--snowflake-private-key-path",
         type=str,
-        help="Override the default connections.toml file path at snowflake.connector.constants.CONNECTIONS_FILE (OS specific)",
+        dest="snowflake_private_key_path",  # Changed to match dataclass field name
+        help="Path to private key file for JWT (snowflake_jwt) authentication. "
+        "DEPRECATED: Use --snowflake-private-key-file instead. "
+        "Can also be set via SNOWFLAKE_PRIVATE_KEY_PATH environment variable.",
         required=False,
     )
     parser_deploy.add_argument(
-        "--connection-name",
+        "--snowflake-private-key-file",
         type=str,
-        help="Override the default connections.toml connection name. Other connection-related values will override these connection values.",
+        dest="snowflake_private_key_file",
+        help="Path to private key file for JWT (snowflake_jwt) authentication. "
+        "This matches the Snowflake connector parameter name. "
+        "Can also be set via SNOWFLAKE_PRIVATE_KEY_FILE environment variable.",
         required=False,
     )
+    # NOTE: --snowflake-private-key-passphrase and --snowflake-private-key-file-pwd
+    # intentionally NOT supported via CLI for security (would be visible in process list and shell history)
+    # Use SNOWFLAKE_PRIVATE_KEY_PASSPHRASE/SNOWFLAKE_PRIVATE_KEY_FILE_PWD environment variable or connections.toml instead
+    parser_deploy.add_argument(
+        "--snowflake-token-file-path",
+        type=str,
+        dest="snowflake_token_file_path",  # Changed to match dataclass field name
+        help="Path to OAuth token file (for use with --snowflake-authenticator oauth). "
+        "Can also be set via SNOWFLAKE_TOKEN_FILE_PATH environment variable.",
+        required=False,
+    )
+    parser_deploy.add_argument(
+        "--snowflake-session-parameters",
+        type=json.loads,
+        dest="session_parameters",
+        help="Snowflake session parameters in JSON format "
+        '(e.g. {"QUOTED_IDENTIFIERS_IGNORE_CASE": false, "TIMESTAMP_OUTPUT_FORMAT": "YYYY-MM-DD"}). '
+        "These parameters will be merged with those from connections.toml following the precedence: "
+        "CLI > ENV > YAML > connections.toml. QUERY_TAG is handled separately and appended. "
+        "Can also be set via SNOWFLAKE_SESSION_PARAMETERS environment variable.",
+        required=False,
+    )
+
+    # Schemachange deploy arguments with consolidated old/new forms
     parser_deploy.add_argument(
         "-c",
+        "--schemachange-change-history-table",
         "--change-history-table",
         type=str,
-        help="Used to override the default name of the change history table (the default is "
-        "METADATA.SCHEMACHANGE.CHANGE_HISTORY)",
-        required=False,
-    )
-    parser_deploy.add_argument(
-        "--create-change-history-table",
-        action="store_const",
-        const=True,
-        default=None,
-        help="Create the change history schema and table, if they do not exist (the default is False)",
+        dest="change_history_table",
+        help="Used to override the default name of the change history table "
+        "(the default is METADATA.SCHEMACHANGE.CHANGE_HISTORY). "
+        "Can also be set via SCHEMACHANGE_CHANGE_HISTORY_TABLE environment variable. "
+        "(Deprecated alias: --change-history-table)",
         required=False,
     )
     parser_deploy.add_argument(
         "-ac",
+        "--schemachange-autocommit",
         "--autocommit",
         action="store_const",
         const=True,
         default=None,
-        help="Enable autocommit feature for DML commands (the default is False)",
+        dest="autocommit",
+        help="Enable autocommit feature for DML commands (the default is False). "
+        "Can also be set via SCHEMACHANGE_AUTOCOMMIT environment variable. "
+        "(Deprecated alias: --autocommit)",
         required=False,
     )
     parser_deploy.add_argument(
+        "-Q",
+        "--schemachange-query-tag",
+        "--query-tag",
+        type=str,
+        dest="query_tag",
+        help="The string to add to the Snowflake QUERY_TAG session value for each query executed. "
+        "Can also be set via SCHEMACHANGE_QUERY_TAG environment variable. "
+        "(Deprecated alias: --query-tag)",
+        required=False,
+    )
+    parser_deploy.add_argument(
+        "-C",
+        "--schemachange-connection-name",
+        "--connection-name",
+        type=str,
+        dest="connection_name",
+        help="Override the default connections.toml connection name. Other connection-related values will override these connection values. "
+        "Can also be set via SCHEMACHANGE_CONNECTION_NAME environment variable. "
+        "(Deprecated alias: --connection-name)",
+        required=False,
+    )
+    parser_deploy.add_argument(
+        "--schemachange-connections-file-path",
+        "--connections-file-path",
+        type=str,
+        dest="connections_file_path",
+        help="Override the default connections.toml file path at snowflake.connector.constants.CONNECTIONS_FILE (OS specific). "
+        "Can also be set via SCHEMACHANGE_CONNECTIONS_FILE_PATH environment variable. "
+        "(Deprecated alias: --connections-file-path)",
+        required=False,
+    )
+    parser_deploy.add_argument(
+        "--schemachange-create-change-history-table",
+        "--create-change-history-table",
+        action="store_const",
+        const=True,
+        default=None,
+        dest="create_change_history_table",
+        help="Create the change history schema and table, if they do not exist (the default is False). "
+        "Can also be set via SCHEMACHANGE_CREATE_CHANGE_HISTORY_TABLE environment variable. "
+        "(Deprecated alias: --create-change-history-table)",
+        required=False,
+    )
+    parser_deploy.add_argument(
+        "--schemachange-dry-run",
         "--dry-run",
         action="store_const",
         const=True,
         default=None,
-        help="Run schemachange in dry run mode (the default is False)",
+        dest="dry_run",
+        help="Run schemachange in dry run mode (the default is False). "
+        "Can also be set via SCHEMACHANGE_DRY_RUN environment variable. "
+        "(Deprecated alias: --dry-run)",
         required=False,
     )
     parser_deploy.add_argument(
-        "--query-tag",
-        type=str,
-        help="The string to add to the Snowflake QUERY_TAG session value for each query executed",
-        required=False,
-    )
-    parser_deploy.add_argument(
+        "--schemachange-version-number-validation-regex",
         "--version-number-validation-regex",
         type=str,
-        help="If supplied, version numbers will be validated with this regular expression.",
+        dest="version_number_validation_regex",
+        help="If supplied, version numbers will be validated with this regular expression. "
+        "Can also be set via SCHEMACHANGE_VERSION_NUMBER_VALIDATION_REGEX environment variable. "
+        "(Deprecated alias: --version-number-validation-regex)",
         required=False,
     )
     parser_deploy.add_argument(
+        "--schemachange-raise-exception-on-ignored-versioned-script",
         "--raise-exception-on-ignored-versioned-script",
         action="store_const",
         const=True,
         default=None,
-        help="Raise an exception if an un-applied versioned script is ignored (the default is False)",
+        dest="raise_exception_on_ignored_versioned_script",
+        help="Raise an exception if an un-applied versioned script is ignored (the default is False). "
+        "Can also be set via SCHEMACHANGE_RAISE_EXCEPTION_ON_IGNORED_VERSIONED_SCRIPT environment variable. "
+        "(Deprecated alias: --raise-exception-on-ignored-versioned-script)",
         required=False,
     )
 
@@ -278,19 +378,145 @@ def parse_cli_args(args) -> dict:
         description="Renders a script to the console, used to check and verify jinja output from scripts.",
         parents=[parent_parser],
     )
-    parser_render.add_argument(
-        "script_path", type=str, help="Path to the script to render"
+    parser_render.add_argument("script_path", type=str, help="Path to the script to render")
+
+    parser_verify = subcommands.add_parser(
+        "verify",
+        description="Verifies Snowflake connectivity and displays configuration parameters. "
+        "This command tests the connection to Snowflake and reports the status along with "
+        "all configuration parameters being used.",
+        parents=[parent_parser],
+    )
+
+    # Snowflake connection arguments for verify (same as deploy)
+    parser_verify.add_argument(
+        "-a",
+        "--snowflake-account",
+        type=str,
+        help="The name of the snowflake account (e.g. xy12345.east-us-2.azure, "
+        "xy12345.east-us-2.azure.privatelink, org-accountname, org-accountname.privatelink). "
+        "Can also be set via SNOWFLAKE_ACCOUNT environment variable.",
+        required=False,
+    )
+    parser_verify.add_argument(
+        "-u",
+        "--snowflake-user",
+        type=str,
+        help="The name of the snowflake user. " "Can also be set via SNOWFLAKE_USER environment variable.",
+        required=False,
+    )
+    parser_verify.add_argument(
+        "-r",
+        "--snowflake-role",
+        type=str,
+        help="The name of the default role to use. " "Can also be set via SNOWFLAKE_ROLE environment variable.",
+        required=False,
+    )
+    parser_verify.add_argument(
+        "-w",
+        "--snowflake-warehouse",
+        type=str,
+        help="The name of the default warehouse to use. "
+        "Can also be set via SNOWFLAKE_WAREHOUSE environment variable.",
+        required=False,
+    )
+    parser_verify.add_argument(
+        "-d",
+        "--snowflake-database",
+        type=str,
+        help="The name of the default database to use. " "Can also be set via SNOWFLAKE_DATABASE environment variable.",
+        required=False,
+    )
+    parser_verify.add_argument(
+        "-s",
+        "--snowflake-schema",
+        type=str,
+        help="The name of the default schema to use. " "Can also be set via SNOWFLAKE_SCHEMA environment variable.",
+        required=False,
+    )
+
+    # Snowflake authentication arguments for verify
+    parser_verify.add_argument(
+        "--snowflake-authenticator",
+        type=str,
+        dest="snowflake_authenticator",  # Changed to match dataclass field name
+        help="The authenticator method to use (e.g. 'snowflake', 'oauth', 'externalbrowser', "
+        "'snowflake_jwt', or Okta URL). "
+        "Can also be set via SNOWFLAKE_AUTHENTICATOR environment variable.",
+        required=False,
+    )
+    parser_verify.add_argument(
+        "--snowflake-private-key-path",
+        type=str,
+        dest="snowflake_private_key_path",  # Changed to match dataclass field name
+        help="Path to private key file for JWT (snowflake_jwt) authentication. "
+        "DEPRECATED: Use --snowflake-private-key-file instead. "
+        "Can also be set via SNOWFLAKE_PRIVATE_KEY_PATH environment variable.",
+        required=False,
+    )
+    parser_verify.add_argument(
+        "--snowflake-private-key-file",
+        type=str,
+        dest="snowflake_private_key_file",
+        help="Path to private key file for JWT (snowflake_jwt) authentication. "
+        "This matches the Snowflake connector parameter name. "
+        "Can also be set via SNOWFLAKE_PRIVATE_KEY_FILE environment variable.",
+        required=False,
+    )
+    # NOTE: --snowflake-private-key-passphrase and --snowflake-private-key-file-pwd
+    # intentionally NOT supported via CLI for security (would be visible in process list and shell history)
+    # Use SNOWFLAKE_PRIVATE_KEY_PASSPHRASE/SNOWFLAKE_PRIVATE_KEY_FILE_PWD environment variable or connections.toml instead
+    parser_verify.add_argument(
+        "--snowflake-token-file-path",
+        type=str,
+        dest="snowflake_token_file_path",  # Changed to match dataclass field name
+        help="Path to OAuth token file (for use with --snowflake-authenticator oauth). "
+        "Can also be set via SNOWFLAKE_TOKEN_FILE_PATH environment variable.",
+        required=False,
+    )
+    parser_verify.add_argument(
+        "--snowflake-session-parameters",
+        type=json.loads,
+        dest="session_parameters",
+        help="Snowflake session parameters in JSON format "
+        '(e.g. {"QUOTED_IDENTIFIERS_IGNORE_CASE": false, "TIMESTAMP_OUTPUT_FORMAT": "YYYY-MM-DD"}). '
+        "These parameters will be merged with those from connections.toml following the precedence: "
+        "CLI > ENV > YAML > connections.toml. QUERY_TAG is handled separately and appended. "
+        "Can also be set via SNOWFLAKE_SESSION_PARAMETERS environment variable.",
+        required=False,
+    )
+
+    # Connection configuration for verify
+    parser_verify.add_argument(
+        "-C",
+        "--schemachange-connection-name",
+        "--connection-name",
+        type=str,
+        dest="connection_name",
+        help="Override the default connections.toml connection name. "
+        "Can also be set via SCHEMACHANGE_CONNECTION_NAME environment variable. "
+        "(Deprecated alias: --connection-name)",
+        required=False,
+    )
+    parser_verify.add_argument(
+        "--schemachange-connections-file-path",
+        "--connections-file-path",
+        type=str,
+        dest="connections_file_path",
+        help="Override the default connections.toml file path at snowflake.connector.constants.CONNECTIONS_FILE (OS specific). "
+        "Can also be set via SCHEMACHANGE_CONNECTIONS_FILE_PATH environment variable. "
+        "(Deprecated alias: --connections-file-path)",
+        required=False,
     )
 
     # The original parameters did not support subcommands. Check if a subcommand has been supplied
     # if not default to deploy to match original behaviour.
-    if len(args) == 0 or not any(
-        subcommand in args[0].upper() for subcommand in ["DEPLOY", "RENDER"]
-    ):
+    if len(args) == 0 or not any(subcommand in args[0].upper() for subcommand in ["DEPLOY", "RENDER", "VERIFY"]):
         args = ["deploy"] + args
 
     parsed_args = parser.parse_args(args)
 
+    # Handle deprecation warnings
     deprecate_verbose(args=args, verbose=verbose, parsed_args=parsed_args)
 
     parsed_kwargs = parsed_args.__dict__
@@ -305,9 +531,7 @@ def parse_cli_args(args) -> dict:
             parsed_kwargs["config_vars"] = config_vars
 
     if "verbose" in parsed_kwargs:
-        parsed_kwargs["log_level"] = (
-            logging.DEBUG if parsed_kwargs["verbose"] else logging.INFO
-        )
+        parsed_kwargs["log_level"] = logging.DEBUG if parsed_kwargs["verbose"] else logging.INFO
         parsed_kwargs.pop("verbose")
 
     return {k: v for k, v in parsed_kwargs.items() if v is not None}
