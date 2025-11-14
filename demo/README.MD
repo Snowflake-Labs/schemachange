@@ -212,6 +212,179 @@ python -m schemachange deploy --config-folder ./demo/basics_demo
 
 ---
 
+## 🔄 Migrating to 4.1.0+ (NEW in 4.1.0)
+
+**Upgrading from 4.0.x?** The 4.1.0 release introduced new prefixed parameter naming for better clarity and consistency. Your existing configurations will continue to work (deprecated parameters supported until 5.0.0), but you'll see deprecation warnings.
+
+### Quick Migration Reference
+
+**Deprecated (works until 5.0.0) → New (recommended)**
+
+| Category | Old Parameter | New Parameter | Notes |
+|----------|---------------|---------------|-------|
+| **CLI Arguments** | `--vars` | `--schemachange-config-vars` | Config vars for Jinja |
+| | `--log-level` | `--schemachange-log-level` or `-L` | Logging verbosity |
+| | `--verbose` | `-L INFO` or `-L DEBUG` | Deprecated flag |
+| | `--query-tag` | `--snowflake-query-tag` | Snowflake query tagging |
+| **Environment Variables** | `SNOWSQL_PWD` | `SNOWFLAKE_PASSWORD` | Password or PAT |
+
+**NEW in 4.1.0 - Authentication CLI Support:**
+- `--snowflake-password`, `--snowflake-authenticator`, `--snowflake-private-key-path`
+- Previously only available via ENV or YAML, now available on CLI too!
+
+### Version Pinning Strategy
+
+**Want to control your upgrade path?**
+
+```bash
+# Pin to 4.1.x series (get bug fixes, avoid breaking changes)
+pip install "schemachange>=4.1.0,<4.2.0"
+
+# Pin to 4.x series (stay on 4.x, avoid 5.0.0 breaking changes)
+pip install "schemachange>=4.1.0,<5.0.0"
+
+# Always get latest (not recommended for production)
+pip install schemachange --upgrade
+```
+
+**Recommended for production:** Pin to minor version and test upgrades in non-production first.
+
+### Parameter Style Examples
+
+**🟢 Current Best Practice (4.1.0+)**
+
+```bash
+# CLI with new prefixed arguments
+schemachange deploy \
+  --config-folder ./demo/basics_demo \
+  --schemachange-config-vars '{"env": "prod"}' \
+  --schemachange-log-level INFO \
+  --snowflake-account "myaccount" \
+  --snowflake-user "deploy_user" \
+  --snowflake-password "${SNOWFLAKE_PASSWORD}" \
+  --snowflake-role "DEPLOY_ROLE" \
+  --snowflake-warehouse "DEPLOY_WH" \
+  --snowflake-database "PROD_DB"
+```
+
+**🟡 Legacy Style (still works, shows warnings)**
+
+```bash
+# Old unprefixed arguments (deprecated)
+schemachange deploy \
+  --config-folder ./demo/basics_demo \
+  --vars '{"env": "prod"}' \
+  --log-level INFO \
+  -a "myaccount" \
+  -u "deploy_user" \
+  -r "DEPLOY_ROLE" \
+  -w "DEPLOY_WH" \
+  -d "PROD_DB"
+```
+
+### Configuration Priority Order
+
+**Understanding precedence (highest to lowest):**
+
+```
+CLI Arguments > Environment Variables > YAML Config > connections.toml
+```
+
+**Example - How priority works:**
+
+```bash
+# connections.toml
+[prod]
+database = "PROD_DB"
+warehouse = "SMALL_WH"
+
+# ENV variable overrides connections.toml
+export SNOWFLAKE_WAREHOUSE="LARGE_WH"
+
+# CLI overrides both ENV and connections.toml
+schemachange deploy \
+  -C prod \
+  --snowflake-database "TEST_DB"
+
+# Result: database=TEST_DB, warehouse=LARGE_WH
+```
+
+### Testing Different Parameter Styles
+
+**Want to verify backward compatibility?**
+
+```python
+# Test 1: New prefixed style (recommended)
+import subprocess
+
+result = subprocess.run([
+    "schemachange", "deploy",
+    "--config-folder", "./demo/basics_demo",
+    "--schemachange-config-vars", '{"env": "test"}',
+    "--snowflake-account", "myaccount"
+], capture_output=True, text=True)
+
+# Test 2: Legacy style (should show warnings but work)
+result = subprocess.run([
+    "schemachange", "deploy",
+    "--config-folder", "./demo/basics_demo",
+    "--vars", '{"env": "test"}',
+    "-a", "myaccount"
+], capture_output=True, text=True)
+
+# Check for deprecation warnings
+assert "deprecated" in result.stderr.lower()
+```
+
+### YAML Config Version 2 (NEW in 4.1.0)
+
+**New structured format with separate sections:**
+
+```yaml
+# schemachange.yml (v2 format)
+schemachange:
+  root-folder: ./migrations
+  config-vars:
+    env: production
+  log-level: INFO
+
+snowflake:
+  account: myaccount
+  user: deploy_user
+  role: DEPLOY_ROLE
+  warehouse: DEPLOY_WH
+  database: PROD_DB
+```
+
+**Legacy flat format (still supported):**
+
+```yaml
+# schemachange.yml (v1 format)
+root-folder: ./migrations
+config-vars:
+  env: production
+log-level: INFO
+snowflake-account: myaccount
+snowflake-user: deploy_user
+snowflake-role: DEPLOY_ROLE
+```
+
+### Migration Checklist
+
+**Migrating to 4.1.0+ parameter style:**
+
+- [ ] **Read the deprecation warnings** in your logs
+- [ ] **Test in non-production first** with new parameter style
+- [ ] **Update CLI scripts** to use `--schemachange-*` and `--snowflake-*` prefixes
+- [ ] **Update ENV variables** from `SNOWSQL_PWD` to `SNOWFLAKE_PASSWORD`
+- [ ] **Consider YAML v2 format** for new projects (both formats supported)
+- [ ] **Pin your version** in `requirements.txt` or `pyproject.toml`
+- [ ] **Plan 5.0.0 migration** before the 12-month deprecation period ends
+
+**Need help?** See [TROUBLESHOOTING.md](../TROUBLESHOOTING.md) or [open an issue](https://github.com/Snowflake-Labs/schemachange/issues)
+
+---
+
 ## 📖 Additional Resources
 
 **Need more help?**

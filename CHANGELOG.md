@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 ## [4.2.0] - TBD
 ### Added
 - Added validation for unknown configuration keys with warning messages instead of errors for better backward and sideways compatibility (#352 by @MACKAT05)
+- **Migration guide** for upgrading from 4.0.x to 4.1.0+ with:
+  - Quick reference table mapping deprecated to new parameter names
+  - Version pinning strategy examples for controlled upgrades
+  - Parameter style comparison (legacy vs. current best practices)
+  - Configuration priority examples demonstrating CLI > ENV > YAML > connections.toml
+  - Python code snippets for testing parameter compatibility
+  - YAML v2 format examples and migration checklist
 
 ### Fixed
 - Fixed dry-run command to work correctly when change history table doesn't exist yet with `--create-change-history-table` flag (#356 by @PavelPawlowski, fixes #326)
