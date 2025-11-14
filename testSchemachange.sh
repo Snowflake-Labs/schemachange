@@ -1,34 +1,46 @@
 #!/bin/bash
 # Script used in github actions to run test the schemachange functionality against the demo scenarios included in the repository.
+
+# Verify connectivity and configuration before attempting deployments
+echo "::group::Verifying Snowflake Connectivity and Configuration"
+uv run schemachange verify \
+--config-folder ./demo \
+--config-file-name schemachange-config-setup.yml
+VERIFY_RESULT=$?
+
+if [ $VERIFY_RESULT -ne 0 ]; then
+    echo "::error::Connectivity verification failed! Check credentials and configuration."
+    echo "::endgroup::"
+    exit 1
+fi
+echo "✅ Connectivity verified successfully!"
+echo "::endgroup::"
+
 echo "::group::Setting up ${MY_TARGET_SCHEMA}"
-schemachange deploy \
+uv run schemachange deploy \
 --config-folder ./demo \
 --config-file-name schemachange-config-setup.yml \
 --root-folder ./demo/${SCENARIO_NAME}/1_setup \
---connection-name default \
---connections-file-path ./connections.toml \
 --verbose
 echo "::endgroup::"
 
 echo "::group::Testing Rendering to ${MY_TARGET_SCHEMA}"
 
-schemachange render \
+uv run schemachange render \
 --config-folder ./demo/${SCENARIO_NAME} \
 ./demo/${SCENARIO_NAME}/2_test/A__render.sql
-schemachange render \
+uv run schemachange render \
 --config-folder ./demo/${SCENARIO_NAME} \
 ./demo/${SCENARIO_NAME}/2_test/R__render.sql
-schemachange render \
+uv run schemachange render \
 --config-folder ./demo/${SCENARIO_NAME} \
 ./demo/${SCENARIO_NAME}/2_test/V1.0.0__render.sql
 echo "::endgroup::"
 
 echo "::group::Testing Deployment using ${MY_TARGET_SCHEMA}"
 set +e
-schemachange deploy \
+uv run schemachange deploy \
 --config-folder ./demo/${SCENARIO_NAME} \
---connection-name default \
---connections-file-path ./connections.toml \
 --root-folder ./demo/${SCENARIO_NAME}/2_test \
 --verbose
 RESULT=$?
@@ -43,11 +55,9 @@ fi
 set -e
 
 echo "::group::Tearing down up ${MY_TARGET_SCHEMA}"
-schemachange deploy \
+uv run schemachange deploy \
 --config-folder ./demo \
 --config-file-name schemachange-config-teardown.yml \
---connection-name default \
---connections-file-path ./connections.toml \
 --root-folder ./demo/${SCENARIO_NAME}/3_teardown \
 --verbose
 echo "::endgroup::"

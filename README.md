@@ -28,9 +28,80 @@ To learn more about making a contribution to schemachange, please see our [Contr
 **Please note** that schemachange is a community-developed tool, not an official Snowflake offering. It comes with no
 support or warranty.
 
+## Quick Start
+
+Get schemachange running in 5 minutes:
+
+### 1. Install schemachange
+```bash
+pip install schemachange
+```
+
+### 2. Create your first migration script
+```bash
+mkdir -p migrations
+cat > migrations/V1.0.0__initial_setup.sql << 'EOF'
+CREATE SCHEMA IF NOT EXISTS my_app;
+CREATE TABLE IF NOT EXISTS my_app.customers (
+    id INTEGER,
+    name VARCHAR(100)
+);
+EOF
+```
+
+### 3. Run your first deployment
+
+**Option A: Using environment variables (recommended for CI/CD)**
+```bash
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
+export SNOWFLAKE_USER="my_user"
+export SNOWFLAKE_PASSWORD="my_password"  # Or use a PAT token
+export SNOWFLAKE_ROLE="MY_ROLE"
+export SNOWFLAKE_WAREHOUSE="MY_WH"
+export SNOWFLAKE_DATABASE="MY_DB"
+
+schemachange deploy -f migrations
+```
+
+**Option B: Using CLI arguments (quick tests)**
+```bash
+# Password must be set as environment variable
+export SNOWFLAKE_PASSWORD="your_password_or_pat"
+
+schemachange deploy \
+  -f migrations \
+  -a myaccount.us-east-1.aws \
+  -u my_user \
+  -r MY_ROLE \
+  -w MY_WH \
+  -d MY_DB
+```
+
+**Option C: Using connections.toml (local development)**
+```bash
+# Create ~/.snowflake/connections.toml with your credentials
+schemachange deploy -f migrations -C my_connection
+```
+
+### 4. Verify your deployment
+```bash
+# Check what schemachange sees
+schemachange verify -f migrations
+
+# Check Snowflake (using Snowflake CLI)
+snow sql -q "SELECT * FROM metadata.schemachange.change_history ORDER BY installed_on DESC LIMIT 5;"
+```
+
+### 🎯 Next Steps
+- **Learn the basics:** [Change Scripts](#change-scripts) - Understand versioned, repeatable, and always scripts
+- **Configure properly:** [Configuration](#configuration) - Choose the right config method for your environment
+- **Secure your setup:** [Authentication](#authentication) - Use JWT, PATs, or SSO instead of passwords
+- **CI/CD integration:** [Using in a CI/CD Pipeline](#using-in-a-cicd-pipeline) - Automate your deployments
+
 ## Table of Contents
 
 1. [Overview](#overview)
+1. [Quick Start](#quick-start)
 1. [Project Structure](#project-structure)
     1. [Folder Structure](#folder-structure)
 1. [Change Scripts](#change-scripts)
@@ -50,14 +121,22 @@ support or warranty.
     1. [Okta Authentication](#okta-authentication)
     1. [Private Key Authentication](#private-key-authentication)
 1. [Configuration](#configuration)
+    1. [connections.toml File](#connectionstoml-file)
     1. [YAML Config File](#yaml-config-file)
         1. [Yaml Jinja support](#yaml-jinja-support)
-    1. [connections.toml File](#connectionstoml-file)
+    1. [Environment Variables](#environment-variables)
+    1. [Configuration Priority](#configuration-priority)
+    1. [Account Identifier Format](#account-identifier-format)
+    1. [Required Snowflake Privileges](#required-snowflake-privileges)
+1. [Upgrading to 4.1.0](#upgrading-to-410)
 1. [Commands](#commands)
     1. [deploy](#deploy)
     1. [render](#render)
+    1. [verify](#verify)
+1. [Troubleshooting](#troubleshooting)
 1. [Running schemachange](#running-schemachange)
     1. [Prerequisites](#prerequisites)
+    1. [Supported Python Versions](#supported-python-versions)
     1. [Running the Script](#running-the-script)
 1. [Integrating With DevOps](#integrating-with-devops)
     1. [Sample DevOps Process Flow](#sample-devops-process-flow)
@@ -86,8 +165,8 @@ schemachange expects a directory structure like the following to exist:
         |-- R__fn_sort_ascii.sql
 ```
 
-The schemachange folder structure is very flexible. The `project_root` folder is specified with the `-f`
-or `--root-folder` argument. schemachange only pays attention to the filenames, not the paths. Therefore, under
+The schemachange folder structure is very flexible. The `project_root` folder is specified with the `-f`,
+`--schemachange-root-folder`, or `--root-folder` argument. schemachange only pays attention to the filenames, not the paths. Therefore, under
 the `project_root` folder you are free to arrange the change scripts any way you see fit. You can have as many
 subfolders (and nested subfolders) as you would like.
 
@@ -245,16 +324,16 @@ Within change scripts:
 
 schemachange records all applied changes scripts to the change history table. By default, schemachange will attempt to
 log all activities to the `METADATA.SCHEMACHANGE.CHANGE_HISTORY` table. The name and location of the change history
-table can be overriden via a command line argument (`-c` or `--change-history-table`) or the `schemachange-config.yml`
-file ( `change-history-table`). The value passed to the parameter can have a one, two, or three part name (e.g. "
-TABLE_NAME", or "SCHEMA_NAME.TABLE_NAME", or " DATABASE_NAME.SCHEMA_NAME.TABLE_NAME"). This can be used to support
-multiple environments (dev, test, prod) or multiple subject areas within the same Snowflake account.
+table can be overriden via a command line argument (`-c`, `--schemachange-change-history-table`, or `--change-history-table`)
+or the `schemachange-config.yml` file (`change-history-table`). The value passed to the parameter can have a one, two, or
+three part name (e.g. "TABLE_NAME", or "SCHEMA_NAME.TABLE_NAME", or "DATABASE_NAME.SCHEMA_NAME.TABLE_NAME"). This can be
+used to support multiple environments (dev, test, prod) or multiple subject areas within the same Snowflake account.
 
 By default, schemachange will not try to create the change history table, and it will fail if the table does not exist.
-This behavior can be altered by passing in the `--create-change-history-table` argument or adding
-`create-change-history-table: true` to the `schemachange-config.yml` file. Even with the `--create-change-history-table`
-parameter, schemachange will not attempt to create the database for the change history table. That must be created
-before running schemachange.
+This behavior can be altered by passing in the `--schemachange-create-change-history-table` or `--create-change-history-table`
+argument or adding `create-change-history-table: true` to the `schemachange-config.yml` file. Even with the
+`--create-change-history-table` parameter, schemachange will not attempt to create the database for the change history
+table. That must be created before running schemachange.
 
 The structure of the `CHANGE_HISTORY` table is as follows:
 
@@ -300,7 +379,7 @@ The authenticator can be set by setting an `authenticator` in the [connections.t
 
 The following authenticators are supported:
 
-- `snowflake`: [Password](#password-authentication)
+- `snowflake`: [Password or PAT](#password-authentication)
 - `oauth`: [External OAuth](#external-oauth-authentication)
 - `externalbrowser`: [Browser-based SSO](#external-browser-authentication)
 - `https://<okta_account_name>.okta.com`: [Okta SSO](#okta-authentication)
@@ -308,10 +387,58 @@ The following authenticators are supported:
 
 If an authenticator is unsupported, an exception will be raised.
 
+**Security Note:** For detailed security guidance on credential management, authentication best practices, and preventing credential leakage, please see [SECURITY.md](SECURITY.md).
+
 ### Password Authentication
 
-Password authentication is the default authenticator. Supplying `snowflake` as your authenticator will set it
-explicitly. A `password` must be supplied in the [connections.toml](#connectionstoml-file) file
+⚠️ **IMPORTANT: Snowflake is deprecating password-only authentication. MFA or alternative authentication methods are now required for most accounts.**
+
+**Recommended Authentication Methods (in order of preference):**
+1. **[Private Key (JWT)](#private-key-authentication)** - Most secure for automation
+2. **[External Browser/SSO](#external-browser-authentication)** - Best for interactive use
+3. **[OAuth](#external-oauth-authentication)** - For OAuth-enabled workflows
+4. **Programmatic Access Token (PAT)** - For MFA-enabled accounts
+
+#### Password Authentication with Programmatic Access Token (PAT)
+
+Password authentication is the default authenticator (or set `authenticator: snowflake` explicitly).
+
+**For accounts with MFA (required)**, you **must** use a **Programmatic Access Token (PAT)** instead of your regular password.
+
+**What is a PAT?**
+A Programmatic Access Token is a long-lived token that allows automated tools to authenticate without MFA prompts. It's more secure than storing passwords and is Snowflake's recommended approach for automation.
+
+**How to use a PAT:**
+
+```bash
+export SNOWFLAKE_PASSWORD="<your_pat_token>"  # PAT, not your regular password
+schemachange deploy
+```
+
+**How to generate a PAT:**
+1. Log into Snowflake Web UI
+2. Go to your user preferences
+3. Generate a new Programmatic Access Token
+4. Copy the token and use it in place of your password
+
+**For detailed PAT setup and best practices, see:**
+- [Snowflake PAT Documentation](https://docs.snowflake.com/en/user-guide/ui-snowsight-profile#generate-a-programmatic-access-token)
+- [SECURITY.md](SECURITY.md) for comprehensive authentication guidance
+
+#### Legacy Password-Only Authentication (Deprecated)
+
+⚠️ **WARNING: Password-only authentication (without MFA) is being phased out by Snowflake and should not be used for new deployments.**
+
+If you must use password-only authentication on legacy accounts:
+```bash
+export SNOWFLAKE_PASSWORD="your_password"  # NOT RECOMMENDED
+schemachange deploy
+```
+
+**Migration Required:** Snowflake is actively deprecating single-factor authentication. Plan to migrate to:
+- Private Key (JWT) authentication for production deployments
+- PAT for MFA-enabled accounts
+- External Browser/SSO for interactive use
 
 ### External OAuth Authentication
 
@@ -348,37 +475,190 @@ file. If the private key file is password protected, supply the password as `pri
 the [connections.toml](#connectionstoml-file) file. If the variable is not set, the Snowflake Python connector will
 assume the private key is not encrypted.
 
+**Parameter Name Migration:**
+
+For better alignment with the Snowflake Python Connector, schemachange now supports both old and new parameter names:
+
+| Configuration Source | Old Name (Deprecated) | New Name (Recommended) |
+|---------------------|----------------------|------------------------|
+| **Private Key Path** | | |
+| CLI | `--snowflake-private-key-path` | `--snowflake-private-key-file` |
+| Environment Variable | `SNOWFLAKE_PRIVATE_KEY_PATH` | `SNOWFLAKE_PRIVATE_KEY_FILE` |
+| connections.toml | `private_key_path` | `private_key_file` |
+| YAML Config | `snowflake-private-key-path` | `snowflake-private-key-file` |
+| **Private Key Passphrase** | | |
+| Environment Variable | `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` | `SNOWFLAKE_PRIVATE_KEY_FILE_PWD` |
+| connections.toml | `private_key_passphrase` | `private_key_file_pwd` |
+| YAML Config | `snowflake-private-key-passphrase` | `snowflake-private-key-file-pwd` |
+
+**Note:** Passphrases are **not** supported via CLI for security reasons (they would be visible in process lists and shell history).
+
+The old parameter names continue to work but show deprecation warnings. Please migrate to the new names to match the Snowflake Python Connector's parameter naming convention.
+
 ## Configuration
 
-As of version 4.0, Snowflake connection parameters must be supplied via
-a [connections.toml file](#connectionstoml-file). Command-line and yaml arguments will still be supported with a
-deprecation warning until support is completely dropped.
+schemachange supports multiple configuration methods for both Snowflake connection parameters and schemachange-specific settings. Configuration can be supplied through (in order of priority):
 
-Schemachange-specific parameters can be supplied in two different ways (in order of priority):
+1. **Command Line Arguments** - Explicit flags passed to the CLI
+2. **Environment Variables** - `SNOWFLAKE_*` prefixed variables (as of v4.1.0)
+3. **YAML Config File** - `schemachange-config.yml` configuration file
+4. **connections.toml File** - Snowflake Python Connector's connection file (as of v4.0)
 
-1. Command Line Arguments
-2. YAML config file
+Higher priority sources override lower priority sources, allowing flexible configuration management across different environments.
 
 **Note:** As of 4.0, `vars` provided via command-line argument will be merged with vars provided via YAML config.
-Previously, one overwrote the other completely
+Previously, one overwrote the other completely.
 
-Please
-see [Usage Notes for the account Parameter (for the connect Method)](https://docs.snowflake.com/en/user-guide/python-connector-api.html#label-account-format-info)
-for more details on how to structure the account name.
+Please see [Usage Notes for the account Parameter (for the connect Method)](https://docs.snowflake.com/en/user-guide/python-connector-api.html#label-account-format-info) for more details on how to structure the account name.
 
 ### connections.toml File
 
-A `[connections.toml](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect#connecting-using-the-connections-toml-file)
-filepath can be supplied in the following ways (in order of priority):
+#### What is connections.toml?
 
-1. The `--connections-file-path` [command-line argument](#commands)
-2. The `connections-file-path` [YAML value](#yaml-config-file)
+A standard [Snowflake configuration file](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect#connecting-using-the-connections-toml-file) for storing connection parameters and credentials. Think of it as your personal Snowflake address book.
 
-A connection name can be supplied in the following ways (in order of priority):
+#### When should you use it?
 
-1. The `SNOWFLAKE_DEFAULT_CONNECTION_NAME` [environment variable](#environment-variables)
-2. The `--connection-name` [command-line argument](#commands)
-3. The `connection-name` [YAML value](#yaml-config-file)
+**✅ Great for:**
+- **Local development** - Juggle multiple Snowflake accounts (dev, staging, prod) without juggling credentials
+- **Team consistency** - Share connection configurations (without secrets) across your team
+- **Secure storage** - Keep credentials in one secure file with proper permissions (`chmod 600`)
+
+**❌ Skip it for:**
+- **CI/CD pipelines** - Use environment variables instead (easier secret management)
+- **Production deployments** - Service accounts should use ENV vars or vault systems
+- **Quick experiments** - Just use CLI arguments
+
+#### How does schemachange find connections.toml?
+
+**Important:** schemachange only uses `connections.toml` when you explicitly opt-in by specifying **at least one** of:
+- A `connection-name` (which profile to use)
+- A `connections-file-path` (where to find the file)
+
+If you specify **neither**, `connections.toml` is skipped entirely and parameters come from CLI > ENV > YAML only.
+
+**When you do use it:**
+
+| What you specify | How schemachange finds it |
+|-----------------|---------------------------|
+| Only `--connection-name dev` | Looks in `~/.snowflake/connections.toml` for `[dev]` profile |
+| Only `--connections-file-path ./team.toml` | Looks in `./team.toml` for `[default]` profile |
+| Both specified | Uses exactly what you specified |
+
+**File path precedence** (highest to lowest):
+1. CLI: `--connections-file-path`
+2. ENV: `SCHEMACHANGE_CONNECTIONS_FILE_PATH` (or legacy `SNOWFLAKE_CONNECTIONS_FILE_PATH`)
+3. YAML: `connections-file-path`
+4. Default: `$SNOWFLAKE_HOME/.snowflake/connections.toml` (where `$SNOWFLAKE_HOME` defaults to your home directory)
+
+**Connection name precedence** (highest to lowest):
+1. CLI: `--connection-name` or `-C`
+2. ENV: `SCHEMACHANGE_CONNECTION_NAME` (or legacy `SNOWFLAKE_DEFAULT_CONNECTION_NAME`)
+3. YAML: `connection-name`
+4. Default: `default`
+
+**💡 Pro tip:** Paths support tilde expansion (`~`), so `~/configs/snowflake.toml` works everywhere.
+
+#### Example: Create a connections.toml file
+
+Create `~/.snowflake/connections.toml`:
+
+```toml
+# Development environment
+[dev]
+account = "myorg-dev"
+user = "developer"
+role = "DEV_ROLE"
+warehouse = "DEV_WH"
+database = "DEV_DB"
+
+# Production environment (using JWT authentication)
+[prod]
+account = "myorg-prod"
+user = "deploy_service"
+authenticator = "snowflake_jwt"
+private_key_file = "~/.ssh/snowflake_prod.p8"  # Recommended parameter name (matches Snowflake connector)
+private_key_file_pwd = "my_secure_passphrase"   # Recommended parameter name (matches Snowflake connector)
+role = "DEPLOY_ROLE"
+warehouse = "PROD_WH"
+database = "PROD_DB"
+
+# NOTE: private_key_path is deprecated but still supported for backwards compatibility
+# Please migrate to private_key_file to match Snowflake Python Connector naming
+
+# Optional: Set session parameters for this connection
+[prod.parameters]
+QUERY_TAG = "my_app_prod"
+QUOTED_IDENTIFIERS_IGNORE_CASE = false
+```
+
+**Secure your file:**
+```bash
+chmod 600 ~/.snowflake/connections.toml
+```
+
+**Use it:**
+```bash
+# Deploy to dev
+schemachange deploy -f migrations -C dev
+
+# Deploy to prod
+schemachange deploy -f migrations -C prod
+```
+
+#### Session Parameters in connections.toml
+
+Session parameters let you control Snowflake session behavior (like `QUERY_TAG`, date formats, query timeouts, etc.).
+
+**Quick example:**
+```toml
+[my_connection.parameters]
+QUERY_TAG = "my_app"
+TIMESTAMP_OUTPUT_FORMAT = "YYYY-MM-DD HH24:MI:SS"
+```
+
+<details>
+<summary>📘 <strong>Advanced: How session parameters merge across all config sources</strong></summary>
+
+You can set session parameters in multiple places, and schemachange intelligently merges them:
+
+**Sources** (in priority order):
+1. **CLI**: `--snowflake-session-parameters '{"PARAM": "value"}'`
+2. **ENV**: `SNOWFLAKE_SESSION_PARAMETERS='{"PARAM": "value"}'`
+3. **YAML v2**: Under `snowflake.session-parameters`
+4. **connections.toml**: Under `[connection_name.parameters]`
+
+**How merging works:**
+- Higher priority sources override lower ones **per parameter**
+- Only explicitly-set parameters from connections.toml are used (not Snowflake defaults)
+- Parameters from all sources are combined and passed once to Snowflake (efficient!)
+
+**Special case: QUERY_TAG appends instead of overriding:**
+
+`QUERY_TAG` is special - values are **appended** with semicolons instead of replaced. This lets you track queries at multiple levels:
+
+| Layer | Source | Value |
+|-------|--------|-------|
+| 🏠 Application | connections.toml | `"my_app"` |
+| 🌍 Environment | CLI session params | `"deployment"` |
+| 🎯 Run-specific | `--query-tag` | `"production"` |
+| 🔧 Tool | schemachange (auto) | `"schemachange 4.1.0"` |
+| **📊 Final** | **Snowflake sees** | **`"my_app;deployment;production;schemachange 4.1.0"`** |
+
+**Example:**
+
+```bash
+# connections.toml has QUERY_TAG = "my_app"
+export SNOWFLAKE_SESSION_PARAMETERS='{"QUERY_TAG": "ci_pipeline"}'
+schemachange deploy -C prod --query-tag "release-v2.0"
+
+# Snowflake query history shows:
+# QUERY_TAG = "my_app;ci_pipeline;release-v2.0;schemachange 4.1.0"
+```
+
+This makes it easy to filter queries by application, environment, or specific deployment in Snowflake's query history!
+
+</details>
 
 ### YAML Config File
 
@@ -387,7 +667,88 @@ working directory. The YAML file name can be overridden with the
 `--config-file-name` [command-line argument](#commands). The folder can be overridden by using the
 `--config-folder` [command-line argument](#commands)
 
-Here is the list of available configurations in the `schemachange-config.yml` file:
+schemachange supports two YAML configuration formats:
+
+#### Config Version 2 (Recommended)
+
+Config version 2 separates schemachange-specific parameters from Snowflake connector parameters into distinct sections, providing better organization and clarity:
+
+```yaml
+config-version: 2
+
+schemachange:
+  # The root folder for the database change scripts
+  root-folder: './migrations'
+
+  # The modules folder for jinja macros and templates to be used across multiple scripts
+  modules-folder: './modules'
+
+  # Override the default connections.toml file path
+  connections-file-path: '~/.snowflake/connections.toml'
+
+  # Override the default connections.toml connection name
+  connection-name: 'my-connection'
+
+  # Used to override the default name of the change history table (default: METADATA.SCHEMACHANGE.CHANGE_HISTORY)
+  change-history-table: 'METADATA.SCHEMACHANGE.CHANGE_HISTORY'
+
+  # Define values for variables to be replaced in change scripts
+  vars:
+    var1: 'value1'
+    var2: 'value2'
+    secrets:
+      var3: 'value3' # This is considered a secret and will not be displayed in any output
+
+  # Create the change history schema and table if they do not exist (default: false)
+  create-change-history-table: true
+
+  # Enable autocommit feature for DML commands (default: false)
+  autocommit: false
+
+  # Run schemachange in dry run mode (default: false)
+  dry-run: false
+
+  # A string to include in the QUERY_TAG that is attached to every SQL statement
+  query-tag: 'my-project'
+
+  # Log level: DEBUG, INFO, WARNING, ERROR, or CRITICAL (default: INFO)
+  log-level: 'INFO'
+
+  # Regex pattern for version number validation
+  version-number-validation-regex: '^[0-9]+\.[0-9]+\.[0-9]+$'
+
+  # Raise exception when versioned scripts are ignored (default: false)
+  raise-exception-on-ignored-versioned-script: false
+
+snowflake:
+  # Snowflake connection parameters (these can also come from connections.toml or environment variables)
+  account: 'myaccount.us-east-1.aws'
+  user: 'my_user'
+  role: 'MY_ROLE'
+  warehouse: 'MY_WH'
+  database: 'MY_DB'
+  schema: 'MY_SCHEMA'
+
+  # Authentication parameters (optional, based on auth method)
+  authenticator: 'snowflake_jwt'  # snowflake, oauth, externalbrowser, snowflake_jwt, or okta URL
+  private-key-path: '~/.ssh/snowflake_key.p8'
+
+  # Additional Snowflake Python Connector parameters
+  # Any valid connector parameter can be specified here
+  client-session-keep-alive: true
+  login-timeout: 60
+  network-timeout: 120
+```
+
+**Benefits of Config Version 2:**
+- Clear separation between schemachange config and Snowflake connector parameters
+- All Snowflake Python Connector parameters are supported in the `snowflake` section
+- Better organization and maintainability
+- Forward-compatible with future schemachange releases
+
+#### Config Version 1 (Legacy, Backward Compatible)
+
+Config version 1 uses a flat structure. This format is still supported for backward compatibility:
 
 ```yaml
 config-version: 1
@@ -430,6 +791,8 @@ dry-run: false
 query-tag: 'QUERY_TAG'
 ```
 
+**Note:** If `config-version` is not specified, schemachange assumes version 1 for backward compatibility.
+
 #### Yaml Jinja support
 
 The YAML config file supports the jinja templating language and has a custom function "env_var" to access environmental
@@ -452,6 +815,485 @@ Return the value of the environmental variable if it exists, otherwise raise an 
 {{ env_var('<environmental_variable>') }}
 ```
 
+### Environment Variables
+
+#### Why Use Environment Variables?
+
+Environment variables are the **go-to choice for CI/CD pipelines** and production deployments because:
+
+- **🔐 Secrets stay secret** - Credentials never touch your code repository
+- **🌍 Environment-specific** - Same code, different configs for dev/staging/prod
+- **🤖 CI/CD native** - GitHub Actions, GitLab CI, Jenkins all inject secrets as ENV vars
+- **🔄 Easy rotation** - Update credentials without touching code
+
+#### Quick Start: Common Scenarios
+
+**Scenario: GitHub Actions CI/CD**
+```yaml
+# .github/workflows/deploy.yml
+env:
+  SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+  SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+  SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PAT }}  # Use a PAT!
+  SNOWFLAKE_ROLE: DEPLOY_ROLE
+  SNOWFLAKE_WAREHOUSE: DEPLOY_WH
+  SNOWFLAKE_DATABASE: ${{ vars.TARGET_DATABASE }}  # Environment-specific
+
+steps:
+  - run: schemachange deploy -f migrations
+```
+
+**Scenario: Local development with vault**
+```bash
+# Fetch secrets from your vault (1Password, AWS Secrets Manager, etc.)
+export SNOWFLAKE_ACCOUNT=$(op read "op://Engineering/Snowflake/account")
+export SNOWFLAKE_PASSWORD=$(op read "op://Engineering/Snowflake/pat")
+export SNOWFLAKE_USER="my_user"
+export SNOWFLAKE_ROLE="DEV_ROLE"
+
+schemachange deploy -f migrations
+```
+
+**Scenario: Docker container**
+```bash
+docker run --rm \
+  -e SNOWFLAKE_ACCOUNT \
+  -e SNOWFLAKE_USER \
+  -e SNOWFLAKE_PASSWORD \
+  -e SNOWFLAKE_ROLE \
+  -v "$PWD":/workspace \
+  -w /workspace \
+  schemachange/schemachange:latest deploy -f migrations
+```
+
+#### Variable Types
+
+schemachange supports two prefixes:
+
+| Prefix | Purpose | Example |
+|--------|---------|---------|
+| **`SCHEMACHANGE_*`** | schemachange behavior | `SCHEMACHANGE_ROOT_FOLDER`, `SCHEMACHANGE_DRY_RUN` |
+| **`SNOWFLAKE_*`** | Snowflake connection | `SNOWFLAKE_ACCOUNT`, `SNOWFLAKE_USER`, `SNOWFLAKE_PASSWORD` |
+
+**Naming convention:** `PREFIX_PARAMETER_NAME` in UPPERCASE (hyphens become underscores)
+
+<details>
+<summary>📘 <strong>Complete reference: All supported environment variables</strong></summary>
+
+#### SCHEMACHANGE_* Environment Variables
+
+These environment variables configure schemachange-specific behavior:
+
+| Environment Variable | Description | Example | Type |
+|---------------------|-------------|---------|------|
+| `SCHEMACHANGE_CONFIG_FOLDER` | The folder to look for schemachange config file. **Important:** Must be set via `--config-folder` CLI argument to control YAML file loading location. ENV variable is loaded after YAML, so it only affects the config object property. Useful for CI/CD with no YAML file. | `.` (current directory) | string |
+| `SCHEMACHANGE_CONFIG_FILE_NAME` | The schemachange config YAML file name. **Important:** Must be set via `--config-file-name` CLI argument to control YAML file loading. ENV variable is loaded after YAML, so it only affects the config object property. Useful for CI/CD with no YAML file. | `schemachange-config.yml` | string |
+| `SCHEMACHANGE_ROOT_FOLDER` | The root folder for database change scripts | `./migrations` | string |
+| `SCHEMACHANGE_MODULES_FOLDER` | The modules folder for jinja macros and templates | `./modules` | string |
+| `SCHEMACHANGE_CHANGE_HISTORY_TABLE` | Override the default change history table name | `METADATA.SCHEMACHANGE.CHANGE_HISTORY` | string |
+| `SCHEMACHANGE_VARS` | Define variables for scripts in JSON format | `{"var1": "value1", "var2": "value2"}` | JSON |
+| `SCHEMACHANGE_CREATE_CHANGE_HISTORY_TABLE` | Create change history table if it doesn't exist | `true` or `false` | boolean |
+| `SCHEMACHANGE_AUTOCOMMIT` | Enable autocommit for DML commands | `true` or `false` | boolean |
+| `SCHEMACHANGE_DRY_RUN` | Run in dry run mode | `true` or `false` | boolean |
+| `SCHEMACHANGE_QUERY_TAG` | String to include in QUERY_TAG for SQL statements | `my-project` | string |
+| `SCHEMACHANGE_LOG_LEVEL` | Logging level | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` | string |
+| `SCHEMACHANGE_CONNECTIONS_FILE_PATH` | Path to connections.toml file (controls where schemachange looks for connection config) | `~/.snowflake/connections.toml` | string |
+| `SCHEMACHANGE_CONNECTION_NAME` | Connection profile name from connections.toml (controls which profile schemachange uses) | `production` | string |
+
+**Note:** Boolean values accept `true`/`false`, `yes`/`no`, `1`/`0` (case-insensitive).
+
+**🏗️ Architecture Note:** `SCHEMACHANGE_CONNECTION_NAME` and `SCHEMACHANGE_CONNECTIONS_FILE_PATH` use the `SCHEMACHANGE_` prefix because they control **where schemachange looks for configuration** (first-pass resolution), not what gets passed to Snowflake. These are config-lookup parameters, not Snowflake connector parameters.
+
+**📋 Configuration Resolution Flow:**
+
+```
+Phase 0: Parse CLI Arguments
+├─ Parse: --config-folder (default: .)
+├─ Parse: --config-file-name (default: schemachange-config.yml)
+└─ Result: Use these values immediately to locate YAML file
+
+Phase 1: Load Configuration Sources (in order)
+├─ 1. Load YAML config (using config_folder from Phase 0)
+├─ 2. Load ENV config (including SCHEMACHANGE_CONFIG_FOLDER, etc.)
+└─ 3. Already have CLI config from Phase 0
+
+Phase 2: First Pass - Determine connections.toml Usage
+├─ Resolve: connection_name (precedence: CLI > ENV > YAML)
+├─ Resolve: connections_file_path (precedence: CLI > ENV > YAML)
+├─ Decision: Use connections.toml? (YES if either is set, NO if neither)
+└─ If YES: Load parameters from connections.toml
+
+Phase 3: Second Pass - Merge All Parameters
+├─ Merge Snowflake connection params: CLI > ENV > YAML > toml
+├─ Merge session_parameters: CLI > ENV > YAML > toml (QUERY_TAG appends)
+└─ Merge additional_snowflake_params: ENV > YAML
+```
+
+**Key Architectural Points:**
+- **YAML location** determined by Phase 0 CLI args only (ENV vars for config_folder/config_file_name loaded too late)
+- **connections.toml usage** determined by Phase 2 (CLI > ENV > YAML precedence)
+- **Parameter values** merged in Phase 3 with full precedence chain (CLI > ENV > YAML > toml)
+- **No conflicts** because each phase has a distinct purpose and resolution order
+
+#### SNOWFLAKE_* Environment Variables
+
+##### Explicit Connection Parameters
+
+These Snowflake-specific environment variables are explicitly handled by schemachange:
+
+| Environment Variable | Description | Example |
+|---------------------|-------------|---------|
+| `SNOWFLAKE_ACCOUNT` | Snowflake account identifier | `myaccount.us-east-1.aws` |
+| `SNOWFLAKE_USER` | Username for authentication | `my_user` |
+| `SNOWFLAKE_PASSWORD` | Password for authentication (also supports PATs) | `my_password` or `<pat_token>` |
+| `SNOWFLAKE_ROLE` | Role to use after connecting | `TRANSFORMER` |
+| `SNOWFLAKE_WAREHOUSE` | Default warehouse | `COMPUTE_WH` |
+| `SNOWFLAKE_DATABASE` | Default database | `MY_DATABASE` |
+| `SNOWFLAKE_SCHEMA` | Default schema | `PUBLIC` |
+
+##### Authentication Parameters
+
+| Environment Variable | Description | Example |
+|---------------------|-------------|---------|
+| `SNOWFLAKE_AUTHENTICATOR` | Authentication method | `snowflake`, `oauth`, `externalbrowser`, `snowflake_jwt`, or `https://<okta_account>.okta.com` |
+| `SNOWFLAKE_PRIVATE_KEY_PATH` | Path to private key file for JWT authentication | `~/.ssh/snowflake_key.p8` |
+| `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` | Passphrase for encrypted private key | `my_key_password` |
+| `SNOWFLAKE_TOKEN_FILE_PATH` | Path to OAuth token file (for external OAuth only) | `~/.snowflake/oauth_token.txt` |
+
+##### Generic SNOWFLAKE_* Parameters (Pass-through)
+
+**NEW:** Any `SNOWFLAKE_*` environment variable not explicitly listed above will be automatically passed through to the Snowflake Python Connector. This allows you to use any connector parameter via environment variables.
+
+Common pass-through parameters include:
+
+| Environment Variable | Description | Example |
+|---------------------|-------------|---------|
+| `SNOWFLAKE_CLIENT_SESSION_KEEP_ALIVE` | Keep the session alive | `true` or `false` |
+| `SNOWFLAKE_LOGIN_TIMEOUT` | Login timeout in seconds | `60` |
+| `SNOWFLAKE_NETWORK_TIMEOUT` | Network timeout in seconds | `120` |
+| `SNOWFLAKE_CLIENT_PREFETCH_THREADS` | Number of threads for result prefetching | `4` |
+| `SNOWFLAKE_CLIENT_STORE_TEMPORARY_CREDENTIAL` | Store temporary credentials | `true` or `false` |
+
+For a complete list of supported connector parameters, see the [Snowflake Python Connector documentation](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect).
+
+**Note on PATs (Programmatic Access Tokens):** For CI/CD pipelines and service accounts, especially with Snowflake's MFA enforcement, use PATs via `SNOWFLAKE_PASSWORD`. PATs use the default `snowflake` authenticator—no need to set `SNOWFLAKE_AUTHENTICATOR`. The Snowflake connector automatically detects PAT tokens.
+
+#### Configuration File Parameters
+
+| Environment Variable | Description | Example |
+|---------------------|-------------|---------|
+| `SNOWFLAKE_HOME` | Snowflake home directory (default: your user home directory, e.g., `/Users/tmathew`). Schemachange uses `$SNOWFLAKE_HOME/.snowflake/connections.toml` as the default connections file path. | `/Users/tmathew` |
+
+#### Legacy Environment Variables
+
+These variables are supported for backward compatibility but are superseded by `SCHEMACHANGE_*` prefixed versions:
+
+| Environment Variable | Modern Equivalent | Description |
+|---------------------|-------------------|-------------|
+| `SNOWFLAKE_CONNECTIONS_FILE_PATH` | `SCHEMACHANGE_CONNECTIONS_FILE_PATH` | Custom path to `connections.toml` file. Use `SCHEMACHANGE_CONNECTIONS_FILE_PATH` instead. |
+| `SNOWFLAKE_DEFAULT_CONNECTION_NAME` | `SCHEMACHANGE_CONNECTION_NAME` | Connection profile name from `connections.toml`. Use `SCHEMACHANGE_CONNECTION_NAME` instead. |
+| `SNOWSQL_PWD` | `SNOWFLAKE_PASSWORD` | Legacy password variable. Use `SNOWFLAKE_PASSWORD` instead. |
+
+</details>
+
+#### Real-World Authentication Examples
+
+**Key-Pair (JWT) Authentication (Recommended for Production):**
+```bash
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
+export SNOWFLAKE_USER="deploy_user"
+export SNOWFLAKE_AUTHENTICATOR="snowflake_jwt"
+export SNOWFLAKE_PRIVATE_KEY_PATH="~/.ssh/snowflake_key.p8"
+export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="key_password"  # Only if key is encrypted
+export SNOWFLAKE_ROLE="DEPLOY_ROLE"
+export SNOWFLAKE_WAREHOUSE="DEPLOY_WH"
+export SNOWFLAKE_DATABASE="MY_DATABASE"
+
+schemachange deploy --config-folder ./migrations
+```
+
+**Programmatic Access Token (PAT) for MFA-Enabled Accounts:**
+```bash
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
+export SNOWFLAKE_USER="service_account"
+export SNOWFLAKE_PASSWORD="<your_pat_token>"  # PAT, not regular password
+export SNOWFLAKE_ROLE="DEPLOY_ROLE"
+export SNOWFLAKE_WAREHOUSE="DEPLOY_WH"
+export SNOWFLAKE_DATABASE="MY_DATABASE"
+
+schemachange deploy --config-folder ./migrations
+```
+
+**External Browser (SSO) Authentication:**
+```bash
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
+export SNOWFLAKE_USER="user@company.com"
+export SNOWFLAKE_AUTHENTICATOR="externalbrowser"
+export SNOWFLAKE_ROLE="DEPLOY_ROLE"
+export SNOWFLAKE_WAREHOUSE="DEPLOY_WH"
+export SNOWFLAKE_DATABASE="MY_DATABASE"
+
+schemachange deploy --config-folder ./migrations
+```
+
+### Configuration Priority
+
+#### The Simple Rule
+
+**Higher wins.** When the same parameter is set in multiple places, the highest priority source wins:
+
+```
+🥇 CLI Arguments (--flags)
+  ↓ overrides
+🥈 Environment Variables (SNOWFLAKE_*, SCHEMACHANGE_*)
+  ↓ overrides
+🥉 YAML Config File (schemachange-config.yml)
+  ↓ overrides
+🏅 connections.toml (when explicitly enabled)
+```
+
+#### How It Works in Practice
+
+**Example:** You set `user` in all four places. Which one does schemachange use?
+
+| Source | Value | Result |
+|--------|-------|--------|
+| connections.toml | `user = "toml_user"` | ❌ Overridden |
+| YAML config | `snowflake-user: yaml_user` | ❌ Overridden |
+| ENV variable | `SNOWFLAKE_USER=env_user` | ❌ Overridden |
+| CLI argument | `--snowflake-user cli_user` | ✅ **Winner!** |
+
+**Schemachange connects as:** `cli_user`
+
+#### When to Use Each Method
+
+Think about **who** needs to change the value and **when**:
+
+| Method | Best For | Example Scenario |
+|--------|----------|-----------------|
+| **connections.toml** | Personal defaults | "I always connect to DEV_DB when developing locally" |
+| **YAML Config** | Team/project standards | "Our staging environment always uses STAGE_WH warehouse" |
+| **Environment Variables** | CI/CD & secrets | "GitHub Actions sets credentials per environment" |
+| **CLI Arguments** | One-off overrides | "Just this once, use a different warehouse" |
+
+#### Real-World Scenarios
+
+**Scenario 1: Local Development**
+```toml
+# ~/.snowflake/connections.toml - Your personal defaults
+[dev]
+account = "myorg-dev"
+user = "alice"
+database = "DEV_DB"
+```
+```bash
+# Override just the database for testing
+schemachange deploy -C dev -d TEST_DB
+# Uses: account=myorg-dev, user=alice, database=TEST_DB (CLI wins)
+```
+
+**Scenario 2: CI/CD Pipeline**
+```yaml
+# schemachange-config.yml - Team config checked into git
+snowflake:
+  warehouse: PROD_WH
+  role: DEPLOY_ROLE
+```
+```bash
+# GitHub Actions - Secrets from vault, override account per environment
+export SNOWFLAKE_USER=github_deploy_bot
+export SNOWFLAKE_PASSWORD=${{ secrets.SNOWFLAKE_PAT }}
+export SNOWFLAKE_ACCOUNT="myorg-prod"  # ENV overrides YAML
+schemachange deploy
+```
+
+**Scenario 3: Multi-Environment**
+```yaml
+# config-staging.yml
+snowflake:
+  account: myorg-staging
+  warehouse: STAGE_WH
+```
+```bash
+# Use staging config, but override warehouse for load testing
+export SNOWFLAKE_ACCOUNT="myorg-staging"
+schemachange deploy --config-folder ./configs -w LOAD_TEST_WH
+# ENV (account) + CLI (warehouse) both win over YAML
+```
+
+**Snowflake Python Connector Parameters:**
+
+schemachange now provides multiple ways to pass parameters to the Snowflake Python Connector:
+
+1. **Explicit Parameters** - Common connection parameters (`account`, `user`, `role`, `warehouse`, `database`, `schema`) can be specified via:
+   - CLI arguments (e.g., `--snowflake-account`, `-a`)
+   - Environment variables (e.g., `SNOWFLAKE_ACCOUNT`)
+   - YAML configuration (v1 or v2)
+   - connections.toml file
+
+2. **Additional Connector Parameters** - Any Snowflake connector parameter can be specified via:
+   - **Config Version 2 YAML:** Use the `snowflake:` section to specify any connector parameter
+   - **Generic `SNOWFLAKE_*` Environment Variables:** Any `SNOWFLAKE_*` variable not explicitly handled will be passed through to the connector
+   - **connections.toml file:** Full parameter set support
+
+**Example: Using Additional Connector Parameters**
+
+```yaml
+# Config Version 2 YAML (Recommended)
+config-version: 2
+
+snowflake:
+  account: 'myaccount.us-east-1'
+  user: 'my_user'
+  # Additional connector parameters
+  client-session-keep-alive: true
+  login-timeout: 60
+  network-timeout: 120
+```
+
+```bash
+# Environment Variables
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
+export SNOWFLAKE_CLIENT_SESSION_KEEP_ALIVE="true"
+export SNOWFLAKE_LOGIN_TIMEOUT="60"
+export SNOWFLAKE_NETWORK_TIMEOUT="120"
+
+schemachange deploy
+```
+
+For comprehensive connector documentation and the full list of connection parameters, see:
+- [Snowflake Python Connector Documentation](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect)
+- [Snowflake Connector API Reference](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-api) - Complete parameter reference for additional_snowflake_params
+
+### Account Identifier Format
+
+Snowflake account identifiers can be specified in multiple formats. Choose the format that matches your account setup:
+
+#### Legacy Format (Account Locator)
+```
+<account_locator>.<region>.<cloud>
+```
+**Examples:**
+- `xy12345.us-east-1.aws`
+- `ab67890.us-central1.gcp`
+- `cd34567.west-europe.azure`
+
+#### Preferred Format (Organization Name)
+```
+<orgname>-<account_name>
+```
+**Examples:**
+- `myorg-myaccount`
+- `acme-production`
+
+**How to find your account identifier:**
+1. Log into Snowflake Web UI
+2. Look at the URL or account locator in your profile
+3. Or run: `SELECT CURRENT_ACCOUNT_NAME();` in Snowflake
+
+**Important:** Do NOT include `snowflakecomputing.com` in the account identifier when configuring schemachange.
+
+For detailed information about account identifiers, see:
+- [Snowflake Account Identifiers](https://docs.snowflake.com/en/user-guide/admin-account-identifier)
+- [Connection Parameter Reference](https://docs.snowflake.com/en/user-guide/python-connector-api.html#label-account-format-info)
+
+### Required Snowflake Privileges
+
+The Snowflake user running schemachange needs appropriate privileges:
+
+**Minimum Required:**
+- `USAGE` on the target database and schema
+- `SELECT` and `INSERT` on the change history table
+- Privileges to execute your change scripts (e.g., `CREATE TABLE`, `CREATE VIEW`, etc.)
+
+**For automatic change history table creation:**
+- `CREATE SCHEMA` on the metadata database (if using `--create-change-history-table`)
+
+**Example privilege grants:**
+```sql
+-- Grant database and schema access
+GRANT USAGE ON DATABASE my_database TO ROLE deployment_role;
+GRANT USAGE ON SCHEMA my_database.my_schema TO ROLE deployment_role;
+
+-- Grant change history table access
+GRANT SELECT, INSERT ON TABLE metadata.schemachange.change_history TO ROLE deployment_role;
+
+-- Grant privileges for change scripts
+GRANT CREATE TABLE, CREATE VIEW ON SCHEMA my_database.my_schema TO ROLE deployment_role;
+```
+
+For more information about Snowflake access control:
+- [Snowflake Access Control Overview](https://docs.snowflake.com/en/user-guide/security-access-control-overview)
+- [GRANT Command Reference](https://docs.snowflake.com/en/sql-reference/sql/grant-privilege)
+
+## Upgrading to 4.1.0
+
+### New Authentication CLI Arguments (with Security Design Decision)
+
+**What's new:** Version 4.1.0 adds CLI support for authentication parameters (`--snowflake-authenticator`, `--snowflake-private-key-path`, `--snowflake-token-file-path`). These were not available via CLI in previous versions (4.0.x and earlier).
+
+**Important Security Design:** For security reasons, `--snowflake-private-key-passphrase` is **intentionally NOT supported via CLI**. Command-line arguments are visible in process lists (`ps aux`) and shell history files (`.bash_history`, `.zsh_history`), which would expose sensitive credentials to other users on the system and in log files.
+
+#### Using Private Key Authentication in 4.1.0
+
+✅ **Option 1: Environment variable (recommended for CI/CD):**
+```bash
+export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="my_passphrase"
+schemachange deploy \
+  --snowflake-authenticator snowflake_jwt \
+  --snowflake-private-key-path ~/.ssh/snowflake_key.p8
+```
+
+✅ **Option 2: connections.toml (recommended for local development):**
+
+Create or update `~/.snowflake/connections.toml`:
+```toml
+[production]
+account = "myaccount.us-east-1.aws"
+user = "service_account"
+authenticator = "snowflake_jwt"
+private_key_file = "~/.ssh/snowflake_key.p8"  # Recommended parameter name (matches Snowflake connector)
+private_key_file_pwd = "my_passphrase"         # Recommended parameter name (matches Snowflake connector)
+```
+
+**Important:** Set secure file permissions:
+```bash
+chmod 600 ~/.snowflake/connections.toml
+```
+
+Then deploy with the connection profile:
+```bash
+schemachange deploy -C production
+```
+
+✅ **Option 3: YAML config v2 + environment variable:**
+
+In `schemachange-config.yml`:
+```yaml
+config-version: 2
+
+snowflake:
+  account: myaccount.us-east-1
+  user: service_account
+  authenticator: snowflake_jwt
+  private-key-path: ~/.ssh/snowflake_key.p8
+  # Do NOT put private-key-passphrase here!
+```
+
+Then use environment variable for the passphrase:
+```bash
+export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="my_passphrase"
+schemachange deploy
+```
+
+❌ **NEVER use passphrase as a CLI argument** (this was never supported and will not work):
+```bash
+# This will fail - CLI passphrases are not supported for security
+schemachange deploy --snowflake-private-key-passphrase "my_passphrase"
+```
+
+**See [SECURITY.md](SECURITY.md) for comprehensive security best practices and authentication guidance.**
+
 ## Commands
 
 Schemachange supports a few subcommands. If the subcommand is not provided it defaults to deploy. This behaviour keeps
@@ -461,41 +1303,141 @@ compatibility with versions prior to 3.2.
 
 This is the main command that runs the deployment process.
 
-```bash
-usage: schemachange deploy [-h] [--config-folder CONFIG_FOLDER] [--config-file-name CONFIG_FILE_NAME] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [--connections-file-path CONNECTIONS_FILE_PATH] [--connection-name CONNECTION_NAME] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG]
-```
+**Usage:** `schemachange deploy [-h] [--config-folder CONFIG_FOLDER] [--config-file-name CONFIG_FILE_NAME] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-c CHANGE_HISTORY_TABLE] [-V VARS] [--create-change-history-table] [-ac] [--dry-run] [-Q QUERY_TAG] [-L LOG_LEVEL] [-C CONNECTION_NAME] [--connections-file-path CONNECTIONS_FILE_PATH] [-a ACCOUNT] [-u USER] [-r ROLE] [-w WAREHOUSE] [-d DATABASE] [-s SCHEMA] [--snowflake-authenticator AUTHENTICATOR] [--snowflake-private-key-path PATH] [--snowflake-token-file-path PATH]`
 
-| Parameter                                                            | Description                                                                                                                                                                                                                                                         |
-|----------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| -h, --help                                                           | Show the help message and exit                                                                                                                                                                                                                                      |
-| --config-folder CONFIG_FOLDER                                        | The folder to look in for the schemachange config file (the default is the current working directory)                                                                                                                                                               |
-| --config-file-name CONFIG_FILE_NAME                                  | The file name of the schemachange config file. (the default is schemachange-config.yml)                                                                                                                                                                             |
-| -f ROOT_FOLDER, --root-folder ROOT_FOLDER                            | The root folder for the database change scripts. The default is the current directory.                                                                                                                                                                              |
-| -m MODULES_FOLDER, --modules-folder MODULES_FOLDER                   | The modules folder for jinja macros and templates to be used across mutliple scripts                                                                                                                                                                                |
-| --connections-file-path CONNECTIONS_FILE_PATH                        | Override the default [connections.toml](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect#connecting-using-the-connections-toml-file) file path at snowflake.connector.constants.CONNECTIONS_FILE (OS specific)               |
-| --connection-name CONNECTION_NAME                                    | Override the default [connections.toml](https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect#connecting-using-the-connections-toml-file) connection name. Other connection-related values will override these connection values. |
-| -c CHANGE_HISTORY_TABLE, --change-history-table CHANGE_HISTORY_TABLE | Used to override the default name of the change history table (which is METADATA.SCHEMACHANGE.CHANGE_HISTORY)                                                                                                                                                       |
-| --vars VARS                                                          | Define values for the variables to replaced in change scripts, given in JSON format. Vars supplied via the command line will be merged with YAML-supplied vars (e.g. '{"variable1": "value1", "variable2": "value2"}')                                              |
-| --create-change-history-table                                        | Create the change history table if it does not exist. The default is 'False'.                                                                                                                                                                                       |
-| -ac, --autocommit                                                    | Enable autocommit feature for DML commands. The default is 'False'.                                                                                                                                                                                                 |
-| -v, --verbose                                                        | Display verbose debugging details during execution. The default is 'False'.                                                                                                                                                                                         |
-| --dry-run                                                            | Run schemachange in dry run mode. The default is 'False'.                                                                                                                                                                                                           |
-| --query-tag                                                          | A string to include in the QUERY_TAG that is attached to every SQL statement executed.                                                                                                                                                                              |
+#### Command-Line Arguments
+
+schemachange supports prefixed CLI arguments for better clarity and organization:
+- `--schemachange-*` for schemachange-specific parameters
+- `--snowflake-*` for Snowflake connection parameters
+
+Most arguments also support short forms (single dash, single letter) for convenience.
+
+**General Configuration**
+
+| Parameter | Description |
+|-----------|-------------|
+| `-h`, `--help` | Show the help message and exit |
+| `--config-folder` | The folder to look in for the schemachange config file (default: current working directory) |
+| `--config-file-name` | The file name of the schemachange config file (default: `schemachange-config.yml`) |
+
+**Schemachange Parameters**
+
+| Parameter | Environment Variable | Description |
+|-----------|---------------------|-------------|
+| `-f`<br/>`--schemachange-root-folder`<br/>`--root-folder` *(deprecated)* | `SCHEMACHANGE_ROOT_FOLDER` | The root folder for database change scripts (default: current directory) |
+| `-m`<br/>`--schemachange-modules-folder`<br/>`--modules-folder` *(deprecated)* | `SCHEMACHANGE_MODULES_FOLDER` | The modules folder for jinja macros and templates |
+| `-c`<br/>`--schemachange-change-history-table`<br/>`--change-history-table` *(deprecated)* | `SCHEMACHANGE_CHANGE_HISTORY_TABLE` | Override the default change history table name (default: `METADATA.SCHEMACHANGE.CHANGE_HISTORY`) |
+| `-V`<br/>`--schemachange-vars`<br/>`--vars` *(deprecated)* | `SCHEMACHANGE_VARS` | Define variables for scripts in JSON format. Merged with YAML vars (e.g., `'{"var1": "val1"}'`) |
+| `--schemachange-create-change-history-table`<br/>`--create-change-history-table` *(deprecated)* | `SCHEMACHANGE_CREATE_CHANGE_HISTORY_TABLE` | Create the change history table if it doesn't exist (default: false) |
+| `-ac`<br/>`--schemachange-autocommit`<br/>`--autocommit` *(deprecated)* | `SCHEMACHANGE_AUTOCOMMIT` | Enable autocommit for DML commands (default: false) |
+| `--schemachange-dry-run`<br/>`--dry-run` *(deprecated)* | `SCHEMACHANGE_DRY_RUN` | Run in dry run mode (default: false) |
+| `-Q`<br/>`--schemachange-query-tag`<br/>`--query-tag` *(deprecated)* | `SCHEMACHANGE_QUERY_TAG` | String to include in `QUERY_TAG` attached to every SQL statement |
+| `-L`<br/>`--schemachange-log-level`<br/>`--log-level` *(deprecated)* | `SCHEMACHANGE_LOG_LEVEL` | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` (default: `INFO`) |
+| `-C`<br/>`--schemachange-connection-name`<br/>`--connection-name` *(deprecated)* | `SCHEMACHANGE_CONNECTION_NAME` | Connection profile name from `connections.toml` |
+| `--schemachange-connections-file-path`<br/>`--connections-file-path` *(deprecated)* | `SCHEMACHANGE_CONNECTIONS_FILE_PATH` | Path to `connections.toml` file |
+| `-v`<br/>`--verbose` *(deprecated)* | | Use `-L DEBUG` or `--schemachange-log-level DEBUG` instead |
+
+**Snowflake Connection Parameters**
+
+| Parameter | Environment Variable | Description |
+|-----------|---------------------|-------------|
+| `-a`<br/>`--snowflake-account` | `SNOWFLAKE_ACCOUNT` | Snowflake account identifier (e.g., `myaccount.us-east-1`) |
+| `-u`<br/>`--snowflake-user` | `SNOWFLAKE_USER` | Username for authentication |
+| `-r`<br/>`--snowflake-role` | `SNOWFLAKE_ROLE` | Role to use after connecting |
+| `-w`<br/>`--snowflake-warehouse` | `SNOWFLAKE_WAREHOUSE` | Default warehouse |
+| `-d`<br/>`--snowflake-database` | `SNOWFLAKE_DATABASE` | Default database |
+| `-s`<br/>`--snowflake-schema` | `SNOWFLAKE_SCHEMA` | Default schema |
+| `--snowflake-authenticator` | `SNOWFLAKE_AUTHENTICATOR` | Authentication method (e.g., `snowflake`, `oauth`, `externalbrowser`, `snowflake_jwt`) |
+| `--snowflake-private-key-path` | `SNOWFLAKE_PRIVATE_KEY_PATH` | Path to private key file for JWT authentication |
+| `--snowflake-token-file-path` | `SNOWFLAKE_TOKEN_FILE_PATH` | Path to OAuth token file |
+
+**Snowflake Parameters (ENV/YAML/connections.toml only)**
+
+These parameters are **not available via CLI** for security reasons:
+
+| Environment Variable | YAML v2 Path | connections.toml | Description |
+|---------------------|--------------|------------------|-------------|
+| `SNOWFLAKE_PASSWORD` | `snowflake.password` | `password` | Password or Programmatic Access Token (PAT) for authentication |
+| `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` | `snowflake.private-key-passphrase` | `private_key_passphrase` | Passphrase for encrypted private key files |
+
+**Note on Argument Aliases:**
+- Multiple argument forms are supported for backward compatibility (e.g., `-f`, `--schemachange-root-folder`, `--root-folder`)
+- The recommended forms are the short forms (e.g., `-f`, `-m`, `-c`) or the explicit prefixed forms (e.g., `--schemachange-root-folder`)
+- Deprecated aliases (e.g., `--root-folder`, `--vars`, `--query-tag`) are noted in the help text but continue to work
+- All variants of an argument set the same configuration value
+- Use the prefixed forms (`--schemachange-*`, `--snowflake-*`) or short forms for clarity and future compatibility
 
 ### render
 
 This subcommand is used to render a single script to the console. It is intended to support the development and
 troubleshooting of script that use features from the jinja template engine.
 
-`usage: schemachange render [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [--vars VARS] [-v] script`
+**Usage:** `schemachange render [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-V VARS] [-L LOG_LEVEL] script`
 
-| Parameter                                          | Description                                                                                                                               |
-|----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
-| --config-folder CONFIG_FOLDER                      | The folder to look in for the schemachange-config.yml file (the default is the current working directory)                                 |
-| -f ROOT_FOLDER, --root-folder ROOT_FOLDER          | The root folder for the database change scripts                                                                                           |
-| -m MODULES_FOLDER, --modules-folder MODULES_FOLDER | The modules folder for jinja macros and templates to be used across multiple scripts                                                      |
-| --vars VARS                                        | Define values for the variables to replaced in change scripts, given in JSON format (e.g. {"variable1": "value1", "variable2": "value2"}) |
-| -v, --verbose                                      | Display verbose debugging details during execution (the default is False)                                                                 |
+| Parameter | Description |
+|-----------|-------------|
+| `--config-folder`<br/>`--schemachange-config-folder` | The folder to look in for the `schemachange-config.yml` file (default: current directory) |
+| `-f`<br/>`--schemachange-root-folder`<br/>`--root-folder` *(deprecated)* | The root folder for the database change scripts |
+| `-m`<br/>`--schemachange-modules-folder`<br/>`--modules-folder` *(deprecated)* | The modules folder for jinja macros and templates |
+| `-V`<br/>`--schemachange-vars`<br/>`--vars` *(deprecated)* | Define variables in JSON format (e.g., `'{"var1": "value1", "var2": "value2"}'`) |
+| `-L`<br/>`--schemachange-log-level`<br/>`--log-level` *(deprecated)* | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` (default: `INFO`) |
+| `script` | Path to the script to render |
+
+### verify
+
+This subcommand tests Snowflake connectivity and displays all configuration parameters being used. It is useful for troubleshooting connection issues, validating credentials before deployment, and auditing configuration in CI/CD pipelines.
+
+**Usage:** `schemachange verify [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-V VARS] [-L LOG_LEVEL] [-a ACCOUNT] [-u USER] [-r ROLE] [-w WAREHOUSE] [-d DATABASE] [-s SCHEMA] [--snowflake-authenticator AUTHENTICATOR] [--snowflake-private-key-path PATH] [--snowflake-token-file-path PATH] [-C CONNECTION_NAME] [--schemachange-connections-file-path PATH]`
+
+**What it does:**
+- Tests connection to Snowflake with your configured credentials
+- Displays all configuration parameters (with secrets masked)
+- Shows connection details after successful connection (session ID, Snowflake version)
+- Provides clear troubleshooting guidance if connection fails
+
+**Common Use Cases:**
+```bash
+# Test connection with environment variables
+schemachange verify
+
+# Test connection with specific credentials
+schemachange verify -a myaccount.us-east-1 -u myuser -r MYROLE
+
+# Test connection with connections.toml profile
+schemachange verify -C production
+
+# Test configuration from YAML file
+schemachange verify --config-folder ./config
+```
+
+**Configuration Parameters:**
+
+The verify command accepts the same configuration parameters as deploy (except deployment-specific options like `--change-history-table`, `--autocommit`, etc.):
+
+| Parameter Category | Parameters |
+|-------------------|------------|
+| **Schemachange Config** | `--config-folder`, `-f`/`--schemachange-root-folder`, `-m`/`--schemachange-modules-folder`, `-V`/`--schemachange-vars`, `-L`/`--schemachange-log-level` |
+| **Snowflake Connection** | `-a`/`--snowflake-account`, `-u`/`--snowflake-user`, `-r`/`--snowflake-role`, `-w`/`--snowflake-warehouse`, `-d`/`--snowflake-database`, `-s`/`--snowflake-schema` |
+| **Authentication** | `--snowflake-authenticator`, `--snowflake-private-key-path`, `--snowflake-token-file-path` |
+| **Connection Profile** | `-C`/`--schemachange-connection-name`, `--schemachange-connections-file-path` |
+
+**Note:** For security, passwords and private key passphrases are NOT accepted via CLI arguments. Use `SNOWFLAKE_PASSWORD` and `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` environment variables, or store them in `connections.toml` (with proper file permissions). See [SECURITY.md](SECURITY.md) for security best practices.
+
+## Troubleshooting
+
+For detailed troubleshooting guidance including common errors and solutions, see **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)**.
+
+**Quick diagnostics:** Use the [`verify` command](#verify) to test connectivity and validate your configuration:
+```bash
+schemachange verify
+```
+
+Common issues covered in the troubleshooting guide:
+- Connection errors (authentication failures, network issues)
+- Permission and access errors (missing tables, insufficient privileges)
+- Security warnings (insecure file permissions, credentials in YAML)
+- Configuration and script errors (Jinja templates, invalid JSON)
 
 ## Running schemachange
 
@@ -503,9 +1445,8 @@ troubleshooting of script that use features from the jinja template engine.
 
 In order to run schemachange you must have the following:
 
-* You will need to have a recent version of python 3 installed
-* You will need to have the
-  latest [Snowflake Python driver installed](https://docs.snowflake.com/en/user-guide/python-connector-install.html)
+* **Python 3.10 or later** - schemachange requires Python 3.10 or newer (see [Supported Python Versions](#supported-python-versions) below)
+* **Snowflake Python Connector (version 2.8+, but < 5.0)** - Install via `pip install schemachange` which includes the appropriate connector version. See the [Snowflake Python Connector documentation](https://docs.snowflake.com/en/user-guide/python-connector-install.html) for more details
 * You will need to create the change history table used by schemachange in Snowflake (
   see [Change History Table](#change-history-table) above for more details)
     * First, you will need to create a database to store your change history table (schemachange will not help you with
@@ -521,20 +1462,35 @@ In order to run schemachange you must have the following:
 * You will need to create (or choose) a user account that has privileges to apply the changes in your change script
     * Don't forget that this user also needs the SELECT and INSERT privileges on the change history table
 
+### Supported Python Versions
+
+schemachange follows Python's official [end-of-life schedule](https://endoflife.date/python). When a Python version reaches EOL, support may be dropped in the next major schemachange release.
+
+| Python Version | Status | Notes |
+|----------------|--------|-------|
+| 3.13 | ✅ Supported | Fully tested and supported |
+| 3.12 | ✅ Supported | Fully tested and supported |
+| 3.11 | ✅ Supported | Fully tested and supported |
+| 3.10 | ✅ Supported | Minimum required version |
+| 3.9 | ❌ Not supported | Dropped in version 4.1.0 (reached EOL October 31, 2025) |
+| 3.8 | ❌ Not supported | Dropped in version 4.0.0 |
+
 ### Running the Script
 
 schemachange is a single python script located at [schemachange/cli.py](schemachange/cli.py). It can be executed as
 follows:
 
-```
-python schemachange/cli.py [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--connections-file-path] [--connection-name]
+```bash
+python schemachange/cli.py [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-c CHANGE_HISTORY_TABLE] [-V VARS] [--create-change-history-table] [-ac] [-L LOG_LEVEL] [--dry-run] [-Q QUERY_TAG] [--connections-file-path CONNECTIONS_FILE_PATH] [-C CONNECTION_NAME]
 ```
 
 Or if installed via `pip`, it can be executed as follows:
 
+```bash
+schemachange deploy [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-c CHANGE_HISTORY_TABLE] [-V VARS] [--create-change-history-table] [-ac] [-L LOG_LEVEL] [--dry-run] [-Q QUERY_TAG] [--connections-file-path CONNECTIONS_FILE_PATH] [-C CONNECTION_NAME]
 ```
-schemachange [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--connections-file-path] [--connection-name]
-```
+
+**Note:** All arguments support multiple forms for backward compatibility. See the [deploy command](#deploy) section for the full list of argument variants.
 
 The [demo](demo) folder in this project repository contains three schemachange demo projects for you to try out. These
 demos showcase the basics and a couple of advanced examples based on the standard Snowflake Citibike demo which can be
@@ -572,7 +1528,7 @@ If your build agent has a recent version of python 3 installed, the script can b
 
 ```bash
 pip install schemachange --upgrade
-schemachange [-h] [-f ROOT_FOLDER] [-c CHANGE_HISTORY_TABLE] [--vars VARS] [--create-change-history-table] [-ac] [-v] [--dry-run] [--query-tag QUERY_TAG] [--connections-file-path] [--connection-name]
+schemachange deploy [-f ROOT_FOLDER] [-c CHANGE_HISTORY_TABLE] [-V VARS] [--create-change-history-table] [-ac] [-L LOG_LEVEL] [--dry-run] [-Q QUERY_TAG] [--connections-file-path CONNECTIONS_FILE_PATH] [-C CONNECTION_NAME]
 ```
 
 Or if you prefer docker, run like so:

@@ -1,0 +1,63 @@
+# schemachange YAML Configuration File - Version 2
+# This version uses separate sections for schemachange and Snowflake configuration
+
+config-version: 2
+
+schemachange:
+  # Execution options
+  autocommit: false
+  dry-run: false
+  query-tag: 'schemachange-deployment'
+
+  # Connections configuration (part of schemachange section since it's about config management)
+  # connections-file-path: '~/.snowflake/connections.toml'
+  # connection-name: 'default'
+
+  # Variables for Jinja template rendering
+  vars:
+    environment: 'dev'
+    app_name: 'my_application'
+    secrets:
+      api_key: '${API_KEY}'  # Can reference environment variables
+
+  # Logging
+  log-level: 'INFO'
+
+
+snowflake:
+  # Standard Snowflake connection parameters
+  schema: 'PUBLIC'
+
+  # Authentication (choose one method)
+  # Method 1: Use connections.toml (recommended - configured in schemachange section above)
+
+  # Method 2: JWT authentication
+  # authenticator: 'snowflake_jwt'
+  # private-key-path: '~/.ssh/snowflake_key.p8'
+  # SECURITY WARNING: Do NOT store private-key-passphrase in YAML files!
+  # Use SNOWFLAKE_PRIVATE_KEY_PASSPHRASE environment variable or connections.toml instead.
+  # See SECURITY.md for best practices.
+
+  # Method 3: OAuth
+  # authenticator: 'oauth'
+  # token-file-path: '~/.snowflake/oauth_token.txt'
+
+  # Method 4: External browser (SSO)
+  # authenticator: 'externalbrowser'
+
+  # Method 5: Okta
+  # authenticator: 'https://myorg.okta.com'
+
+  # Additional Snowflake connector parameters (passed directly to snowflake.connector.connect())
+  # These are optional and provide fine-tuned control over the connection
+  client-session-keep-alive: true
+  login-timeout: 30
+  network-timeout: 60
+  # socket-timeout: 60
+  # validate-default-parameters: true
+  # ocsp-fail-open: true
+  # disable-request-pooling: false
+  # client-prefetch-threads: 4
+
+# Configuration Priority: CLI > ENV > YAML > connections.toml
+# See README.md#configuration-priority for complete details and examples

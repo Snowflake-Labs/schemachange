@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "schemachange"
-version = "4.0.1"
+version = "4.1.0"
 description = "A Database Change Management tool for Snowflake"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
 authors = [
     {name = "jamesweakley/jeremiahhansen"},
@@ -17,17 +17,17 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
     "cryptography",
     "jinja2~=3.0",
     "pyyaml~=6.0",
     "requests",
-    "snowflake-connector-python>=2.8,<4.0",
+    "snowflake-connector-python>=2.8,<5.0",
     "structlog~=24.1.0",
 ]
 
@@ -61,7 +61,7 @@ include = [
 
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
@@ -85,4 +85,4 @@ python_functions = ["test_*"]
 
 [tool.black]
 line-length = 120
-target-version = ["py39", "py310", "py311", "py312"]
+target-version = ["py310", "py311", "py312", "py313"]

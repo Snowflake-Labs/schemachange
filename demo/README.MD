@@ -1,69 +1,242 @@
-# Demo
+# Schemachange Demos
 
-The contents of this Demo serves two audiences - Consumers and Contributors. For the Consumer, the demo provides a basis
-to see how schemachange works with the main feature set. For the contributor, who forks the repo and submits PRs to the
-codebase, this will serve as a basis to test the PR against your own snowflake account to ensure your code change does
-not break any existing functionality.
+Get hands-on with schemachange! Three practical demos show you how database change management works in real-world scenarios.
 
-## Prerequisites
+## 🚀 Quick Start
 
-- You will need your own snowflake Account to test the Demo - Both as a contributor and consumer.
-- You will need to review and run statements in the provision folder or set up your own database and schema.
-    - [initialize.sql](provision/initialize.sql): Contains the SQL variables to initialize your environment.
-    - [setup_schemachange_schema.sql](provision/setup_schemachange_schema.sql): Contains the SQL variables to track the
-      individual demo scenarios in its own change history table.
+**Want to see schemachange in action in 5 minutes?**
 
-### Consumers
+### 1. Choose Your Demo
 
-- If you are consumer who is installing schemachange and wants to test-run the demo, then you will have to set the
-  following environment variables.
-    - SNOWFLAKE_ACCOUNT: This will be the account identifier for your Snowflake account.
-    - SNOWFLAKE_USER: This will be the user that will connect to your Snowflake account (`SNOWFLAKE_ACCOUNT`).
-    - SNOWFLAKE_PASSWORD: This is the password for the user (`SNOWFLAKE_USER`) that will connect to your Snowflake
-      account (`SNOWFLAKE_ACCOUNT`).
-    - SCENARIO_NAME: This will be demo folder you intend to experiment with. For
-      starters, `basics_demo`, `citibike_demo` or `citibike_demo_jinja` are included with the repo that will set the
-      root folder value in the respective schemachange-config.yml file.
-    - SNOWFLAKE_WAREHOUSE: This will be the warehouse you set up for the demo in your Snowflake
-      account (`SNOWFLAKE_ACCOUNT`). Default setup is SCHEMACHANGE_DEMO_WH.
-    - SNOWFLAKE_DATABASE Keyed to SCHEMACHANGE_DEMO. You can update this to the database in your snowflake account
-      (`SNOWFLAKE_ACCOUNT`). You will also need to update the provision scripts accordingly.
-    - SNOWFLAKE_ROLE Keyed to SCHEMACHANGE_DEMO-DEPLOY. This particular role name was chosen to test hyphenated roles
-      in schemachange. You can update this value to match the role you have setup in your snowflake
-      account (`SNOWFLAKE_ACCOUNT`).
+| Demo | What It Shows | Best For |
+|------|--------------|----------|
+| [basics_demo](basics_demo/) | Core functionality - create tables, views, basic migrations | First-time users, learning the basics |
+| [citibike_demo](citibike_demo/) | Real-world data pipeline - loading and transforming data | Understanding practical use cases |
+| [citibike_demo_jinja](citibike_demo_jinja/) | Advanced templating with Jinja macros | Power users, complex workflows |
 
-The scripts in the `provision` folder can be used to set up up your demo database along with a schema in that database
-that will house the change tracking tables needed to set up and teardown the schemas used to test a working version of
-the demo DDL scripts.
+### 2. Set Up Your Snowflake Environment
 
-- The [initialize](provision/initialize.sql) script setups the database, warehouse and account level access roles that
-  will be used on the
-- The [setup](provision/setup_schemachange_schema.sql) script creates the `SCHEMACHANGE` schema in the database that you
-  created in the initialize step.
+**You'll need:**
+- ✅ A Snowflake account (free trial works great!)
+- ✅ A database and warehouse (we'll help you create these)
+- ✅ Credentials with deployment privileges
 
-### Contributors
+**Quick setup:**
+1. Run [initialize.sql](provision/initialize.sql) - Creates database, warehouse, and roles
+2. Run [setup_schemachange_schema.sql](provision/setup_schemachange_schema.sql) - Creates the change tracking schema
 
-1. Execute the [initialize.sql](provision/initialize.sql)
-   and [setup_schemachange_schema.sql](provision/setup_schemachange_schema.sql) scripts to create up a
-   `SCHEMACHANGE_DEMO`
-   database and `SCHEMACHANGE` schema (See [Prerequisites](#prerequisites)).
+### 3. Authenticate
 
-2. Create the
-   following [GitHub Action Secrets](https://docs.github.com/en/actions/security-for-github-actions/security-guides/using-secrets-in-github-actions)
-   in your forked repository. GitHub will use these actions to set up and teardown the temporary schema(s) it creates to
-   test your code.
+Choose your authentication method:
 
-    - `SCHEMACHANGE_SNOWFLAKE_PASSWORD`
-    - `SCHEMACHANGE_SNOWFLAKE_USER`
-    - `SCHEMACHANGE_SNOWFLAKE_ACCOUNT`
+**🔐 For local testing (recommended for first-timers):**
+```bash
+# Use connections.toml for convenience
+cat > ~/.snowflake/connections.toml << EOF
+[demo]
+account = "myaccount.us-east-1"
+user = "my_user"
+password = "my_password_or_pat"
+role = "SCHEMACHANGE_DEMO-DEPLOY"
+warehouse = "SCHEMACHANGE_DEMO_WH"
+database = "SCHEMACHANGE_DEMO"
+EOF
 
-# Setup
+chmod 600 ~/.snowflake/connections.toml
+schemachange deploy -C demo --config-folder ./demo/basics_demo
+```
 
-The setup scripts are included to build the schema needed by the GitHub Actions Workflow to avoid conflict across jobs
-when tested in parallel. The Setup script will create a new schema to run the schemachange script for the corresponding
-scenario.
+**🤖 For CI/CD (recommended for automation):**
+```bash
+# Use environment variables (keeps secrets out of version control)
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_USER="service_account"
+export SNOWFLAKE_PASSWORD="<your_pat_token>"  # Use a PAT for MFA accounts
+export SNOWFLAKE_ROLE="SCHEMACHANGE_DEMO-DEPLOY"
+export SNOWFLAKE_WAREHOUSE="SCHEMACHANGE_DEMO_WH"
+export SNOWFLAKE_DATABASE="SCHEMACHANGE_DEMO"
 
-# Teardown
+schemachange deploy --config-folder ./demo/basics_demo
+```
 
-The Teardown scripts are the bookend pairing of the Setup script for each scenario so that when the build process is
-done using GitHub actions, you will have a log of the testing done to ensure that schemachange is working as expected.
+**📚 Need JWT, SSO, or other authentication methods?** See the [Authentication Guide](../README.md#authentication) in the main README.
+
+### 4. Run Your First Demo
+
+```bash
+# If using connections.toml:
+schemachange deploy -C demo --config-folder ./demo/basics_demo
+
+# If using environment variables:
+schemachange deploy --config-folder ./demo/basics_demo
+```
+
+**🎉 Success!** You should see:
+- ✅ Connection established
+- ✅ Change history table created
+- ✅ Migration scripts executed
+- ✅ Changes logged
+
+**What happened?** Schemachange read your migration scripts in order, executed them against Snowflake, and tracked which changes were applied in a change history table.
+
+---
+
+## 💡 Who Is This For?
+
+### 🧪 Trying Schemachange? (Evaluators & Users)
+
+**You want to:**
+- See schemachange in action before adopting it
+- Learn how database change management works
+- Get working examples for your team
+- Understand the workflow
+
+**→ Start with:** [Quick Start](#quick-start) above, then explore [Demo Details](#demo-details) below
+
+---
+
+### 🔧 Contributing to Schemachange? (Developers)
+
+**You want to:**
+- Test your bug fix or feature against a real Snowflake account
+- Run CI/CD tests locally before submitting a PR
+- Ensure your changes don't break existing functionality
+
+**→ Jump to:** [Contributor Setup](#contributor-setup) below
+
+## 📚 Demo Details
+
+### basics_demo
+
+**What you'll learn:**
+- How to create and version database objects (tables, views)
+- Basic migration script naming conventions
+- Change history tracking
+
+**Key scripts:**
+- `V1.0.0__initial_setup.sql` - Creates first tables
+- `V1.0.1__add_columns.sql` - Demonstrates schema evolution
+- `R__view.sql` - Repeatable script (runs every time)
+
+**Run it:**
+```bash
+schemachange deploy --config-folder ./demo/basics_demo
+```
+
+---
+
+### citibike_demo
+
+**What you'll learn:**
+- Real-world data pipeline setup
+- Loading external data from S3
+- Creating stages and file formats
+- Data transformation workflows
+
+**Based on:** NYC Citi Bike open dataset
+
+**Run it:**
+```bash
+schemachange deploy --config-folder ./demo/citibike_demo
+```
+
+---
+
+### citibike_demo_jinja
+
+**What you'll learn:**
+- Jinja templating for reusable SQL
+- Macro creation and usage
+- Dynamic SQL generation
+- Complex deployment patterns
+
+**Extends:** citibike_demo with advanced templating
+
+**Run it:**
+```bash
+schemachange deploy --config-folder ./demo/citibike_demo_jinja
+```
+
+## 🔧 Contributor Setup
+
+**Contributing to schemachange?** Test your changes locally before submitting a PR!
+
+### Prerequisites
+
+1. **Fork the repository** and clone it locally
+2. **Run the provision scripts** to set up your test environment:
+   ```bash
+   # Run these in Snowflake (via Snowflake CLI, Snowsight, or any SQL client)
+   # 1. Creates database, warehouse, and roles
+   cd provision
+   snow sql -f initialize.sql
+
+   # 2. Creates the SCHEMACHANGE schema for tracking
+   snow sql -f setup_schemachange_schema.sql
+   ```
+
+3. **Set up authentication** (see [Quick Start - Step 3](#3-authenticate) above or the [Authentication Guide](../README.md#authentication) for more options)
+
+### Running Tests Locally
+
+```bash
+# Test your changes against basics_demo
+export SNOWFLAKE_ACCOUNT="myaccount"
+export SNOWFLAKE_USER="my_user"
+export SNOWFLAKE_PASSWORD="<your_password_or_pat>"
+export SNOWFLAKE_ROLE="SCHEMACHANGE_DEMO-DEPLOY"
+export SNOWFLAKE_WAREHOUSE="SCHEMACHANGE_DEMO_WH"
+export SNOWFLAKE_DATABASE="SCHEMACHANGE_DEMO"
+
+# Run a demo to test your code
+python -m schemachange deploy --config-folder ./demo/basics_demo
+```
+
+### GitHub Actions Setup
+
+**To run CI/CD tests in your fork:**
+
+1. **Navigate to:** Your Fork → Settings → Secrets and Variables → Actions
+2. **Add these secrets:**
+   - `SCHEMACHANGE_SNOWFLAKE_ACCOUNT` - Your Snowflake account identifier
+   - `SCHEMACHANGE_SNOWFLAKE_USER` - Service account username
+   - `SCHEMACHANGE_SNOWFLAKE_PASSWORD` - Service account password or PAT
+
+3. **Push your branch** - GitHub Actions will automatically run the demo tests
+
+**What the CI/CD tests do:**
+- ✅ Run setup scripts to create temporary test schemas
+- ✅ Execute all three demos (basics, citibike, citibike_jinja)
+- ✅ Verify your changes don't break existing functionality
+- ✅ Run teardown scripts to clean up
+
+---
+
+## 📖 Additional Resources
+
+**Need more help?**
+- 📘 [Main README](../README.md) - Complete schemachange documentation
+- 🔐 [Authentication Guide](../README.md#authentication) - JWT, PAT, SSO, and all authentication methods
+- 🔧 [Configuration Guide](../README.md#configuration) - connections.toml, YAML, ENV variables, and precedence rules
+- 🛡️ [SECURITY.md](../SECURITY.md) - Security best practices for credential management
+- 🐛 [TROUBLESHOOTING.md](../TROUBLESHOOTING.md) - Common issues and solutions
+- 🤝 [CONTRIBUTING.md](../.github/CONTRIBUTING.md) - How to contribute to schemachange
+- 🌐 [GitHub Issues](https://github.com/Snowflake-Labs/schemachange/issues) - Report bugs or request features
+
+**Quick references from main README:**
+- [Environment Variables](../README.md#environment-variables) - Complete ENV variable reference
+- [Configuration Priority](../README.md#configuration-priority) - Understanding the precedence chain
+- [CLI Arguments](../README.md#commands) - All command-line options
+- [Session Parameters](../README.md#session-parameters-in-connectionstoml) - Advanced session parameter configuration
+
+---
+
+## 💬 Questions?
+
+- **Using schemachange:** Open a [GitHub Discussion](https://github.com/Snowflake-Labs/schemachange/discussions)
+- **Found a bug:** Open a [GitHub Issue](https://github.com/Snowflake-Labs/schemachange/issues)
+- **Want to contribute:** See [CONTRIBUTING.md](../.github/CONTRIBUTING.md)
+
+---
+
+**Happy deploying! 🚀**

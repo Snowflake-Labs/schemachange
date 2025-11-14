@@ -34,6 +34,4 @@ class RenderConfig(BaseConfig):
 
     def __post_init__(self):
         if self.script_path is None:
-            raise TypeError(
-                "RenderConfig is missing 1 required argument: 'script_path'"
-            )
+            raise TypeError("RenderConfig is missing 1 required argument: 'script_path'")

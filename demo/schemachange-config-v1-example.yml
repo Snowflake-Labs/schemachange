@@ -1,0 +1,55 @@
+# schemachange YAML Configuration File - Version 1 (Legacy Format)
+# This is the traditional flat structure format
+# Maintained for backward compatibility
+
+config-version: 1
+
+# The root folder for the database change scripts
+root-folder: './migrations'
+
+# The modules folder for jinja macros and templates
+modules-folder: './modules'
+
+# Snowflake connection parameters (DEPRECATED in config - use connections.toml instead)
+# These are kept for backward compatibility but will show deprecation warnings
+snowflake-account: 'myaccount.us-east-1'
+snowflake-user: 'schemachange_user'
+snowflake-role: 'DEPLOYMENT_ROLE'
+snowflake-warehouse: 'DEPLOYMENT_WH'
+snowflake-database: 'MY_DATABASE'
+snowflake-schema: 'PUBLIC'
+
+# Connections file configuration
+connections-file-path: '~/.snowflake/connections.toml'
+connection-name: 'default'
+
+# Change history table configuration
+change-history-table: 'METADATA.SCHEMACHANGE.CHANGE_HISTORY'
+create-change-history-table: false
+
+# Execution options
+autocommit: false
+dry-run: false
+query-tag: 'schemachange-deployment'
+
+# Variables for Jinja template rendering
+vars:
+  environment: 'dev'
+  app_name: 'my_application'
+  secrets:
+    api_key: '${API_KEY}'
+
+# Logging
+# Note: Using the old --log-level will show deprecation warning
+# Recommend using -L or --schemachange-log-level in CLI
+
+# Version validation
+version-number-validation-regex: '^[0-9]+\.[0-9]+\.[0-9]+$'
+raise-exception-on-ignored-versioned-script: false
+
+# Note: Version 1 format limitations:
+# 1. Cannot specify additional Snowflake connector parameters (like client-session-keep-alive)
+# 2. Mixing schemachange and Snowflake parameters at root level is less organized
+# 3. Snowflake connection parameters in YAML will show deprecation warnings
+#
+# Consider migrating to Version 2 format for better organization and additional features.

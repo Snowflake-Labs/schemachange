@@ -26,8 +26,6 @@ class JinjaEnvVar(jinja2.ext.Extension):
             result = os.environ[env_var]
 
         if result is None:
-            raise ValueError(
-                f"Could not find environmental variable {env_var} and no default value was provided"
-            )
+            raise ValueError(f"Could not find environmental variable {env_var} and no default value was provided")
 
         return result
