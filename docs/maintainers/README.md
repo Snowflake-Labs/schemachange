@@ -6,33 +6,67 @@ This folder contains guides for maintaining the schemachange repository with min
 
 ---
 
+## 🚀 New Maintainer? Start Here!
+
+**[QUICK_START.md](QUICK_START.md)** - Your 30-minute setup guide
+- What's already done
+- 3 remaining tasks to complete
+- Weekly & monthly routines
+- Bookmarks and key links
+
+---
+
 ## 📚 Documentation Index
 
 ### Essential Reading
 
-1. **[REPOSITORY_ECOSYSTEM.md](REPOSITORY_ECOSYSTEM.md)** - START HERE
-   - Complete overview of how everything works together
-   - Automation workflows explained
+1. **[REPOSITORY_ECOSYSTEM.md](REPOSITORY_ECOSYSTEM.md)** - How everything works
+   - Complete overview of automation and workflows
    - Weekly maintenance workflow (15 min)
    - What's implemented vs. what's optional
    - File organization and purpose
 
 ### Setup Guides (One-Time)
 
-2. **[PROJECT_SETUP.md](PROJECT_SETUP.md)** - 15 minutes
-   - Set up GitHub Projects for auto-updating roadmap
+2. **[GITHUB_MANAGEMENT_WITHOUT_PROJECTS.md](GITHUB_MANAGEMENT_WITHOUT_PROJECTS.md)** - START HERE FOR SETUP
+   - Complete toolkit for managing without GitHub Projects
+   - 30-minute quick start guide
+   - Daily/weekly/monthly workflows
+   - All the power, zero permission hassles
+
+3. **[MILESTONE_SETUP.md](MILESTONE_SETUP.md)** - 10 minutes
+   - Set up release milestones (4.2.0, 4.3.0, 5.0.0)
+   - Automated script for quick setup
+   - Milestone + label strategy
+   - Bulk operations guide
+
+4. **[ROADMAP_ISSUE_TEMPLATE.md](ROADMAP_ISSUE_TEMPLATE.md)** - 10 minutes
+   - Create a pinned issue as your public roadmap
+   - Template for communicating with community
+   - Alternative to GitHub Projects
+   - 5-minute monthly maintenance
+
+5. **[PROJECT_SETUP.md](PROJECT_SETUP.md)** - OPTIONAL (15 minutes)
+   - Set up GitHub Projects if you have org permissions
    - Create views and automation
    - Zero-maintenance visualization
+   - Not required - milestones work great!
 
-3. **[DISCUSSION_CATEGORIES.md](DISCUSSION_CATEGORIES.md)** - 30 minutes
+6. **[DISCUSSION_CATEGORIES.md](DISCUSSION_CATEGORIES.md)** - 30 minutes
    - Enable and configure GitHub Discussions
    - Set up categories (Q&A, Ideas, General, etc.)
    - Create pinned welcome posts
 
-4. **[DISCUSSION_TEMPLATES/](DISCUSSION_TEMPLATES/)** - Reference
+7. **[DISCUSSION_TEMPLATES/](DISCUSSION_TEMPLATES/)** - Reference
    - Templates to copy when creating pinned discussions
    - `00_welcome.md` - Welcome post
    - `01_roadmap.md` - Roadmap post (update links to your project)
+
+### Helper Scripts
+
+8. **[scripts/](scripts/)** - Automation helpers
+   - `setup-milestones.sh` - One-time milestone creation
+   - Add your own scripts for common tasks
 
 ---
 
@@ -43,9 +77,13 @@ This folder contains guides for maintaining the schemachange repository with min
 2. Review workflows in `.github/workflows/` (10 min)
 3. Check label structure: `gh label list` (5 min)
 
-### Week 2: Optional Setup
-1. Set up GitHub Projects (optional but nice): [PROJECT_SETUP.md](PROJECT_SETUP.md) (15 min)
-2. Enable Discussions (optional but reduces issue noise): [DISCUSSION_CATEGORIES.md](DISCUSSION_CATEGORIES.md) (30 min)
+### Week 2: Essential Setup
+1. **Set up Milestones:** [GITHUB_MANAGEMENT_WITHOUT_PROJECTS.md](GITHUB_MANAGEMENT_WITHOUT_PROJECTS.md) (30 min)
+   - Run `scripts/setup-milestones.sh` (10 min)
+   - Assign existing issues to milestones (10 min)
+   - Create pinned roadmap issue (10 min)
+
+2. **Enable Discussions** (optional but reduces issue noise): [DISCUSSION_CATEGORIES.md](DISCUSSION_CATEGORIES.md) (30 min)
 
 ### Ongoing: Weekly Maintenance
 **Total time: 15 minutes/week = 1 hour/month**
@@ -251,15 +289,18 @@ gh issue edit <number> --add-label "priority: critical"
 
 ### "I want to see the big picture"
 
-If you set up GitHub Projects:
+**Via Milestones** (recommended):
+```bash
+gh milestone list                    # See all milestones
+gh milestone view "4.2.0"           # Current release progress
+gh issue list --milestone "4.2.0"   # All issues in milestone
+```
+
+Or bookmark: https://github.com/Snowflake-Labs/schemachange/milestones
+
+**Via GitHub Projects** (if you set it up):
 - View: "Roadmap" - See all releases at a glance
 - View: "Current Release" - See progress on current work
-
-If not using Projects:
-```bash
-gh issue list --milestone "4.2.0"
-gh pr list --label "target: 4.2.0"
-```
 
 ---
 
