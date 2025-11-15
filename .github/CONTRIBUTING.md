@@ -7,7 +7,7 @@ Thank you for your interest in contributing! This guide will get you started qui
 ```bash
 # 1. Fork and clone the repo
 git clone https://github.com/YOUR_USERNAME/schemachange.git
-cd schemachange
+    cd schemachange
 
 # 2. Install dependencies
 pip install -e .[dev]
@@ -61,15 +61,15 @@ We're a small team (~1 hour/month maintenance), so we appreciate your patience!
 
 We use `ruff` for linting and formatting. Install pre-commit hooks for automatic formatting:
 
-```bash
+       ```bash
 pre-commit install
-```
+       ```
 
 Now your code will be automatically formatted on commit!
 
 ## Testing
 
-```bash
+       ```bash
 # Run all tests
 pytest
 

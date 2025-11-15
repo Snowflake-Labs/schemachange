@@ -4,18 +4,6 @@
 
 This folder contains guides for maintaining the schemachange repository with minimal time investment (~1 hour/month).
 
----
-
-## 🚀 New Maintainer? Start Here!
-
-**[QUICK_START.md](QUICK_START.md)** - Your 30-minute setup guide
-- What's already done
-- 3 remaining tasks to complete
-- Weekly & monthly routines
-- Bookmarks and key links
-
----
-
 ## 📚 Documentation Index
 
 ### Essential Reading
@@ -70,39 +58,27 @@ This folder contains guides for maintaining the schemachange repository with min
 
 ---
 
-## 🎯 Quick Start for New Maintainers
+## 🎯 Getting Started
 
-### Week 1: Familiarize
-1. Read [REPOSITORY_ECOSYSTEM.md](REPOSITORY_ECOSYSTEM.md) (15 min)
-2. Review workflows in `.github/workflows/` (10 min)
-3. Check label structure: `gh label list` (5 min)
+**New to maintaining this repository?**
 
-### Week 2: Essential Setup
-1. **Set up Milestones:** [GITHUB_MANAGEMENT_WITHOUT_PROJECTS.md](GITHUB_MANAGEMENT_WITHOUT_PROJECTS.md) (30 min)
-   - Run `scripts/setup-milestones.sh` (10 min)
-   - Assign existing issues to milestones (10 min)
-   - Create pinned roadmap issue (10 min)
+1. Read [REPOSITORY_ECOSYSTEM.md](REPOSITORY_ECOSYSTEM.md) to understand how everything works
+2. Review [GITHUB_MANAGEMENT_WITHOUT_PROJECTS.md](GITHUB_MANAGEMENT_WITHOUT_PROJECTS.md) for day-to-day workflows
+3. Check `.github/workflows/` to see what's automated
 
-2. **Enable Discussions** (optional but reduces issue noise): [DISCUSSION_CATEGORIES.md](DISCUSSION_CATEGORIES.md) (30 min)
-
-### Ongoing: Weekly Maintenance
-**Total time: 15 minutes/week = 1 hour/month**
-
+**Typical weekly routine** (15 min):
 ```bash
-# Monday morning routine (15 min)
-
-# 1. Check critical items (2 min)
+# Check critical items
 gh issue list --label "priority: critical"
 
-# 2. Check PRs ready for review (5 min)
+# Review PRs
 gh pr list --label "status: needs-review"
 
-# 3. Review and merge (8 min)
-gh pr review <number> --approve --body "LGTM! Thanks!"
-gh pr merge <number> --squash --delete-branch
+# Triage new issues (add milestone + priority)
+gh issue list --label "status: needs-triage"
 ```
 
-**That's it!** Automation handles the rest.
+Automation handles the rest.
 
 ---
 

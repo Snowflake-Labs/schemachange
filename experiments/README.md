@@ -22,14 +22,17 @@ This is a **scratchpad for maintainers** to:
 ## What's Typically Here
 
 When maintainers are working, you might find:
-- Release planning documents (e.g., `4.3.0_RELEASE_PLAN.md`)
-- Assessment documents (e.g., `PR_REVIEW_*.md`)
-- Test scripts (e.g., `test.sh`)
-- Draft documentation
-- Analysis and investigations
-- Flowcharts and diagrams (draft state)
+- **Point-in-time documentation** (e.g., `SETUP_COMPLETE.md`, `QUICK_START.md`)
+  - Captures "what we did" at a specific moment
+  - Useful for reference but becomes stale
+  - Better here than in `docs/` where it duplicates git/issue history
+- **Release planning** documents (e.g., `4.3.0_RELEASE_PLAN.md`)
+- **Assessment documents** (e.g., `PR_REVIEW_*.md`)
+- **Test scripts** (e.g., `test.sh`, `triage-issues.sh`)
+- **Draft documentation** before finalizing
+- **Analysis and investigations**
 
-**These files are NOT tracked in git** - they're personal/temporary work products.
+**Most files are NOT tracked in git** - they're personal/temporary work products.
 
 ---
 
@@ -51,16 +54,18 @@ experiments/*           # Ignore all contents
 ## Guidelines
 
 ### ✅ DO Use This Folder For:
-- Release planning and roadmaps
-- Draft documentation (before moving to `docs/`)
-- Test scripts and experiments
-- Personal notes and analysis
-- Temporary assessments
+- **Point-in-time documentation** - "what we did" summaries
+- **Release planning** and assessments
+- **Draft documentation** (before moving to `docs/`)
+- **Test scripts** with hardcoded values (e.g., specific issue numbers)
+- **Personal notes** and analysis
+- **Temporary work** products
 
 ### ❌ DON'T Put Here:
-- Finalized documentation (→ use `docs/` instead)
-- Scripts that should be shared (→ add to repo root or appropriate folder)
-- Templates that maintainers need (→ use `docs/maintainers/`)
+- **Timeless guidance** (→ use `docs/maintainers/` instead)
+- **Reusable scripts** without hardcoded values (→ use `docs/maintainers/scripts/`)
+- **Templates** that maintainers need (→ use `docs/maintainers/`)
+- **Public documentation** (→ use root or `docs/`)
 
 ---
 

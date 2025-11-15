@@ -19,75 +19,65 @@ You don't need GitHub Projects! Here's your complete toolkit for low-maintenance
 
 ---
 
-## 🚀 Quick Start (30 minutes)
+## 🚀 Setup Guide
 
-### Step 1: Verify Milestones (2 min)
-
-Milestones are already created! Verify them:
+### Create Milestones
 
 ```bash
-cd /path/to/schemachange
-./docs/maintainers/scripts/setup-milestones.sh
+# View existing milestones
+gh api repos/OWNER/REPO/milestones | \
+  jq -r '.[] | "\(.title): \(.open_issues) open, due \(.due_on // "no date")"'
+
+# Create a new milestone
+gh api repos/OWNER/REPO/milestones \
+  -f title="X.Y.0" \
+  -f due_on="2026-MM-DDT08:00:00Z" \
+  -f description="Release description"
 ```
 
-Your milestones:
-- ✅ 4.2.0 (Dec 15, 2025) - Current release
-- ✅ 4.3.0 (Jan 13, 2026) - Connector upgrade
-- ✅ 4.4.0 (Feb 15, 2026) - Performance & features
-- ✅ 4.5.0 (Mar 15, 2026) - Pre-5.0 foundation
-- ✅ 5.0.0 (Jun 1, 2026) - Major release
-
-**Verify:**
-```bash
-gh milestone list
-```
+See [MILESTONE_SETUP.md](MILESTONE_SETUP.md) for detailed guidance on milestone strategy.
 
 ---
 
-### Step 2: Assign Existing Issues (10 min)
+### Assign Issues to Milestones
 
-**Option A: Bulk assign by label**
+**Bulk assign by label:**
 ```bash
-# All "target: 4.2.0" issues → 4.2.0 milestone
-gh issue list --label "target: 4.2.0" --limit 100 --json number --jq '.[].number' | \
+gh issue list --label "target: X.Y.0" --json number --jq '.[].number' | \
   while read issue; do
-    gh issue edit $issue --milestone "4.2.0"
+    gh issue edit $issue --milestone "X.Y.0"
   done
 ```
 
-**Option B: Manual triage**
+**Manual triage:**
 ```bash
-# List unlabeled issues
+# List issues
 gh issue list --limit 20
 
-# Assign one by one
-gh issue edit 309 --milestone "4.2.0" --add-label "priority: high,enhancement"
-gh issue edit 310 --milestone "4.3.0" --add-label "priority: medium,bug"
+# Assign individually
+gh issue edit <NUMBER> --milestone "X.Y.0" --add-label "priority: high"
 ```
 
-**Verify:**
-```bash
-gh milestone view "4.2.0"
-```
+**Strategy:**
+- Bugs → Current release milestone
+- Enhancements → Next release or "Future" milestone
+- Questions → Close and redirect to Discussions
 
 ---
 
-### Step 3: Create Public Roadmap (10 min)
+### Create Public Roadmap
 
-**Option A: Pinned Issue (Recommended)**
+**Pinned Issue (Recommended):**
 
-1. Create issue: https://github.com/Snowflake-Labs/schemachange/issues/new
-2. Title: `📍 Roadmap: Path to 5.0.0`
-3. Copy content from: `docs/maintainers/ROADMAP_ISSUE_TEMPLATE.md`
-4. After creating: Right sidebar → "Pin issue"
-5. Done!
+1. Create issue with title: `📍 Roadmap: [Description]`
+2. Copy content from `docs/maintainers/ROADMAP_ISSUE_TEMPLATE.md`
+3. Customize with your milestone details
+4. Pin the issue (right sidebar)
+5. Update monthly
 
-**Option B: Pinned Discussion**
+**Alternative - Pinned Discussion:**
 
-1. Create discussion: https://github.com/Snowflake-Labs/schemachange/discussions/new?category=announcements
-2. Title: `🗺️ Development Roadmap: Path to 5.0.0`
-3. Use same template
-4. Pin it
+Same process but create in Discussions > Announcements category
 
 ---
 
@@ -363,17 +353,15 @@ gh pr list --label "community-contribution" --limit 5
 Run it: `~/scripts/schemachange-status.sh`
 
 ### Tip 3: Calendar Integration
-Add milestones to your calendar:
+Add milestone due dates to your calendar:
 
-```
-Dec 15, 2025 - Release 4.2.0
-Jan 13, 2026 - Release 4.3.0
-Feb 15, 2026 - Release 4.4.0
-Mar 15, 2026 - Release 4.5.0
-Jun 1, 2026  - Release 5.0.0
+```bash
+# Export milestones to calendar format
+gh api repos/OWNER/REPO/milestones | \
+  jq -r '.[] | "\(.due_on) - Release \(.title)"'
 ```
 
-Set reminders 1 week before.
+Set reminders 1 week before each release.
 
 ### Tip 4: Bulk Operations
 Need to update many issues? Use loops:
