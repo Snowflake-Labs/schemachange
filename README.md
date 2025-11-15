@@ -25,6 +25,8 @@ For the complete list of changes made to schemachange check out the [CHANGELOG](
 
 To learn more about making a contribution to schemachange, please see our [Contributing guide](.github/CONTRIBUTING.md).
 
+**For maintainers:** See [docs/maintainers](docs/maintainers/) for repository management guides.
+
 **Please note** that schemachange is a community-developed tool, not an official Snowflake offering. It comes with no
 support or warranty.
 
