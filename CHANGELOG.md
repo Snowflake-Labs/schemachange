@@ -3,6 +3,33 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [4.2.0] - TBD
+### Added
+- Added validation for unknown configuration keys with warning messages instead of errors for better backward and sideways compatibility (#352 by @MACKAT05)
+- **Migration guide** for upgrading from 4.0.x to 4.1.0+ with:
+  - Complete deprecation reference table (15 CLI arguments, 3 ENV variables, 2 config parameters)
+  - Quick reference table mapping deprecated to new parameter names
+  - Version pinning strategy examples for controlled upgrades
+  - Parameter style comparison (legacy vs. current best practices)
+  - Configuration priority examples demonstrating CLI > ENV > YAML > connections.toml
+  - Python code snippets for testing parameter compatibility
+  - YAML v2 format examples and migration checklist
+- **Troubleshooting enhancements** for 4.1.0+ migration (#309):
+  - Deprecation warning solutions with migration examples
+  - Common configuration errors and fixes
+  - Uppercase `.SQL` file extension clarification
+  - Unknown configuration key handling guidance
+- **Demo enhancements** with authentication examples:
+  - JWT (Private Key) authentication for service accounts
+  - External Browser / SSO authentication for interactive use
+  - OAuth token authentication for platform integrations
+  - Programmatic Access Token (PAT) for MFA accounts
+  - connections.toml examples for each method
+
+### Fixed
+- Fixed dry-run command to work correctly when change history table doesn't exist yet with `--create-change-history-table` flag (#356 by @PavelPawlowski, fixes #326)
+- Fixed YAML configuration validation to show warnings for unknown keys instead of throwing TypeError exceptions (#352 by @MACKAT05)
+
 ## [4.1.0] - 2025-11-14
 ### Added
 - **New `verify` command** for testing Snowflake connectivity and displaying configuration with secrets masked. Useful for troubleshooting, CI/CD validation, and security audits. Example: `schemachange verify -C production`

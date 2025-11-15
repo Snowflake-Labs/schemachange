@@ -14,7 +14,8 @@ This guide covers common errors and their solutions when using schemachange.
 2. [Permission and Access Errors](#permission-and-access-errors)
 3. [Security Warnings](#security-warnings)
 4. [Configuration and Script Errors](#configuration-and-script-errors)
-5. [Additional Resources](#additional-resources)
+5. [Migration and Deprecation Warnings (4.1.0+)](#migration-and-deprecation-warnings-410)
+6. [Additional Resources](#additional-resources)
 
 ---
 
@@ -55,7 +56,7 @@ This guide covers common errors and their solutions when using schemachange.
 3. **Verify authenticator:** Ensure `--snowflake-authenticator` or `SNOWFLAKE_AUTHENTICATOR` matches your authentication method
 4. **For JWT authentication:**
    - Verify private key file path is correct
-   - Check `SNOWFLAKE_PRIVATE_KEY_FILE_PWD` environment variable
+   - Check `SNOWFLAKE_PRIVATE_KEY_FILE_PWD` environment variable (or deprecated `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE`)
    - Ensure the public key is registered with your Snowflake user
 5. **For OAuth:** Check that your token file exists and contains a valid, non-expired token
 6. See [Authentication](README.md#authentication) and [SECURITY.md](SECURITY.md) for detailed guidance
@@ -72,6 +73,8 @@ export SNOWFLAKE_PRIVATE_KEY_FILE_PWD="my_passphrase"
 schemachange deploy --snowflake-authenticator snowflake_jwt \
   --snowflake-private-key-file ~/.ssh/key.p8
 ```
+
+**⚠️ Note:** `--snowflake-private-key-passphrase` was intentionally removed from CLI in 4.1.0 for security (would be visible in process list). Use environment variable instead.
 
 ---
 
@@ -195,6 +198,160 @@ schemachange deploy -V "{'env': 'prod'}"  # Will fail
 
 ---
 
+## Migration and Deprecation Warnings (4.1.0+)
+
+### Warning: `Argument '--vars' is deprecated. Use '--schemachange-config-vars' or '-V' instead`
+
+**Cause:** You're using deprecated CLI arguments that were replaced in 4.1.0 with prefixed versions.
+
+**Impact:** Your command still works, but you'll see deprecation warnings. These arguments will be removed in 5.0.0.
+
+**Solution:** Update your commands to use the new parameter names:
+
+```bash
+# Old (deprecated, works until 5.0.0):
+schemachange deploy --vars '{"env": "prod"}' --log-level INFO --query-tag "deployment"
+
+# New (recommended):
+schemachange deploy --schemachange-config-vars '{"env": "prod"}' --schemachange-log-level INFO --snowflake-query-tag "deployment"
+
+# Or use short forms:
+schemachange deploy -V '{"env": "prod"}' -L INFO -Q "deployment"
+```
+
+**Common Deprecation Mappings:**
+
+| Old (Deprecated) | New (Recommended) | Short Form |
+|------------------|-------------------|------------|
+| `--vars` | `--schemachange-config-vars` | `-V` |
+| `--log-level` | `--schemachange-log-level` | `-L` |
+| `--query-tag` | `--snowflake-query-tag` | `-Q` |
+| `--verbose` | `-L INFO` or `-L DEBUG` | `-L` |
+
+**See also:** [Migration guide in demo/README.MD](demo/README.MD#-migrating-to-410-new-in-410)
+
+---
+
+### Warning: `Environment variable 'SNOWSQL_PWD' is deprecated. Use 'SNOWFLAKE_PASSWORD' instead`
+
+**Cause:** You're using the deprecated `SNOWSQL_PWD` environment variable.
+
+**Impact:** Still works in 4.x, but will be removed in 5.0.0.
+
+**Solution:** Update your environment variables:
+
+```bash
+# Old (deprecated):
+export SNOWSQL_PWD="my_password_or_pat"
+
+# New (recommended):
+export SNOWFLAKE_PASSWORD="my_password_or_pat"
+```
+
+**For CI/CD pipelines:** Update your secret names and variable references in:
+- GitHub Actions secrets
+- GitLab CI/CD variables
+- Jenkins credentials
+- Azure DevOps pipeline variables
+
+---
+
+### Error: `TypeError: DeployConfig.__init__() got an unexpected keyword argument 'unknown_key'`
+
+**Cause:** Your YAML configuration file contains keys that schemachange doesn't recognize.
+
+**Impact:**
+- In 4.1.0 and earlier: Causes errors
+- In 4.2.0+: Shows warnings but continues (backward compatible)
+
+**Solution (if on 4.1.0 or earlier):**
+
+1. **Check for typos** in your YAML config:
+   ```yaml
+   # Wrong:
+   snowflake:
+     warehose: MY_WH  # Typo: should be "warehouse"
+
+   # Correct:
+   snowflake:
+     warehouse: MY_WH
+   ```
+
+2. **Remove unknown keys** or check the [Configuration reference](README.md#configuration) for valid parameter names
+
+3. **Upgrade to 4.2.0+** for more forgiving config validation (shows warnings instead of errors)
+
+---
+
+### Issue: Scripts with uppercase `.SQL` extension not being detected
+
+**Status:** ✅ **Not a bug** - schemachange supports case-insensitive file extensions
+
+**If you're experiencing this:**
+
+1. **Verify the filename pattern** matches one of these:
+   - `V<version>__<description>.sql` or `.SQL` (versioned)
+   - `R__<description>.sql` or `.SQL` (repeatable)
+   - `A__<description>.sql` or `.SQL` (always)
+
+2. **Check for proper separators:** Must use **two underscores** (`__`) between prefix and description:
+   ```
+   ✅ V1.0.0__create_table.SQL     (correct)
+   ❌ V1.0.0_create_table.SQL      (wrong - only 1 underscore)
+   ❌ V1.0.0___create_table.SQL    (wrong - 3 underscores)
+   ```
+
+3. **Test script detection:**
+   ```bash
+   schemachange deploy --dry-run -L DEBUG
+   # Look for "script found" messages in the output
+   ```
+
+4. **Verify file system case sensitivity:**
+   - On Windows: Usually case-insensitive
+   - On Linux: Usually case-sensitive
+   - On macOS: Depends on filesystem (APFS can be case-sensitive or insensitive)
+
+**Still having issues?** Please report with:
+- Exact filename
+- Output from `ls -la` showing the file
+- Output from `schemachange deploy --dry-run -L DEBUG`
+
+---
+
+### Warning: `Unknown configuration keys found and will be ignored: <key_names>`
+
+**Cause:** Your YAML configuration contains keys that schemachange doesn't recognize (NEW in 4.2.0).
+
+**Impact:** ⚠️ **Warning only** - schemachange will ignore these keys and continue. This enables:
+- **Backward compatibility:** Old deprecated keys won't break your deployment
+- **Sideways compatibility:** Tools can add metadata keys without breaking schemachange
+- **Typo tolerance:** Typos show warnings instead of halting deployment
+
+**Solution:**
+
+1. **Review the warning** to identify unknown keys
+2. **Check for typos** in parameter names
+3. **Remove or fix** the unknown keys if they're mistakes
+4. **Leave them** if they're intentional metadata for other tools
+
+**Example:**
+```yaml
+# This YAML has unknown keys but will work in 4.2.0+
+schemachange:
+  root-folder: ./migrations
+  my-custom-metadata: "for my CI tool"  # Unknown, but ignored
+
+snowflake:
+  account: myaccount
+  warehose: MY_WH  # Typo! Will be ignored (and you'll see a warning)
+  warehouse: MY_WH  # Correct - this will be used
+```
+
+**Why this change?** Allows different tools in your pipeline to share the same YAML config file without breaking each other.
+
+---
+
 ## Additional Resources
 
 - **Test your connection:** Use [`schemachange verify`](README.md#verify) to validate credentials and configuration
@@ -202,6 +359,7 @@ schemachange deploy -V "{'env': 'prod'}"  # Will fail
 - **Security best practices:** See [SECURITY.md](SECURITY.md)
 - **Configuration reference:** See [Configuration](README.md#configuration)
 - **Authentication methods:** See [Authentication](README.md#authentication)
+- **Migration guide:** See [Migrating to 4.1.0+](demo/README.MD#-migrating-to-410-new-in-410)
 
 ---
 
