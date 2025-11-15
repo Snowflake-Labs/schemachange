@@ -134,4 +134,6 @@ dmypy.json
 **/.DS_Store
 .cache_ggshield
 
-experiments/
+# Experiments folder - track the folder but not its contents (maintainer workspace)
+experiments/*
+!experiments/README.md

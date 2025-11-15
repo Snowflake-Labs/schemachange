@@ -1,0 +1,300 @@
+# Maintainer Documentation
+
+**Audience:** Repository maintainers and collaborators
+
+This folder contains guides for maintaining the schemachange repository with minimal time investment (~1 hour/month).
+
+## 📚 Documentation Index
+
+### Essential Reading
+
+1. **[REPOSITORY_ECOSYSTEM.md](REPOSITORY_ECOSYSTEM.md)** - How everything works
+   - Complete overview of automation and workflows
+   - Weekly maintenance workflow (15 min)
+   - What's implemented vs. what's optional
+   - File organization and purpose
+
+### Setup Guides (One-Time)
+
+2. **[GITHUB_MANAGEMENT_WITHOUT_PROJECTS.md](GITHUB_MANAGEMENT_WITHOUT_PROJECTS.md)** - Core workflow guide
+   - Complete toolkit for managing without GitHub Projects
+   - How to create and use milestones
+   - Daily/weekly/monthly workflows
+   - All the power, zero permission hassles
+
+3. **[ROADMAP_ISSUE_TEMPLATE.md](ROADMAP_ISSUE_TEMPLATE.md)** - Public communication
+   - Create a pinned issue as your public roadmap
+   - Template for communicating with community
+   - Alternative to GitHub Projects
+   - Update monthly
+
+4. **[PROJECT_SETUP.md](PROJECT_SETUP.md)** - OPTIONAL
+   - Set up GitHub Projects if you have org permissions
+   - Create views and automation
+   - Not required - milestones work great!
+
+5. **[DISCUSSION_CATEGORIES.md](DISCUSSION_CATEGORIES.md)** - Discussion setup
+   - Enable and configure GitHub Discussions
+   - Set up categories (Q&A, Ideas, General, etc.)
+   - Create pinned welcome posts
+
+6. **[DISCUSSION_TEMPLATES/](DISCUSSION_TEMPLATES/)** - Reference
+   - Templates to copy when creating pinned discussions
+   - `00_welcome.md` - Welcome post template
+
+### Helper Scripts
+
+7. **[scripts/](scripts/)** - Automation helpers
+   - `setup-milestones.sh` - Check current milestone status
+   - Add your own scripts for common tasks
+
+---
+
+## 🎯 Getting Started
+
+**New to maintaining this repository?**
+
+1. Read [REPOSITORY_ECOSYSTEM.md](REPOSITORY_ECOSYSTEM.md) to understand how everything works
+2. Review [GITHUB_MANAGEMENT_WITHOUT_PROJECTS.md](GITHUB_MANAGEMENT_WITHOUT_PROJECTS.md) for day-to-day workflows
+3. Check `.github/workflows/` to see what's automated
+
+**Typical weekly routine** (15 min):
+```bash
+# Check critical items
+gh issue list --label "priority: critical"
+
+# Review PRs
+gh pr list --label "status: needs-review"
+
+# Triage new issues (add milestone + priority)
+gh issue list --label "status: needs-triage"
+```
+
+Automation handles the rest.
+
+---
+
+## 🤖 What's Automated
+
+You don't need to do these manually:
+
+✅ **Labeling**
+- New issues get `status: needs-triage`
+- Community PRs get `community-contribution`
+- PRs labeled by files changed (`documentation`, `dependencies`)
+
+✅ **Status Updates**
+- When author responds → Remove `awaiting-response`, add `needs-review`
+- When PR merged → Auto-close related issues
+
+✅ **Cleanup**
+- Stale bot closes abandoned items (60+ days awaiting author response)
+- Only items with `status: awaiting-response` can go stale
+- Items waiting on maintainers are protected
+
+✅ **Communication**
+- Community contributors get welcome message with instructions
+- Response time expectations set automatically
+
+✅ **Testing**
+- CI runs on all PRs (pytest, ruff)
+- Tests must pass before merge
+
+---
+
+## 📋 Decision Framework
+
+When triaging issues/PRs, use this framework:
+
+### Is it critical?
+```
+Security issue? Data loss? Production blocker?
+→ Add: priority: critical, respond within 1-2 weeks
+```
+
+### Is it a bug?
+```
+Confirmed bug?
+→ Add: bug, priority: [high|medium|low], target: [next release]
+```
+
+### Is it a feature request?
+```
+Aligns with roadmap? Has community support?
+→ Add: enhancement, priority: medium, target: [future release]
+
+Breaking change?
+→ Add: breaking-change, target: 5.0.0 (or next major)
+
+Not aligned with project goals?
+→ Close with explanation
+```
+
+### Is it a question?
+```
+Could be answered in Discussions?
+→ Close, point to Discussions Q&A
+
+Needs clarification?
+→ Add: status: awaiting-response, comment asking for details
+```
+
+### Is it a PR?
+```
+Community PR?
+→ Already auto-labeled, just review
+
+Needs changes?
+→ Add: status: awaiting-response, request changes
+
+Ready to merge?
+→ Approve and merge, automation handles rest
+```
+
+---
+
+## 🏷️ Label Quick Reference
+
+### Most Common Labels for Triaging
+
+```bash
+# Priority (you decide)
+priority: critical    # Security, data loss, blocker
+priority: high        # Important for next release
+priority: medium      # Nice to have
+priority: low         # Future consideration
+
+# Target (roadmap planning)
+target: 4.2.0        # Current release
+target: 4.3.0        # Next release
+target: future       # Someday
+
+# Status (track progress)
+status: needs-review       # Waiting for maintainer
+status: awaiting-response  # Waiting for author
+status: in-progress        # Being worked on
+status: blocked            # Blocked by external dependency
+```
+
+See [REPOSITORY_ECOSYSTEM.md](REPOSITORY_ECOSYSTEM.md) for full label system.
+
+---
+
+## 🚀 Release Process
+
+### When Ready to Release
+
+```bash
+# 1. Merge RC branch to main
+git checkout main
+git merge --no-ff rc4.2.0
+git push origin main
+
+# 2. Create and push tag
+git tag -a v4.2.0 -m "Release 4.2.0"
+git push origin v4.2.0
+
+# 3. Create GitHub Release (via UI or CLI)
+gh release create v4.2.0 --title "Release 4.2.0" --notes-from-tag
+
+# Automation handles:
+# - Building package
+# - Publishing to PyPI
+# - Extracting changelog
+# - Updating release notes
+```
+
+See release roadmap in `experiments/` (not tracked, for your planning).
+
+---
+
+## 📊 Success Metrics
+
+Track these monthly:
+
+- **Response time:** <2 days for triage ✅
+- **PR review time:** 2-4 weeks (realistic for 1hr/month) ✅
+- **Open issues:** Keep <30 (stale bot helps) ✅
+- **CI pass rate:** >95% ✅
+
+---
+
+## 🆘 Common Scenarios
+
+### "I only have 1 hour this month"
+
+Focus on:
+1. Critical issues (5 min)
+2. Community PRs ready to merge (30 min)
+3. Quick triage of new issues (10 min)
+4. Let automation handle the rest (15 min buffer)
+
+### "Someone needs CI to run on their PR"
+
+```bash
+gh pr edit <number> --add-label "ci-run-tests"
+```
+
+The workflow trigger will run CI on that PR.
+
+### "I need to defer work from 4.2.0 to 4.3.0"
+
+```bash
+gh issue edit <number> --remove-label "target: 4.2.0" --add-label "target: 4.3.0"
+```
+
+If using GitHub Projects, it will auto-update.
+
+### "Issue is stale but should stay open"
+
+```bash
+# Remove awaiting-response label so stale bot ignores it
+gh issue edit <number> --remove-label "status: awaiting-response"
+
+# Or add exempt label
+gh issue edit <number> --add-label "priority: critical"
+```
+
+### "I want to see the big picture"
+
+**Via Milestones** (recommended):
+```bash
+gh milestone list                    # See all milestones
+gh milestone view "4.2.0"           # Current release progress
+gh issue list --milestone "4.2.0"   # All issues in milestone
+```
+
+Or bookmark: https://github.com/Snowflake-Labs/schemachange/milestones
+
+**Via GitHub Projects** (if you set it up):
+- View: "Roadmap" - See all releases at a glance
+- View: "Current Release" - See progress on current work
+
+---
+
+## 📖 Additional Resources
+
+- [Main README](../../README.md) - User documentation
+- [Contributing Guide](../../.github/CONTRIBUTING.md) - Contributor documentation
+- [Workflows](../../.github/workflows/) - Automation configuration
+- [Experiments folder](../../experiments/) - Maintainer workspace (folder tracked, contents not tracked)
+
+---
+
+## 💡 Philosophy
+
+> **"Automate everything. Focus on high-value work. Set realistic expectations."**
+
+This repository is designed to be maintainable with minimal time investment. The automation handles routine tasks, documentation helps the community help itself, and clear communication prevents constant "when will you review my PR?" messages.
+
+**Remember:** You're volunteers maintaining an OSS project. It's okay to:
+- Take 2-4 weeks to review PRs
+- Defer features to future releases
+- Close issues that don't align with the project
+- Ask contributors to improve their PRs
+
+The ecosystem supports your time constraints, not works against them.
+
+---
+
+**Questions?** Update this documentation! It's for maintainers, by maintainers.

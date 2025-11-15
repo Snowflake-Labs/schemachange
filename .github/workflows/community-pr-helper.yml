@@ -1,0 +1,54 @@
+name: Community PR Helper
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  help-community-contributor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+
+            // Check if this is a community contribution
+            const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number
+            });
+
+            const isCommunityPR = labels.some(l => l.name === 'community-contribution');
+
+            if (isCommunityPR && !pr.draft) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: [
+                  'Thank you for your contribution!',
+                  '',
+                  'A maintainer will review your PR within 2-4 weeks. In the meantime:',
+                  '',
+                  '- Ensure all checks pass (ruff linting, tests)',
+                  '- Update CHANGELOG.md if needed (or we can do it)',
+                  '- Update documentation if needed',
+                  '',
+                  '**To run tests locally:**',
+                  '```bash',
+                  'uv run pytest',
+                  'uv run ruff check .',
+                  'uv run ruff format .',
+                  '```',
+                  '',
+                  '**Need CI/CD to run?** A maintainer will add the `ci-run-tests` label.',
+                  '',
+                  '**Questions?** Feel free to ask in the PR comments or [Discussions](https://github.com/Snowflake-Labs/schemachange/discussions).'
+                ].join('\n')
+              });
+            }

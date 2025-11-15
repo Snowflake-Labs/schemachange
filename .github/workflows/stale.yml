@@ -1,0 +1,92 @@
+name: Close Stale Issues and PRs
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday midnight UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          # ============================================================
+          # ISSUES - Only stale if AUTHOR hasn't responded
+          # ============================================================
+          days-before-issue-stale: 60
+          days-before-issue-close: 14
+          stale-issue-label: 'stale'
+
+          # Only mark as stale if author hasn't responded
+          only-issue-labels: 'status: awaiting-response'
+
+          stale-issue-message: |
+            This issue has been marked as stale because it has been waiting for
+            additional information from the issue author for 60 days.
+
+            It will be closed in 14 days if no response is provided.
+
+            If this is still relevant, please provide the requested information.
+
+            Thank you for your contributions to schemachange!
+
+          close-issue-message: |
+            This issue has been automatically closed because the requested
+            information was not provided.
+
+            If this is still relevant, please feel free to:
+            - Reopen this issue with the requested information
+            - Create a new issue with complete details
+            - Start a discussion in [GitHub Discussions](https://github.com/Snowflake-Labs/schemachange/discussions)
+
+          # ============================================================
+          # PRs - Only stale if AUTHOR hasn't addressed feedback
+          # ============================================================
+          days-before-pr-stale: 45
+          days-before-pr-close: 14
+          stale-pr-label: 'stale'
+
+          # Only mark PRs as stale if author hasn't addressed feedback
+          only-pr-labels: 'status: awaiting-response'
+
+          stale-pr-message: |
+            This PR has been marked as stale because the requested changes or
+            feedback have not been addressed for 45 days.
+
+            It will be closed in 14 days if no activity occurs.
+
+            To keep this PR active, please:
+            - Address the review comments
+            - Resolve any merge conflicts
+            - Respond to questions from reviewers
+
+            Thank you for your contribution!
+
+          close-pr-message: |
+            This PR has been automatically closed because the requested changes
+            were not addressed.
+
+            If you'd like to continue this work, please reopen and address the feedback.
+
+            We appreciate your contribution!
+
+          # ============================================================
+          # Exemptions - Never mark these as stale
+          # ============================================================
+          exempt-issue-labels: 'priority: critical,security,good-first-issue,status: in-progress,status: needs-review,status: needs-triage,breaking-change,Development in Progress,Under Review'
+          exempt-pr-labels: 'priority: critical,security,status: in-progress,status: needs-review,breaking-change,Development in Progress'
+
+          # Don't mark as stale if assigned or in milestone
+          exempt-all-issue-assignees: true
+          exempt-all-pr-assignees: true
+          exempt-all-issue-milestones: true
+          exempt-all-pr-milestones: true
+
+          operations-per-run: 100
