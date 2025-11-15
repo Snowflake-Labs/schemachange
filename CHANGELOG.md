@@ -3,6 +3,47 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [4.2.0] - TBD
+### Added
+- Added validation for unknown configuration keys with warning messages instead of errors for better backward and sideways compatibility (#352 by @MACKAT05)
+- **New `--schemachange-initial-deployment` flag** to explicitly declare first-time deployments and prevent accidental script re-application (fixes #326)
+  - CLI: `--schemachange-initial-deployment`
+  - ENV: `SCHEMACHANGE_INITIAL_DEPLOYMENT`
+  - YAML: `initial-deployment: true`
+  - When set, validates that change history table does not exist and requires `--create-change-history-table`
+  - Prevents dangerous scenario where missing table due to misconfiguration causes scripts to re-apply
+  - Provides clear error messages guiding users to correct configuration
+- **Migration guide** for upgrading from 4.0.x to 4.1.0+ with:
+  - Complete deprecation reference table (15 CLI arguments, 3 ENV variables, 2 config parameters)
+  - Quick reference table mapping deprecated to new parameter names
+  - Version pinning strategy examples for controlled upgrades
+  - Parameter style comparison (legacy vs. current best practices)
+  - Configuration priority examples demonstrating CLI > ENV > YAML > connections.toml
+  - Python code snippets for testing parameter compatibility
+  - YAML v2 format examples and migration checklist
+- **Troubleshooting enhancements** for 4.1.0+ migration (#309):
+  - Deprecation warning solutions with migration examples
+  - Common configuration errors and fixes
+  - Uppercase `.SQL` file extension clarification
+  - Unknown configuration key handling guidance
+- **Demo enhancements** with authentication examples:
+  - JWT (Private Key) authentication for service accounts
+  - External Browser / SSO authentication for interactive use
+  - OAuth token authentication for platform integrations
+  - Programmatic Access Token (PAT) for MFA accounts
+  - connections.toml examples for each method
+
+### Changed
+- **BREAKING**: When `--create-change-history-table` is set but change history table doesn't exist, schemachange now requires explicit `--schemachange-initial-deployment` flag (addresses #326)
+  - Previously (in PR #356) would silently create table and treat all scripts as new (dangerous for accidental re-runs)
+  - Now fails with clear error: "If this is the initial deployment, add --initial-deployment flag"
+  - For first-time deployments: use `--create-change-history-table --schemachange-initial-deployment`
+  - For subsequent deployments: ensure table exists or investigate configuration
+  - This prevents dangerous scenario where missing table due to misconfiguration causes all scripts to re-apply
+
+### Fixed
+- Fixed YAML configuration validation to show warnings for unknown keys instead of throwing TypeError exceptions (#352 by @MACKAT05)
+
 ## [4.1.0] - 2025-11-14
 ### Added
 - **New `verify` command** for testing Snowflake connectivity and displaying configuration with secrets masked. Useful for troubleshooting, CI/CD validation, and security audits. Example: `schemachange verify -C production`

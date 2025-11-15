@@ -348,3 +348,102 @@ def test_deploy_config_expands_tilde_in_private_key_path_from_env(_, mock_get_ke
     # Verify that tilde from ENV is expanded to full path and mapped to private_key_file
     assert session_kwargs["private_key_file"] == str(home_dir / "keys/rsa_key.pem")
     assert "~" not in session_kwargs["private_key_file"]
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+def test_config_with_unknown_keys_succeeds_and_filters_them_out(_):
+    """
+    Test that configuration with unknown keys succeeds and filters them out.
+
+    Unknown keys are logged as warnings (via structlog) but don't cause TypeErrors.
+    This enables backward compatibility (old configs with deprecated keys) and
+    sideways compatibility (tools can add metadata keys).
+    """
+    config_kwargs = {
+        **minimal_deploy_config_kwargs,
+        "unknown_key_1": "value1",
+        "unknown_key_2": "value2",
+        "custom_tool_metadata": "metadata_value",
+    }
+
+    # Should not raise TypeError about unexpected keyword arguments
+    config = DeployConfig.factory(config_file_path=Path("."), root_folder=Path("."), **config_kwargs)
+
+    # Config should be created successfully
+    assert config is not None
+    assert isinstance(config, DeployConfig)
+
+    # Unknown keys should be filtered out
+    assert not hasattr(config, "unknown_key_1")
+    assert not hasattr(config, "unknown_key_2")
+    assert not hasattr(config, "custom_tool_metadata")
+
+    # Known keys should still work
+    assert config.snowflake_account == "some_snowflake_account"
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+def test_config_unknown_keys_are_ignored(
+    _,
+):
+    """
+    Test that unknown keys are filtered out and don't become config attributes.
+    """
+    config_kwargs = {
+        **minimal_deploy_config_kwargs,
+        "malicious_key": "should_not_be_stored",
+        "typo_key": "user_typo",
+    }
+
+    config = DeployConfig.factory(config_file_path=Path("."), root_folder=Path("."), **config_kwargs)
+
+    # Unknown keys should not be accessible
+    assert not hasattr(config, "malicious_key")
+    assert not hasattr(config, "typo_key")
+
+    # Valid keys should work normally
+    assert config.root_folder == Path(".")
+    assert config.snowflake_account == "some_snowflake_account"
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+def test_config_with_valid_keys_only(_):
+    """Test that valid configuration works correctly (regression test)."""
+    config_kwargs = {
+        **minimal_deploy_config_kwargs,
+        "autocommit": True,
+        "dry_run": False,
+    }
+
+    config = DeployConfig.factory(config_file_path=Path("."), root_folder=Path("."), **config_kwargs)
+
+    # All valid keys should be set correctly
+    assert config is not None
+    assert config.autocommit is True
+    assert config.dry_run is False
+    assert config.snowflake_account == "some_snowflake_account"
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+def test_config_known_keys_work_with_unknown_keys_present(
+    _,
+):
+    """Test that known keys are processed correctly even when unknown keys exist."""
+    config_kwargs = {
+        **minimal_deploy_config_kwargs,
+        "autocommit": True,
+        "dry_run": True,
+        "unknown_setting": "ignored",
+        "another_unknown": "also_ignored",
+    }
+
+    config = DeployConfig.factory(config_file_path=Path("."), root_folder=Path("./migrations"), **config_kwargs)
+
+    # Known keys should be set correctly
+    assert config.root_folder == Path("./migrations")
+    assert config.autocommit is True
+    assert config.dry_run is True
+
+    # Unknown keys should not be present
+    assert not hasattr(config, "unknown_setting")
+    assert not hasattr(config, "another_unknown")

@@ -32,6 +32,7 @@ class DeployConfig(BaseConfig):
     # TODO: Turn change_history_table into three arguments. There's no need to parse it from a string
     change_history_table: ChangeHistoryTable | None = dataclasses.field(default_factory=ChangeHistoryTable)
     create_change_history_table: bool = False
+    initial_deployment: bool = False
     autocommit: bool = False
     dry_run: bool = False
     query_tag: str | None = None

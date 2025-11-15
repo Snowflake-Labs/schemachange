@@ -25,6 +25,8 @@ For the complete list of changes made to schemachange check out the [CHANGELOG](
 
 To learn more about making a contribution to schemachange, please see our [Contributing guide](.github/CONTRIBUTING.md).
 
+**For maintainers:** See [docs/maintainers](docs/maintainers/) for repository management guides.
+
 **Please note** that schemachange is a community-developed tool, not an official Snowflake offering. It comes with no
 support or warranty.
 
@@ -331,8 +333,16 @@ used to support multiple environments (dev, test, prod) or multiple subject area
 
 By default, schemachange will not try to create the change history table, and it will fail if the table does not exist.
 This behavior can be altered by passing in the `--schemachange-create-change-history-table` or `--create-change-history-table`
-argument or adding `create-change-history-table: true` to the `schemachange-config.yml` file. Even with the
-`--create-change-history-table` parameter, schemachange will not attempt to create the database for the change history
+argument or adding `create-change-history-table: true` to the `schemachange-config.yml` file.
+
+**For initial deployments:** When deploying schemachange for the first time, you must explicitly declare this using the
+`--schemachange-initial-deployment` flag along with `--create-change-history-table`. This prevents accidental re-application of scripts
+if the change history table is missing due to misconfiguration. Example:
+```bash
+schemachange deploy --create-change-history-table --schemachange-initial-deployment
+```
+
+Even with the `--create-change-history-table` parameter, schemachange will not attempt to create the database for the change history
 table. That must be created before running schemachange.
 
 The structure of the `CHANGE_HISTORY` table is as follows:
@@ -391,22 +401,26 @@ If an authenticator is unsupported, an exception will be raised.
 
 ### Password Authentication
 
-⚠️ **IMPORTANT: Snowflake is deprecating password-only authentication. MFA or alternative authentication methods are now required for most accounts.**
+⚠️ **SNOWFLAKE AUTHENTICATION REQUIREMENTS:**
+- **Service users:** Password authentication is **NOT SUPPORTED**. Must use PAT, Key Pair (JWT), OAuth, or WIF.
+- **Human users (CLI/CI/CD):** **PREFERRED** to use PAT, Key Pair (JWT), or OAuth over password+MFA (avoids interactive prompts).
+- **Human users (Interactive):** Password+MFA is acceptable but PAT or Key Pair is preferred.
 
 **Recommended Authentication Methods (in order of preference):**
-1. **[Private Key (JWT)](#private-key-authentication)** - Most secure for automation
-2. **[External Browser/SSO](#external-browser-authentication)** - Best for interactive use
-3. **[OAuth](#external-oauth-authentication)** - For OAuth-enabled workflows
-4. **Programmatic Access Token (PAT)** - For MFA-enabled accounts
+1. **[Private Key (JWT)](#private-key-authentication)** - Best for service accounts and automation
+2. **[Programmatic Access Token (PAT)](#password-authentication-with-programmatic-access-token-pat)** - Best for human users in CLI/CI/CD
+3. **[External Browser/SSO](#external-browser-authentication)** - Best for interactive use
+4. **[OAuth](#external-oauth-authentication)** - For OAuth-enabled workflows
+5. **Password+MFA** - Allowed for human users but not recommended for automation (requires interactive MFA prompts)
 
 #### Password Authentication with Programmatic Access Token (PAT)
 
 Password authentication is the default authenticator (or set `authenticator: snowflake` explicitly).
 
-**For accounts with MFA (required)**, you **must** use a **Programmatic Access Token (PAT)** instead of your regular password.
+**For CLI/CI/CD automation**, it is **strongly recommended** to use a **Programmatic Access Token (PAT)** instead of your regular password+MFA.
 
 **What is a PAT?**
-A Programmatic Access Token is a long-lived token that allows automated tools to authenticate without MFA prompts. It's more secure than storing passwords and is Snowflake's recommended approach for automation.
+A Programmatic Access Token is a long-lived token that allows automated tools to authenticate without MFA prompts. It's Snowflake's recommended approach for automation and is required for service accounts.
 
 **How to use a PAT:**
 
@@ -425,20 +439,22 @@ schemachange deploy
 - [Snowflake PAT Documentation](https://docs.snowflake.com/en/user-guide/ui-snowsight-profile#generate-a-programmatic-access-token)
 - [SECURITY.md](SECURITY.md) for comprehensive authentication guidance
 
-#### Legacy Password-Only Authentication (Deprecated)
+#### Password+MFA Authentication (Not Recommended for Automation)
 
-⚠️ **WARNING: Password-only authentication (without MFA) is being phased out by Snowflake and should not be used for new deployments.**
+⚠️ **For Human Users Only:** Password+MFA authentication is allowed for human users in interactive sessions but is **not recommended** for CLI/CI/CD automation due to interactive MFA prompts.
 
-If you must use password-only authentication on legacy accounts:
 ```bash
-export SNOWFLAKE_PASSWORD="your_password"  # NOT RECOMMENDED
-schemachange deploy
+export SNOWFLAKE_PASSWORD="your_password"  # Will prompt for MFA code
+schemachange deploy  # ⚠️ Requires manual MFA input (blocks automation)
 ```
 
-**Migration Required:** Snowflake is actively deprecating single-factor authentication. Plan to migrate to:
-- Private Key (JWT) authentication for production deployments
-- PAT for MFA-enabled accounts
-- External Browser/SSO for interactive use
+**For Automation, Use Instead:**
+- **Service accounts:** PAT or Private Key (JWT) - password not supported
+- **Human accounts:** PAT or Private Key (JWT) - avoids MFA prompts
+
+#### Legacy Password-Only (No MFA) - Deprecated
+
+❌ **NOT SUPPORTED:** Password-only authentication (without MFA) is deprecated by Snowflake and will not work on modern accounts.
 
 ### External OAuth Authentication
 
@@ -702,6 +718,10 @@ schemachange:
   # Create the change history schema and table if they do not exist (default: false)
   create-change-history-table: true
 
+  # Declare this is the first deployment - requires create-change-history-table (default: false)
+  # Use this for initial deployment only to prevent accidental script re-application
+  initial-deployment: false
+
   # Enable autocommit feature for DML commands (default: false)
   autocommit: false
 
@@ -778,6 +798,9 @@ vars:
 # Create the change history schema and table, if they do not exist (the default is False)
 create-change-history-table: false
 
+# Declare this is the first deployment - requires create-change-history-table (the default is False)
+initial-deployment: false
+
 # Enable autocommit feature for DML commands (the default is False)
 autocommit: false
 
@@ -798,6 +821,21 @@ query-tag: 'QUERY_TAG'
 The YAML config file supports the jinja templating language and has a custom function "env_var" to access environmental
 variables. Jinja variables are unavailable and not yet loaded since they are supplied by the YAML file. Customisation of
 the YAML file can only happen through values passed via environment variables.
+
+#### Configuration Validation
+
+Schemachange validates YAML configuration files and provides helpful feedback for configuration issues:
+
+**Unknown Keys**: If your configuration contains keys that are not recognized by schemachange, you will see warning messages like:
+```
+Unknown configuration keys found and will be ignored: unknown_key, another_unknown_key
+```
+
+This behavior ensures:
+- **Backward compatibility**: Existing configurations continue to work
+- **Sideways compatibility**: Tools that overlay schemachange can add custom keys without conflicts
+- **Clear feedback**: Users are informed about ignored configuration options
+- **No errors**: Unknown keys are filtered out rather than causing deployment failures
 
 ##### env_var
 
@@ -893,6 +931,7 @@ These environment variables configure schemachange-specific behavior:
 | `SCHEMACHANGE_CHANGE_HISTORY_TABLE` | Override the default change history table name | `METADATA.SCHEMACHANGE.CHANGE_HISTORY` | string |
 | `SCHEMACHANGE_VARS` | Define variables for scripts in JSON format | `{"var1": "value1", "var2": "value2"}` | JSON |
 | `SCHEMACHANGE_CREATE_CHANGE_HISTORY_TABLE` | Create change history table if it doesn't exist | `true` or `false` | boolean |
+| `SCHEMACHANGE_INITIAL_DEPLOYMENT` | Declare first deployment (requires create-change-history-table) | `true` or `false` | boolean |
 | `SCHEMACHANGE_AUTOCOMMIT` | Enable autocommit for DML commands | `true` or `false` | boolean |
 | `SCHEMACHANGE_DRY_RUN` | Run in dry run mode | `true` or `false` | boolean |
 | `SCHEMACHANGE_QUERY_TAG` | String to include in QUERY_TAG for SQL statements | `my-project` | string |
@@ -956,8 +995,8 @@ These Snowflake-specific environment variables are explicitly handled by schemac
 | Environment Variable | Description | Example |
 |---------------------|-------------|---------|
 | `SNOWFLAKE_AUTHENTICATOR` | Authentication method | `snowflake`, `oauth`, `externalbrowser`, `snowflake_jwt`, or `https://<okta_account>.okta.com` |
-| `SNOWFLAKE_PRIVATE_KEY_PATH` | Path to private key file for JWT authentication | `~/.ssh/snowflake_key.p8` |
-| `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` | Passphrase for encrypted private key | `my_key_password` |
+| `SNOWFLAKE_PRIVATE_KEY_FILE` | Path to private key file for JWT authentication | `~/.ssh/snowflake_key.p8` |
+| `SNOWFLAKE_PRIVATE_KEY_FILE_PWD` | Passphrase for encrypted private key | `my_key_password` |
 | `SNOWFLAKE_TOKEN_FILE_PATH` | Path to OAuth token file (for external OAuth only) | `~/.snowflake/oauth_token.txt` |
 
 ##### Generic SNOWFLAKE_* Parameters (Pass-through)
@@ -1003,8 +1042,8 @@ These variables are supported for backward compatibility but are superseded by `
 export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
 export SNOWFLAKE_USER="deploy_user"
 export SNOWFLAKE_AUTHENTICATOR="snowflake_jwt"
-export SNOWFLAKE_PRIVATE_KEY_PATH="~/.ssh/snowflake_key.p8"
-export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="key_password"  # Only if key is encrypted
+export SNOWFLAKE_PRIVATE_KEY_FILE="~/.ssh/snowflake_key.p8"
+export SNOWFLAKE_PRIVATE_KEY_FILE_PWD="key_password"  # Only if key is encrypted
 export SNOWFLAKE_ROLE="DEPLOY_ROLE"
 export SNOWFLAKE_WAREHOUSE="DEPLOY_WH"
 export SNOWFLAKE_DATABASE="MY_DATABASE"
@@ -1230,18 +1269,18 @@ For more information about Snowflake access control:
 
 ### New Authentication CLI Arguments (with Security Design Decision)
 
-**What's new:** Version 4.1.0 adds CLI support for authentication parameters (`--snowflake-authenticator`, `--snowflake-private-key-path`, `--snowflake-token-file-path`). These were not available via CLI in previous versions (4.0.x and earlier).
+**What's new:** Version 4.1.0 adds CLI support for authentication parameters (`--snowflake-authenticator`, `--snowflake-private-key-file`, `--snowflake-token-file-path`). These were not available via CLI in previous versions (4.0.x and earlier).
 
-**Important Security Design:** For security reasons, `--snowflake-private-key-passphrase` is **intentionally NOT supported via CLI**. Command-line arguments are visible in process lists (`ps aux`) and shell history files (`.bash_history`, `.zsh_history`), which would expose sensitive credentials to other users on the system and in log files.
+**Important Security Design:** For security reasons, `--snowflake-private-key-file-pwd` (passphrase) is **intentionally NOT supported via CLI**. Command-line arguments are visible in process lists (`ps aux`) and shell history files (`.bash_history`, `.zsh_history`), which would expose sensitive credentials to other users on the system and in log files.
 
 #### Using Private Key Authentication in 4.1.0
 
 ✅ **Option 1: Environment variable (recommended for CI/CD):**
 ```bash
-export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="my_passphrase"
+export SNOWFLAKE_PRIVATE_KEY_FILE_PWD="my_passphrase"
 schemachange deploy \
   --snowflake-authenticator snowflake_jwt \
-  --snowflake-private-key-path ~/.ssh/snowflake_key.p8
+  --snowflake-private-key-file ~/.ssh/snowflake_key.p8
 ```
 
 ✅ **Option 2: connections.toml (recommended for local development):**
@@ -1276,13 +1315,13 @@ snowflake:
   account: myaccount.us-east-1
   user: service_account
   authenticator: snowflake_jwt
-  private-key-path: ~/.ssh/snowflake_key.p8
-  # Do NOT put private-key-passphrase here!
+  private-key-file: ~/.ssh/snowflake_key.p8
+  # Do NOT put private-key-file-pwd here!
 ```
 
 Then use environment variable for the passphrase:
 ```bash
-export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="my_passphrase"
+export SNOWFLAKE_PRIVATE_KEY_FILE_PWD="my_passphrase"
 schemachange deploy
 ```
 
@@ -1330,6 +1369,7 @@ Most arguments also support short forms (single dash, single letter) for conveni
 | `-c`<br/>`--schemachange-change-history-table`<br/>`--change-history-table` *(deprecated)* | `SCHEMACHANGE_CHANGE_HISTORY_TABLE` | Override the default change history table name (default: `METADATA.SCHEMACHANGE.CHANGE_HISTORY`) |
 | `-V`<br/>`--schemachange-vars`<br/>`--vars` *(deprecated)* | `SCHEMACHANGE_VARS` | Define variables for scripts in JSON format. Merged with YAML vars (e.g., `'{"var1": "val1"}'`) |
 | `--schemachange-create-change-history-table`<br/>`--create-change-history-table` *(deprecated)* | `SCHEMACHANGE_CREATE_CHANGE_HISTORY_TABLE` | Create the change history table if it doesn't exist (default: false) |
+| `--schemachange-initial-deployment` | `SCHEMACHANGE_INITIAL_DEPLOYMENT` | Declare this is the first deployment. Requires `--create-change-history-table`. Validates table doesn't exist (default: false) |
 | `-ac`<br/>`--schemachange-autocommit`<br/>`--autocommit` *(deprecated)* | `SCHEMACHANGE_AUTOCOMMIT` | Enable autocommit for DML commands (default: false) |
 | `--schemachange-dry-run`<br/>`--dry-run` *(deprecated)* | `SCHEMACHANGE_DRY_RUN` | Run in dry run mode (default: false) |
 | `-Q`<br/>`--schemachange-query-tag`<br/>`--query-tag` *(deprecated)* | `SCHEMACHANGE_QUERY_TAG` | String to include in `QUERY_TAG` attached to every SQL statement |
@@ -1349,7 +1389,7 @@ Most arguments also support short forms (single dash, single letter) for conveni
 | `-d`<br/>`--snowflake-database` | `SNOWFLAKE_DATABASE` | Default database |
 | `-s`<br/>`--snowflake-schema` | `SNOWFLAKE_SCHEMA` | Default schema |
 | `--snowflake-authenticator` | `SNOWFLAKE_AUTHENTICATOR` | Authentication method (e.g., `snowflake`, `oauth`, `externalbrowser`, `snowflake_jwt`) |
-| `--snowflake-private-key-path` | `SNOWFLAKE_PRIVATE_KEY_PATH` | Path to private key file for JWT authentication |
+| `--snowflake-private-key-file` | `SNOWFLAKE_PRIVATE_KEY_FILE` | Path to private key file for JWT authentication |
 | `--snowflake-token-file-path` | `SNOWFLAKE_TOKEN_FILE_PATH` | Path to OAuth token file |
 
 **Snowflake Parameters (ENV/YAML/connections.toml only)**
@@ -1359,7 +1399,7 @@ These parameters are **not available via CLI** for security reasons:
 | Environment Variable | YAML v2 Path | connections.toml | Description |
 |---------------------|--------------|------------------|-------------|
 | `SNOWFLAKE_PASSWORD` | `snowflake.password` | `password` | Password or Programmatic Access Token (PAT) for authentication |
-| `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` | `snowflake.private-key-passphrase` | `private_key_passphrase` | Passphrase for encrypted private key files |
+| `SNOWFLAKE_PRIVATE_KEY_FILE_PWD` | `snowflake.private-key-file-pwd` | `private_key_file_pwd` | Passphrase for encrypted private key files |
 
 **Note on Argument Aliases:**
 - Multiple argument forms are supported for backward compatibility (e.g., `-f`, `--schemachange-root-folder`, `--root-folder`)
@@ -1419,10 +1459,10 @@ The verify command accepts the same configuration parameters as deploy (except d
 |-------------------|------------|
 | **Schemachange Config** | `--config-folder`, `-f`/`--schemachange-root-folder`, `-m`/`--schemachange-modules-folder`, `-V`/`--schemachange-vars`, `-L`/`--schemachange-log-level` |
 | **Snowflake Connection** | `-a`/`--snowflake-account`, `-u`/`--snowflake-user`, `-r`/`--snowflake-role`, `-w`/`--snowflake-warehouse`, `-d`/`--snowflake-database`, `-s`/`--snowflake-schema` |
-| **Authentication** | `--snowflake-authenticator`, `--snowflake-private-key-path`, `--snowflake-token-file-path` |
+| **Authentication** | `--snowflake-authenticator`, `--snowflake-private-key-file`, `--snowflake-token-file-path` |
 | **Connection Profile** | `-C`/`--schemachange-connection-name`, `--schemachange-connections-file-path` |
 
-**Note:** For security, passwords and private key passphrases are NOT accepted via CLI arguments. Use `SNOWFLAKE_PASSWORD` and `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` environment variables, or store them in `connections.toml` (with proper file permissions). See [SECURITY.md](SECURITY.md) for security best practices.
+**Note:** For security, passwords and private key passphrases are NOT accepted via CLI arguments. Use `SNOWFLAKE_PASSWORD` and `SNOWFLAKE_PRIVATE_KEY_FILE_PWD` environment variables, or store them in `connections.toml` (with proper file permissions). See [SECURITY.md](SECURITY.md) for security best practices.
 
 ## Troubleshooting
 

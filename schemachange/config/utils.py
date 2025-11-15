@@ -843,6 +843,7 @@ def get_schemachange_config_from_env() -> dict:
     # Boolean parameters
     bool_params = {
         "SCHEMACHANGE_CREATE_CHANGE_HISTORY_TABLE": "create_change_history_table",
+        "SCHEMACHANGE_INITIAL_DEPLOYMENT": "initial_deployment",
         "SCHEMACHANGE_AUTOCOMMIT": "autocommit",
         "SCHEMACHANGE_DRY_RUN": "dry_run",
         "SCHEMACHANGE_RAISE_EXCEPTION_ON_IGNORED_VERSIONED_SCRIPT": "raise_exception_on_ignored_versioned_script",
