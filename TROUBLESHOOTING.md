@@ -55,7 +55,7 @@ This guide covers common errors and their solutions when using schemachange.
 3. **Verify authenticator:** Ensure `--snowflake-authenticator` or `SNOWFLAKE_AUTHENTICATOR` matches your authentication method
 4. **For JWT authentication:**
    - Verify private key file path is correct
-   - Check `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` environment variable
+   - Check `SNOWFLAKE_PRIVATE_KEY_FILE_PWD` environment variable
    - Ensure the public key is registered with your Snowflake user
 5. **For OAuth:** Check that your token file exists and contains a valid, non-expired token
 6. See [Authentication](README.md#authentication) and [SECURITY.md](SECURITY.md) for detailed guidance
@@ -68,9 +68,9 @@ This guide covers common errors and their solutions when using schemachange.
 
 **Solution:** See [Upgrading to 4.1.0](README.md#upgrading-to-410) for complete migration guide. Quick fix:
 ```bash
-export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="my_passphrase"
+export SNOWFLAKE_PRIVATE_KEY_FILE_PWD="my_passphrase"
 schemachange deploy --snowflake-authenticator snowflake_jwt \
-  --snowflake-private-key-path ~/.ssh/key.p8
+  --snowflake-private-key-file ~/.ssh/key.p8
 ```
 
 ---
