@@ -13,6 +13,17 @@ All notable changes to this project will be documented in this file.
   - Configuration priority examples demonstrating CLI > ENV > YAML > connections.toml
   - Python code snippets for testing parameter compatibility
   - YAML v2 format examples and migration checklist
+- **Troubleshooting enhancements** for 4.1.0+ migration (#309):
+  - Deprecation warning solutions with migration examples
+  - Common configuration errors and fixes
+  - Uppercase `.SQL` file extension clarification
+  - Unknown configuration key handling guidance
+- **Demo enhancements** with authentication examples:
+  - JWT (Private Key) authentication for service accounts
+  - External Browser / SSO authentication for interactive use
+  - OAuth token authentication for platform integrations
+  - Programmatic Access Token (PAT) for MFA accounts
+  - connections.toml examples for each method
 
 ### Fixed
 - Fixed dry-run command to work correctly when change history table doesn't exist yet with `--create-change-history-table` flag (#356 by @PavelPawlowski, fixes #326)
