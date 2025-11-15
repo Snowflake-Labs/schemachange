@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Added validation for unknown configuration keys with warning messages instead of errors for better backward and sideways compatibility (#352 by @MACKAT05)
 - **Migration guide** for upgrading from 4.0.x to 4.1.0+ with:
+  - Complete deprecation reference table (15 CLI arguments, 3 ENV variables, 2 config parameters)
   - Quick reference table mapping deprecated to new parameter names
   - Version pinning strategy examples for controlled upgrades
   - Parameter style comparison (legacy vs. current best practices)

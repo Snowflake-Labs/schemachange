@@ -444,17 +444,46 @@ python -m schemachange deploy --config-folder ./demo/basics_demo
 
 **Deprecated (works until 5.0.0) → New (recommended)**
 
-| Category | Old Parameter | New Parameter | Notes |
-|----------|---------------|---------------|-------|
-| **CLI Arguments** | `--vars` | `--schemachange-config-vars` | Config vars for Jinja |
-| | `--log-level` | `--schemachange-log-level` or `-L` | Logging verbosity |
-| | `--verbose` | `-L INFO` or `-L DEBUG` | Deprecated flag |
-| | `--query-tag` | `--snowflake-query-tag` | Snowflake query tagging |
-| **Environment Variables** | `SNOWSQL_PWD` | `SNOWFLAKE_PASSWORD` | Password or PAT |
+**All deprecated CLI arguments** - Complete reference for migration:
+
+| Old (Deprecated) | New (Recommended) | Short Form | Category |
+|------------------|-------------------|------------|----------|
+| `--vars` | `--schemachange-config-vars` | `-V` | Config |
+| `--log-level` | `--schemachange-log-level` | `-L` | Logging |
+| `--verbose` | `-L INFO` or `-L DEBUG` | `-L` | Logging |
+| `--root-folder` | `--schemachange-root-folder` | `-f` | Paths |
+| `--modules-folder` | `--schemachange-modules-folder` | `-m` | Paths |
+| `--change-history-table` | `--schemachange-change-history-table` | `-c` | Deployment |
+| `--autocommit` | `--schemachange-autocommit` | `-ac` | Deployment |
+| `--query-tag` | `--snowflake-query-tag` | `-Q` | Snowflake |
+| `--connection-name` | `--schemachange-connection-name` | `-C` | Connection |
+| `--connections-file-path` | `--schemachange-connections-file-path` | *(none)* | Connection |
+| `--create-change-history-table` | `--schemachange-create-change-history-table` | *(none)* | Deployment |
+| `--dry-run` | `--schemachange-dry-run` | *(none)* | Deployment |
+| `--version-number-validation-regex` | `--schemachange-version-number-validation-regex` | *(none)* | Advanced |
+| `--raise-exception-on-ignored-versioned-script` | `--schemachange-raise-exception-on-ignored-versioned-script` | *(none)* | Advanced |
+| `--snowflake-private-key-path` | `--snowflake-private-key-file` | *(none)* | Auth |
+
+**Environment Variables:**
+
+| Old (Deprecated) | New (Recommended) | Usage |
+|------------------|-------------------|-------|
+| `SNOWSQL_PWD` | `SNOWFLAKE_PASSWORD` | Password or PAT |
+| `SNOWFLAKE_PRIVATE_KEY_PATH` | `SNOWFLAKE_PRIVATE_KEY_FILE` | JWT key file path |
+| `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` | `SNOWFLAKE_PRIVATE_KEY_FILE_PWD` | JWT key passphrase |
+
+**connections.toml Parameters:**
+
+| Old (Deprecated) | New (Recommended) |
+|------------------|-------------------|
+| `private_key_path` | `private_key_file` |
+| `private_key_passphrase` | `private_key_file_pwd` |
+
+**All deprecated parameters will be removed in 5.0.0** (approximately 12 months after 4.1.0 release)
 
 **NEW in 4.1.0 - Authentication CLI Support:**
-- `--snowflake-password`, `--snowflake-authenticator`, `--snowflake-private-key-path`
-- Previously only available via ENV or YAML, now available on CLI too!
+- `--snowflake-password`, `--snowflake-authenticator`, `--snowflake-private-key-file`
+- Previously only available via ENV or YAML, now you can pass them on the command line too!
 
 ### Version Pinning Strategy
 
