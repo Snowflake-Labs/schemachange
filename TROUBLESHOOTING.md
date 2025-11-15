@@ -4,6 +4,8 @@ This guide covers common errors and their solutions when using schemachange.
 
 **💡 Quick Tip:** Use the [`schemachange verify` command](README.md#verify) to test connectivity and validate your configuration before troubleshooting.
 
+**🙏 Need Help?** For quick answers or to ask questions, check our [GitHub Discussions Q&A](https://github.com/Snowflake-Labs/schemachange/discussions/categories/q-a) - the community can help faster than opening an issue!
+
 ---
 
 ## Table of Contents

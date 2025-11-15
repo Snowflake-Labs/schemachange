@@ -49,15 +49,16 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --all-extras
-      - name: Verify flake8 installation
+          - name: Lint with ruff
+          run: |
+            # Run ruff linter (checks for errors, style issues)
+            uv run ruff check . --output-format=github
+
+      - name: Format check with ruff
         run: |
-          uv run flake8 --version
-      - name: Lint with flake8
-        run: |
-          # stop the build if there are Python syntax errors or undefined names
-          uv run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv
-          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-          uv run flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=.venv
+          # Check if code is formatted according to ruff standards
+          uv run ruff format --check .
+
       - name: Test with pytest
         id: pytest
         run: |
