@@ -21,10 +21,10 @@ All notable changes to this project will be documented in this file.
   - Configuration priority examples demonstrating CLI > ENV > YAML > connections.toml
   - Python code snippets for testing parameter compatibility
   - YAML v2 format examples and migration checklist
-- **Troubleshooting enhancements** for 4.1.0+ migration (#309):
+- **Troubleshooting documentation enhancements**:
   - Deprecation warning solutions with migration examples
   - Common configuration errors and fixes
-  - Uppercase `.SQL` file extension clarification
+  - Uppercase `.SQL` file extension clarification (#309) - documents that case-insensitive extensions are already supported
   - Unknown configuration key handling guidance
 - **Demo enhancements** with authentication examples:
   - JWT (Private Key) authentication for service accounts
