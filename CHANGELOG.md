@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 ## [4.2.0] - TBD
 ### Added
 - Added validation for unknown configuration keys with warning messages instead of errors for better backward and sideways compatibility (#352 by @MACKAT05)
+- **New `--schemachange-initial-deployment` flag** to explicitly declare first-time deployments and prevent accidental script re-application (fixes #326)
+  - CLI: `--schemachange-initial-deployment`
+  - ENV: `SCHEMACHANGE_INITIAL_DEPLOYMENT`
+  - YAML: `initial-deployment: true`
+  - When set, validates that change history table does not exist and requires `--create-change-history-table`
+  - Prevents dangerous scenario where missing table due to misconfiguration causes scripts to re-apply
+  - Provides clear error messages guiding users to correct configuration
 - **Migration guide** for upgrading from 4.0.x to 4.1.0+ with:
   - Complete deprecation reference table (15 CLI arguments, 3 ENV variables, 2 config parameters)
   - Quick reference table mapping deprecated to new parameter names
@@ -26,8 +33,15 @@ All notable changes to this project will be documented in this file.
   - Programmatic Access Token (PAT) for MFA accounts
   - connections.toml examples for each method
 
+### Changed
+- **BREAKING**: When `--create-change-history-table` is set but change history table doesn't exist, schemachange now requires explicit `--schemachange-initial-deployment` flag (addresses #326)
+  - Previously (in PR #356) would silently create table and treat all scripts as new (dangerous for accidental re-runs)
+  - Now fails with clear error: "If this is the initial deployment, add --initial-deployment flag"
+  - For first-time deployments: use `--create-change-history-table --schemachange-initial-deployment`
+  - For subsequent deployments: ensure table exists or investigate configuration
+  - This prevents dangerous scenario where missing table due to misconfiguration causes all scripts to re-apply
+
 ### Fixed
-- Fixed dry-run command to work correctly when change history table doesn't exist yet with `--create-change-history-table` flag (#356 by @PavelPawlowski, fixes #326)
 - Fixed YAML configuration validation to show warnings for unknown keys instead of throwing TypeError exceptions (#352 by @MACKAT05)
 
 ## [4.1.0] - 2025-11-14

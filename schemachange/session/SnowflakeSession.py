@@ -239,18 +239,67 @@ class SnowflakeSession:
             raise ValueError(f"Unable to find change history table {self.change_history_table.fully_qualified}")
 
     def get_script_metadata(
-        self, create_change_history_table: bool, dry_run: bool
+        self, create_change_history_table: bool, initial_deployment: bool, dry_run: bool
     ) -> tuple[
         dict[str, dict[str, str | int]] | None,
         dict[str, list[str]] | None,
         str | int | None,
     ]:
-        change_history_table_exists = self.change_history_table_exists(
-            create_change_history_table=create_change_history_table,
-            dry_run=dry_run,
-        )
-        if not change_history_table_exists:
+        # Check if change history table exists
+        change_history_metadata = self.fetch_change_history_metadata()
+        table_exists = change_history_metadata is not None
+
+        # Validate initial_deployment flag combinations
+        if initial_deployment:
+            if table_exists:
+                raise ValueError(
+                    f"--initial-deployment was specified but change history table "
+                    f"{self.change_history_table.fully_qualified} already exists. "
+                    f"This indicates either:\n"
+                    f"  1. This is NOT an initial deployment (remove --initial-deployment)\n"
+                    f"  2. The table from a previous deployment was not cleaned up"
+                )
+            if not create_change_history_table:
+                raise ValueError("--initial-deployment requires --create-change-history-table to be true")
+            # Valid initial deployment scenario
+            self.logger.info(
+                "Initial deployment mode: Change history table will be created " "and all scripts treated as new."
+            )
+            if dry_run:
+                self.logger.info("Dry-run: Change history table creation and script execution will be previewed only.")
+            # Proceed with table creation (the method will handle logging and creation)
+            self.change_history_table_exists(
+                create_change_history_table=create_change_history_table,
+                dry_run=dry_run,
+            )
+            # Return empty metadata (all scripts are new)
             return defaultdict(dict), None, None
+
+        # NOT initial deployment - check if table exists
+        if not table_exists:
+            if create_change_history_table:
+                # This is the dangerous scenario - table missing but not declared as initial deployment
+                error_msg = (
+                    f"Change history table {self.change_history_table.fully_qualified} does not exist.\n"
+                    f"If this is the initial deployment of schemachange, add --initial-deployment flag.\n"
+                    f"Otherwise, this indicates a configuration error or missing infrastructure."
+                )
+                if dry_run:
+                    self.logger.error(error_msg)
+                    raise ValueError(error_msg + "\nCannot perform accurate dry-run without change history.")
+                else:
+                    # In non-dry-run mode, this is even more dangerous
+                    self.logger.error(error_msg)
+                    raise ValueError(error_msg + "\nRefusing to proceed to prevent re-applying scripts.")
+            else:
+                # This already errors correctly (existing behavior)
+                raise ValueError(f"Unable to find change history table {self.change_history_table.fully_qualified}")
+
+        # Table exists, log and proceed normally
+        self.logger.info(
+            f"Using existing change history table {self.change_history_table.fully_qualified}",
+            last_altered=change_history_metadata["last_altered"],
+        )
 
         change_history, max_published_version = self.fetch_versioned_scripts()
         r_scripts_checksum = self.fetch_repeatable_scripts()

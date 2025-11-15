@@ -333,8 +333,16 @@ used to support multiple environments (dev, test, prod) or multiple subject area
 
 By default, schemachange will not try to create the change history table, and it will fail if the table does not exist.
 This behavior can be altered by passing in the `--schemachange-create-change-history-table` or `--create-change-history-table`
-argument or adding `create-change-history-table: true` to the `schemachange-config.yml` file. Even with the
-`--create-change-history-table` parameter, schemachange will not attempt to create the database for the change history
+argument or adding `create-change-history-table: true` to the `schemachange-config.yml` file.
+
+**For initial deployments:** When deploying schemachange for the first time, you must explicitly declare this using the
+`--schemachange-initial-deployment` flag along with `--create-change-history-table`. This prevents accidental re-application of scripts
+if the change history table is missing due to misconfiguration. Example:
+```bash
+schemachange deploy --create-change-history-table --schemachange-initial-deployment
+```
+
+Even with the `--create-change-history-table` parameter, schemachange will not attempt to create the database for the change history
 table. That must be created before running schemachange.
 
 The structure of the `CHANGE_HISTORY` table is as follows:
@@ -710,6 +718,10 @@ schemachange:
   # Create the change history schema and table if they do not exist (default: false)
   create-change-history-table: true
 
+  # Declare this is the first deployment - requires create-change-history-table (default: false)
+  # Use this for initial deployment only to prevent accidental script re-application
+  initial-deployment: false
+
   # Enable autocommit feature for DML commands (default: false)
   autocommit: false
 
@@ -785,6 +797,9 @@ vars:
 
 # Create the change history schema and table, if they do not exist (the default is False)
 create-change-history-table: false
+
+# Declare this is the first deployment - requires create-change-history-table (the default is False)
+initial-deployment: false
 
 # Enable autocommit feature for DML commands (the default is False)
 autocommit: false
@@ -916,6 +931,7 @@ These environment variables configure schemachange-specific behavior:
 | `SCHEMACHANGE_CHANGE_HISTORY_TABLE` | Override the default change history table name | `METADATA.SCHEMACHANGE.CHANGE_HISTORY` | string |
 | `SCHEMACHANGE_VARS` | Define variables for scripts in JSON format | `{"var1": "value1", "var2": "value2"}` | JSON |
 | `SCHEMACHANGE_CREATE_CHANGE_HISTORY_TABLE` | Create change history table if it doesn't exist | `true` or `false` | boolean |
+| `SCHEMACHANGE_INITIAL_DEPLOYMENT` | Declare first deployment (requires create-change-history-table) | `true` or `false` | boolean |
 | `SCHEMACHANGE_AUTOCOMMIT` | Enable autocommit for DML commands | `true` or `false` | boolean |
 | `SCHEMACHANGE_DRY_RUN` | Run in dry run mode | `true` or `false` | boolean |
 | `SCHEMACHANGE_QUERY_TAG` | String to include in QUERY_TAG for SQL statements | `my-project` | string |
@@ -1353,6 +1369,7 @@ Most arguments also support short forms (single dash, single letter) for conveni
 | `-c`<br/>`--schemachange-change-history-table`<br/>`--change-history-table` *(deprecated)* | `SCHEMACHANGE_CHANGE_HISTORY_TABLE` | Override the default change history table name (default: `METADATA.SCHEMACHANGE.CHANGE_HISTORY`) |
 | `-V`<br/>`--schemachange-vars`<br/>`--vars` *(deprecated)* | `SCHEMACHANGE_VARS` | Define variables for scripts in JSON format. Merged with YAML vars (e.g., `'{"var1": "val1"}'`) |
 | `--schemachange-create-change-history-table`<br/>`--create-change-history-table` *(deprecated)* | `SCHEMACHANGE_CREATE_CHANGE_HISTORY_TABLE` | Create the change history table if it doesn't exist (default: false) |
+| `--schemachange-initial-deployment` | `SCHEMACHANGE_INITIAL_DEPLOYMENT` | Declare this is the first deployment. Requires `--create-change-history-table`. Validates table doesn't exist (default: false) |
 | `-ac`<br/>`--schemachange-autocommit`<br/>`--autocommit` *(deprecated)* | `SCHEMACHANGE_AUTOCOMMIT` | Enable autocommit for DML commands (default: false) |
 | `--schemachange-dry-run`<br/>`--dry-run` *(deprecated)* | `SCHEMACHANGE_DRY_RUN` | Run in dry run mode (default: false) |
 | `-Q`<br/>`--schemachange-query-tag`<br/>`--query-tag` *(deprecated)* | `SCHEMACHANGE_QUERY_TAG` | String to include in `QUERY_TAG` attached to every SQL statement |
