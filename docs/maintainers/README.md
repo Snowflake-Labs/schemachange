@@ -16,44 +16,36 @@ This folder contains guides for maintaining the schemachange repository with min
 
 ### Setup Guides (One-Time)
 
-2. **[GITHUB_MANAGEMENT_WITHOUT_PROJECTS.md](GITHUB_MANAGEMENT_WITHOUT_PROJECTS.md)** - START HERE FOR SETUP
+2. **[GITHUB_MANAGEMENT_WITHOUT_PROJECTS.md](GITHUB_MANAGEMENT_WITHOUT_PROJECTS.md)** - Core workflow guide
    - Complete toolkit for managing without GitHub Projects
-   - 30-minute quick start guide
+   - How to create and use milestones
    - Daily/weekly/monthly workflows
    - All the power, zero permission hassles
 
-3. **[MILESTONE_SETUP.md](MILESTONE_SETUP.md)** - 10 minutes
-   - Set up release milestones (4.2.0, 4.3.0, 5.0.0)
-   - Automated script for quick setup
-   - Milestone + label strategy
-   - Bulk operations guide
-
-4. **[ROADMAP_ISSUE_TEMPLATE.md](ROADMAP_ISSUE_TEMPLATE.md)** - 10 minutes
+3. **[ROADMAP_ISSUE_TEMPLATE.md](ROADMAP_ISSUE_TEMPLATE.md)** - Public communication
    - Create a pinned issue as your public roadmap
    - Template for communicating with community
    - Alternative to GitHub Projects
-   - 5-minute monthly maintenance
+   - Update monthly
 
-5. **[PROJECT_SETUP.md](PROJECT_SETUP.md)** - OPTIONAL (15 minutes)
+4. **[PROJECT_SETUP.md](PROJECT_SETUP.md)** - OPTIONAL
    - Set up GitHub Projects if you have org permissions
    - Create views and automation
-   - Zero-maintenance visualization
    - Not required - milestones work great!
 
-6. **[DISCUSSION_CATEGORIES.md](DISCUSSION_CATEGORIES.md)** - 30 minutes
+5. **[DISCUSSION_CATEGORIES.md](DISCUSSION_CATEGORIES.md)** - Discussion setup
    - Enable and configure GitHub Discussions
    - Set up categories (Q&A, Ideas, General, etc.)
    - Create pinned welcome posts
 
-7. **[DISCUSSION_TEMPLATES/](DISCUSSION_TEMPLATES/)** - Reference
+6. **[DISCUSSION_TEMPLATES/](DISCUSSION_TEMPLATES/)** - Reference
    - Templates to copy when creating pinned discussions
-   - `00_welcome.md` - Welcome post
-   - `01_roadmap.md` - Roadmap post (update links to your project)
+   - `00_welcome.md` - Welcome post template
 
 ### Helper Scripts
 
-8. **[scripts/](scripts/)** - Automation helpers
-   - `setup-milestones.sh` - One-time milestone creation
+7. **[scripts/](scripts/)** - Automation helpers
+   - `setup-milestones.sh` - Check current milestone status
    - Add your own scripts for common tasks
 
 ---

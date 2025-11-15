@@ -2,8 +2,6 @@
 
 **Complete guide to how everything works together**
 
-Last updated: November 2025
-
 ---
 
 ## 🎯 Overview
@@ -33,8 +31,7 @@ Repository Ecosystem
 │
 ├── Documentation (Contributor Support)
 │   ├── README.md (getting started)
-│   ├── CONTRIBUTING.md (detailed guide)
-│   ├── CONTRIBUTING_QUICKSTART.md (5-min start)
+│   ├── CONTRIBUTING.md (contribution guide)
 │   ├── TROUBLESHOOTING.md (common issues)
 │   ├── SECURITY.md (authentication)
 │   └── CHANGELOG.md (release notes)
@@ -81,7 +78,8 @@ Repository Ecosystem
 - `priority: critical`, `priority: high`, `priority: medium`, `priority: low`
 
 ### Target Labels (Roadmap planning)
-- `target: 4.2.0`, `target: 4.3.0`, `target: 4.4.0`, `target: 4.5.0`, `target: 5.0.0`, `target: future`
+- `target: X.Y.Z` for specific release milestones
+- `target: future` for backlog items
 
 ### Special Labels
 - `good-first-issue`, `help-wanted`, `community-contribution`, `security`, `breaking-change`, `stale`

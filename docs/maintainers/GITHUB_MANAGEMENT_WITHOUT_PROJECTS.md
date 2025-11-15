@@ -35,7 +35,7 @@ gh api repos/OWNER/REPO/milestones \
   -f description="Release description"
 ```
 
-See [MILESTONE_SETUP.md](MILESTONE_SETUP.md) for detailed guidance on milestone strategy.
+Milestones track releases and provide progress visibility.
 
 ---
 
@@ -444,8 +444,7 @@ Open in Excel/Sheets for pretty charts!
 
 ## 📞 Questions?
 
-- See: `docs/maintainers/MILESTONE_SETUP.md` for detailed milestone guide
-- See: `docs/maintainers/ROADMAP_ISSUE_TEMPLATE.md` for communication template
-- Run: `docs/maintainers/scripts/setup-milestones.sh` to get started
+- See: `docs/maintainers/ROADMAP_ISSUE_TEMPLATE.md` for roadmap communication template
+- Run: `docs/maintainers/scripts/setup-milestones.sh` to check current milestone status
 
 **You're all set! 🎉**
