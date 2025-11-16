@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 ## [4.2.0] - TBD
 ### Added
 - Added validation for unknown configuration keys with warning messages instead of errors for better backward and sideways compatibility (#352 by @MACKAT05)
+- Added support for snowflake-connector-python 4.x (#363) - dependency constraint updated to `>=2.8,<5.0`
+
 - **New `--schemachange-initial-deployment` flag** to explicitly declare first-time deployments and prevent accidental script re-application (fixes #326)
   - CLI: `--schemachange-initial-deployment`
   - ENV: `SCHEMACHANGE_INITIAL_DEPLOYMENT`
@@ -40,6 +42,12 @@ All notable changes to this project will be documented in this file.
   - For first-time deployments: use `--create-change-history-table --schemachange-initial-deployment`
   - For subsequent deployments: ensure table exists or investigate configuration
   - This prevents dangerous scenario where missing table due to misconfiguration causes all scripts to re-apply
+
+### Removed
+- Removed unnecessary dependencies to reduce bloat and improve install times:
+  - `cryptography` and `requests` (transitive dependencies of snowflake-connector-python, installed automatically)
+  - `black` and `flake8` (replaced by `ruff` which handles both linting and formatting)
+  - `pyfakefs` (unused test dependency)
 
 ### Fixed
 - Fixed YAML configuration validation to show warnings for unknown keys instead of throwing TypeError exceptions (#352 by @MACKAT05)

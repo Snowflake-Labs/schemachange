@@ -23,10 +23,8 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "cryptography",
     "jinja2~=3.0",
     "pyyaml~=6.0",
-    "requests",
     "snowflake-connector-python>=2.8,<5.0",
     "structlog~=24.1.0",
 ]
@@ -40,10 +38,7 @@ schemachange = "schemachange.cli:main"
 
 [project.optional-dependencies]
 dev = [
-    "black",
-    "flake8",
     "pre-commit",
-    "pyfakefs",
     "pytest",
     "ruff",
 ]
