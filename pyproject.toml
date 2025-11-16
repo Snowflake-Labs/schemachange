@@ -39,6 +39,7 @@ schemachange = "schemachange.cli:main"
 [project.optional-dependencies]
 dev = [
     "pre-commit",
+    "pyfakefs",
     "pytest",
     "ruff",
 ]

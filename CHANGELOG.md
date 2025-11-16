@@ -47,7 +47,6 @@ All notable changes to this project will be documented in this file.
 - Removed unnecessary dependencies to reduce bloat and improve install times:
   - `cryptography` and `requests` (transitive dependencies of snowflake-connector-python, installed automatically)
   - `black` and `flake8` (replaced by `ruff` which handles both linting and formatting)
-  - `pyfakefs` (unused test dependency)
 
 ### Fixed
 - Fixed YAML configuration validation to show warnings for unknown keys instead of throwing TypeError exceptions (#352 by @MACKAT05)
