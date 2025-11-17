@@ -293,82 +293,37 @@ export SNOWFLAKE_PASSWORD="my_password"
 
 ### Error: `Script rendered to empty SQL content` or `Script contains only SQL comments` (Issue #258)
 
-**Root Cause:** After Jinja template processing, the script either:
-1. Contains no content (whitespace only)
-2. Contains only SQL comments that Snowflake's connector will strip before execution
-
-**Why This Happens:**
-When Snowflake connector receives SQL content, it strips comments before execution. If the content becomes empty after stripping, it results in "Empty SQL Statement" error.
+**Root Cause:** After Jinja template processing, the script contains only whitespace or comments that Snowflake's connector strips before execution.
 
 **How Schemachange Fixes This:**
-- ✅ **Scripts with valid SQL + trailing comments**: Schemachange automatically appends `SELECT 1;` no-op statement to ensure Snowflake has a valid statement to execute. Your metadata comments are preserved.
-- ❌ **Comment-only scripts**: Schemachange raises a clear error because these are likely mistakes (placeholder files, TODOs, etc.)
+- ✅ **Valid SQL + trailing comments**: Auto-appends `SELECT 1;` no-op statement (metadata preserved, debug log message shown)
+- ❌ **Comment-only or empty scripts**: Raises clear error with debugging info
 
 **Common Scenarios:**
-
-1. **All Jinja conditionals evaluate to false:**
-   ```sql
-   {% if env == 'prod' %}
-   CREATE TABLE my_table (id INT);
-   {% endif %}
-   -- If env != 'prod', this renders to empty content
-   ```
-
-2. **File contains only SQL comments (ERROR):**
-   ```sql
-   -- TODO: Implement this migration later
-   -- Placeholder for future changes
-   ```
-   ❌ This will raise an error - add actual SQL or remove the file.
-
-3. **File contains only whitespace after rendering:**
-   ```sql
-   {% if feature_enabled %}
-   CREATE TABLE my_table (id INT);
-   {% endif %}
-   -- If feature_enabled is false, only whitespace remains
-   ```
-
-4. **File contains only a semicolon after rendering:**
-   ```sql
-   {% if some_condition %}
-   SELECT 1;
-   {% endif %}
-   ;  -- Trailing semicolon with no SQL above
-   ```
-
-5. **Missing or incorrect template variables:**
-   ```sql
-   {% if feature_flag %}
-   CREATE TABLE production_table (id INT);
-   {% endif %}
-   -- If feature_flag is not provided or is false, content is empty
-   ```
+1. All Jinja conditionals evaluate to false
+2. Comment-only files (TODOs, placeholders)
+3. Missing or incorrect template variables
+4. File contains only whitespace or semicolons after rendering
 
 **Solutions:**
 
-1. **Test template rendering:** Use the `render` command to see what SQL is actually generated:
+1. **Test rendering to see actual SQL output:**
    ```bash
    schemachange render path/to/V1.0__my_script.sql
    ```
-   This shows the exact SQL content after Jinja processing, including variables used.
 
-2. **Check template variables:** Verify all required variables are provided:
+2. **Verify variables are provided:**
    ```bash
-   # Via CLI:
+   # CLI
    schemachange deploy -V '{"env": "prod", "feature_flag": true}'
 
-   # Via YAML:
-   # schemachange.yaml
+   # YAML
    config-vars:
      env: prod
      feature_flag: true
-
-   # Via environment (in CI/CD):
-   export SCHEMACHANGE_VARS='{"env": "prod", "feature_flag": true}'
    ```
 
-3. **Add else clauses:** Ensure at least one branch always executes:
+3. **Add else clauses to ensure at least one branch executes:**
    ```sql
    {% if env == 'prod' %}
    CREATE TABLE prod_table (id INT);
@@ -377,19 +332,20 @@ When Snowflake connector receives SQL content, it strips comments before executi
    {% endif %}
    ```
 
-4. **Check environment differences:** In CI/CD (Azure DevOps, GitHub Actions, etc.), variables might be different than local:
-   - Verify environment variables are set correctly in your pipeline
-   - Check for typos in variable names (case-sensitive!)
-   - Use `schemachange render` locally with the same variables to reproduce the issue
+4. **CI/CD troubleshooting:**
+   - Check pipeline variables are set correctly
+   - Verify variable names (case-sensitive)
+   - Test locally with same variables to reproduce
+   - Check file encoding (UTF-8 without BOM) and line endings
 
-5. **Review the error message:** The error includes helpful debugging info:
-   - Raw content preview (first 500 characters)
-   - List of all variables provided
-   - Specific reasons that can cause empty content
+**Error Message Details:**
 
-**Example Error Messages:**
+The error includes helpful debugging information:
+- Raw content preview (first 500 chars)
+- List of variables provided
+- Specific fix suggestions
 
-**For empty content:**
+**Example:**
 ```
 ValueError: Script 'V1.0__my_script.sql' rendered to empty SQL content after Jinja processing.
 This can happen when:
@@ -398,39 +354,9 @@ This can happen when:
   3. Template variables are missing or incorrect
   4. The file contains only a semicolon after rendering
 
-Raw content preview (first 500 chars):
-
-
-
+Raw content preview: [shows your content]
 Provided variables: ['env', 'feature_flag']
 ```
-
-**For comment-only content:**
-```
-ValueError: Script 'V1.0__my_script.sql' contains only SQL comments after Jinja processing.
-When Snowflake strips comments, this results in an empty SQL statement.
-
-Original content:
--- TODO: Implement this later
--- Placeholder script
-
-Content after comment removal:
-''
-
-To fix:
-  1. Add actual SQL statements to the script
-  2. Remove comment-only scripts from your migrations
-  3. If this is a placeholder, add a no-op statement like: SELECT 1; -- placeholder
-```
-
-**Note on automatic fix for valid SQL:**
-If your script contains valid SQL but ends with comment lines (e.g., metadata), schemachange automatically appends a no-op `SELECT 1;` statement. This ensures Snowflake has a valid statement to execute after stripping comments, while preserving your metadata. You'll see a debug log message when this happens.
-
-**Azure DevOps Specific Tips:**
-- Ensure pipeline variables are passed to schemachange command
-- Check variable groups and library references
-- Verify file encoding (UTF-8 without BOM)
-- Check line endings (LF vs CRLF) if using multi-line conditionals
 
 ---
 

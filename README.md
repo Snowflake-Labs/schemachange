@@ -315,12 +315,16 @@ The Jinja auto-escaping feature is disabled in schemachange, this feature in Jin
 output language is HTML/XML. So if you are using schemachange with untrusted inputs you will need to handle this within
 your change scripts.
 
-### Gotchas
+### Common Pitfalls
 
-Within change scripts:
+Within change scripts, be aware of:
 
-- [Snowflake Scripting blocks need delimiters](https://docs.snowflake.com/en/developer-guide/snowflake-scripting/running-examples#introduction)
-- [The last line can't be a comment](https://github.com/Snowflake-Labs/schemachange/issues/130)
+- **Tasks and anonymous blocks**: Require `$$` delimiters around `BEGIN...END` blocks to prevent `execute_string()` from splitting on semicolons
+- **UTF-8 BOM characters**: Automatically stripped by schemachange (fixed in 4.2.0)
+- **Trailing comments**: Automatically handled with no-op statement (4.2.0+) to prevent "Empty SQL Statement" errors
+- **Snowflake Scripting blocks**: Need proper delimiters ([Snowflake docs](https://docs.snowflake.com/en/developer-guide/snowflake-scripting/running-examples#introduction))
+
+For detailed troubleshooting and solutions, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 
 ## Change History Table
 
@@ -941,38 +945,17 @@ These environment variables configure schemachange-specific behavior:
 
 **Note:** Boolean values accept `true`/`false`, `yes`/`no`, `1`/`0` (case-insensitive).
 
-**🏗️ Architecture Note:** `SCHEMACHANGE_CONNECTION_NAME` and `SCHEMACHANGE_CONNECTIONS_FILE_PATH` use the `SCHEMACHANGE_` prefix because they control **where schemachange looks for configuration** (first-pass resolution), not what gets passed to Snowflake. These are config-lookup parameters, not Snowflake connector parameters.
+**🏗️ Architecture Note:** `SCHEMACHANGE_CONNECTION_NAME` and `SCHEMACHANGE_CONNECTIONS_FILE_PATH` use the `SCHEMACHANGE_` prefix because they control **where schemachange looks for configuration** (first-pass resolution), not what gets passed to Snowflake.
 
-**📋 Configuration Resolution Flow:**
+**Configuration Loading Order:**
+1. Parse CLI arguments (includes `--config-folder`, `--config-file-name`)
+2. Load YAML config (if present)
+3. Load ENV variables
+4. Determine if connections.toml should be used (if `connection-name` or `connections-file-path` set)
+5. Load connections.toml (if applicable)
+6. Merge all sources with precedence: CLI > ENV > YAML > connections.toml
 
-```
-Phase 0: Parse CLI Arguments
-├─ Parse: --config-folder (default: .)
-├─ Parse: --config-file-name (default: schemachange-config.yml)
-└─ Result: Use these values immediately to locate YAML file
-
-Phase 1: Load Configuration Sources (in order)
-├─ 1. Load YAML config (using config_folder from Phase 0)
-├─ 2. Load ENV config (including SCHEMACHANGE_CONFIG_FOLDER, etc.)
-└─ 3. Already have CLI config from Phase 0
-
-Phase 2: First Pass - Determine connections.toml Usage
-├─ Resolve: connection_name (precedence: CLI > ENV > YAML)
-├─ Resolve: connections_file_path (precedence: CLI > ENV > YAML)
-├─ Decision: Use connections.toml? (YES if either is set, NO if neither)
-└─ If YES: Load parameters from connections.toml
-
-Phase 3: Second Pass - Merge All Parameters
-├─ Merge Snowflake connection params: CLI > ENV > YAML > toml
-├─ Merge session_parameters: CLI > ENV > YAML > toml (QUERY_TAG appends)
-└─ Merge additional_snowflake_params: ENV > YAML
-```
-
-**Key Architectural Points:**
-- **YAML location** determined by Phase 0 CLI args only (ENV vars for config_folder/config_file_name loaded too late)
-- **connections.toml usage** determined by Phase 2 (CLI > ENV > YAML precedence)
-- **Parameter values** merged in Phase 3 with full precedence chain (CLI > ENV > YAML > toml)
-- **No conflicts** because each phase has a distinct purpose and resolution order
+**Note:** YAML file location is determined by `--config-folder` CLI arg only, since ENV variables are loaded after YAML parsing
 
 #### SNOWFLAKE_* Environment Variables
 
@@ -1035,45 +1018,9 @@ These variables are supported for backward compatibility but are superseded by `
 
 </details>
 
-#### Real-World Authentication Examples
+#### Complete Authentication Examples
 
-**Key-Pair (JWT) Authentication (Recommended for Production):**
-```bash
-export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
-export SNOWFLAKE_USER="deploy_user"
-export SNOWFLAKE_AUTHENTICATOR="snowflake_jwt"
-export SNOWFLAKE_PRIVATE_KEY_FILE="~/.ssh/snowflake_key.p8"
-export SNOWFLAKE_PRIVATE_KEY_FILE_PWD="key_password"  # Only if key is encrypted
-export SNOWFLAKE_ROLE="DEPLOY_ROLE"
-export SNOWFLAKE_WAREHOUSE="DEPLOY_WH"
-export SNOWFLAKE_DATABASE="MY_DATABASE"
-
-schemachange deploy --config-folder ./migrations
-```
-
-**Programmatic Access Token (PAT) for MFA-Enabled Accounts:**
-```bash
-export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
-export SNOWFLAKE_USER="service_account"
-export SNOWFLAKE_PASSWORD="<your_pat_token>"  # PAT, not regular password
-export SNOWFLAKE_ROLE="DEPLOY_ROLE"
-export SNOWFLAKE_WAREHOUSE="DEPLOY_WH"
-export SNOWFLAKE_DATABASE="MY_DATABASE"
-
-schemachange deploy --config-folder ./migrations
-```
-
-**External Browser (SSO) Authentication:**
-```bash
-export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
-export SNOWFLAKE_USER="user@company.com"
-export SNOWFLAKE_AUTHENTICATOR="externalbrowser"
-export SNOWFLAKE_ROLE="DEPLOY_ROLE"
-export SNOWFLAKE_WAREHOUSE="DEPLOY_WH"
-export SNOWFLAKE_DATABASE="MY_DATABASE"
-
-schemachange deploy --config-folder ./migrations
-```
+For complete environment variable examples covering JWT, PAT, SSO, and OAuth authentication methods, see the [Authentication](#authentication) section above. For security best practices and decision trees, see [SECURITY.md](SECURITY.md)
 
 ### Configuration Priority
 
@@ -1091,19 +1038,6 @@ schemachange deploy --config-folder ./migrations
 🏅 connections.toml (when explicitly enabled)
 ```
 
-#### How It Works in Practice
-
-**Example:** You set `user` in all four places. Which one does schemachange use?
-
-| Source | Value | Result |
-|--------|-------|--------|
-| connections.toml | `user = "toml_user"` | ❌ Overridden |
-| YAML config | `snowflake-user: yaml_user` | ❌ Overridden |
-| ENV variable | `SNOWFLAKE_USER=env_user` | ❌ Overridden |
-| CLI argument | `--snowflake-user cli_user` | ✅ **Winner!** |
-
-**Schemachange connects as:** `cli_user`
-
 #### When to Use Each Method
 
 Think about **who** needs to change the value and **when**:
@@ -1115,49 +1049,15 @@ Think about **who** needs to change the value and **when**:
 | **Environment Variables** | CI/CD & secrets | "GitHub Actions sets credentials per environment" |
 | **CLI Arguments** | One-off overrides | "Just this once, use a different warehouse" |
 
-#### Real-World Scenarios
+#### Quick Example
 
-**Scenario 1: Local Development**
-```toml
-# ~/.snowflake/connections.toml - Your personal defaults
-[dev]
-account = "myorg-dev"
-user = "alice"
-database = "DEV_DB"
-```
 ```bash
-# Override just the database for testing
-schemachange deploy -C dev -d TEST_DB
-# Uses: account=myorg-dev, user=alice, database=TEST_DB (CLI wins)
-```
+# connections.toml has: user = "toml_user"
+# YAML has: snowflake-user: yaml_user
+export SNOWFLAKE_USER=env_user
+schemachange deploy -C dev --snowflake-user cli_user
 
-**Scenario 2: CI/CD Pipeline**
-```yaml
-# schemachange-config.yml - Team config checked into git
-snowflake:
-  warehouse: PROD_WH
-  role: DEPLOY_ROLE
-```
-```bash
-# GitHub Actions - Secrets from vault, override account per environment
-export SNOWFLAKE_USER=github_deploy_bot
-export SNOWFLAKE_PASSWORD=${{ secrets.SNOWFLAKE_PAT }}
-export SNOWFLAKE_ACCOUNT="myorg-prod"  # ENV overrides YAML
-schemachange deploy
-```
-
-**Scenario 3: Multi-Environment**
-```yaml
-# config-staging.yml
-snowflake:
-  account: myorg-staging
-  warehouse: STAGE_WH
-```
-```bash
-# Use staging config, but override warehouse for load testing
-export SNOWFLAKE_ACCOUNT="myorg-staging"
-schemachange deploy --config-folder ./configs -w LOAD_TEST_WH
-# ENV (account) + CLI (warehouse) both win over YAML
+# Result: Connects as "cli_user" (CLI wins all)
 ```
 
 **Snowflake Python Connector Parameters:**
