@@ -202,7 +202,7 @@ class TestSnowflakeSession:
 
         # Should return defaultdict(dict) for versioned_scripts to avoid AttributeError
         assert isinstance(versioned_scripts, defaultdict)
-        assert versioned_scripts.default_factory == dict
+        assert versioned_scripts.default_factory is dict
         assert r_scripts_checksum is None
         assert max_published_version is None
 
