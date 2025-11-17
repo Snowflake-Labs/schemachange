@@ -182,14 +182,14 @@ def parse_cli_args(args) -> dict:
         "-u",
         "--snowflake-user",
         type=str,
-        help="The name of the snowflake user. " "Can also be set via SNOWFLAKE_USER environment variable.",
+        help="The name of the snowflake user. Can also be set via SNOWFLAKE_USER environment variable.",
         required=False,
     )
     parser_deploy.add_argument(
         "-r",
         "--snowflake-role",
         type=str,
-        help="The name of the default role to use. " "Can also be set via SNOWFLAKE_ROLE environment variable.",
+        help="The name of the default role to use. Can also be set via SNOWFLAKE_ROLE environment variable.",
         required=False,
     )
     parser_deploy.add_argument(
@@ -415,36 +415,35 @@ def parse_cli_args(args) -> dict:
         "-u",
         "--snowflake-user",
         type=str,
-        help="The name of the snowflake user. " "Can also be set via SNOWFLAKE_USER environment variable.",
+        help="The name of the snowflake user. Can also be set via SNOWFLAKE_USER environment variable.",
         required=False,
     )
     parser_verify.add_argument(
         "-r",
         "--snowflake-role",
         type=str,
-        help="The name of the default role to use. " "Can also be set via SNOWFLAKE_ROLE environment variable.",
+        help="The name of the default role to use. Can also be set via SNOWFLAKE_ROLE environment variable.",
         required=False,
     )
     parser_verify.add_argument(
         "-w",
         "--snowflake-warehouse",
         type=str,
-        help="The name of the default warehouse to use. "
-        "Can also be set via SNOWFLAKE_WAREHOUSE environment variable.",
+        help="The name of the default warehouse to use. Can also be set via SNOWFLAKE_WAREHOUSE environment variable.",
         required=False,
     )
     parser_verify.add_argument(
         "-d",
         "--snowflake-database",
         type=str,
-        help="The name of the default database to use. " "Can also be set via SNOWFLAKE_DATABASE environment variable.",
+        help="The name of the default database to use. Can also be set via SNOWFLAKE_DATABASE environment variable.",
         required=False,
     )
     parser_verify.add_argument(
         "-s",
         "--snowflake-schema",
         type=str,
-        help="The name of the default schema to use. " "Can also be set via SNOWFLAKE_SCHEMA environment variable.",
+        help="The name of the default schema to use. Can also be set via SNOWFLAKE_SCHEMA environment variable.",
         required=False,
     )
 

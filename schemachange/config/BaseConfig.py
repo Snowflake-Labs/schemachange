@@ -52,9 +52,7 @@ class BaseConfig(ABC):
         unknown_keys = set(kwargs.keys()) - field_names
         if unknown_keys:
             unknown_keys_str = ", ".join(sorted(unknown_keys))
-            logger.warning(
-                f"Unknown configuration keys found and will be ignored: {unknown_keys_str}"
-            )
+            logger.warning(f"Unknown configuration keys found and will be ignored: {unknown_keys_str}")
             # Filter out unknown keys to prevent TypeError
             kwargs = {k: v for k, v in kwargs.items() if k in field_names}
 

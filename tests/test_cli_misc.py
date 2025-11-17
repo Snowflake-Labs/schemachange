@@ -11,6 +11,7 @@ from schemachange.deploy import alphanum_convert, get_alphanum_key, sorted_alpha
 def test_cli_given__schemachange_version_change_updated_in_setup_config_file():
     assert SCHEMACHANGE_VERSION == "4.2.0"
 
+
 def test_cli_given__constants_exist():
     assert ChangeHistoryTable._default_database_name == "METADATA"
     assert ChangeHistoryTable._default_schema_name == "SCHEMACHANGE"

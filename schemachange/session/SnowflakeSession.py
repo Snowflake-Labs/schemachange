@@ -319,7 +319,7 @@ class SnowflakeSession:
                 raise ValueError("--initial-deployment requires --create-change-history-table to be true")
             # Valid initial deployment scenario
             self.logger.info(
-                "Initial deployment mode: Change history table will be created " "and all scripts treated as new."
+                "Initial deployment mode: Change history table will be created and all scripts treated as new."
             )
             if dry_run:
                 self.logger.info("Dry-run: Change history table creation and script execution will be previewed only.")

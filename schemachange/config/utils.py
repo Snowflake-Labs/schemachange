@@ -396,8 +396,7 @@ def get_snowflake_password() -> str | None:
         # Check legacy/deprecated env variable
         if snowsql_pwd is not None and snowsql_pwd:
             warnings.warn(
-                "Environment variables SNOWFLAKE_PASSWORD and SNOWSQL_PWD "
-                "are both present, using SNOWFLAKE_PASSWORD",
+                "Environment variables SNOWFLAKE_PASSWORD and SNOWSQL_PWD are both present, using SNOWFLAKE_PASSWORD",
                 DeprecationWarning,
                 stacklevel=2,
             )
