@@ -155,9 +155,14 @@ schemachange verify
 
 ---
 
-### Error: Tasks with `BEGIN...END` blocks fail with EOF or parsing errors
+### Error: Tasks or anonymous blocks with `BEGIN...END` fail with EOF or parsing errors
 
 **Cause:** The Snowflake connector's `execute_string()` method splits SQL on semicolons, which breaks `BEGIN...END` blocks that aren't protected by delimiters.
+
+**This affects:**
+- Tasks with `BEGIN...END` blocks
+- Anonymous blocks (stored procedures)
+- Any SQL containing multi-statement blocks
 
 **Example that fails:**
 ```sql
@@ -196,11 +201,11 @@ The `$$` delimiter tells `execute_string()` to treat everything between them as 
 3. `COMMIT;`
 4. `END;`
 
-Each piece is invalid SQL on its own, causing parsing errors.
+Each piece is invalid SQL on its own, causing parsing errors or truncated execution.
 
-**Reference:** [Snowflake CREATE TASK documentation](https://docs.snowflake.com/en/sql-reference/sql/create-task) supports both single-quoted and dollar-quoted (`$$`) syntax.
+**Reference:** [Snowflake CREATE TASK documentation](https://docs.snowflake.com/en/sql-reference/sql/create-task) and [Snowflake Scripting documentation](https://docs.snowflake.com/en/developer-guide/stored-procedure/stored-procedures-snowflake-scripting) both support dollar-quoted (`$$`) syntax.
 
-**Related:** Issue [#253](https://github.com/Snowflake-Labs/schemachange/issues/253)
+**Related:** Issues [#253](https://github.com/Snowflake-Labs/schemachange/issues/253) and [#138](https://github.com/Snowflake-Labs/schemachange/issues/138)
 
 ---
 
