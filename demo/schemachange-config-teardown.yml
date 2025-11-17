@@ -1,11 +1,9 @@
 config-version: 1
 
-# Teardown uses the same change history table as setup (they're a single unit of work).
-# Setup creates the table, teardown just uses it. Teardown uses Always scripts which run
-# every time regardless of change history, so the table is just for consistency tracking.
-# Uses MY_TARGET_SCHEMA which includes run_number and job_index to match setup's table.
-change-history-table: "{{ env_var('SNOWFLAKE_DATABASE')}}.SCHEMACHANGE.{{ env_var('MY_TARGET_SCHEMA')}}_CHANGE_HISTORY"
-create-change-history-table: false  # Table already created by setup phase
+# tracking the setup step in a different change history table to use schemachange setup and teardown separate from deployment.
+change-history-table: "{{ env_var('SNOWFLAKE_DATABASE')}}.SCHEMACHANGE.{{ env_var('SCENARIO_NAME')}}_CHANGE_HISTORY"
+create-change-history-table: true
+initial-deployment: false
 
 vars:
   database_name: "{{env_var('SNOWFLAKE_DATABASE')}}"
