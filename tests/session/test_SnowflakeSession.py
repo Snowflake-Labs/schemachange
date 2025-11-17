@@ -15,7 +15,18 @@ def session() -> SnowflakeSession:
     change_history_table = ChangeHistoryTable()
     logger = structlog.testing.CapturingLogger()
 
-    with mock.patch("snowflake.connector.connect"):
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        # Mock the connection object
+        mock_conn = mock.Mock()
+        mock_conn.account = "account"
+        mock_conn.user = "user"
+        mock_conn.role = "role"
+        mock_conn.warehouse = "warehouse"
+        mock_conn.database = None
+        mock_conn.schema = None
+        mock_conn.session_id = "session_123"
+        mock_connect.return_value = mock_conn
+
         with mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string"):
             # noinspection PyTypeChecker
             return SnowflakeSession(
@@ -32,18 +43,22 @@ def session() -> SnowflakeSession:
 
 class TestSnowflakeSession:
     def test_fetch_change_history_metadata_exists(self, session: SnowflakeSession):
+        # Reset call count after initialization (which calls execute_string for USE commands)
+        session.con.execute_string.reset_mock()
+
         session.con.execute_string.return_value = [[["created", "last_altered"]]]
         result = session.fetch_change_history_metadata()
         assert result == {"created": "created", "last_altered": "last_altered"}
         assert session.con.execute_string.call_count == 1
-        assert session.logger.calls[2][1][0] == "Executing query"
 
     def test_fetch_change_history_metadata_does_not_exist(self, session: SnowflakeSession):
+        # Reset call count after initialization (which calls execute_string for USE commands)
+        session.con.execute_string.reset_mock()
+
         session.con.execute_string.return_value = [[]]
         result = session.fetch_change_history_metadata()
         assert result == {}
         assert session.con.execute_string.call_count == 1
-        assert session.logger.calls[2][1][0] == "Executing query"
 
     def test_snowflake_session_with_additional_params_from_yaml_v2(self):
         """Test that additional_snowflake_params from YAML v2 are passed to connector."""
@@ -365,3 +380,286 @@ class TestSnowflakeSession:
                     initial_deployment=False,
                     dry_run=False,
                 )
+
+    def test_initialize_session_context_all_parameters(self):
+        """Test session initialization with all context parameters (role, warehouse, database, schema)."""
+        change_history_table = ChangeHistoryTable()
+        logger = structlog.testing.CapturingLogger()
+
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "test_account"
+            mock_conn.user = "test_user"
+            mock_conn.role = "TEST_ROLE"
+            mock_conn.warehouse = "TEST_WH"
+            mock_conn.database = "TEST_DB"
+            mock_conn.schema = "TEST_SCHEMA"
+            mock_conn.session_id = "session_123"
+            mock_connect.return_value = mock_conn
+
+            session = SnowflakeSession(
+                user="test_user",
+                account="test_account",
+                role="TEST_ROLE",
+                warehouse="TEST_WH",
+                database="TEST_DB",
+                schema="TEST_SCHEMA",
+                schemachange_version="4.2.0",
+                application="schemachange",
+                change_history_table=change_history_table,
+                logger=logger,
+            )
+
+            # Verify session object was created successfully
+            assert session is not None
+            assert session.warehouse == "TEST_WH"
+            assert session.role == "TEST_ROLE"
+
+            # Verify execute_string was called for session initialization
+            assert mock_conn.execute_string.call_count == 1
+
+            # Verify all USE commands were executed
+            executed_query = mock_conn.execute_string.call_args[0][0]
+            assert "USE ROLE IDENTIFIER('TEST_ROLE');" in executed_query
+            assert "USE WAREHOUSE IDENTIFIER('TEST_WH');" in executed_query
+            assert "USE DATABASE IDENTIFIER('TEST_DB');" in executed_query
+            assert "USE SCHEMA IDENTIFIER('TEST_SCHEMA');" in executed_query
+
+    def test_initialize_session_context_warehouse_only(self):
+        """Test session initialization with only warehouse parameter (issue #233, #235)."""
+        change_history_table = ChangeHistoryTable()
+        logger = structlog.testing.CapturingLogger()
+
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "test_account"
+            mock_conn.user = "test_user"
+            mock_conn.role = None
+            mock_conn.warehouse = "DEPLOY_WH"
+            mock_conn.database = None
+            mock_conn.schema = None
+            mock_conn.session_id = "session_123"
+            mock_connect.return_value = mock_conn
+
+            session = SnowflakeSession(
+                user="test_user",
+                account="test_account",
+                warehouse="DEPLOY_WH",
+                schemachange_version="4.2.0",
+                application="schemachange",
+                change_history_table=change_history_table,
+                logger=logger,
+            )
+
+            # Verify session object was created successfully
+            assert session is not None
+            assert session.warehouse == "DEPLOY_WH"
+            assert session.role is None
+
+            # Verify execute_string was called for warehouse initialization
+            assert mock_conn.execute_string.call_count == 1
+
+            # Verify only USE WAREHOUSE was executed
+            executed_query = mock_conn.execute_string.call_args[0][0]
+            assert "USE WAREHOUSE IDENTIFIER('DEPLOY_WH');" in executed_query
+            assert "USE ROLE" not in executed_query
+            assert "USE DATABASE" not in executed_query
+            assert "USE SCHEMA" not in executed_query
+
+    def test_initialize_session_context_no_parameters(self):
+        """Test session initialization with no context parameters doesn't execute USE commands."""
+        change_history_table = ChangeHistoryTable()
+        logger = structlog.testing.CapturingLogger()
+
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "test_account"
+            mock_conn.user = "test_user"
+            mock_conn.role = None
+            mock_conn.warehouse = None
+            mock_conn.database = None
+            mock_conn.schema = None
+            mock_conn.session_id = "session_123"
+            mock_connect.return_value = mock_conn
+
+            session = SnowflakeSession(
+                user="test_user",
+                account="test_account",
+                schemachange_version="4.2.0",
+                application="schemachange",
+                change_history_table=change_history_table,
+                logger=logger,
+            )
+
+            # Verify session object was created successfully
+            assert session is not None
+
+            # Verify execute_string was NOT called (no USE commands needed)
+            assert mock_conn.execute_string.call_count == 0
+
+    def test_initialize_session_context_handles_errors(self):
+        """Test session initialization handles errors gracefully with helpful message."""
+        change_history_table = ChangeHistoryTable()
+        logger = structlog.testing.CapturingLogger()
+
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "test_account"
+            mock_conn.user = "test_user"
+            mock_conn.role = "INVALID_ROLE"
+            mock_conn.warehouse = "TEST_WH"
+            mock_conn.database = "TEST_DB"
+            mock_conn.schema = "TEST_SCHEMA"
+            mock_conn.session_id = "session_123"
+
+            # Simulate error when executing USE commands
+            mock_conn.execute_string.side_effect = Exception("Insufficient privileges")
+            mock_connect.return_value = mock_conn
+
+            with pytest.raises(ValueError, match="Failed to initialize Snowflake session context"):
+                _ = SnowflakeSession(
+                    user="test_user",
+                    account="test_account",
+                    role="INVALID_ROLE",
+                    warehouse="TEST_WH",
+                    database="TEST_DB",
+                    schema="TEST_SCHEMA",
+                    schemachange_version="4.2.0",
+                    application="schemachange",
+                    change_history_table=change_history_table,
+                    logger=logger,
+                )
+
+    def test_missing_warehouse_connects_but_queries_will_fail(self):
+        """Test that connection succeeds without warehouse, but operations requiring warehouse will fail."""
+        change_history_table = ChangeHistoryTable()
+        logger = structlog.testing.CapturingLogger()
+
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "test_account"
+            mock_conn.user = "test_user"
+            mock_conn.role = "TEST_ROLE"
+            mock_conn.warehouse = None  # No warehouse specified
+            mock_conn.database = "TEST_DB"
+            mock_conn.schema = "TEST_SCHEMA"
+            mock_conn.session_id = "session_123"
+            mock_connect.return_value = mock_conn
+
+            # Connection should succeed
+            session = SnowflakeSession(
+                user="test_user",
+                account="test_account",
+                role="TEST_ROLE",
+                warehouse=None,  # No warehouse
+                database="TEST_DB",
+                schema="TEST_SCHEMA",
+                schemachange_version="4.2.0",
+                application="schemachange",
+                change_history_table=change_history_table,
+                logger=logger,
+            )
+
+            # Verify execute_string was called (for role, database, schema - but not warehouse)
+            assert mock_conn.execute_string.call_count == 1
+            executed_query = mock_conn.execute_string.call_args[0][0]
+            assert "USE ROLE IDENTIFIER('TEST_ROLE');" in executed_query
+            assert "USE DATABASE IDENTIFIER('TEST_DB');" in executed_query
+            assert "USE SCHEMA IDENTIFIER('TEST_SCHEMA');" in executed_query
+            assert "USE WAREHOUSE" not in executed_query  # Warehouse should NOT be in query
+
+            # Now simulate a query that requires warehouse (like fetching change history)
+            mock_conn.execute_string.reset_mock()
+            mock_conn.execute_string.side_effect = Exception(
+                "000606 (57P03): No active warehouse selected in the current session. "
+                "Select an active warehouse with the 'use warehouse' command."
+            )
+
+            # This would fail with warehouse error
+            with pytest.raises(Exception, match="No active warehouse selected"):
+                session.fetch_change_history_metadata()
+
+    def test_missing_all_context_parameters_allows_connection(self):
+        """Test that connection can be established without any context parameters."""
+        change_history_table = ChangeHistoryTable()
+        logger = structlog.testing.CapturingLogger()
+
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "test_account"
+            mock_conn.user = "test_user"
+            mock_conn.role = None
+            mock_conn.warehouse = None
+            mock_conn.database = None
+            mock_conn.schema = None
+            mock_conn.session_id = "session_123"
+            mock_connect.return_value = mock_conn
+
+            # Connection should succeed
+            session = SnowflakeSession(
+                user="test_user",
+                account="test_account",
+                schemachange_version="4.2.0",
+                application="schemachange",
+                change_history_table=change_history_table,
+                logger=logger,
+            )
+
+            # Verify session object was created successfully
+            assert session is not None
+
+            # No USE commands should be executed
+            assert mock_conn.execute_string.call_count == 0
+
+            # Session object should have None for context parameters
+            assert session.role is None
+            assert session.warehouse is None
+            assert session.database is None
+            assert session.schema is None
+
+    def test_warehouse_required_for_schemachange_operations(self):
+        """
+        Document that warehouse is effectively required for schemachange operations.
+
+        While Snowflake allows connection without a warehouse, schemachange needs one for:
+        - Querying INFORMATION_SCHEMA.TABLES (change history lookup)
+        - Creating change history table
+        - Executing SQL scripts
+
+        This test documents the expected behavior and error message users will see.
+        """
+        change_history_table = ChangeHistoryTable()
+        logger = structlog.testing.CapturingLogger()
+
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "test_account"
+            mock_conn.user = "test_user"
+            mock_conn.role = None
+            mock_conn.warehouse = None  # No warehouse
+            mock_conn.database = None
+            mock_conn.schema = None
+            mock_conn.session_id = "session_123"
+
+            # First call: successful connection (no USE commands)
+            # Subsequent calls: warehouse error when querying
+            mock_conn.execute_string.side_effect = [
+                Exception(
+                    "000606 (57P03): No active warehouse selected in the current session. "
+                    "Select an active warehouse with the 'use warehouse' command."
+                )
+            ]
+            mock_connect.return_value = mock_conn
+
+            session = SnowflakeSession(
+                user="test_user",
+                account="test_account",
+                schemachange_version="4.2.0",
+                application="schemachange",
+                change_history_table=change_history_table,
+                logger=logger,
+            )
+
+            # Attempting any schemachange operation will fail
+            with pytest.raises(Exception, match="No active warehouse selected"):
+                session.fetch_change_history_metadata()

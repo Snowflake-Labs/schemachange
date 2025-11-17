@@ -69,6 +69,12 @@ All notable changes to this project will be documented in this file.
   - Transparent: logs debug message when appending no-op statement
   - Non-breaking: existing valid scripts continue to work
   - Particularly helpful for Azure DevOps and other CI/CD environments where template variables might differ
+- Fixed warehouse parameter being ignored causing "No active warehouse selected" error (#233, #235)
+  - Root cause: Snowflake connector accepts warehouse parameter but doesn't automatically execute `USE WAREHOUSE`
+  - Solution: Execute `USE ROLE`, `USE WAREHOUSE`, `USE DATABASE`, `USE SCHEMA` commands immediately after connection
+  - Ensures session context is properly initialized before any queries (e.g. fetching change history metadata)
+  - Non-breaking: Sessions now properly use the warehouse specified via CLI (`-w`), ENV (`SNOWFLAKE_WAREHOUSE`), YAML, or connections.toml
+  - Critical fix for users encountering: "000606 (57P03): No active warehouse selected in the current session"
 
 ## [4.1.0] - 2025-11-14
 ### Added

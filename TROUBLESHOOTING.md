@@ -101,6 +101,60 @@ schemachange deploy --snowflake-authenticator snowflake_jwt \
 
 ---
 
+### Error: `000606 (57P03): No active warehouse selected in the current session`
+
+**Cause:** No warehouse was specified or the warehouse parameter is not being used properly.
+
+**Symptoms:**
+- Error occurs immediately when schemachange tries to query the change history table
+- Error message: `No active warehouse selected in the current session. Select an active warehouse with the 'use warehouse' command.`
+
+**Solutions:**
+
+**✅ Fixed in 4.2.0:** This issue is automatically resolved by explicitly setting a warehouse parameter.
+
+1. **Specify warehouse via CLI:**
+   ```bash
+   schemachange deploy --snowflake-warehouse MY_WAREHOUSE
+   # or short form:
+   schemachange deploy -w MY_WAREHOUSE
+   ```
+
+2. **Set via environment variable:**
+   ```bash
+   export SNOWFLAKE_WAREHOUSE=MY_WAREHOUSE
+   schemachange deploy
+   ```
+
+3. **Configure in YAML:**
+   ```yaml
+   snowflake:
+     warehouse: MY_WAREHOUSE
+   ```
+
+4. **Set in connections.toml:**
+   ```toml
+   [myconnection]
+   warehouse = "MY_WAREHOUSE"
+   ```
+
+**Why warehouse is required:**
+
+While Snowflake allows connecting without a warehouse, schemachange operations **require** an active warehouse for:
+- Querying `INFORMATION_SCHEMA.TABLES` (change history lookup)
+- Creating change history table
+- Executing SQL scripts
+
+**Verify your configuration:**
+```bash
+schemachange verify
+# Look for "default_warehouse" in the output
+```
+
+**Note:** In versions before 4.2.0, the warehouse parameter was sometimes ignored due to a bug (see issues [#233](https://github.com/Snowflake-Labs/schemachange/issues/233) and [#235](https://github.com/Snowflake-Labs/schemachange/issues/235)). This is fixed in 4.2.0.
+
+---
+
 ### Error: `SQL compilation error: Object does not exist` or `Database/Schema does not exist`
 
 **Possible Causes:**

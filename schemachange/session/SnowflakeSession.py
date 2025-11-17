@@ -133,9 +133,65 @@ class SnowflakeSession:
         # (already merged in get_merged_config with CLI > ENV > YAML > connections.toml precedence)
         self.session_parameters = explicit_params.get("session_parameters", {})
 
+        # Initialize session context by executing USE commands for role, warehouse, database, schema
+        # This ensures the warehouse is active before any queries are executed
+        # Fixes issue #233 and #235: "No active warehouse selected in the current session"
+        self._initialize_session_context()
+
     def __del__(self):
         if hasattr(self, "con"):
             self.con.close()
+
+    def _initialize_session_context(self):
+        """
+        Initialize Snowflake session context by executing USE commands.
+
+        This must be called after connection establishment to ensure that role, warehouse,
+        database, and schema are properly set in the session before any queries are executed.
+
+        The Snowflake connector accepts these parameters but doesn't automatically execute
+        USE commands, which can cause "No active warehouse selected" errors when querying
+        INFORMATION_SCHEMA or executing other operations that require a warehouse.
+
+        Fixes issue #233 and #235: Default warehouse ignored / not selected.
+        """
+        use_commands = []
+
+        if self.role:
+            use_commands.append(f"USE ROLE IDENTIFIER('{self.role}');")
+            self.logger.debug("Setting session role", role=self.role)
+
+        if self.warehouse:
+            use_commands.append(f"USE WAREHOUSE IDENTIFIER('{self.warehouse}');")
+            self.logger.debug("Setting session warehouse", warehouse=self.warehouse)
+
+        if self.database:
+            use_commands.append(f"USE DATABASE IDENTIFIER('{self.database}');")
+            self.logger.debug("Setting session database", database=self.database)
+
+        if self.schema:
+            use_commands.append(f"USE SCHEMA IDENTIFIER('{self.schema}');")
+            self.logger.debug("Setting session schema", schema=self.schema)
+
+        if use_commands:
+            query = "\n".join(use_commands)
+            try:
+                self.con.execute_string(query)
+                self.logger.debug("Session context initialized successfully")
+            except Exception as e:
+                self.logger.error(
+                    "Failed to initialize session context",
+                    error=str(e),
+                    role=self.role,
+                    warehouse=self.warehouse,
+                    database=self.database,
+                    schema=self.schema,
+                )
+                raise ValueError(
+                    f"Failed to initialize Snowflake session context. "
+                    f"Please verify that the role '{self.role}' has access to "
+                    f"warehouse '{self.warehouse}', database '{self.database}', and schema '{self.schema}'."
+                ) from e
 
     def execute_snowflake_query(self, query: str, logger: structlog.BoundLogger):
         logger.debug(
