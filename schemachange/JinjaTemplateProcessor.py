@@ -49,6 +49,14 @@ class JinjaTemplateProcessor:
         posix_path = Path(script).as_posix()
         template = self.__environment.get_template(posix_path)
         raw_content = template.render(**variables)
+
+        # Remove UTF-8 BOM if present (issue #250)
+        # The BOM character (\ufeff) causes Snowflake SQL compilation errors
+        # Common in files saved with "UTF-8 with BOM" encoding (Windows/VS Code)
+        if raw_content.startswith("\ufeff"):
+            logger.debug("Removing UTF-8 BOM from script", script=script)
+            raw_content = raw_content[1:]
+
         content = raw_content.strip()
         content = content[:-1] if content.endswith(";") else content
 

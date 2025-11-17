@@ -50,6 +50,11 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - Fixed YAML configuration validation to show warnings for unknown keys instead of throwing TypeError exceptions (#352 by @MACKAT05)
+- Fixed UTF-8 BOM character causing SQL compilation errors in Snowflake (#250)
+  - Automatically strips UTF-8 BOM (`\ufeff`) from script files if present
+  - Common issue with files saved as "UTF-8 with BOM" in Windows/VS Code environments
+  - Prevents cryptic Snowflake error: "syntax error line 1 at position 0 unexpected '\ufeff'"
+  - Non-breaking change: gracefully handles files with or without BOM
 - Fixed multi-line secrets not being redacted when displayed in logs or config output (#237, PR #238 by @rwberendsen)
   - Root cause: Secrets were stored with `.strip()` but displayed with different YAML/JSON serialization
   - Solution: Store multiple representations (original, stripped, normalized, individual lines) to ensure redaction works

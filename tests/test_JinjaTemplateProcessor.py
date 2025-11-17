@@ -283,3 +283,40 @@ class TestJinjaTemplateProcessor:
         assert "CREATE TABLE bar (id INT)" in result
         assert "/* Metadata block */" in result
         assert "SELECT 1; -- schemachange: no-op statement" in result
+
+    def test_render_strips_utf8_bom_character(self, processor: JinjaTemplateProcessor):
+        """Test that UTF-8 BOM character is automatically stripped - issue #250"""
+        # \ufeff is the UTF-8 BOM (Byte Order Mark) character
+        templates = {"test.sql": "\ufeffSELECT 1 FROM dual"}
+        processor.override_loader(DictLoader(templates))
+
+        result = processor.render("test.sql", None)
+
+        # BOM should be stripped
+        assert not result.startswith("\ufeff")
+        assert result == "SELECT 1 FROM dual"
+
+    def test_render_strips_utf8_bom_with_multiline_sql(self, processor: JinjaTemplateProcessor):
+        """Test that UTF-8 BOM is stripped from multi-line SQL - issue #250"""
+        templates = {"test.sql": "\ufeff-- Comment\nCREATE TABLE foo (id INT);\nSELECT * FROM foo"}
+        processor.override_loader(DictLoader(templates))
+
+        result = processor.render("test.sql", None)
+
+        # BOM should be stripped, rest preserved
+        assert not result.startswith("\ufeff")
+        assert "-- Comment" in result
+        assert "CREATE TABLE foo (id INT)" in result
+        assert "SELECT * FROM foo" in result
+
+    def test_render_handles_bom_in_middle_of_file(self, processor: JinjaTemplateProcessor):
+        """Test that BOM in middle of file is not stripped - only leading BOM - issue #250"""
+        # BOM should only be stripped at the start of the file
+        templates = {"test.sql": "SELECT '\ufeff' AS bom_char FROM dual"}
+        processor.override_loader(DictLoader(templates))
+
+        result = processor.render("test.sql", None)
+
+        # Leading BOM removed but BOM in SQL string preserved
+        assert not result.startswith("\ufeff")
+        assert "'\ufeff'" in result  # BOM inside the SQL string should remain
