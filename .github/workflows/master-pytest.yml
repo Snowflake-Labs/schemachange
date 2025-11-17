@@ -50,7 +50,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      # The next few steps (Install dependencies, Lint with Flake8, Test with Pytest) will install Python dependencies,
+      # The next few steps (Install dependencies, Lint with ruff, Test with Pytest) will install Python dependencies,
       # run tests and lint with a variety of Python versions
       # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
       - name: Install dependencies
