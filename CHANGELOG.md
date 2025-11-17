@@ -50,6 +50,11 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - Fixed YAML configuration validation to show warnings for unknown keys instead of throwing TypeError exceptions (#352 by @MACKAT05)
+- Fixed multi-line secrets not being redacted when displayed in logs or config output (#237, PR #238 by @rwberendsen)
+  - Root cause: Secrets were stored with `.strip()` but displayed with different YAML/JSON serialization
+  - Solution: Store multiple representations (original, stripped, normalized, individual lines) to ensure redaction works
+  - Enhancement: Preserve newline structure in redacted output (`***\n***`) for better readability (contributed by @rwberendsen)
+  - Critical security fix: Multi-line certificates, keys, and tokens are now properly masked regardless of display format
 - Fixed "Empty SQL Statement" error by adding intelligent comment handling before sending to Snowflake (#258)
   - **Automatically fixes** scripts with valid SQL + trailing comments by appending `SELECT 1;` no-op statement
   - Preserves metadata comments (author, ticket numbers, etc.) while ensuring Snowflake has a valid statement to execute

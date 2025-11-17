@@ -41,8 +41,22 @@ def get_redact_config_secrets_processor(
                         stacklevel=2,
                     )
                     return value
+
+            # Redact secrets while preserving newlines for readability
+            # Credit: Enhancement from PR #238 by @rwberendsen
+            # For multi-line secrets, showing "***\n***" is more readable than "******"
             for secret in config_secrets:
-                value = value.replace(secret, "*" * len(secret))
+                if secret in value:
+                    # Preserve newline structure in redaction for better readability
+                    if "\n" in secret:
+                        # Replace each line of the secret with asterisks, preserving newlines
+                        secret_lines = secret.split("\n")
+                        redacted_lines = ["*" * len(line) if line else "" for line in secret_lines]
+                        redacted_secret = "\n".join(redacted_lines)
+                        value = value.replace(secret, redacted_secret)
+                    else:
+                        # Single-line secret: replace with asterisks
+                        value = value.replace(secret, "*" * len(secret))
             return value
 
         return redact_value(level=0, value=copy.deepcopy(event_dict))

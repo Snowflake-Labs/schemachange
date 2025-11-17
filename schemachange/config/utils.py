@@ -47,7 +47,16 @@ def get_snowflake_identifier_string(input_value: str, input_type: str) -> str | 
 
 
 def get_config_secrets(config_vars: dict[str, dict | str] | None) -> set[str]:
-    """Extracts all secret values from the vars attributes in config"""
+    """Extracts all secret values from the vars attributes in config
+
+    For multi-line secrets, stores multiple representations to ensure
+    redaction works regardless of how the secret is serialized (YAML, JSON, etc.)
+
+    Addresses issue #237: multi-line secrets not being redacted properly.
+    Credit: Root cause analysis and initial fix by @rwberendsen in PR #238.
+    This implementation extends the fix with multiple representation storage
+    and preserves newline structure in redacted output.
+    """
 
     def inner_extract_dictionary_secrets(
         dictionary: dict[str, dict | str] | None,
@@ -69,7 +78,26 @@ def get_config_secrets(config_vars: dict[str, dict | str] | None) -> set[str]:
                     child_of_secrets = True
                 extracted_secrets = extracted_secrets | inner_extract_dictionary_secrets(value, child_of_secrets)
             elif child_of_secrets or "SECRET" in key.upper():
+                # Store multiple representations of the secret to handle different serialization formats
+                # This fixes issue #237 where multi-line secrets weren't redacted due to YAML serialization
+
+                # 1. Original value (as-is)
+                extracted_secrets.add(value)
+
+                # 2. Stripped value (removes leading/trailing whitespace)
                 extracted_secrets.add(value.strip())
+
+                # 3. If multi-line, also store with normalized whitespace
+                if "\n" in value:
+                    # Replace multiple spaces/newlines with single spaces
+                    normalized = " ".join(value.split())
+                    extracted_secrets.add(normalized)
+
+                    # Store each line separately (for partial matches)
+                    for line in value.split("\n"):
+                        line_stripped = line.strip()
+                        if line_stripped:  # Don't store empty lines
+                            extracted_secrets.add(line_stripped)
 
         return extracted_secrets
 
