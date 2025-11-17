@@ -233,7 +233,7 @@ class TestSnowflakeSession:
     def test_get_script_metadata_error_when_table_missing_without_create_flag(self, session: SnowflakeSession):
         """
         Test that get_script_metadata raises clear error when table doesn't exist and create flag is False.
-        
+
         Regression test for bug: fetch_change_history_metadata returns {} (empty dict), not None.
         """
         with mock.patch.object(session, "fetch_change_history_metadata", return_value={}):
