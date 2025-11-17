@@ -50,6 +50,15 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - Fixed YAML configuration validation to show warnings for unknown keys instead of throwing TypeError exceptions (#352 by @MACKAT05)
+- Fixed "Empty SQL Statement" error by adding intelligent comment handling before sending to Snowflake (#258)
+  - **Automatically fixes** scripts with valid SQL + trailing comments by appending `SELECT 1;` no-op statement
+  - Preserves metadata comments (author, ticket numbers, etc.) while ensuring Snowflake has a valid statement to execute
+  - **Errors on** comment-only scripts (placeholders, TODOs) with clear guidance to add SQL or remove file
+  - **Errors on** empty content (whitespace, false Jinja conditionals, missing variables) with debugging info
+  - Addresses root cause: Snowflake connector strips comments, leaving empty string to execute
+  - Transparent: logs debug message when appending no-op statement
+  - Non-breaking: existing valid scripts continue to work
+  - Particularly helpful for Azure DevOps and other CI/CD environments where template variables might differ
 
 ## [4.1.0] - 2025-11-14
 ### Added
