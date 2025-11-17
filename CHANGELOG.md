@@ -36,11 +36,11 @@ All notable changes to this project will be documented in this file.
   - connections.toml examples for each method
 
 ### Changed
-- **BREAKING**: When `--create-change-history-table` is set but change history table doesn't exist, schemachange now requires explicit `--schemachange-initial-deployment` flag (fixes #326)
-  - Prevents dangerous re-application of all scripts if table is missing due to misconfiguration
-  - First deployment: use `--create-change-history-table --schemachange-initial-deployment`
-  - Subsequent deployments: ensure table exists or verify configuration
-  - See migration guide for upgrade instructions
+- **Improved validation for initial deployments** with `--schemachange-initial-deployment` flag (addresses #326)
+  - When `--initial-deployment` is set: Validates table doesn't exist before creating (prevents accidents)
+  - When `--initial-deployment` is NOT set but `--create-change-history-table` is: Issues warning but proceeds (backward compatible)
+  - This approach balances safety (preventing accidental re-runs) with practicality (supporting parallel CI/CD jobs)
+  - **Not a breaking change**: 4.1.0 behavior is preserved by default, with opt-in stricter validation via `--initial-deployment`
 
 ### Removed
 - Removed unnecessary dependencies to reduce bloat and improve install times:

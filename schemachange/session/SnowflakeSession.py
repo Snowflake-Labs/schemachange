@@ -334,21 +334,24 @@ class SnowflakeSession:
         # NOT initial deployment - check if table exists
         if not table_exists:
             if create_change_history_table:
-                # This is the dangerous scenario - table missing but not declared as initial deployment
-                error_msg = (
-                    f"Change history table {self.change_history_table.fully_qualified} does not exist.\n"
-                    f"If this is the initial deployment of schemachange, add --initial-deployment flag.\n"
-                    f"Otherwise, this indicates a configuration error or missing infrastructure."
+                # Table missing but create flag is set
+                # WARN about potential misconfiguration, but allow it (handles race conditions in CI/CD)
+                # This restores 4.1.0 behavior while providing helpful warnings
+                warning_msg = (
+                    f"Change history table {self.change_history_table.fully_qualified} does not exist but will be created.\n"
+                    f"If this is the initial deployment, consider adding --initial-deployment for clarity.\n"
+                    f"If you expected the table to exist, this may indicate a configuration error."
                 )
-                if dry_run:
-                    self.logger.error(error_msg)
-                    raise ValueError(error_msg + "\nCannot perform accurate dry-run without change history.")
-                else:
-                    # In non-dry-run mode, this is even more dangerous
-                    self.logger.error(error_msg)
-                    raise ValueError(error_msg + "\nRefusing to proceed to prevent re-applying scripts.")
+                self.logger.warning(warning_msg)
+                # Proceed with table creation (4.1.0 behavior - handles parallel jobs gracefully)
+                self.change_history_table_exists(
+                    create_change_history_table=create_change_history_table,
+                    dry_run=dry_run,
+                )
+                # After creation, return empty metadata (treat as initial deployment)
+                return defaultdict(dict), None, None
             else:
-                # This already errors correctly (existing behavior)
+                # create=false and table missing - this is always an error
                 raise ValueError(f"Unable to find change history table {self.change_history_table.fully_qualified}")
 
         # Table exists, log and proceed normally

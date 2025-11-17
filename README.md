@@ -339,12 +339,15 @@ By default, schemachange will not try to create the change history table, and it
 This behavior can be altered by passing in the `--schemachange-create-change-history-table` or `--create-change-history-table`
 argument or adding `create-change-history-table: true` to the `schemachange-config.yml` file.
 
-**For initial deployments:** When deploying schemachange for the first time, you must explicitly declare this using the
-`--schemachange-initial-deployment` flag along with `--create-change-history-table`. This prevents accidental re-application of scripts
-if the change history table is missing due to misconfiguration. Example:
+**For initial deployments (recommended):** When deploying schemachange for the first time, you can explicitly declare this using the
+`--schemachange-initial-deployment` flag along with `--create-change-history-table`. This provides extra validation to prevent accidental
+re-application of scripts if the change history table is missing due to misconfiguration. Example:
 ```bash
 schemachange deploy --create-change-history-table --schemachange-initial-deployment
 ```
+
+**Note**: The `--schemachange-initial-deployment` flag is **optional**. If omitted, schemachange will issue a warning but proceed with table
+creation (4.1.0 behavior). This supports scenarios like parallel CI/CD jobs where multiple processes may attempt to create the same table.
 
 Even with the `--create-change-history-table` parameter, schemachange will not attempt to create the database for the change history
 table. That must be created before running schemachange.
