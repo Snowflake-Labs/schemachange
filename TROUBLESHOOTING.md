@@ -155,6 +155,55 @@ schemachange verify
 
 ---
 
+### Error: Tasks with `BEGIN...END` blocks fail with EOF or parsing errors
+
+**Cause:** The Snowflake connector's `execute_string()` method splits SQL on semicolons, which breaks `BEGIN...END` blocks that aren't protected by delimiters.
+
+**Example that fails:**
+```sql
+CREATE OR REPLACE TASK my_task
+    WAREHOUSE = my_warehouse
+    SCHEDULE = '5 minutes'
+AS
+    BEGIN
+        START TRANSACTION;
+        SELECT * FROM table1;
+        COMMIT;
+    END;
+```
+
+**Solution:** Use `$$` delimiters to protect the block:
+
+```sql
+CREATE OR REPLACE TASK my_task
+    WAREHOUSE = my_warehouse
+    SCHEDULE = '5 minutes'
+AS
+$$
+BEGIN
+    START TRANSACTION;
+    SELECT * FROM table1;
+    COMMIT;
+END;
+$$;
+```
+
+The `$$` delimiter tells `execute_string()` to treat everything between them as a single statement, preventing it from splitting on internal semicolons.
+
+**Why this happens:** When not using `$$`, the connector sees each semicolon as a statement boundary and tries to execute:
+1. `CREATE OR REPLACE TASK... BEGIN START TRANSACTION;`
+2. `SELECT * FROM table1;`
+3. `COMMIT;`
+4. `END;`
+
+Each piece is invalid SQL on its own, causing parsing errors.
+
+**Reference:** [Snowflake CREATE TASK documentation](https://docs.snowflake.com/en/sql-reference/sql/create-task) supports both single-quoted and dollar-quoted (`$$`) syntax.
+
+**Related:** Issue [#253](https://github.com/Snowflake-Labs/schemachange/issues/253)
+
+---
+
 ### Error: `SQL compilation error: Object does not exist` or `Database/Schema does not exist`
 
 **Possible Causes:**

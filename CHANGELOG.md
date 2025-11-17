@@ -48,6 +48,12 @@ All notable changes to this project will be documented in this file.
   - `cryptography` and `requests` (transitive dependencies of snowflake-connector-python, installed automatically)
   - `black` and `flake8` (replaced by `ruff` which handles both linting and formatting)
 
+### Documentation
+- Added troubleshooting guidance for tasks with `BEGIN...END` blocks (#253)
+  - Documents that `$$` delimiters are required to prevent `execute_string()` from splitting on internal semicolons
+  - Provides clear examples and explanation of the root cause
+  - This is a Snowflake connector behavior, not a schemachange bug
+
 ### Fixed
 - Fixed YAML configuration validation to show warnings for unknown keys instead of throwing TypeError exceptions (#352 by @MACKAT05)
 - Fixed UTF-8 BOM character causing SQL compilation errors in Snowflake (#250)
