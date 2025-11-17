@@ -3,7 +3,6 @@ config-version: 1
 # tracking the setup step in a different change history table to use schemachange setup and teardown separate from deployment.
 change-history-table: "{{ env_var('SNOWFLAKE_DATABASE')}}.SCHEMACHANGE.{{ env_var('SCENARIO_NAME')}}_CHANGE_HISTORY"
 create-change-history-table: true
-initial-deployment: false
 
 vars:
   database_name: "{{env_var('SNOWFLAKE_DATABASE')}}"

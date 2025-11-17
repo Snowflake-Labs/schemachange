@@ -339,19 +339,6 @@ def parse_cli_args(args) -> dict:
         required=False,
     )
     parser_deploy.add_argument(
-        "--schemachange-initial-deployment",
-        action="store_const",
-        const=True,
-        default=None,
-        dest="initial_deployment",
-        help="Declare this is the first deployment for schemachange. When true, the change history table "
-        "must not exist and all scripts will be applied. This prevents accidental re-application of scripts "
-        "if the change history table is missing due to misconfiguration (the default is False). "
-        "Requires --schemachange-create-change-history-table to be set. "
-        "Can also be set via SCHEMACHANGE_INITIAL_DEPLOYMENT environment variable.",
-        required=False,
-    )
-    parser_deploy.add_argument(
         "--schemachange-dry-run",
         "--dry-run",
         action="store_const",

@@ -52,7 +52,6 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
         max_published_version,
     ) = session.get_script_metadata(
         create_change_history_table=config.create_change_history_table,
-        initial_deployment=config.initial_deployment,
         dry_run=config.dry_run,
     )
 

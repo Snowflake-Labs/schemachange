@@ -375,6 +375,58 @@ schemachange deploy -V "{'env': 'prod'}"  # Will fail
 
 ---
 
+### Error: `Unable to find change history table` in Dry-Run Mode
+
+**Error Message:**
+```
+ValueError: Unable to find change history table METADATA.SCHEMACHANGE.CHANGE_HISTORY
+```
+
+**Cause:** You're running `--dry-run` without `--create-change-history-table` when the change history table doesn't exist.
+
+**Why This Happens:**
+
+Dry-run mode simulates **exactly** what would happen during actual execution. If the change history table is missing:
+- Without `--create-change-history-table`: Both dry-run and actual deployment fail
+- With `--create-change-history-table`: Both dry-run and actual deployment succeed
+
+This ensures dry-run accurately reflects what would happen in production.
+
+**Solutions:**
+
+**For first-time deployments (table doesn't exist):**
+```bash
+# Correct: Include --create-change-history-table
+schemachange deploy --dry-run --create-change-history-table
+
+# When ready, run actual deployment
+schemachange deploy --create-change-history-table
+```
+
+**For subsequent deployments (table exists):**
+```bash
+# Correct: No additional flags needed
+schemachange deploy --dry-run
+
+# When ready, run actual deployment
+schemachange deploy
+```
+
+**What Dry-Run Does:**
+- ✅ Validates credentials and connections
+- ✅ Queries existing change history (if it exists)
+- ✅ Renders Jinja templates
+- ✅ Determines which scripts would execute
+- ✅ Logs all SQL that would be executed
+- ✅ Shows CREATE TABLE for change history (if `--create-change-history-table` is set)
+- ❌ Does NOT execute any SQL
+- ❌ Does NOT create the change history table
+- ❌ Does NOT modify any objects
+
+See [Dry-Run Mode](README.md#dry-run-mode) in the README for more details.
+
+---
+
 ## Migration and Deprecation Warnings (4.1.0+)
 
 ### Warning: `Argument '--vars' is deprecated. Use '--schemachange-config-vars' or '-V' instead`

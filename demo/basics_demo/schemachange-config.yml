@@ -5,7 +5,6 @@ root-folder: "./demo/{{ env_var('SCENARIO_NAME')}}/2_test"
 # Demo phase creates its own change history table in the test schema (separate from setup/teardown tracking)
 change-history-table: "{{ env_var('SNOWFLAKE_DATABASE')}}.{{ env_var('MY_TARGET_SCHEMA')}}.CHANGE_HISTORY"
 create-change-history-table: true
-initial-deployment: true  # Each test run creates a fresh schema, so this is always an initial deployment
 
 vars:
   database_name: "{{env_var('SNOWFLAKE_DATABASE')}}"

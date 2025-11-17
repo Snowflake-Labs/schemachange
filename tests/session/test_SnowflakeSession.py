@@ -188,7 +188,7 @@ class TestSnowflakeSession:
         """
         Test that get_script_metadata returns empty defaultdict when table doesn't exist during dry-run.
 
-        This enables first-time deployments with --dry-run --create-change-history-table --initial-deployment
+        This enables first-time deployments with --dry-run --create-change-history-table
         to preview changes without requiring the change history table to exist yet.
         """
         # Mock that table doesn't exist (returns empty dict)
@@ -197,7 +197,7 @@ class TestSnowflakeSession:
                 with mock.patch.object(session, "create_change_history_schema"):
                     with mock.patch.object(session, "create_change_history_table"):
                         versioned_scripts, r_scripts_checksum, max_published_version = session.get_script_metadata(
-                            create_change_history_table=True, initial_deployment=True, dry_run=True
+                            create_change_history_table=True, dry_run=True
                         )
 
         # Should return defaultdict(dict) for versioned_scripts to avoid AttributeError
@@ -211,15 +211,15 @@ class TestSnowflakeSession:
         Test that defaultdict(dict).get(key) returns None for missing keys.
 
         This is critical because deploy.py uses versioned_scripts.get(script_name) and expects
-        None for scripts that haven't been applied yet during initial deployment.
+        None for scripts that haven't been applied yet when change history table doesn't exist.
         """
-        # Mock that table doesn't exist (initial deployment scenario, returns empty dict)
+        # Mock that table doesn't exist (returns empty dict)
         with mock.patch.object(session, "fetch_change_history_metadata", return_value={}):
             with mock.patch.object(session, "change_history_schema_exists", return_value=True):
                 with mock.patch.object(session, "create_change_history_schema"):
                     with mock.patch.object(session, "create_change_history_table"):
                         versioned_scripts, _, _ = session.get_script_metadata(
-                            create_change_history_table=True, initial_deployment=True, dry_run=True
+                            create_change_history_table=True, dry_run=True
                         )
 
         # .get() should return None (standard dict behavior, doesn't trigger default factory)
@@ -238,82 +238,56 @@ class TestSnowflakeSession:
         """
         with mock.patch.object(session, "fetch_change_history_metadata", return_value={}):
             with pytest.raises(ValueError, match="Unable to find change history table"):
-                session.get_script_metadata(create_change_history_table=False, initial_deployment=False, dry_run=True)
+                session.get_script_metadata(create_change_history_table=False, dry_run=True)
 
     @pytest.mark.parametrize(
-        "create_flag,initial_flag,dry_run_flag,table_exists,should_error,error_match",
+        "create_flag,dry_run_flag,table_exists,should_error,error_match",
         [
-            # Normal operations (no initial_deployment flag)
-            (False, False, False, True, False, None),  # Normal deploy, table exists
+            # Normal operations - simple 4.1.0 behavior
+            (False, False, True, False, None),  # Normal deploy, table exists
             (
-                False,
                 False,
                 False,
                 False,
                 True,
                 "Unable to find change history table",
             ),  # Normal deploy, no table, no create → ERROR
-            (False, False, True, True, False, None),  # Dry-run, table exists
+            (False, True, True, False, None),  # Dry-run, table exists
             (
-                False,
                 False,
                 True,
                 False,
                 True,
                 "Unable to find change history table",
             ),  # Dry-run, no table, no create → ERROR
-            (True, False, False, True, False, None),  # Normal deploy with create flag, table exists
+            (True, False, True, False, None),  # Normal deploy with create flag, table exists
             (
                 True,
-                False,
                 False,
                 False,
                 False,
                 None,
-            ),  # Table missing, create=true but initial=false → WARN and CREATE (4.1.0 compat)
-            (True, False, True, True, False, None),  # Dry-run with create flag, table exists
+            ),  # Table missing, create=true → CREATE (4.1.0 behavior)
+            (True, True, True, False, None),  # Dry-run with create flag, table exists
             (
                 True,
-                False,
                 True,
                 False,
                 False,
                 None,
-            ),  # Dry-run, create=true but initial=false, no table → WARN and CREATE (4.1.0 compat)
-            # Initial deployment scenarios
-            (True, True, False, False, False, None),  # Initial deploy: create table and apply all
-            (True, True, True, False, False, None),  # Initial deploy dry-run: preview table creation and scripts
-            (True, True, False, True, True, "already exists"),  # Initial deploy but table exists → ERROR
-            (True, True, True, True, True, "already exists"),  # Initial deploy dry-run but table exists → ERROR
-            (
-                False,
-                True,
-                False,
-                False,
-                True,
-                "requires.*create-change-history-table",
-            ),  # Initial deploy without create flag → ERROR
-            (
-                False,
-                True,
-                True,
-                False,
-                True,
-                "requires.*create-change-history-table",
-            ),  # Initial deploy dry-run without create flag → ERROR
+            ),  # Dry-run, create=true, no table → CREATE (4.1.0 behavior)
         ],
     )
     def test_get_script_metadata_flag_combinations(
         self,
         session: SnowflakeSession,
         create_flag,
-        initial_flag,
         dry_run_flag,
         table_exists,
         should_error,
         error_match,
     ):
-        """Test all combinations of create_change_history_table, initial_deployment, and dry_run flags."""
+        """Test all combinations of create_change_history_table and dry_run flags."""
         metadata = {"last_altered": "2025-11-14"} if table_exists else {}
 
         with mock.patch.object(session, "fetch_change_history_metadata", return_value=metadata):
@@ -326,26 +300,23 @@ class TestSnowflakeSession:
                                     with pytest.raises(ValueError, match=error_match):
                                         session.get_script_metadata(
                                             create_change_history_table=create_flag,
-                                            initial_deployment=initial_flag,
                                             dry_run=dry_run_flag,
                                         )
                                 else:
                                     versioned_scripts, _, _ = session.get_script_metadata(
                                         create_change_history_table=create_flag,
-                                        initial_deployment=initial_flag,
                                         dry_run=dry_run_flag,
                                     )
                                     assert versioned_scripts is not None
 
-    def test_initial_deployment_creates_table_and_returns_empty_metadata(self, session: SnowflakeSession):
-        """Test that initial_deployment=True creates table and returns empty metadata."""
+    def test_missing_table_with_create_flag_creates_table(self, session: SnowflakeSession):
+        """Test that missing table with create=true creates table and returns empty metadata (4.1.0 behavior)."""
         with mock.patch.object(session, "fetch_change_history_metadata", return_value={}):
             with mock.patch.object(session, "change_history_schema_exists", return_value=True):
                 with mock.patch.object(session, "create_change_history_schema"):
                     with mock.patch.object(session, "create_change_history_table") as mock_create_table:
                         versioned_scripts, r_scripts, max_version = session.get_script_metadata(
                             create_change_history_table=True,
-                            initial_deployment=True,
                             dry_run=False,
                         )
 
@@ -356,15 +327,14 @@ class TestSnowflakeSession:
                         assert r_scripts is None
                         assert max_version is None
 
-    def test_initial_deployment_dry_run_logs_correctly(self, session: SnowflakeSession):
-        """Test that initial_deployment=True with dry_run logs appropriate messages."""
+    def test_missing_table_with_create_flag_dry_run(self, session: SnowflakeSession):
+        """Test that missing table with create=true and dry_run logs correctly."""
         with mock.patch.object(session, "fetch_change_history_metadata", return_value={}):
             with mock.patch.object(session, "change_history_schema_exists", return_value=True):
                 with mock.patch.object(session, "create_change_history_schema"):
                     with mock.patch.object(session, "create_change_history_table") as mock_create_table:
                         versioned_scripts, _, _ = session.get_script_metadata(
                             create_change_history_table=True,
-                            initial_deployment=True,
                             dry_run=True,
                         )
 
@@ -372,22 +342,6 @@ class TestSnowflakeSession:
                         mock_create_table.assert_called_once_with(dry_run=True)
                         # Should return empty metadata
                         assert len(versioned_scripts) == 0
-
-    def test_warning_when_table_missing_without_initial_deployment_flag(self, session: SnowflakeSession):
-        """Test that missing table with create=true but initial=false issues warning and proceeds (4.1.0 compat)."""
-        with mock.patch.object(session, "fetch_change_history_metadata", return_value={}):
-            with mock.patch.object(session, "change_history_table_exists", return_value=True):
-                with mock.patch.object(session, "fetch_versioned_scripts", return_value=({}, None)):
-                    with mock.patch.object(session, "fetch_repeatable_scripts", return_value={}):
-                        # Should NOT raise error - should warn and proceed
-                        versioned_scripts, r_scripts, max_version = session.get_script_metadata(
-                            create_change_history_table=True,
-                            initial_deployment=False,
-                            dry_run=False,
-                        )
-                        # Should return empty metadata (treated as initial deployment)
-                        assert versioned_scripts is not None
-                        assert isinstance(versioned_scripts, defaultdict)
 
     def test_initialize_session_context_all_parameters(self):
         """Test session initialization with all context parameters (role, warehouse, database, schema)."""

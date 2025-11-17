@@ -339,17 +339,18 @@ By default, schemachange will not try to create the change history table, and it
 This behavior can be altered by passing in the `--schemachange-create-change-history-table` or `--create-change-history-table`
 argument or adding `create-change-history-table: true` to the `schemachange-config.yml` file.
 
-**For initial deployments (recommended):** When deploying schemachange for the first time, you can explicitly declare this using the
-`--schemachange-initial-deployment` flag along with `--create-change-history-table`. This provides extra validation to prevent accidental
-re-application of scripts if the change history table is missing due to misconfiguration. Example:
+**For first-time deployments**, simply add the `--create-change-history-table` flag:
 ```bash
-schemachange deploy --create-change-history-table --schemachange-initial-deployment
+schemachange deploy --create-change-history-table
 ```
 
-**Note**: The `--schemachange-initial-deployment` flag is **optional**. If omitted, schemachange will issue a warning but proceed with table
-creation (4.1.0 behavior). This supports scenarios like parallel CI/CD jobs where multiple processes may attempt to create the same table.
+If the change history table already exists, it will be used. If it doesn't exist, it will be created. This works correctly for:
+- First-time production deployments
+- Parallel CI/CD test jobs (each creating their own schema)
+- Ephemeral preview environments
+- Developer local testing
 
-Even with the `--create-change-history-table` parameter, schemachange will not attempt to create the database for the change history
+**Note**: Even with the `--create-change-history-table` parameter, schemachange will not attempt to create the database for the change history
 table. That must be created before running schemachange.
 
 The structure of the `CHANGE_HISTORY` table is as follows:
@@ -725,10 +726,6 @@ schemachange:
   # Create the change history schema and table if they do not exist (default: false)
   create-change-history-table: true
 
-  # Declare this is the first deployment - requires create-change-history-table (default: false)
-  # Use this for initial deployment only to prevent accidental script re-application
-  initial-deployment: false
-
   # Enable autocommit feature for DML commands (default: false)
   autocommit: false
 
@@ -804,9 +801,6 @@ vars:
 
 # Create the change history schema and table, if they do not exist (the default is False)
 create-change-history-table: false
-
-# Declare this is the first deployment - requires create-change-history-table (the default is False)
-initial-deployment: false
 
 # Enable autocommit feature for DML commands (the default is False)
 autocommit: false
@@ -938,7 +932,6 @@ These environment variables configure schemachange-specific behavior:
 | `SCHEMACHANGE_CHANGE_HISTORY_TABLE` | Override the default change history table name | `METADATA.SCHEMACHANGE.CHANGE_HISTORY` | string |
 | `SCHEMACHANGE_VARS` | Define variables for scripts in JSON format | `{"var1": "value1", "var2": "value2"}` | JSON |
 | `SCHEMACHANGE_CREATE_CHANGE_HISTORY_TABLE` | Create change history table if it doesn't exist | `true` or `false` | boolean |
-| `SCHEMACHANGE_INITIAL_DEPLOYMENT` | Declare first deployment (requires create-change-history-table) | `true` or `false` | boolean |
 | `SCHEMACHANGE_AUTOCOMMIT` | Enable autocommit for DML commands | `true` or `false` | boolean |
 | `SCHEMACHANGE_DRY_RUN` | Run in dry run mode | `true` or `false` | boolean |
 | `SCHEMACHANGE_QUERY_TAG` | String to include in QUERY_TAG for SQL statements | `my-project` | string |
@@ -1272,7 +1265,6 @@ Most arguments also support short forms (single dash, single letter) for conveni
 | `-c`<br/>`--schemachange-change-history-table`<br/>`--change-history-table` *(deprecated)* | `SCHEMACHANGE_CHANGE_HISTORY_TABLE` | Override the default change history table name (default: `METADATA.SCHEMACHANGE.CHANGE_HISTORY`) |
 | `-V`<br/>`--schemachange-vars`<br/>`--vars` *(deprecated)* | `SCHEMACHANGE_VARS` | Define variables for scripts in JSON format. Merged with YAML vars (e.g., `'{"var1": "val1"}'`) |
 | `--schemachange-create-change-history-table`<br/>`--create-change-history-table` *(deprecated)* | `SCHEMACHANGE_CREATE_CHANGE_HISTORY_TABLE` | Create the change history table if it doesn't exist (default: false) |
-| `--schemachange-initial-deployment` | `SCHEMACHANGE_INITIAL_DEPLOYMENT` | Declare this is the first deployment. Requires `--create-change-history-table`. Validates table doesn't exist (default: false) |
 | `-ac`<br/>`--schemachange-autocommit`<br/>`--autocommit` *(deprecated)* | `SCHEMACHANGE_AUTOCOMMIT` | Enable autocommit for DML commands (default: false) |
 | `--schemachange-dry-run`<br/>`--dry-run` *(deprecated)* | `SCHEMACHANGE_DRY_RUN` | Run in dry run mode (default: false) |
 | `-Q`<br/>`--schemachange-query-tag`<br/>`--query-tag` *(deprecated)* | `SCHEMACHANGE_QUERY_TAG` | String to include in `QUERY_TAG` attached to every SQL statement |
@@ -1310,6 +1302,49 @@ These parameters are **not available via CLI** for security reasons:
 - Deprecated aliases (e.g., `--root-folder`, `--vars`, `--query-tag`) are noted in the help text but continue to work
 - All variants of an argument set the same configuration value
 - Use the prefixed forms (`--schemachange-*`, `--snowflake-*`) or short forms for clarity and future compatibility
+
+#### Dry-Run Mode
+
+Dry-run mode (`--schemachange-dry-run` or `--dry-run`) simulates a deployment without executing any SQL statements. This is useful for:
+- Previewing what changes would be applied
+- Validating scripts and configuration before actual deployment
+- Testing in CI/CD pipelines without affecting databases
+
+**What Dry-Run Does:**
+- ✅ Connects to Snowflake (validates credentials)
+- ✅ Queries the change history table (if it exists)
+- ✅ Renders Jinja templates with provided variables
+- ✅ Determines which scripts would be executed
+- ✅ Logs all SQL statements that would be executed
+- ✅ Shows CREATE TABLE for change history (if `--create-change-history-table` is set)
+- ❌ Does NOT execute any SQL statements
+- ❌ Does NOT create the change history table (even with `--create-change-history-table`)
+- ❌ Does NOT modify any database objects
+
+**Important Requirements:**
+
+Dry-run mode requires the **same prerequisites** as a normal deployment:
+- Valid Snowflake credentials
+- Warehouse must be specified and accessible
+- Database and schema must exist and be accessible
+- Change history table must exist **OR** `--create-change-history-table` must be specified
+
+**Common Scenarios:**
+
+```bash
+# Preview first-time deployment (change history table doesn't exist yet)
+schemachange deploy --dry-run --create-change-history-table
+
+# Preview subsequent deployment (change history table exists)
+schemachange deploy --dry-run
+
+# ERROR: This will fail if change history table doesn't exist
+schemachange deploy --dry-run  # Missing --create-change-history-table
+```
+
+**Why does dry-run require the change history table?**
+
+Dry-run simulates exactly what would happen during actual execution. If the change history table is missing and you don't specify `--create-change-history-table`, the actual deployment would also fail with "Unable to find change history table". This ensures dry-run accurately reflects reality.
 
 ### render
 

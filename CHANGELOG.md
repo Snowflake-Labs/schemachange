@@ -7,14 +7,6 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Added validation for unknown configuration keys with warning messages instead of errors for better backward and sideways compatibility (#352 by @MACKAT05)
 - Added support for snowflake-connector-python 4.x (#363) - dependency constraint updated to `>=2.8,<5.0`
-
-- **New `--schemachange-initial-deployment` flag** to explicitly declare first-time deployments and prevent accidental script re-application (fixes #326)
-  - CLI: `--schemachange-initial-deployment`
-  - ENV: `SCHEMACHANGE_INITIAL_DEPLOYMENT`
-  - YAML: `initial-deployment: true`
-  - When set, validates that change history table does not exist and requires `--create-change-history-table`
-  - Prevents dangerous scenario where missing table due to misconfiguration causes scripts to re-apply
-  - Provides clear error messages guiding users to correct configuration
 - **Migration guide** for upgrading from 4.0.x to 4.1.0+ with:
   - Complete deprecation reference table (15 CLI arguments, 3 ENV variables, 2 config parameters)
   - Quick reference table mapping deprecated to new parameter names
@@ -36,11 +28,10 @@ All notable changes to this project will be documented in this file.
   - connections.toml examples for each method
 
 ### Changed
-- **Improved validation for initial deployments** with `--schemachange-initial-deployment` flag (addresses #326)
-  - When `--initial-deployment` is set: Validates table doesn't exist before creating (prevents accidents)
-  - When `--initial-deployment` is NOT set but `--create-change-history-table` is: Issues warning but proceeds (backward compatible)
-  - This approach balances safety (preventing accidental re-runs) with practicality (supporting parallel CI/CD jobs)
-  - **Not a breaking change**: 4.1.0 behavior is preserved by default, with opt-in stricter validation via `--initial-deployment`
+- **Simplified change history table creation** (addresses #326)
+  - Maintains 4.1.0 behavior: when `--create-change-history-table=true`, table is created if missing
+  - Works correctly for all scenarios: first deploys, parallel CI/CD jobs, ephemeral environments
+  - No additional flags or configuration needed
 
 ### Removed
 - Removed unnecessary dependencies to reduce bloat and improve install times:
@@ -48,6 +39,11 @@ All notable changes to this project will be documented in this file.
   - `black` and `flake8` (replaced by `ruff` which handles both linting and formatting)
 
 ### Documentation
+- Added comprehensive dry-run mode documentation
+  - New dedicated section in README explaining scope, requirements, and behavior
+  - Clarifies that dry-run requires same prerequisites as actual deployment
+  - Explains why `--create-change-history-table` is needed for first-time dry-runs
+  - Added troubleshooting entry for "Unable to find change history table" in dry-run mode
 - Added troubleshooting guidance for tasks with `BEGIN...END` blocks (#253)
   - Documents that `$$` delimiters are required to prevent `execute_string()` from splitting on internal semicolons
   - Provides clear examples and explanation of the root cause
@@ -58,8 +54,7 @@ All notable changes to this project will be documented in this file.
   - Root cause: `fetch_change_history_metadata()` returns empty dict `{}` (not `None`), but code checked `is not None`
   - Empty dict is truthy, so code incorrectly thought table existed and tried to access `change_history_metadata["last_altered"]`
   - Fixed by using `bool(change_history_metadata)` which correctly treats empty dict as falsy
-  - Impact: Affected initial deployments and scenarios where change history table was missing
-  - All demo configs updated with `initial-deployment: true` to work with #326 fix
+  - Impact: Affected scenarios where change history table was missing
 - Fixed YAML configuration validation to show warnings for unknown keys instead of throwing TypeError exceptions (#352 by @MACKAT05)
 - Fixed UTF-8 BOM character causing SQL compilation errors in Snowflake (#250)
   - Automatically strips UTF-8 BOM (`\ufeff`) from script files if present
