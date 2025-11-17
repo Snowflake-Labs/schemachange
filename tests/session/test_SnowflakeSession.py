@@ -191,8 +191,8 @@ class TestSnowflakeSession:
         This enables first-time deployments with --dry-run --create-change-history-table --initial-deployment
         to preview changes without requiring the change history table to exist yet.
         """
-        # Mock that table doesn't exist
-        with mock.patch.object(session, "fetch_change_history_metadata", return_value=None):
+        # Mock that table doesn't exist (returns empty dict)
+        with mock.patch.object(session, "fetch_change_history_metadata", return_value={}):
             with mock.patch.object(session, "change_history_schema_exists", return_value=True):
                 with mock.patch.object(session, "create_change_history_schema"):
                     with mock.patch.object(session, "create_change_history_table"):
@@ -213,8 +213,8 @@ class TestSnowflakeSession:
         This is critical because deploy.py uses versioned_scripts.get(script_name) and expects
         None for scripts that haven't been applied yet during initial deployment.
         """
-        # Mock that table doesn't exist (initial deployment scenario)
-        with mock.patch.object(session, "fetch_change_history_metadata", return_value=None):
+        # Mock that table doesn't exist (initial deployment scenario, returns empty dict)
+        with mock.patch.object(session, "fetch_change_history_metadata", return_value={}):
             with mock.patch.object(session, "change_history_schema_exists", return_value=True):
                 with mock.patch.object(session, "create_change_history_schema"):
                     with mock.patch.object(session, "create_change_history_table"):
@@ -233,8 +233,10 @@ class TestSnowflakeSession:
     def test_get_script_metadata_error_when_table_missing_without_create_flag(self, session: SnowflakeSession):
         """
         Test that get_script_metadata raises clear error when table doesn't exist and create flag is False.
+        
+        Regression test for bug: fetch_change_history_metadata returns {} (empty dict), not None.
         """
-        with mock.patch.object(session, "fetch_change_history_metadata", return_value=None):
+        with mock.patch.object(session, "fetch_change_history_metadata", return_value={}):
             with pytest.raises(ValueError, match="Unable to find change history table"):
                 session.get_script_metadata(create_change_history_table=False, initial_deployment=False, dry_run=True)
 
@@ -312,7 +314,7 @@ class TestSnowflakeSession:
         error_match,
     ):
         """Test all combinations of create_change_history_table, initial_deployment, and dry_run flags."""
-        metadata = {"last_altered": "2025-11-14"} if table_exists else None
+        metadata = {"last_altered": "2025-11-14"} if table_exists else {}
 
         with mock.patch.object(session, "fetch_change_history_metadata", return_value=metadata):
             with mock.patch.object(session, "change_history_schema_exists", return_value=True):
@@ -337,7 +339,7 @@ class TestSnowflakeSession:
 
     def test_initial_deployment_creates_table_and_returns_empty_metadata(self, session: SnowflakeSession):
         """Test that initial_deployment=True creates table and returns empty metadata."""
-        with mock.patch.object(session, "fetch_change_history_metadata", return_value=None):
+        with mock.patch.object(session, "fetch_change_history_metadata", return_value={}):
             with mock.patch.object(session, "change_history_schema_exists", return_value=True):
                 with mock.patch.object(session, "create_change_history_schema"):
                     with mock.patch.object(session, "create_change_history_table") as mock_create_table:
@@ -356,7 +358,7 @@ class TestSnowflakeSession:
 
     def test_initial_deployment_dry_run_logs_correctly(self, session: SnowflakeSession):
         """Test that initial_deployment=True with dry_run logs appropriate messages."""
-        with mock.patch.object(session, "fetch_change_history_metadata", return_value=None):
+        with mock.patch.object(session, "fetch_change_history_metadata", return_value={}):
             with mock.patch.object(session, "change_history_schema_exists", return_value=True):
                 with mock.patch.object(session, "create_change_history_schema"):
                     with mock.patch.object(session, "create_change_history_table") as mock_create_table:
@@ -373,7 +375,7 @@ class TestSnowflakeSession:
 
     def test_error_when_table_missing_without_initial_deployment_flag(self, session: SnowflakeSession):
         """Test that missing table with create=true but initial=false raises error with helpful message."""
-        with mock.patch.object(session, "fetch_change_history_metadata", return_value=None):
+        with mock.patch.object(session, "fetch_change_history_metadata", return_value={}):
             with pytest.raises(ValueError, match="If this is the initial deployment.*add --initial-deployment"):
                 session.get_script_metadata(
                     create_change_history_table=True,

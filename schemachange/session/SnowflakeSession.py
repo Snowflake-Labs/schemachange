@@ -303,7 +303,7 @@ class SnowflakeSession:
     ]:
         # Check if change history table exists
         change_history_metadata = self.fetch_change_history_metadata()
-        table_exists = change_history_metadata is not None
+        table_exists = bool(change_history_metadata)  # Empty dict {} is falsy, non-empty is truthy
 
         # Validate initial_deployment flag combinations
         if initial_deployment:

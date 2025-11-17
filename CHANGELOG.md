@@ -54,6 +54,12 @@ All notable changes to this project will be documented in this file.
   - This is a Snowflake connector behavior, not a schemachange bug
 
 ### Fixed
+- **Fixed critical bug in change history table existence check** that caused `KeyError: 'last_altered'` when table didn't exist
+  - Root cause: `fetch_change_history_metadata()` returns empty dict `{}` (not `None`), but code checked `is not None`
+  - Empty dict is truthy, so code incorrectly thought table existed and tried to access `change_history_metadata["last_altered"]`
+  - Fixed by using `bool(change_history_metadata)` which correctly treats empty dict as falsy
+  - Impact: Affected initial deployments and scenarios where change history table was missing
+  - All demo configs updated with `initial-deployment: true` to work with #326 fix
 - Fixed YAML configuration validation to show warnings for unknown keys instead of throwing TypeError exceptions (#352 by @MACKAT05)
 - Fixed UTF-8 BOM character causing SQL compilation errors in Snowflake (#250)
   - Automatically strips UTF-8 BOM (`\ufeff`) from script files if present
