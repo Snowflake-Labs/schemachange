@@ -91,7 +91,7 @@ class DeployConfig(BaseConfig):
             "schema": self.snowflake_schema,  # TODO: Remove when connections.toml is enforced
             # NOTE: connections_file_path and connection_name are NOT passed to SnowflakeSession
             # All parameters from connections.toml have already been merged in get_merged_config.py
-            "change_history_table": self.change_history_table,
+            # NOTE: change_history_table is now passed explicitly in cli.py, not via get_session_kwargs()
             "autocommit": self.autocommit,
             "query_tag": self.query_tag,
             "session_parameters": self.session_parameters,
