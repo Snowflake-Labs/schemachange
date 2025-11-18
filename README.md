@@ -190,7 +190,7 @@ With the following rules for each part of the filename:
 * **Separator**: __ (two underscores)
 * **Description**: An arbitrary description with words separated by underscores or spaces (can not include two
   underscores)
-* **Suffix**: .sql or .sql.jinja
+* **Suffix**: .sql or .sql.jinja (case-insensitive: .SQL, .Sql, .JINJA also work)
 
 For example, a script name that follows this convention is: `V1.1.1__first_change.sql`. As with Flyway, the unique
 version string is very flexible. You just need to be consistent and always use the same convention, like 3 sets of
