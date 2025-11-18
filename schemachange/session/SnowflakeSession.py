@@ -472,7 +472,7 @@ class SnowflakeSession:
                 logger.error(
                     "SQL execution failed",
                     script_name=script.name,
-                    script_path=str(script.file_path),
+                    script_path=script.file_path.as_posix(),
                     script_type=script.type,
                     sql_error_code=getattr(e, "errno", None),
                     sql_state=getattr(e, "sqlstate", None),
@@ -495,7 +495,7 @@ class SnowflakeSession:
                 logger.error(
                     "Database error during script execution",
                     script_name=script.name,
-                    script_path=str(script.file_path),
+                    script_path=script.file_path.as_posix(),
                     script_type=script.type,
                     error_message=str(e),
                 )
@@ -513,7 +513,7 @@ class SnowflakeSession:
                 logger.error(
                     "Unexpected error during script execution",
                     script_name=script.name,
-                    script_path=str(script.file_path),
+                    script_path=script.file_path.as_posix(),
                     script_type=script.type,
                     error_message=str(e),
                     error_type=type(e).__name__,

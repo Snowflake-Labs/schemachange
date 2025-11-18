@@ -58,7 +58,7 @@ class ScriptExecutionError(Exception):
         """
         return {
             "script_name": self.script_name,
-            "script_path": str(self.script_path),
+            "script_path": self.script_path.as_posix(),
             "script_type": self.script_type,
             "error_message": self.error_message,
             "sql_error_code": self.sql_error_code,

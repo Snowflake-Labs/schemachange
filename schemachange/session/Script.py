@@ -34,7 +34,7 @@ class Script(ABC):
 
     @classmethod
     def from_path(cls, file_path: Path, **kwargs) -> T:
-        logger.debug("script found", class_name=cls.__name__, file_path=str(file_path))
+        logger.debug("script found", class_name=cls.__name__, file_path=file_path.as_posix())
 
         # script name is the filename without any jinja extension
         script_name = cls.get_script_name(file_path=file_path)
@@ -102,7 +102,7 @@ def script_factory(
     elif AlwaysScript.pattern.search(file_path.name.strip()) is not None:
         return AlwaysScript.from_path(file_path=file_path)
 
-    logger.debug("ignoring non-change file", file_path=str(file_path))
+    logger.debug("ignoring non-change file", file_path=file_path.as_posix())
 
 
 def get_all_scripts_recursively(root_directory: Path, version_number_regex: str | None = None):
