@@ -22,7 +22,7 @@ class SnowflakeSession:
     database: str | None  # TODO: database: str when connections.toml is enforced
     schema: str | None
     autocommit: bool
-    change_history_table: ChangeHistoryTable
+    change_history_table: ChangeHistoryTable | None
     logger: structlog.BoundLogger
     session_parameters: dict[str, str]
     conn: snowflake.connector.SnowflakeConnection
@@ -35,8 +35,8 @@ class SnowflakeSession:
         self,
         schemachange_version: str,
         application: str,
-        change_history_table: ChangeHistoryTable,
         logger: structlog.BoundLogger,
+        change_history_table: ChangeHistoryTable | None = None,
         # NOTE: connection_name and connections_file_path are no longer passed here
         # All parameters from connections.toml are merged in get_merged_config.py before creating SnowflakeSession
         account: str | None = None,  # Merged from CLI > ENV > YAML > connections.toml
@@ -91,6 +91,7 @@ class SnowflakeSession:
             "private_key_file": kwargs.get(
                 "private_key_file"
             ),  # Already mapped from private_key_path in get_session_kwargs()
+            "private_key_file_pwd": kwargs.get("private_key_file_pwd"),  # Passphrase for encrypted private keys
             "token": kwargs.get("token"),
             "password": kwargs.get("password"),
             "authenticator": kwargs.get("authenticator"),
@@ -236,6 +237,8 @@ class SnowflakeSession:
             raise
 
     def fetch_change_history_metadata(self) -> dict:
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
         # This should only ever return 0 or 1 rows
         query = f"""\
             SELECT
@@ -257,6 +260,8 @@ class SnowflakeSession:
         return change_history_metadata
 
     def change_history_schema_exists(self) -> bool:
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
         query = f"""\
             SELECT
                 COUNT(1)
@@ -269,6 +274,8 @@ class SnowflakeSession:
                 return row[0] > 0
 
     def create_change_history_schema(self, dry_run: bool) -> None:
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
         query = f"CREATE SCHEMA IF NOT EXISTS {self.change_history_table.fully_qualified_schema_name}"
         if dry_run:
             self.logger.info(
@@ -279,6 +286,8 @@ class SnowflakeSession:
             self.execute_snowflake_query(dedent(query), logger=self.logger)
 
     def create_change_history_table(self, dry_run: bool) -> None:
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
         query = f"""\
             CREATE TABLE IF NOT EXISTS {self.change_history_table.fully_qualified} (
                 VERSION VARCHAR,
@@ -328,6 +337,8 @@ class SnowflakeSession:
         dict[str, list[str]] | None,
         str | int | None,
     ]:
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
         # Check if change history table exists
         change_history_metadata = self.fetch_change_history_metadata()
         table_exists = bool(change_history_metadata)  # Empty dict {} is falsy, non-empty is truthy
@@ -359,6 +370,8 @@ class SnowflakeSession:
         return change_history, r_scripts_checksum, max_published_version
 
     def fetch_repeatable_scripts(self) -> dict[str, list[str]]:
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
         query = f"""\
         SELECT DISTINCT
             SCRIPT AS SCRIPT_NAME,
@@ -382,6 +395,8 @@ class SnowflakeSession:
     def fetch_versioned_scripts(
         self,
     ) -> tuple[dict[str, dict[str, str | int]], str | int | None]:
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
         query = f"""\
         SELECT VERSION, SCRIPT, CHECKSUM
         FROM {self.change_history_table.fully_qualified}
@@ -433,6 +448,8 @@ class SnowflakeSession:
         dry_run: bool,
         logger: structlog.BoundLogger,
     ) -> None:
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
         if dry_run:
             logger.info("Running in dry-run mode. Skipping execution")
             return

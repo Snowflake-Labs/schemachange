@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - Simplified change history table creation (#326)
+- Unified connection logic: `verify` and `deploy` now both use `SnowflakeSession` for consistency
+- Made `change_history_table` optional in `SnowflakeSession` to support verify command
 
 ### Removed
 - Unnecessary dependencies: `cryptography`, `requests`, `black`, `flake8`
@@ -18,6 +20,8 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - Improved error reporting and feedback (#391)
 - Environment variable expansion in connections.toml (#388)
+- Encrypted RSA key authentication now works in both `deploy` and `verify` commands (#388)
+- Structlog compatibility: removed invalid `isEnabledFor` method calls
 - `KeyError: 'last_altered'` when change history table missing
 - YAML validation for unknown keys (#352 by @MACKAT05)
 - UTF-8 BOM causing SQL compilation errors (#250)

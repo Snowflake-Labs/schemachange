@@ -865,3 +865,78 @@ class TestSnowflakeSession:
                 # Verify that the method logged the error before re-raising
                 # The error should be logged at error level with details
                 assert any("error" in str(call).lower() for call in test_logger.calls)
+
+    def test_private_key_file_pwd_passed_to_connector(self):
+        """Test that private_key_file_pwd is correctly passed to snowflake.connector.connect (issue #388)."""
+        logger = structlog.testing.CapturingLogger()
+
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "test_account"
+            mock_conn.user = "test_user"
+            mock_conn.role = "test_role"
+            mock_conn.warehouse = "test_warehouse"
+            mock_conn.database = None
+            mock_conn.schema = None
+            mock_conn.session_id = "session_123"
+            mock_connect.return_value = mock_conn
+
+            with mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string"):
+                # noinspection PyTypeChecker
+                SnowflakeSession(
+                    user="test_user",
+                    account="test_account",
+                    role="test_role",
+                    warehouse="test_warehouse",
+                    schemachange_version="4.2.0",
+                    application="schemachange",
+                    change_history_table=ChangeHistoryTable(),
+                    logger=logger,
+                    authenticator="snowflake_jwt",
+                    private_key_file="~/.ssh/snowflake_key.p8",
+                    private_key_file_pwd="my_secure_passphrase",
+                )
+
+                # Verify snowflake.connector.connect was called with private_key_file_pwd
+                call_kwargs = mock_connect.call_args.kwargs
+                assert call_kwargs["authenticator"] == "snowflake_jwt"
+                assert call_kwargs["private_key_file"] == "~/.ssh/snowflake_key.p8"
+                assert call_kwargs["private_key_file_pwd"] == "my_secure_passphrase"
+
+    def test_snowflake_session_without_change_history_table(self):
+        """Test that SnowflakeSession can be created without change_history_table (for verify command)."""
+        logger = structlog.testing.CapturingLogger()
+
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "test_account"
+            mock_conn.user = "test_user"
+            mock_conn.role = "test_role"
+            mock_conn.warehouse = "test_warehouse"
+            mock_conn.database = "test_db"
+            mock_conn.schema = "test_schema"
+            mock_conn.session_id = "session_123"
+            mock_connect.return_value = mock_conn
+
+            # Create session without change_history_table (for verify)
+            session = SnowflakeSession(
+                user="test_user",
+                account="test_account",
+                role="test_role",
+                warehouse="test_warehouse",
+                database="test_db",
+                schema="test_schema",
+                schemachange_version="4.2.0",
+                application="schemachange",
+                logger=logger,
+                change_history_table=None,  # This is what verify command does
+            )
+
+            # Verify session was created successfully
+            assert session is not None
+            assert session.change_history_table is None
+            assert session.account == "test_account"
+
+            # Attempting to call deployment methods should raise clear error
+            with pytest.raises(ValueError, match="change_history_table is required for deployment operations"):
+                session.fetch_change_history_metadata()
