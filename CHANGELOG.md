@@ -50,6 +50,14 @@ All notable changes to this project will be documented in this file.
   - This is a Snowflake connector behavior, not a schemachange bug
 
 ### Fixed
+- **Fixed regression: Environment variable expansion in connections.toml** (#388)
+  - In v4.1.0, architectural changes to support proper config precedence (CLI > ENV > YAML > connections.toml) broke environment variable expansion
+  - v4.0.1 passed `connection_name` to Snowflake connector, which read connections.toml and expanded variables (e.g., `$VAR`, `${VAR}`)
+  - v4.1.0 reads connections.toml ourselves to maintain precedence, but didn't implement variable expansion
+  - Now properly expands environment variables when reading connections.toml, restoring v4.0.1 behavior
+  - Supports both `$VAR` and `${VAR}` syntax (matches Snowflake connector behavior)
+  - Undefined variables are preserved (not expanded to empty string)
+  - Fixes Issue #388 where `private_key_file_pwd = "$SNOWFLAKE_PRIVATE_KEY_PASSPHRASE"` failed to expand
 - **Fixed critical bug in change history table existence check** that caused `KeyError: 'last_altered'` when table didn't exist
   - Root cause: `fetch_change_history_metadata()` returns empty dict `{}` (not `None`), but code checked `is not None`
   - Empty dict is truthy, so code incorrectly thought table existed and tried to access `change_history_metadata["last_altered"]`

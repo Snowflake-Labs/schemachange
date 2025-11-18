@@ -676,6 +676,52 @@ def get_snowflake_session_parameters() -> dict | None:
     return None
 
 
+def _expand_env_vars_in_dict(params: dict) -> dict:
+    """
+    Expand environment variables in dictionary values.
+
+    Supports both $VAR and ${VAR} syntax to match Snowflake connector's behavior.
+    If an environment variable is not set, the original value is preserved.
+
+    Args:
+        params: Dictionary with potentially unexpanded environment variables
+
+    Returns:
+        Dictionary with environment variables expanded
+
+    Examples:
+        {"password": "$MY_PASSWORD"} -> {"password": "secret123"}
+        {"account": "${SNOWFLAKE_ACCOUNT}"} -> {"account": "myaccount"}
+        {"user": "$MISSING_VAR"} -> {"user": "$MISSING_VAR"}  # Preserved if not set
+    """
+    import re
+
+    expanded = {}
+    for key, value in params.items():
+        if isinstance(value, str):
+            # Expand ${VAR} syntax
+            def replace_braced(match):
+                var_name = match.group(1)
+                return os.getenv(var_name, match.group(0))  # Keep original if not found
+
+            # Expand $VAR syntax (without braces)
+            def replace_simple(match):
+                var_name = match.group(1)
+                return os.getenv(var_name, match.group(0))  # Keep original if not found
+
+            # First expand ${VAR} syntax
+            expanded_value = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", replace_braced, value)
+            # Then expand $VAR syntax (but not if already part of ${...})
+            expanded_value = re.sub(r"\$([A-Za-z_][A-Za-z0-9_]*)", replace_simple, expanded_value)
+
+            expanded[key] = expanded_value
+        else:
+            # Non-string values pass through unchanged
+            expanded[key] = value
+
+    return expanded
+
+
 def get_connections_toml_parameters(
     connections_file_path: Path | str | None, connection_name: str | None
 ) -> tuple[dict, dict]:
@@ -784,6 +830,12 @@ def get_connections_toml_parameters(
         session_params = connection_data.get("parameters", {})
         if not isinstance(session_params, dict):
             session_params = {}
+
+        # Expand environment variables in parameter values
+        # Matches Snowflake connector's behavior when it reads connections.toml
+        # Supports both $VAR and ${VAR} syntax
+        connection_params = _expand_env_vars_in_dict(connection_params)
+        session_params = _expand_env_vars_in_dict(session_params)
 
         logger.debug(
             f"Successfully read connection '{connection_name}' from connections.toml",
