@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import sys
+import traceback
 from pathlib import Path
 
 import snowflake.connector
@@ -12,6 +13,7 @@ from schemachange.config.RenderConfig import RenderConfig
 from schemachange.deploy import deploy
 from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
 from schemachange.redact_config_secrets import redact_config_secrets
+from schemachange.ScriptExecutionError import ScriptExecutionError
 from schemachange.session.SnowflakeSession import SnowflakeSession
 
 # region Global Variables
@@ -303,30 +305,64 @@ def main():
             )
             deploy(config=config, session=session)
 
+    except ScriptExecutionError as e:
+        # Script execution failures - provide rich context
+        module_logger.error(f"Script execution failed: {e.script_type} {e.script_name}")
+        module_logger.error(f"  Path: {e.script_path}")
+        if e.sql_error_code or e.sql_state:
+            error_code_info = f"SQL Error {e.sql_error_code}" if e.sql_error_code else ""
+            sql_state_info = f"[{e.sql_state}]" if e.sql_state else ""
+            module_logger.error(f"  Code: {error_code_info} {sql_state_info}".strip())
+        module_logger.error(f"  {e.error_message}")
+        module_logger.error("")
+        module_logger.error(
+            "Troubleshooting: Review SQL syntax, verify objects exist, check permissions, or run with -L DEBUG"
+        )
+
+        # DEBUG level: show the query and structured data
+        if module_logger.isEnabledFor(logging.DEBUG):
+            if e.query:
+                module_logger.debug("Failed SQL query", query=e.query)
+            module_logger.debug("Script error details", **e.get_structured_error())
+
+        sys.exit(2)  # Exit code 2 for script errors
+
     except ValueError as e:
-        module_logger.error("Configuration error", error=str(e))
+        module_logger.error(f"Configuration error: {str(e)}")
+        module_logger.error("Run 'schemachange verify' to validate your configuration")
         sys.exit(1)
+
     except FileNotFoundError as e:
-        module_logger.error("File not found", error=str(e))
+        module_logger.error(f"File not found: {str(e)}")
         sys.exit(1)
+
     except PermissionError as e:
-        module_logger.error("Permission denied", error=str(e))
+        module_logger.error(f"Permission denied: {str(e)}")
         sys.exit(1)
+
     except snowflake.connector.errors.HttpError as e:
-        module_logger.error("Snowflake HTTP error", error=str(e))
-        module_logger.error("Please check your Snowflake account identifier and network connectivity.")
-        module_logger.error("Use 'schemachange verify' to test your connection and view configuration.")
-        sys.exit(1)
+        module_logger.error(f"Snowflake HTTP error: {str(e)}")
+        module_logger.error("Check account identifier, network connectivity, and firewall settings")
+        module_logger.error("Run 'schemachange verify' to test connection")
+        sys.exit(3)  # Exit code 3 for connection errors
+
     except (snowflake.connector.errors.DatabaseError, snowflake.connector.errors.ProgrammingError) as e:
-        module_logger.error("Snowflake connection/authentication error", error=str(e))
-        module_logger.error("Please check your Snowflake credentials and connection parameters.")
-        module_logger.error("Use 'schemachange verify' to test your connection and view configuration.")
-        sys.exit(1)
+        module_logger.error(f"Snowflake connection/authentication error: {str(e)}")
+        module_logger.error("Check credentials, account identifier, and role permissions")
+        module_logger.error("Run 'schemachange verify' to test connection")
+        sys.exit(3)  # Exit code 3 for connection errors
+
     except KeyboardInterrupt:
         module_logger.warning("Operation cancelled by user")
         sys.exit(130)  # Standard exit code for SIGINT
+
     except Exception as e:
-        module_logger.error("Unexpected error", error=str(e))
+        module_logger.error(f"Unexpected error [{type(e).__name__}]: {str(e)}")
+        if module_logger.isEnabledFor(logging.DEBUG):
+            module_logger.debug("Full traceback", traceback=traceback.format_exc())
+        else:
+            module_logger.error("Run with -L DEBUG for full traceback")
+        module_logger.error("Report issue: https://github.com/Snowflake-Labs/schemachange/issues")
         sys.exit(1)
 
 

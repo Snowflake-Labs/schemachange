@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from pathlib import Path
 from unittest import mock
 
 import pytest
+import snowflake.connector.errors
 import structlog
 
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
+from schemachange.ScriptExecutionError import ScriptExecutionError
+from schemachange.session.Script import VersionedScript
 from schemachange.session.SnowflakeSession import SnowflakeSession
 
 
@@ -625,3 +629,239 @@ class TestSnowflakeSession:
             # Attempting any schemachange operation will fail
             with pytest.raises(Exception, match="No active warehouse selected"):
                 session.fetch_change_history_metadata()
+
+    def test_apply_change_script_programming_error_raises_script_execution_error(self):
+        """Test that ProgrammingError in apply_change_script raises ScriptExecutionError."""
+        change_history_table = ChangeHistoryTable()
+        logger = structlog.testing.CapturingLogger()
+
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "test_account"
+            mock_conn.user = "test_user"
+            mock_conn.role = "test_role"
+            mock_conn.warehouse = "test_warehouse"
+            mock_conn.database = "test_db"
+            mock_conn.schema = "test_schema"
+            mock_conn.session_id = "session_123"
+
+            # Simulate SQL syntax error
+            sql_error = snowflake.connector.errors.ProgrammingError(
+                msg="SQL compilation error: syntax error line 1 at position 7 unexpected 'BAD'",
+                errno=1003,
+                sqlstate="42000",
+            )
+
+            def side_effect_func(query):
+                # Allow initialization, reset_query_tag calls to succeed
+                # Fail on actual script content
+                if "SELECT BAD SYNTAX" in query:
+                    raise sql_error
+                return None
+
+            mock_conn.execute_string.side_effect = side_effect_func
+            mock_connect.return_value = mock_conn
+
+            with mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string"):
+                session = SnowflakeSession(
+                    user="test_user",
+                    account="test_account",
+                    role="test_role",
+                    warehouse="test_warehouse",
+                    database="test_db",
+                    schema_name="test_schema",
+                    schemachange_version="4.2.0",
+                    application="schemachange",
+                    change_history_table=change_history_table,
+                    logger=logger,
+                )
+
+                script = VersionedScript(
+                    version="1.0.0",
+                    description="test",
+                    name="V1.0.0__test.sql",
+                    file_path=Path("/scripts/V1.0.0__test.sql"),
+                )
+
+                with pytest.raises(ScriptExecutionError) as exc_info:
+                    session.apply_change_script(
+                        script=script,
+                        script_content="SELECT BAD SYNTAX",
+                        dry_run=False,
+                        logger=logger,
+                    )
+
+                error = exc_info.value
+                assert error.script_name == "V1.0.0__test.sql"
+                assert error.script_type == "V"
+                assert error.sql_error_code == 1003
+                assert error.sql_state == "42000"
+                assert "syntax error" in error.error_message
+
+    def test_apply_change_script_database_error_raises_script_execution_error(self):
+        """Test that DatabaseError in apply_change_script raises ScriptExecutionError."""
+        change_history_table = ChangeHistoryTable()
+        logger = structlog.testing.CapturingLogger()
+
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "test_account"
+            mock_conn.user = "test_user"
+            mock_conn.role = "test_role"
+            mock_conn.warehouse = "test_warehouse"
+            mock_conn.database = "test_db"
+            mock_conn.schema = "test_schema"
+            mock_conn.session_id = "session_123"
+
+            # Simulate database/permission error
+            db_error = snowflake.connector.errors.DatabaseError("Insufficient privileges to operate on table")
+
+            def side_effect_func(query):
+                # Allow initialization, reset_query_tag calls to succeed
+                # Fail on actual script content
+                if "CREATE TABLE test" in query:
+                    raise db_error
+                return None
+
+            mock_conn.execute_string.side_effect = side_effect_func
+            mock_connect.return_value = mock_conn
+
+            with mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string"):
+                session = SnowflakeSession(
+                    user="test_user",
+                    account="test_account",
+                    role="test_role",
+                    warehouse="test_warehouse",
+                    database="test_db",
+                    schema_name="test_schema",
+                    schemachange_version="4.2.0",
+                    application="schemachange",
+                    change_history_table=change_history_table,
+                    logger=logger,
+                )
+
+                script = VersionedScript(
+                    version="1.0.0",
+                    description="test",
+                    name="V1.0.0__test.sql",
+                    file_path=Path("/scripts/V1.0.0__test.sql"),
+                )
+
+                with pytest.raises(ScriptExecutionError) as exc_info:
+                    session.apply_change_script(
+                        script=script,
+                        script_content="CREATE TABLE test (id INT)",
+                        dry_run=False,
+                        logger=logger,
+                    )
+
+                error = exc_info.value
+                assert error.script_name == "V1.0.0__test.sql"
+                assert error.script_type == "V"
+                assert "Insufficient privileges" in error.error_message
+
+    def test_apply_change_script_dry_run_skips_execution(self):
+        """Test that dry-run mode skips script execution."""
+        change_history_table = ChangeHistoryTable()
+        logger = structlog.testing.CapturingLogger()
+
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "test_account"
+            mock_conn.user = "test_user"
+            mock_conn.role = "test_role"
+            mock_conn.warehouse = "test_warehouse"
+            mock_conn.database = "test_db"
+            mock_conn.schema = "test_schema"
+            mock_conn.session_id = "session_123"
+            mock_connect.return_value = mock_conn
+
+            with mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string"):
+                session = SnowflakeSession(
+                    user="test_user",
+                    account="test_account",
+                    role="test_role",
+                    warehouse="test_warehouse",
+                    database="test_db",
+                    schema_name="test_schema",
+                    schemachange_version="4.2.0",
+                    application="schemachange",
+                    change_history_table=change_history_table,
+                    logger=logger,
+                )
+
+                script = VersionedScript(
+                    version="1.0.0",
+                    description="test",
+                    name="V1.0.0__test.sql",
+                    file_path=Path("/scripts/V1.0.0__test.sql"),
+                )
+
+                # Should not raise any errors or execute anything
+                session.apply_change_script(
+                    script=script,
+                    script_content="SELECT * FROM test",
+                    dry_run=True,
+                    logger=logger,
+                )
+
+                # Verify execute_string was only called during initialization
+                # _initialize_session_context makes 1 call with all 4 USE commands
+                assert mock_conn.execute_string.call_count == 1
+
+    def test_execute_snowflake_query_logs_programming_error_details(self):
+        """Test that execute_snowflake_query logs ProgrammingError details and re-raises."""
+        change_history_table = ChangeHistoryTable()
+
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "test_account"
+            mock_conn.user = "test_user"
+            mock_conn.role = "test_role"
+            mock_conn.warehouse = "test_warehouse"
+            mock_conn.database = "test_db"
+            mock_conn.schema = "test_schema"
+            mock_conn.session_id = "session_123"
+            mock_connect.return_value = mock_conn
+
+            with mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string"):
+                # Create a capturing logger
+                logger = structlog.testing.CapturingLogger()
+
+                session = SnowflakeSession(
+                    user="test_user",
+                    account="test_account",
+                    role="test_role",
+                    warehouse="test_warehouse",
+                    database="test_db",
+                    schema_name="test_schema",
+                    schemachange_version="4.2.0",
+                    application="schemachange",
+                    change_history_table=change_history_table,
+                    logger=logger,
+                )
+
+                # Simulate SQL syntax error
+                sql_error = snowflake.connector.errors.ProgrammingError(
+                    msg="SQL compilation error",
+                    errno=1003,
+                    sqlstate="42000",
+                )
+
+                def side_effect_func(query):
+                    if "SELECT BAD SYNTAX" in query:
+                        raise sql_error
+                    return None
+
+                mock_conn.execute_string.side_effect = side_effect_func
+
+                # Create a new logger for this specific test
+                test_logger = structlog.testing.CapturingLogger()
+
+                # Should re-raise the error
+                with pytest.raises(snowflake.connector.errors.ProgrammingError):
+                    session.execute_snowflake_query("SELECT BAD SYNTAX", logger=test_logger)
+
+                # Verify that the method logged the error before re-raising
+                # The error should be logged at error level with details
+                assert any("error" in str(call).lower() for call in test_logger.calls)

@@ -5,90 +5,25 @@ All notable changes to this project will be documented in this file.
 
 ## [4.2.0] - TBD
 ### Added
-- Added validation for unknown configuration keys with warning messages instead of errors for better backward and sideways compatibility (#352 by @MACKAT05)
-- Added support for snowflake-connector-python 4.x (#363) - dependency constraint updated to `>=2.8,<5.0`
-- **Migration guide** for upgrading from 4.0.x to 4.1.0+ with:
-  - Complete deprecation reference table (15 CLI arguments, 3 ENV variables, 2 config parameters)
-  - Quick reference table mapping deprecated to new parameter names
-  - Version pinning strategy examples for controlled upgrades
-  - Parameter style comparison (legacy vs. current best practices)
-  - Configuration priority examples demonstrating CLI > ENV > YAML > connections.toml
-  - Python code snippets for testing parameter compatibility
-  - YAML v2 format examples and migration checklist
-- **Troubleshooting documentation enhancements**:
-  - Deprecation warning solutions with migration examples
-  - Common configuration errors and fixes
-  - Uppercase `.SQL` file extension clarification (#309) - documents that case-insensitive extensions are already supported
-  - Unknown configuration key handling guidance
-- **Demo enhancements** with authentication examples:
-  - JWT (Private Key) authentication for service accounts
-  - External Browser / SSO authentication for interactive use
-  - OAuth token authentication for platform integrations
-  - Programmatic Access Token (PAT) for MFA accounts
-  - connections.toml examples for each method
+- Validation for unknown configuration keys with warnings (#352 by @MACKAT05)
+- Support for snowflake-connector-python 4.x (#363)
+- Enhanced migration and troubleshooting documentation
 
 ### Changed
-- **Simplified change history table creation** (addresses #326)
-  - Maintains 4.1.0 behavior: when `--create-change-history-table=true`, table is created if missing
-  - Works correctly for all scenarios: first deploys, parallel CI/CD jobs, ephemeral environments
-  - No additional flags or configuration needed
+- Simplified change history table creation (#326)
 
 ### Removed
-- Removed unnecessary dependencies to reduce bloat and improve install times:
-  - `cryptography` and `requests` (transitive dependencies of snowflake-connector-python, installed automatically)
-  - `black` and `flake8` (replaced by `ruff` which handles both linting and formatting)
-
-### Documentation
-- Added comprehensive dry-run mode documentation
-  - New dedicated section in README explaining scope, requirements, and behavior
-  - Clarifies that dry-run requires same prerequisites as actual deployment
-  - Explains why `--create-change-history-table` is needed for first-time dry-runs
-  - Added troubleshooting entry for "Unable to find change history table" in dry-run mode
-- Added troubleshooting guidance for tasks with `BEGIN...END` blocks (#253)
-  - Documents that `$$` delimiters are required to prevent `execute_string()` from splitting on internal semicolons
-  - Provides clear examples and explanation of the root cause
-  - This is a Snowflake connector behavior, not a schemachange bug
+- Unnecessary dependencies: `cryptography`, `requests`, `black`, `flake8`
 
 ### Fixed
-- **Fixed regression: Environment variable expansion in connections.toml** (#388)
-  - In v4.1.0, architectural changes to support proper config precedence (CLI > ENV > YAML > connections.toml) broke environment variable expansion
-  - v4.0.1 passed `connection_name` to Snowflake connector, which read connections.toml and expanded variables (e.g., `$VAR`, `${VAR}`)
-  - v4.1.0 reads connections.toml ourselves to maintain precedence, but didn't implement variable expansion
-  - Now properly expands environment variables when reading connections.toml, restoring v4.0.1 behavior
-  - Supports both `$VAR` and `${VAR}` syntax (matches Snowflake connector behavior)
-  - Undefined variables are preserved (not expanded to empty string)
-  - Fixes Issue #388 where `private_key_file_pwd = "$SNOWFLAKE_PRIVATE_KEY_PASSPHRASE"` failed to expand
-- **Fixed critical bug in change history table existence check** that caused `KeyError: 'last_altered'` when table didn't exist
-  - Root cause: `fetch_change_history_metadata()` returns empty dict `{}` (not `None`), but code checked `is not None`
-  - Empty dict is truthy, so code incorrectly thought table existed and tried to access `change_history_metadata["last_altered"]`
-  - Fixed by using `bool(change_history_metadata)` which correctly treats empty dict as falsy
-  - Impact: Affected scenarios where change history table was missing
-- Fixed YAML configuration validation to show warnings for unknown keys instead of throwing TypeError exceptions (#352 by @MACKAT05)
-- Fixed UTF-8 BOM character causing SQL compilation errors in Snowflake (#250)
-  - Automatically strips UTF-8 BOM (`\ufeff`) from script files if present
-  - Common issue with files saved as "UTF-8 with BOM" in Windows/VS Code environments
-  - Prevents cryptic Snowflake error: "syntax error line 1 at position 0 unexpected '\ufeff'"
-  - Non-breaking change: gracefully handles files with or without BOM
-- Fixed multi-line secrets not being redacted when displayed in logs or config output (#237, PR #238 by @rwberendsen)
-  - Root cause: Secrets were stored with `.strip()` but displayed with different YAML/JSON serialization
-  - Solution: Store multiple representations (original, stripped, normalized, individual lines) to ensure redaction works
-  - Enhancement: Preserve newline structure in redacted output (`***\n***`) for better readability (contributed by @rwberendsen)
-  - Critical security fix: Multi-line certificates, keys, and tokens are now properly masked regardless of display format
-- Fixed "Empty SQL Statement" error by adding intelligent comment handling before sending to Snowflake (#258)
-  - **Automatically fixes** scripts with valid SQL + trailing comments by appending `SELECT 1;` no-op statement
-  - Preserves metadata comments (author, ticket numbers, etc.) while ensuring Snowflake has a valid statement to execute
-  - **Errors on** comment-only scripts (placeholders, TODOs) with clear guidance to add SQL or remove file
-  - **Errors on** empty content (whitespace, false Jinja conditionals, missing variables) with debugging info
-  - Addresses root cause: Snowflake connector strips comments, leaving empty string to execute
-  - Transparent: logs debug message when appending no-op statement
-  - Non-breaking: existing valid scripts continue to work
-  - Particularly helpful for Azure DevOps and other CI/CD environments where template variables might differ
-- Fixed warehouse parameter being ignored causing "No active warehouse selected" error (#233, #235)
-  - Root cause: Snowflake connector accepts warehouse parameter but doesn't automatically execute `USE WAREHOUSE`
-  - Solution: Execute `USE ROLE`, `USE WAREHOUSE`, `USE DATABASE`, `USE SCHEMA` commands immediately after connection
-  - Ensures session context is properly initialized before any queries (e.g. fetching change history metadata)
-  - Non-breaking: Sessions now properly use the warehouse specified via CLI (`-w`), ENV (`SNOWFLAKE_WAREHOUSE`), YAML, or connections.toml
-  - Critical fix for users encountering: "000606 (57P03): No active warehouse selected in the current session"
+- Improved error reporting and feedback (#391)
+- Environment variable expansion in connections.toml (#388)
+- `KeyError: 'last_altered'` when change history table missing
+- YAML validation for unknown keys (#352 by @MACKAT05)
+- UTF-8 BOM causing SQL compilation errors (#250)
+- Multi-line secrets not being redacted (#237, #238 by @rwberendsen)
+- Empty SQL statement error with comment handling (#258)
+- Warehouse parameter ignored causing "No active warehouse selected" error (#233, #235)
 
 ## [4.1.0] - 2025-11-14
 ### Added

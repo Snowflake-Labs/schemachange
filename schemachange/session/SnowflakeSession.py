@@ -10,6 +10,7 @@ import structlog
 
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import get_snowflake_identifier_string
+from schemachange.ScriptExecutionError import ScriptExecutionError
 from schemachange.session.Script import AlwaysScript, RepeatableScript, VersionedScript
 
 
@@ -195,18 +196,44 @@ class SnowflakeSession:
 
     def execute_snowflake_query(self, query: str, logger: structlog.BoundLogger):
         logger.debug(
-            "Executing query",
-            query=indent(query, prefix="\t"),
+            "Executing query", query_length=len(query), query_preview=query[:200] + "..." if len(query) > 200 else query
         )
+
         try:
             res = self.con.execute_string(query)
             if not self.autocommit:
                 self.con.commit()
+            logger.debug("Query executed")
             return res
-        except Exception as e:
+
+        except snowflake.connector.errors.ProgrammingError as e:
+            # SQL syntax/logic errors
+            logger.error(
+                "SQL execution error",
+                error_code=getattr(e, "errno", None),
+                sql_state=getattr(e, "sqlstate", None),
+                error_msg=str(e),
+            )
+            logger.debug("Failed query", query=indent(query, prefix="\t"))
             if not self.autocommit:
                 self.con.rollback()
-            raise e
+            raise
+
+        except snowflake.connector.errors.DatabaseError as e:
+            # Connection, permission, warehouse errors
+            logger.error("Database error", error_type=type(e).__name__, error_msg=str(e))
+            logger.debug("Failed query", query=indent(query, prefix="\t"))
+            if not self.autocommit:
+                self.con.rollback()
+            raise
+
+        except Exception as e:
+            # Unexpected errors
+            logger.error("Unexpected query error", error_type=type(e).__name__, error_msg=str(e))
+            logger.debug("Failed query", query=indent(query, prefix="\t"))
+            if not self.autocommit:
+                self.con.rollback()
+            raise
 
     def fetch_change_history_metadata(self) -> dict:
         # This should only ever return 0 or 1 rows
@@ -423,8 +450,65 @@ class SnowflakeSession:
             self.reset_query_tag(extra_tag=script.name, logger=logger)
             try:
                 self.execute_snowflake_query(query=script_content, logger=logger)
+            except snowflake.connector.errors.ProgrammingError as e:
+                # SQL syntax/logic errors
+                logger.error(
+                    "SQL execution failed",
+                    script_name=script.name,
+                    script_path=str(script.file_path),
+                    script_type=script.type,
+                    sql_error_code=getattr(e, "errno", None),
+                    sql_state=getattr(e, "sqlstate", None),
+                    error_message=str(e),
+                )
+
+                raise ScriptExecutionError(
+                    script_name=script.name,
+                    script_path=script.file_path,
+                    script_type=script.type,
+                    error_message=str(e),
+                    sql_error_code=getattr(e, "errno", None),
+                    sql_state=getattr(e, "sqlstate", None),
+                    query=script_content,
+                    original_exception=e,
+                ) from e
+
+            except snowflake.connector.errors.DatabaseError as e:
+                # Connection, permission, warehouse errors
+                logger.error(
+                    "Database error during script execution",
+                    script_name=script.name,
+                    script_path=str(script.file_path),
+                    script_type=script.type,
+                    error_message=str(e),
+                )
+
+                raise ScriptExecutionError(
+                    script_name=script.name,
+                    script_path=script.file_path,
+                    script_type=script.type,
+                    error_message=f"Database error: {str(e)}",
+                    original_exception=e,
+                ) from e
+
             except Exception as e:
-                raise Exception(f"Failed to execute {script.name}") from e
+                # Unexpected errors
+                logger.error(
+                    "Unexpected error during script execution",
+                    script_name=script.name,
+                    script_path=str(script.file_path),
+                    script_type=script.type,
+                    error_message=str(e),
+                    error_type=type(e).__name__,
+                )
+
+                raise ScriptExecutionError(
+                    script_name=script.name,
+                    script_path=script.file_path,
+                    script_type=script.type,
+                    error_message=f"Unexpected error: {str(e)}",
+                    original_exception=e,
+                ) from e
             self.reset_query_tag(logger=logger)
             self.reset_session(logger=logger)
             end = time.time()
