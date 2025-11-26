@@ -140,3 +140,8 @@ dmypy.json
 # Experiments folder - track the folder but not its contents (maintainer workspace)
 experiments/*
 !experiments/README.md
+
+.cursor
+.claude
+.snowflake
+.vscode
