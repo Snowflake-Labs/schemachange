@@ -407,8 +407,12 @@ class SnowflakeSession:
         SELECT VERSION, SCRIPT, CHECKSUM
         FROM {self.change_history_table.fully_qualified}
         WHERE SCRIPT_TYPE = 'V'
-        ORDER BY INSTALLED_ON DESC -- TODO: Why not order by version?
+        ORDER BY INSTALLED_ON DESC
         """
+        # Order by INSTALLED_ON (not VERSION) because version numbers are user-configured
+        # and may not sort consistently across deployments (e.g., semantic versioning, custom
+        # schemes, branch-based versions). INSTALLED_ON is universally sortable and provides
+        # reliable chronological order. The first result (versions[0]) becomes max_published_version.
         results = self.execute_snowflake_query(dedent(query), logger=self.logger)
 
         # Collect all the results into a list
