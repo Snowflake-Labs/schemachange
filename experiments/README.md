@@ -1,141 +1,263 @@
-# Experiments Folder
+# experiments/ Folder
 
-**Purpose:** Maintainer workspace for planning, experiments, and temporary documentation.
+## Purpose
 
-**Status:** This folder is tracked, but its **contents are not** (except this README).
+This folder is for **local development experiments and analysis** that should **NOT** be committed to the repository.
 
----
-
-## What This Folder Is For
-
-This is a **scratchpad for maintainers** to:
-- Plan releases (roadmaps, assessments, strategies)
-- Draft documentation before finalizing
-- Create test scripts and experiments
-- Store temporary analysis and notes
-- Work on ideas without committing them
-
-**Think of it as:** Your personal workspace that's available to all maintainers but not cluttering version control.
+**What's tracked:** Only this README (provides guidelines for everyone)  
+**What's not tracked:** Everything else you create here (your local workspace)
 
 ---
 
-## What's Typically Here
+## What You'll Typically Create Here
 
-When maintainers are working, you might find:
-- **Point-in-time documentation** (e.g., `SETUP_COMPLETE.md`, `QUICK_START.md`)
-  - Captures "what we did" at a specific moment
-  - Useful for reference but becomes stale
-  - Better here than in `docs/` where it duplicates git/issue history
-- **Release planning** documents (e.g., `4.3.0_RELEASE_PLAN.md`)
-- **Assessment documents** (e.g., `PR_REVIEW_*.md`)
-- **Test scripts** (e.g., `test.sh`, `triage-issues.sh`)
-- **Draft documentation** before finalizing
-- **Analysis and investigations**
+As you work on the project, you might create:
 
-**Most files are NOT tracked in git** - they're personal/temporary work products.
+- **Investigation notes** - `issue_388_analysis.md`, `bug_investigation.md`
+- **Draft release notes** - `v4.2.0_draft.md`, `changelog_notes.md`
+- **Test coverage analysis** - `test_decisions.md`, `regression_notes.md`
+- **Experimental code** - `test_script.py`, `proof_of_concept.sql`
+- **Configuration files** - Local test setups, temporary configs
+- **Working notes** - Personal TODO lists, design sketches
 
----
+**All of these stay local** - they're automatically ignored by git.
 
-## How It Works
+### Occasionally, Something Gets Committed
 
-```gitignore
-# In .gitignore:
-experiments/*           # Ignore all contents
-!experiments/README.md  # Except this README
-```
+Very rarely, if you create something with **lasting value for all developers**, it might get committed:
+- Consolidated release summaries
+- Test coverage references (explaining what tests protect)
+- Strategic decision documents (explaining "why" for the future)
 
-**Result:**
-- ✅ Folder exists in repository (maintainers know about it)
-- ✅ This README is tracked (explains purpose)
-- ❌ Your work files are NOT tracked (keep it clean)
+But this is the exception, not the rule. **Default: everything stays local.**
 
 ---
 
 ## Guidelines
 
 ### ✅ DO Use This Folder For:
-- **Point-in-time documentation** - "what we did" summaries
-- **Release planning** and assessments
-- **Draft documentation** (before moving to `docs/`)
-- **Test scripts** with hardcoded values (e.g., specific issue numbers)
-- **Personal notes** and analysis
-- **Temporary work** products
+- **Local analysis documents** - Investigation notes, problem analysis
+- **Experimental code** - Test scripts, proof-of-concepts
+- **Temporary configurations** - Local test setups
+- **Working notes** - Personal development documentation
+- **Release preparation** - Draft release notes, change summaries
 
-### ❌ DON'T Put Here:
-- **Timeless guidance** (→ use `docs/maintainers/` instead)
-- **Reusable scripts** without hardcoded values (→ use `docs/maintainers/scripts/`)
-- **Templates** that maintainers need (→ use `docs/maintainers/`)
-- **Public documentation** (→ use root or `docs/`)
-
----
-
-## When to Move Files Out
-
-**If your work becomes permanent, move it:**
-
-| File Type | Move To | Example |
-|-----------|---------|---------|
-| Maintainer guide | `docs/maintainers/` | Setup guides, architecture docs |
-| User documentation | Root (`/`) | README, TROUBLESHOOTING, SECURITY |
-| Contributor guide | `.github/` | CONTRIBUTING, templates |
-| Workflow/script | Appropriate folder | CI/CD scripts, test helpers |
-| Reference only | Keep here | Old planning docs, assessments |
+### ❌ DO NOT Commit:
+- **Point-in-time updates** - Dated working notes
+- **Multiple versions** - Iterative analysis files (consolidate before commit)
+- **Personal experiments** - Keep in your local context
+- **Temporary test files** - Unless they become permanent tests
 
 ---
 
-## Example Workflow
+## What Gets Committed (Rarely)
 
-```bash
-# 1. Create release plan (draft)
-echo "# 4.3.0 Release Plan" > experiments/4.3.0_PLAN.md
-# Edit and iterate...
+Only commit files from this folder if they provide **lasting value** to the project:
 
-# 2. When finalized, decide:
-# - Keep as reference? → Leave in experiments/ (not tracked)
-# - Share with team? → Move to docs/maintainers/
-# - Make public? → Move to appropriate location and commit
+### Acceptable to Commit:
+- ✅ **Consolidated release summaries** (e.g., `COMPREHENSIVE_4.2.0_RELEASE_NOTES.md`)
+- ✅ **Test coverage references** (documenting regression protection)
+- ✅ **Strategic decision documents** (explaining "why" for future developers)
+- ✅ **Reusable test configurations** (if applicable to all developers)
 
-# 3. Clean up old experiments periodically
-cd experiments/
-rm old_plan.md  # Not tracked, so just delete
+### Do NOT Commit:
+- ❌ Dated working notes (`ANALYSIS_2025-11-15.md`)
+- ❌ Multiple versions of the same analysis
+- ❌ Personal TODO lists
+- ❌ Iterative problem-solving documents
+- ❌ Temporary test scripts
+
+---
+
+## Best Practices
+
+### Before Committing Anything:
+1. **Consolidate** - Merge multiple analysis files into one comprehensive document
+2. **Remove dates** - Make content timeless, not point-in-time
+3. **Focus on "why"** - Document decisions and rationale, not just "what"
+4. **Check relevance** - Will this help future developers?
+
+### Example: Good vs Bad
+
+**❌ Bad (Don't Commit):**
+```
+experiments/
+├── issue_388_analysis_v1.md
+├── issue_388_analysis_v2.md
+├── issue_388_final.md
+├── PASSPHRASE_FIX_2025-11-15.md
+├── TODO_review.md
+└── my_local_test.sh
+```
+
+**✅ Good (Can Commit):**
+```
+experiments/
+├── COMPREHENSIVE_4.2.0_RELEASE_NOTES.md  # Consolidated, timeless
+├── TEST_COVERAGE_REFERENCE.md            # Lasting value for regression protection
+└── README.md                             # This guide
 ```
 
 ---
 
-## Why This Pattern?
+## Workflow
+
+### During Development:
+1. Create analysis files freely in `experiments/`
+2. Iterate, revise, create multiple versions
+3. Keep everything local
+
+### Before Release:
+1. Consolidate multiple files into comprehensive summaries
+2. Remove dates and make content timeless
+3. Focus on decisions, not just actions
+4. Create reference documents for regression protection
+
+### After Release:
+1. Clean up local experiments folder
+2. Archive or delete temporary analysis files
+3. Keep only what has lasting value
+
+---
+
+## gitignore Configuration
+
+The `.gitignore` is configured to:
+- **Ignore** everything in experiments/ folder
+- **Except** this README.md
+
+```gitignore
+# Experiments folder - track the folder but not its contents (maintainer workspace)
+experiments/*
+!experiments/README.md
+```
+
+This means:
+- ✅ **Everything you create** in experiments/ stays local automatically
+- ✅ **No accidental commits** - git will ignore your local files
+- ✅ **Freedom to experiment** - create as many files as you want
+- ✅ **Only README tracked** - provides guidelines for everyone
+
+**In the rare case** something should be committed from experiments/, discuss with maintainers first and update .gitignore to allow that specific file.
+
+---
+
+## Why This Approach?
 
 ### Benefits:
-1. **Workspace exists** - All maintainers know where to put temporary work
-2. **No clutter** - Personal work doesn't show up in `git status`
-3. **Flexible** - Delete old files without affecting git history
-4. **Visible** - README explains the folder to new maintainers
-5. **Professional** - Repository stays clean for OSS community
+- ✅ **Freedom to experiment** - Create as many working files as needed locally
+- ✅ **Clean repository** - No point-in-time clutter in git history
+- ✅ **Valuable documentation** - Only lasting-value content in repo
+- ✅ **Local context** - Each developer can work their own way
 
-### Alternative (What We Don't Do):
-- Track everything → Git history filled with temporary docs
-- No experiments/ folder → Each maintainer creates their own, inconsistent
-- Fully ignore folder → Maintainers don't know it exists
-
----
-
-## For New Maintainers
-
-**This folder is your workspace!** Use it freely:
-- Create planning docs
-- Draft ideas
-- Experiment with scripts
-- Take notes
-
-**Don't worry about committing** - it's not tracked. When something becomes permanent, move it to the appropriate location in the repo.
+### Anti-patterns to Avoid:
+- ❌ Committing every analysis iteration
+- ❌ Point-in-time notes in git history
+- ❌ Multiple versions of the same document
+- ❌ Working notes that become obsolete
 
 ---
 
-## Current Maintainer Notes
+## For Contributors
 
-> Add any project-specific notes here for your team...
+If you're contributing to schemachange:
 
-**Example:** "When planning releases, use the format `X.Y.Z_RELEASE_PLAN.md` for consistency."
+1. **Use `experiments/` freely** for your local development
+2. **Don't commit** your experiments unless they provide lasting value
+3. **Consolidate** before considering any commit from this folder
+4. **Ask yourself**: "Will this help someone 6 months from now?"
 
 ---
 
-**Questions?** This folder is for you - use it however helps your workflow!
+## For Maintainers
+
+When you see PRs with `experiments/` content:
+
+### Review Criteria:
+- ✅ Is it consolidated (not multiple versions)?
+- ✅ Is it timeless (not dated/point-in-time)?
+- ✅ Does it document "why" (not just "what")?
+- ✅ Will it help future developers?
+
+### If No to Any:
+- Request consolidation
+- Request removal of dates
+- Request focus on lasting value
+- Or suggest keeping it local
+
+---
+
+## Example Use Cases
+
+### Release Preparation (Good)
+```
+# During development (local only):
+experiments/
+├── issue_388_investigation.md
+├── issue_388_v2.md
+├── issue_388_final_fix.md
+├── test_coverage_notes.md
+└── my_analysis.md
+
+# Before release (consolidate, then commit):
+experiments/
+└── COMPREHENSIVE_4.2.0_RELEASE_NOTES.md  ← Commit this
+```
+
+### Test Coverage Reference (Good)
+```
+# Document what tests protect (lasting value):
+experiments/
+└── TEST_COVERAGE_REFERENCE.md  ← Helps prevent regressions
+```
+
+### Strategic Decisions (Good)
+```
+# Document "why" for future:
+experiments/
+└── CONFIGURATION_STRATEGY.md  ← Explains why we do things this way
+```
+
+---
+
+## Summary
+
+### Simple Rules:
+
+1. **This folder is your local scratch space** - experiment freely
+2. **Everything you create stays local** (except this README)
+3. **Git automatically ignores** your files here
+4. **If something becomes valuable** for all developers - discuss with maintainers first
+
+### Quick Start for New Contributors:
+
+**Just cloned the repo?**
+1. You'll only see this README
+2. Create your own analysis files as needed
+3. They'll automatically stay local (not in git)
+4. Work freely without worrying about commits
+
+**Working on a release?**
+1. Create draft notes and analysis files here
+2. Iterate as much as you want
+3. Before release: if valuable, consolidate and discuss with maintainers
+4. Most of your work will stay local - that's intentional
+
+**Created something valuable?**
+1. Consolidate multiple iterations into one document
+2. Make it timeless (no dates, no point-in-time references)
+3. Focus on "why" decisions were made
+4. Discuss with maintainers before committing
+
+---
+
+## How Cursor AI Helps
+
+The `.cursor/rules/06-experiments-folder.md` file enforces these guidelines:
+- Prevents accidental point-in-time commits
+- Reminds you to keep things local
+- Guides you toward valuable documentation when appropriate
+
+---
+
+**Questions?** Discuss with maintainers before committing anything from `experiments/`.
