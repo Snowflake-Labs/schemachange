@@ -90,6 +90,7 @@ class SnowflakeSession:
             "private_key_file": kwargs.get(
                 "private_key_file"
             ),  # Already mapped from private_key_path in get_session_kwargs()
+            "private_key_file_pwd": kwargs.get("private_key_file_pwd"),
             "token": kwargs.get("token"),
             "password": kwargs.get("password"),
             "authenticator": kwargs.get("authenticator"),
