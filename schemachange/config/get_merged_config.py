@@ -424,8 +424,10 @@ def get_merged_config(
         "database",
         "schema",
         "authenticator",
-        "private_key_path",
-        "private_key_passphrase",
+        "private_key_path",  # DEPRECATED - use private_key_file
+        "private_key_file",  # Recommended (matches Snowflake connector)
+        "private_key_passphrase",  # DEPRECATED - use private_key_file_pwd
+        "private_key_file_pwd",  # Recommended (matches Snowflake connector)
         "token_file_path",
     ]
 
