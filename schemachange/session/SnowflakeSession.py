@@ -16,10 +16,10 @@ from schemachange.session.Script import AlwaysScript, RepeatableScript, Versione
 
 class SnowflakeSession:
     account: str
-    user: str | None  # TODO: user: str when connections.toml is enforced
-    role: str | None  # TODO: role: str when connections.toml is enforced
-    warehouse: str | None  # TODO: warehouse: str when connections.toml is enforced
-    database: str | None  # TODO: database: str when connections.toml is enforced
+    user: str | None
+    role: str | None
+    warehouse: str | None
+    database: str | None
     schema: str | None
     autocommit: bool
     change_history_table: ChangeHistoryTable | None

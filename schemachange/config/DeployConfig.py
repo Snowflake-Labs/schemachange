@@ -21,15 +21,14 @@ from schemachange.config.utils import (
 @dataclasses.dataclass(frozen=True)
 class DeployConfig(BaseConfig):
     subcommand: Literal["deploy"] = "deploy"
-    snowflake_account: str | None = None  # TODO: Remove when connections.toml is enforced
-    snowflake_user: str | None = None  # TODO: Remove when connections.toml is enforced
-    snowflake_role: str | None = None  # TODO: Remove when connections.toml is enforced
-    snowflake_warehouse: str | None = None  # TODO: Remove when connections.toml is enforced
-    snowflake_database: str | None = None  # TODO: Remove when connections.toml is enforced
-    snowflake_schema: str | None = None  # TODO: Remove when connections.toml is enforced
+    snowflake_account: str | None = None
+    snowflake_user: str | None = None
+    snowflake_role: str | None = None
+    snowflake_warehouse: str | None = None
+    snowflake_database: str | None = None
+    snowflake_schema: str | None = None
     connections_file_path: Path | None = None
     connection_name: str | None = None
-    # TODO: Turn change_history_table into three arguments. There's no need to parse it from a string
     change_history_table: ChangeHistoryTable | None = dataclasses.field(default_factory=ChangeHistoryTable)
     create_change_history_table: bool = False
     autocommit: bool = False
@@ -58,7 +57,6 @@ class DeployConfig(BaseConfig):
         if "subcommand" in kwargs:
             kwargs.pop("subcommand")
 
-        # TODO: Remove when connections.toml is enforced
         for sf_input in [
             "snowflake_role",
             "snowflake_warehouse",
@@ -83,12 +81,12 @@ class DeployConfig(BaseConfig):
 
     def get_session_kwargs(self) -> dict:
         session_kwargs = {
-            "account": self.snowflake_account,  # TODO: Remove when connections.toml is enforced
-            "user": self.snowflake_user,  # TODO: Remove when connections.toml is enforced
-            "role": self.snowflake_role,  # TODO: Remove when connections.toml is enforced
-            "warehouse": self.snowflake_warehouse,  # TODO: Remove when connections.toml is enforced
-            "database": self.snowflake_database,  # TODO: Remove when connections.toml is enforced
-            "schema": self.snowflake_schema,  # TODO: Remove when connections.toml is enforced
+            "account": self.snowflake_account,
+            "user": self.snowflake_user,
+            "role": self.snowflake_role,
+            "warehouse": self.snowflake_warehouse,
+            "database": self.snowflake_database,
+            "schema": self.snowflake_schema,
             # NOTE: connections_file_path and connection_name are NOT passed to SnowflakeSession
             # All parameters from connections.toml have already been merged in get_merged_config.py
             # NOTE: change_history_table is now passed explicitly in cli.py, not via get_session_kwargs()
