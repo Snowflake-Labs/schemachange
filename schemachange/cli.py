@@ -99,7 +99,7 @@ def verify(config, logger: BoundLogger) -> None:
             logger.debug(f"  Value: {config.connection_name}")
         logger.debug(f"Session kwargs keys: {list(session_kwargs.keys())}")
         logger.debug(
-            f"Session kwargs (masked): {', '.join([k for k in session_kwargs.keys() if k not in ['password', 'token', 'private_key_passphrase']])}"
+            f"Session kwargs (masked): {', '.join([k for k in session_kwargs.keys() if k not in ['password', 'token', 'private_key_passphrase', 'private_key_file_pwd']])}"
         )
 
         # Check what snowflake_ parameters are in the config
@@ -108,7 +108,12 @@ def verify(config, logger: BoundLogger) -> None:
         }
         logger.debug(f"Config snowflake_* attributes: {list(config_attrs.keys())}")
         for k, v in config_attrs.items():
-            if k not in ["snowflake_password", "snowflake_token", "snowflake_private_key_passphrase"]:
+            if k not in [
+                "snowflake_password",
+                "snowflake_token",
+                "snowflake_private_key_passphrase",
+                "snowflake_private_key_file_pwd",
+            ]:
                 logger.debug(f"  {k}: {v}")
         logger.debug("======================")
         logger.debug("")

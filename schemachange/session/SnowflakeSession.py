@@ -118,7 +118,13 @@ class SnowflakeSession:
         # All parameters from connections.toml have already been read and merged in get_merged_config.py
         # This ensures proper precedence: CLI > ENV > YAML > connections.toml
 
-        self.logger.debug("snowflake.connector.connect kwargs", **connect_kwargs)
+        # Mask sensitive data for logging
+        masked_connect_kwargs = {
+            k: v
+            for k, v in connect_kwargs.items()
+            if k not in ["password", "token", "private_key_passphrase", "private_key_file_pwd"]
+        }
+        self.logger.debug("snowflake.connector.connect kwargs", **masked_connect_kwargs)
         self.con = snowflake.connector.connect(**connect_kwargs)
         self.logger.info("Snowflake connection established", session_id=self.con.session_id)
         self.account = self.con.account
