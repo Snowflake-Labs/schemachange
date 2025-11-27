@@ -319,10 +319,10 @@ your change scripts.
 
 Within change scripts, be aware of:
 
-- **Tasks and anonymous blocks**: Require `$$` delimiters around `BEGIN...END` blocks to prevent `execute_string()` from splitting on semicolons
+- **Tasks with multi-statement bodies**: Use `EXECUTE IMMEDIATE $$...$$;` or call a stored procedure. Single-statement tasks don't need `BEGIN...END`. Note: `$$` delimiters are NOT valid directly in task definitions.
 - **UTF-8 BOM characters**: Automatically stripped by schemachange (fixed in 4.2.0)
 - **Trailing comments**: Automatically handled with no-op statement (4.2.0+) to prevent "Empty SQL Statement" errors
-- **Snowflake Scripting blocks**: Need proper delimiters ([Snowflake docs](https://docs.snowflake.com/en/developer-guide/snowflake-scripting/running-examples#introduction))
+- **Snowflake Scripting blocks**: The `execute_string()` method splits on semicolons client-side, breaking `BEGIN...END` blocks. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for solutions.
 
 For detailed troubleshooting and solutions, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 

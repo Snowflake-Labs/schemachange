@@ -157,14 +157,25 @@ schemachange verify
 
 ### Error: Tasks or anonymous blocks with `BEGIN...END` fail with EOF or parsing errors
 
-**Cause:** The Snowflake connector's `execute_string()` method splits SQL on semicolons, which breaks `BEGIN...END` blocks that aren't protected by delimiters.
+**Cause:** The Snowflake Python connector's `execute_string()` method splits SQL on semicolons **client-side** before sending to Snowflake. This breaks `BEGIN...END` blocks that contain semicolons.
 
 **This affects:**
 - Tasks with `BEGIN...END` blocks
-- Anonymous blocks (stored procedures)
+- Anonymous blocks (Snowflake Scripting)
 - Any SQL containing multi-statement blocks
 
-**Example that fails:**
+#### Why This Works in Snowsight/VS Code but Fails in schemachange
+
+| Tool | How it sends SQL | Behavior with BEGIN...END |
+|------|------------------|---------------------------|
+| **Snowsight Worksheets** | Sends entire selected block as ONE statement | ✅ Works - Snowflake parses it as a unit |
+| **VS Code (Snowflake ext)** | Sends entire selected block as ONE statement | ✅ Works - Snowflake parses it as a unit |
+| **schemachange** | Uses `execute_string()` which splits on `;` first | ❌ Fails - splits before Snowflake sees it |
+
+The `execute_string()` method is designed to handle migration scripts with multiple SQL statements (e.g., `CREATE TABLE foo; CREATE TABLE bar;`). It splits on semicolons **before** sending anything to Snowflake, which is useful for batched DDL but breaks Snowflake Scripting blocks.
+
+#### Example that fails
+
 ```sql
 CREATE OR REPLACE TASK my_task
     WAREHOUSE = my_warehouse
@@ -177,33 +188,95 @@ AS
     END;
 ```
 
-**Solution:** Use `$$` delimiters to protect the block:
+The connector splits this into invalid fragments:
+1. `CREATE OR REPLACE TASK... AS BEGIN START TRANSACTION;`
+2. `SELECT * FROM table1;`
+3. `COMMIT;`
+4. `END;`
+
+Each piece is invalid SQL on its own.
+
+#### Solutions
+
+**Option 1: Single Statement (Best when you only have one SQL statement)**
+
+If your task only needs to execute one SQL statement, remove the `BEGIN...END` wrapper entirely:
 
 ```sql
 CREATE OR REPLACE TASK my_task
     WAREHOUSE = my_warehouse
     SCHEDULE = '5 minutes'
 AS
+    MERGE INTO target_table
+    USING source_table s ON target_table.id = s.id
+    WHEN NOT MATCHED THEN INSERT (id, value) VALUES (s.id, s.value);
+```
+
+This is the cleanest approach when you don't need multi-statement logic.
+
+**Option 2: EXECUTE IMMEDIATE with `$$` (For multi-statement blocks)**
+
+Wrap your block in `EXECUTE IMMEDIATE` with dollar-quoted delimiters:
+
+```sql
+CREATE OR REPLACE TASK my_task
+    WAREHOUSE = my_warehouse
+    SCHEDULE = '5 minutes'
+AS
+    EXECUTE IMMEDIATE $$
+    BEGIN
+        START TRANSACTION;
+        DELETE FROM archive WHERE created_at < DATEADD(year, -1, CURRENT_DATE);
+        INSERT INTO archive SELECT * FROM staging;
+        TRUNCATE TABLE staging;
+        COMMIT;
+    END;
+    $$;
+```
+
+The `EXECUTE IMMEDIATE` becomes a single statement from schemachange's perspective, and the `$$` delimiters protect the inner block from semicolon splitting.
+
+**Option 3: Call a Stored Procedure (For complex/reusable logic)**
+
+Create a stored procedure and call it from the task:
+
+```sql
+-- First, create the procedure (can be in a separate migration script)
+CREATE OR REPLACE PROCEDURE sync_data()
+RETURNS STRING
+LANGUAGE SQL
+AS
 $$
 BEGIN
     START TRANSACTION;
-    SELECT * FROM table1;
+    MERGE INTO target_table USING source_table s ON target_table.id = s.id
+    WHEN NOT MATCHED THEN INSERT (id, value) VALUES (s.id, s.value);
     COMMIT;
+    RETURN 'Success';
 END;
 $$;
+
+-- Then create the task (can be in the same or different script)
+CREATE OR REPLACE TASK my_task
+    WAREHOUSE = my_warehouse
+    SCHEDULE = '5 minutes'
+AS
+    CALL sync_data();
 ```
 
-The `$$` delimiter tells `execute_string()` to treat everything between them as a single statement, preventing it from splitting on internal semicolons.
+This approach is best for complex logic that you want to test independently or reuse across multiple tasks.
 
-**Why this happens:** When not using `$$`, the connector sees each semicolon as a statement boundary and tries to execute:
-1. `CREATE OR REPLACE TASK... BEGIN START TRANSACTION;`
-2. `SELECT * FROM table1;`
-3. `COMMIT;`
-4. `END;`
+#### Quick Reference
 
-Each piece is invalid SQL on its own, causing parsing errors or truncated execution.
+| Scenario | Recommended Approach |
+|----------|---------------------|
+| Single SQL statement | Option 1: Direct statement (no wrapper) |
+| Multiple statements in task | Option 2: `EXECUTE IMMEDIATE $$...$$;` |
+| Complex/reusable logic | Option 3: Stored procedure + `CALL` |
 
-**Reference:** [Snowflake CREATE TASK documentation](https://docs.snowflake.com/en/sql-reference/sql/create-task) and [Snowflake Scripting documentation](https://docs.snowflake.com/en/developer-guide/stored-procedure/stored-procedures-snowflake-scripting) both support dollar-quoted (`$$`) syntax.
+**Note:** The `$$` delimiter is NOT valid directly in task definitions - it must be used with `EXECUTE IMMEDIATE` or in stored procedure/UDF definitions.
+
+**Reference:** [Snowflake EXECUTE IMMEDIATE](https://docs.snowflake.com/en/sql-reference/sql/execute-immediate), [CREATE TASK](https://docs.snowflake.com/en/sql-reference/sql/create-task), [Snowflake Scripting](https://docs.snowflake.com/en/developer-guide/snowflake-scripting/running-examples)
 
 **Related:** Issues [#253](https://github.com/Snowflake-Labs/schemachange/issues/253) and [#138](https://github.com/Snowflake-Labs/schemachange/issues/138)
 
