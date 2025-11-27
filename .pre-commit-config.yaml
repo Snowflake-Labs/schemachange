@@ -15,24 +15,25 @@ repos:
       - id: name-tests-test
         args: [ --pytest-test-first ]
   - repo: https://github.com/asottile/setup-cfg-fmt
-    rev: v2.4.0
+    rev: v2.7.0
     hooks:
       - id: setup-cfg-fmt
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.15.2
+    rev: v3.19.0
     hooks:
       - id: pyupgrade
+        args: [ --py310-plus ]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    # Ruff version.
-    rev: v0.3.4
+    # Ruff version - should match or be close to version in pyproject.toml
+    rev: v0.14.5
     hooks:
-      # Run the linter.
+      # Run the linter (matches CI: ruff check .)
       - id: ruff
-        args: [ --fix ]
-      # Run the formatter.
+        args: [ --fix ]  # Auto-fix locally (helpful for developers)
+      # Run the formatter (matches CI: ruff format --check .)
       - id: ruff-format
   - repo: https://github.com/gitguardian/ggshield
-    rev: v1.36.0
+    rev: v1.40.0
     hooks:
       - id: ggshield
         language_version: python3

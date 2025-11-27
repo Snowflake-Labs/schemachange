@@ -3,6 +3,32 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [4.2.0] - TBD
+### Added
+- Validation for unknown configuration keys with warnings (#352 by @MACKAT05)
+- Support for snowflake-connector-python 4.x (#363)
+- Enhanced migration and troubleshooting documentation
+
+### Changed
+- Simplified change history table creation (#326)
+- Unified connection logic: `verify` and `deploy` now both use `SnowflakeSession` for consistency
+- Made `change_history_table` optional in `SnowflakeSession` to support verify command
+
+### Removed
+- Unnecessary dependencies: `cryptography`, `requests`, `black`, `flake8`
+
+### Fixed
+- Improved error reporting and feedback (#391)
+- Environment variable expansion in connections.toml (#388)
+- Encrypted RSA key authentication now works in both `deploy` and `verify` commands (#388)
+- Structlog compatibility: removed invalid `isEnabledFor` method calls
+- `KeyError: 'last_altered'` when change history table missing
+- YAML validation for unknown keys (#352 by @MACKAT05)
+- UTF-8 BOM causing SQL compilation errors (#250)
+- Multi-line secrets not being redacted (#237, #238 by @rwberendsen)
+- Empty SQL statement error with comment handling (#258)
+- Warehouse parameter ignored causing "No active warehouse selected" error (#233, #235)
+
 ## [4.1.0] - 2025-11-14
 ### Added
 - **New `verify` command** for testing Snowflake connectivity and displaying configuration with secrets masked. Useful for troubleshooting, CI/CD validation, and security audits. Example: `schemachange verify -C production`

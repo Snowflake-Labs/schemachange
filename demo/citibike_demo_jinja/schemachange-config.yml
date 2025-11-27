@@ -2,6 +2,7 @@ config-version: 1
 
 modules-folder: "./demo/{{ env_var('SCENARIO_NAME')}}/modules"
 
+# Demo phase creates its own change history table in the test schema (separate from setup/teardown tracking)
 change-history-table: "{{ env_var('SNOWFLAKE_DATABASE')}}.{{ env_var('MY_TARGET_SCHEMA')}}.CHANGE_HISTORY"
 create-change-history-table: true
 

@@ -1,0 +1,20 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Ask a Question
+    url: https://github.com/Snowflake-Labs/schemachange/discussions/categories/q-a
+    about: Get help from the community (faster than opening an issue!)
+  - name: 💡 Discuss a Feature Idea
+    url: https://github.com/Snowflake-Labs/schemachange/discussions/categories/ideas
+    about: Discuss feature ideas with the community before creating an issue
+  - name: 🔧 Common Issues & Solutions
+    url: https://github.com/Snowflake-Labs/schemachange/discussions
+    about: Quick answers to the top 10 common problems
+  - name: 📖 Documentation
+    url: https://github.com/Snowflake-Labs/schemachange/blob/main/README.md
+    about: Read the full documentation
+  - name: 🛠️ Troubleshooting Guide
+    url: https://github.com/Snowflake-Labs/schemachange/blob/main/TROUBLESHOOTING.md
+    about: Detailed troubleshooting for common problems
+  - name: 🔒 Security & Authentication
+    url: https://github.com/Snowflake-Labs/schemachange/blob/main/SECURITY.md
+    about: Authentication methods and security best practices

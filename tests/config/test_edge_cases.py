@@ -196,7 +196,7 @@ class TestSnowflakeEnvVarEdgeCases:
             "SNOWFLAKE_CONNECTIONS_FILE_PATH",
         ]
 
-        env_dict = {var: "test_value" for var in explicitly_handled}
+        env_dict = dict.fromkeys(explicitly_handled, "test_value")
 
         with mock.patch.dict(os.environ, env_dict, clear=True):
             params = get_all_snowflake_env_vars()
@@ -497,9 +497,9 @@ class TestTypeConversionConsistency:
                 schemachange_config = get_schemachange_config_from_env()
                 snowflake_config = get_all_snowflake_env_vars()
 
-                assert (
-                    schemachange_config["autocommit"] is expected_bool
-                ), f"Failed for '{string_value}' in SCHEMACHANGE_AUTOCOMMIT"
-                assert (
-                    snowflake_config["client_session_keep_alive"] is expected_bool
-                ), f"Failed for '{string_value}' in SNOWFLAKE_CLIENT_SESSION_KEEP_ALIVE"
+                assert schemachange_config["autocommit"] is expected_bool, (
+                    f"Failed for '{string_value}' in SCHEMACHANGE_AUTOCOMMIT"
+                )
+                assert snowflake_config["client_session_keep_alive"] is expected_bool, (
+                    f"Failed for '{string_value}' in SNOWFLAKE_CLIENT_SESSION_KEEP_ALIVE"
+                )
