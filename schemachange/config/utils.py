@@ -46,8 +46,11 @@ def get_snowflake_identifier_string(input_value: str, input_type: str) -> str | 
         return f'"{input_value}"'
 
 
-def get_config_secrets(config_vars: dict[str, dict | str] | None) -> set[str]:
-    """Extracts all secret values from the vars attributes in config
+def get_config_secrets(
+    config_vars: dict[str, dict | str] | None,
+    auth_secrets: dict[str, str] | None = None,
+) -> set[str]:
+    """Extracts all secret values from the vars attributes in config and authentication parameters
 
     For multi-line secrets, stores multiple representations to ensure
     redaction works regardless of how the secret is serialized (YAML, JSON, etc.)
@@ -56,6 +59,19 @@ def get_config_secrets(config_vars: dict[str, dict | str] | None) -> set[str]:
     Credit: Root cause analysis and initial fix by @rwberendsen in PR #238.
     This implementation extends the fix with multiple representation storage
     and preserves newline structure in redacted output.
+
+    Addresses issue #401: PAT/password from environment variables not being redacted.
+    Authentication secrets (passwords, tokens, passphrases) from env vars or files
+    are now collected via the auth_secrets parameter.
+
+    Args:
+        config_vars: User-defined variables from config file or CLI (-v flag)
+        auth_secrets: Authentication secrets (passwords, tokens, passphrases) to redact
+                     Keys: 'password', 'token', 'private_key_file_pwd'
+                     Values: The secret string values
+
+    Returns:
+        Set of all secret strings that should be redacted from logs
     """
 
     def inner_extract_dictionary_secrets(
@@ -101,7 +117,33 @@ def get_config_secrets(config_vars: dict[str, dict | str] | None) -> set[str]:
 
         return extracted_secrets
 
-    return inner_extract_dictionary_secrets(config_vars)
+    # Extract secrets from config_vars
+    all_secrets = inner_extract_dictionary_secrets(config_vars)
+
+    # Extract secrets from authentication parameters (issue #401 fix)
+    if auth_secrets:
+        for secret_value in auth_secrets.values():
+            if secret_value and isinstance(secret_value, str):
+                # Apply same multi-representation logic as config_vars
+                # 1. Original value
+                all_secrets.add(secret_value)
+
+                # 2. Stripped value
+                all_secrets.add(secret_value.strip())
+
+                # 3. Multi-line handling
+                if "\n" in secret_value:
+                    # Normalized (single-line version)
+                    normalized = " ".join(secret_value.split())
+                    all_secrets.add(normalized)
+
+                    # Each line separately
+                    for line in secret_value.split("\n"):
+                        line_stripped = line.strip()
+                        if line_stripped:
+                            all_secrets.add(line_stripped)
+
+    return all_secrets
 
 
 def validate_file_path(file_path: Path | str | None) -> Path | None:

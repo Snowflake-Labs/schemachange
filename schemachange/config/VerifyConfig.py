@@ -87,6 +87,13 @@ class VerifyConfig(BaseConfig):
         if "connections_file_path" in kwargs and kwargs["connections_file_path"] is not None:
             kwargs["connections_file_path"] = Path(kwargs["connections_file_path"]).expanduser()
 
+        # Collect authentication secrets for redaction (issue #401 fix)
+        # Use same helper as DeployConfig since auth logic is identical
+        from schemachange.config.DeployConfig import DeployConfig
+
+        auth_secrets = DeployConfig._collect_auth_secrets(kwargs)
+        kwargs["auth_secrets"] = auth_secrets
+
         return super().factory(
             subcommand="verify",
             config_file_path=config_file_path,

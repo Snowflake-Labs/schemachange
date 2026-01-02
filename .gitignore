@@ -142,6 +142,7 @@ experiments/*
 !experiments/README.md
 
 .cursor
+.cortex
 .claude
 .snowflake
 .vscode

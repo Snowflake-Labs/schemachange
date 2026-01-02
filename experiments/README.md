@@ -4,7 +4,7 @@
 
 This folder is for **local development experiments and analysis** that should **NOT** be committed to the repository.
 
-**What's tracked:** Only this README (provides guidelines for everyone)  
+**What's tracked:** Only this README (provides guidelines for everyone)
 **What's not tracked:** Everything else you create here (your local workspace)
 
 ---

@@ -38,10 +38,11 @@ class BaseConfig(ABC):
         modules_folder: Path | str | None = None,
         config_vars: str | dict | None = None,
         log_level: int = logging.INFO,
+        auth_secrets: dict[str, str] | None = None,
         **kwargs,
     ):
         try:
-            secrets = get_config_secrets(config_vars)
+            secrets = get_config_secrets(config_vars, auth_secrets)
         except Exception as e:
             raise Exception("config_vars did not parse correctly, please check its configuration") from e
 
@@ -49,7 +50,9 @@ class BaseConfig(ABC):
         field_names = {field.name for field in dataclasses.fields(cls)}
 
         # Check for unknown keys and warn about them
-        unknown_keys = set(kwargs.keys()) - field_names
+        # Note: auth_secrets is not a field, so we need to exclude it
+        kwargs_to_check = {k: v for k, v in kwargs.items() if k != "auth_secrets"}
+        unknown_keys = set(kwargs_to_check.keys()) - field_names
         if unknown_keys:
             unknown_keys_str = ", ".join(sorted(unknown_keys))
             logger.warning(f"Unknown configuration keys found and will be ignored: {unknown_keys_str}")
