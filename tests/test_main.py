@@ -395,17 +395,31 @@ render_all_cli_arg_names = pytest.param(
     ],
 )
 @mock.patch("pathlib.Path.is_file", return_value=True)
-@mock.patch("schemachange.session.SnowflakeSession.snowflake.connector.connect")
+@mock.patch("snowflake.connector.connect")
 @mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string")
 def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
+    mock_id_string,
+    mock_connect,
     _,
-    __,
-    ___,
     to_mock: str,
     cli_args: list[str],
     expected_config: dict,
     expected_script_path: Path | None,
 ):
+    # Mock snowflake connection
+    mock_conn = mock.Mock()
+    mock_conn.account = "test_account"
+    mock_conn.user = "test_user"
+    mock_conn.role = "test_role"
+    mock_conn.warehouse = "test_warehouse"
+    mock_conn.database = "test_db"
+    mock_conn.schema = "test_schema"
+    mock_conn.session_id = "test_session_123"
+    mock_connect.return_value = mock_conn
+
+    # Mock get_snowflake_identifier_string to return the value as-is
+    mock_id_string.side_effect = lambda val, _: val
+
     # Clear environment variables to prevent leakage from GitHub Actions
     with mock.patch.dict(os.environ, {}, clear=True):
         with mock.patch("sys.argv", cli_args):
@@ -457,16 +471,30 @@ def test_main_deploy_subcommand_given_arguments_make_sure_arguments_set_on_call(
         ),
     ],
 )
-@mock.patch("schemachange.session.SnowflakeSession.snowflake.connector.connect")
+@mock.patch("snowflake.connector.connect")
 @mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string")
 def test_main_deploy_config_folder(
-    _,
-    __,
+    mock_id_string,
+    mock_connect,
     to_mock: str,
     args: list[str],
     expected_config: dict,
     expected_script_path: Path | None,
 ):
+    # Mock snowflake connection
+    mock_conn = mock.Mock()
+    mock_conn.account = "test_account"
+    mock_conn.user = "test_user"
+    mock_conn.role = "test_role"
+    mock_conn.warehouse = "test_warehouse"
+    mock_conn.database = "test_db"
+    mock_conn.schema = "test_schema"
+    mock_conn.session_id = "test_session_123"
+    mock_connect.return_value = mock_conn
+
+    # Mock get_snowflake_identifier_string to return the value as-is
+    mock_id_string.side_effect = lambda val, _: val
+
     with tempfile.TemporaryDirectory() as d:
         with open(os.path.join(d, "schemachange-config.yml"), "w") as f:
             f.write(
@@ -526,16 +554,30 @@ def test_main_deploy_config_folder(
         ),
     ],
 )
-@mock.patch("schemachange.session.SnowflakeSession.snowflake.connector.connect")
+@mock.patch("snowflake.connector.connect")
 @mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string")
 def test_main_deploy_modules_folder(
-    _,
-    __,
+    mock_id_string,
+    mock_connect,
     to_mock: str,
     args: list[str],
     expected_config: dict,
     expected_script_path: Path | None,
 ):
+    # Mock snowflake connection
+    mock_conn = mock.Mock()
+    mock_conn.account = "test_account"
+    mock_conn.user = "test_user"
+    mock_conn.role = "test_role"
+    mock_conn.warehouse = "test_warehouse"
+    mock_conn.database = "test_db"
+    mock_conn.schema = "test_schema"
+    mock_conn.session_id = "test_session_123"
+    mock_connect.return_value = mock_conn
+
+    # Mock get_snowflake_identifier_string to return the value as-is
+    mock_id_string.side_effect = lambda val, _: val
+
     with tempfile.TemporaryDirectory() as d:
         # noinspection PyTypeChecker
         args[args.index("DUMMY")] = d

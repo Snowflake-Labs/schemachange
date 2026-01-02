@@ -1,0 +1,25 @@
+# Auto-label PRs based on files changed
+
+'documentation':
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.md'
+      - 'docs/**/*'
+      - 'TROUBLESHOOTING.md'
+      - 'SECURITY.md'
+
+'dependencies':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - 'uv.lock'
+      - '.pre-commit-config.yaml'
+      - 'setup.cfg'
+
+'workflows':
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/workflows/**/*'
+      - '.github/**/*.yml'
+      - '.github/**/*.yaml'

@@ -21,15 +21,14 @@ from schemachange.config.utils import (
 @dataclasses.dataclass(frozen=True)
 class DeployConfig(BaseConfig):
     subcommand: Literal["deploy"] = "deploy"
-    snowflake_account: str | None = None  # TODO: Remove when connections.toml is enforced
-    snowflake_user: str | None = None  # TODO: Remove when connections.toml is enforced
-    snowflake_role: str | None = None  # TODO: Remove when connections.toml is enforced
-    snowflake_warehouse: str | None = None  # TODO: Remove when connections.toml is enforced
-    snowflake_database: str | None = None  # TODO: Remove when connections.toml is enforced
-    snowflake_schema: str | None = None  # TODO: Remove when connections.toml is enforced
+    snowflake_account: str | None = None
+    snowflake_user: str | None = None
+    snowflake_role: str | None = None
+    snowflake_warehouse: str | None = None
+    snowflake_database: str | None = None
+    snowflake_schema: str | None = None
     connections_file_path: Path | None = None
     connection_name: str | None = None
-    # TODO: Turn change_history_table into three arguments. There's no need to parse it from a string
     change_history_table: ChangeHistoryTable | None = dataclasses.field(default_factory=ChangeHistoryTable)
     create_change_history_table: bool = False
     autocommit: bool = False
@@ -58,7 +57,6 @@ class DeployConfig(BaseConfig):
         if "subcommand" in kwargs:
             kwargs.pop("subcommand")
 
-        # TODO: Remove when connections.toml is enforced
         for sf_input in [
             "snowflake_role",
             "snowflake_warehouse",
@@ -74,6 +72,11 @@ class DeployConfig(BaseConfig):
 
         change_history_table = ChangeHistoryTable.from_str(table_str=change_history_table)
 
+        # Collect authentication secrets for redaction (issue #401 fix)
+        # These must be collected before calling super().factory() which calls get_config_secrets()
+        auth_secrets = cls._collect_auth_secrets(kwargs)
+        kwargs["auth_secrets"] = auth_secrets
+
         return super().factory(
             subcommand="deploy",
             config_file_path=config_file_path,
@@ -81,17 +84,64 @@ class DeployConfig(BaseConfig):
             **kwargs,
         )
 
+    @staticmethod
+    def _collect_auth_secrets(kwargs: dict) -> dict[str, str]:
+        """Collect authentication secrets for redaction in logs.
+
+        This fixes issue #401 where PATs, passwords, and other credentials from
+        environment variables were exposed in DEBUG logs because they weren't
+        added to config.secrets.
+
+        Returns:
+            Dictionary of auth secret values: {'password': '...', 'token': '...', etc}
+        """
+        auth_secrets = {}
+
+        # 1. Password from environment variable (used for PATs and traditional passwords)
+        password = get_snowflake_password()
+        if password:
+            auth_secrets["password"] = password
+
+        # 2. Private key passphrase from environment variable or config
+        # Try config fields first (they may be in kwargs)
+        passphrase = kwargs.get("snowflake_private_key_file_pwd") or kwargs.get("snowflake_private_key_passphrase")
+
+        # If not in config, try environment variables
+        if not passphrase:
+            passphrase = get_snowflake_private_key_file_pwd() or get_snowflake_private_key_passphrase()
+
+        if passphrase:
+            auth_secrets["private_key_file_pwd"] = passphrase
+
+        # 3. OAuth token from file
+        # Get token file path from config or env
+        token_file_path = kwargs.get("snowflake_token_file_path") or get_snowflake_token_file_path()
+
+        if token_file_path:
+            try:
+                expanded_path = Path(token_file_path).expanduser()
+                with open(expanded_path) as token_file:
+                    token = token_file.read().strip()
+                    if token:
+                        auth_secrets["token"] = token
+            except (FileNotFoundError, PermissionError):
+                # If token file can't be read now, it will fail later in get_session_kwargs()
+                # We just won't redact it (non-ideal but not a regression)
+                pass
+
+        return auth_secrets
+
     def get_session_kwargs(self) -> dict:
         session_kwargs = {
-            "account": self.snowflake_account,  # TODO: Remove when connections.toml is enforced
-            "user": self.snowflake_user,  # TODO: Remove when connections.toml is enforced
-            "role": self.snowflake_role,  # TODO: Remove when connections.toml is enforced
-            "warehouse": self.snowflake_warehouse,  # TODO: Remove when connections.toml is enforced
-            "database": self.snowflake_database,  # TODO: Remove when connections.toml is enforced
-            "schema": self.snowflake_schema,  # TODO: Remove when connections.toml is enforced
+            "account": self.snowflake_account,
+            "user": self.snowflake_user,
+            "role": self.snowflake_role,
+            "warehouse": self.snowflake_warehouse,
+            "database": self.snowflake_database,
+            "schema": self.snowflake_schema,
             # NOTE: connections_file_path and connection_name are NOT passed to SnowflakeSession
             # All parameters from connections.toml have already been merged in get_merged_config.py
-            "change_history_table": self.change_history_table,
+            # NOTE: change_history_table is now passed explicitly in cli.py, not via get_session_kwargs()
             "autocommit": self.autocommit,
             "query_tag": self.query_tag,
             "session_parameters": self.session_parameters,

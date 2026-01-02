@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import sys
+import traceback
 from pathlib import Path
 
 import snowflake.connector
@@ -12,11 +13,12 @@ from schemachange.config.RenderConfig import RenderConfig
 from schemachange.deploy import deploy
 from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
 from schemachange.redact_config_secrets import redact_config_secrets
+from schemachange.ScriptExecutionError import ScriptExecutionError
 from schemachange.session.SnowflakeSession import SnowflakeSession
 
 # region Global Variables
 # metadata
-SCHEMACHANGE_VERSION = "4.1.0"
+SCHEMACHANGE_VERSION = "4.2.0"
 SNOWFLAKE_APPLICATION_NAME = "schemachange"
 module_logger = structlog.getLogger(__name__)
 
@@ -97,7 +99,7 @@ def verify(config, logger: BoundLogger) -> None:
             logger.debug(f"  Value: {config.connection_name}")
         logger.debug(f"Session kwargs keys: {list(session_kwargs.keys())}")
         logger.debug(
-            f"Session kwargs (masked): {', '.join([k for k in session_kwargs.keys() if k not in ['password', 'token', 'private_key_passphrase']])}"
+            f"Session kwargs (masked): {', '.join([k for k in session_kwargs.keys() if k not in ['password', 'token', 'private_key_passphrase', 'private_key_file_pwd']])}"
         )
 
         # Check what snowflake_ parameters are in the config
@@ -106,7 +108,12 @@ def verify(config, logger: BoundLogger) -> None:
         }
         logger.debug(f"Config snowflake_* attributes: {list(config_attrs.keys())}")
         for k, v in config_attrs.items():
-            if k not in ["snowflake_password", "snowflake_token", "snowflake_private_key_passphrase"]:
+            if k not in [
+                "snowflake_password",
+                "snowflake_token",
+                "snowflake_private_key_passphrase",
+                "snowflake_private_key_file_pwd",
+            ]:
                 logger.debug(f"  {k}: {v}")
         logger.debug("======================")
         logger.debug("")
@@ -141,73 +148,32 @@ def verify(config, logger: BoundLogger) -> None:
     logger.info("-" * 80)
 
     try:
-        # Connect directly to Snowflake without SnowflakeSession
-        # (SnowflakeSession requires change_history_table which verify doesn't need)
-
-        # Prepare connection parameters
-        connect_params = {}
-
-        # NOTE: We do NOT pass connection_name or connections_file_path to connect()
-        # All parameters from connections.toml have already been read and merged in get_merged_config.py
-        # This ensures proper precedence: CLI > ENV > YAML > connections.toml
-
-        # Add explicit connection parameters
-        for param in [
-            "account",
-            "user",
-            "role",
-            "warehouse",
-            "database",
-            "schema",
-            "authenticator",
-            "password",
-            "token",
-            "private_key_file",  # Already mapped in get_session_kwargs()
-            "private_key_file_pwd",  # Already mapped in get_session_kwargs()
-        ]:
-            if param in session_kwargs and session_kwargs[param] is not None:
-                connect_params[param] = session_kwargs[param]
-
-        # Add additional Snowflake parameters
-        if session_kwargs.get("additional_snowflake_params"):
-            for key, value in session_kwargs["additional_snowflake_params"].items():
-                snake_case_key = key.replace("-", "_")
-                connect_params[snake_case_key] = value
-
-        # Merge session_parameters from config with schemachange's QUERY_TAG
-        config_session_params = session_kwargs.get("session_parameters", {})
-        if config_session_params:
-            connect_params["session_parameters"] = dict(config_session_params)
-            # Append schemachange's QUERY_TAG to existing QUERY_TAG if present
-            if "QUERY_TAG" in connect_params["session_parameters"]:
-                connect_params["session_parameters"]["QUERY_TAG"] += f";schemachange {SCHEMACHANGE_VERSION}"
-            else:
-                connect_params["session_parameters"]["QUERY_TAG"] = f"schemachange {SCHEMACHANGE_VERSION}"
-        else:
-            connect_params["session_parameters"] = {"QUERY_TAG": f"schemachange {SCHEMACHANGE_VERSION}"}
-
-        # Set application identifier
-        connect_params["application"] = f"{SNOWFLAKE_APPLICATION_NAME}_{SCHEMACHANGE_VERSION}"
-
-        # Connect
-        con = snowflake.connector.connect(**connect_params)
+        # Use SnowflakeSession for consistency with deploy command
+        # This ensures all authentication parameters (including private_key_file_pwd) are handled identically
+        session = SnowflakeSession(
+            schemachange_version=SCHEMACHANGE_VERSION,
+            application=SNOWFLAKE_APPLICATION_NAME,
+            logger=logger,
+            change_history_table=None,  # Not needed for verify
+            **session_kwargs,
+        )
 
         logger.info("")
         logger.info("[OK] Connection Successful!")
         logger.info("")
         logger.info("Connection Details:")
-        logger.info(f"  Account: {connect_params.get('account', 'N/A')}")
-        logger.info(f"  User: {connect_params.get('user', 'N/A')}")
-        logger.info(f"  Role: {connect_params.get('role', 'N/A')}")
-        logger.info(f"  Warehouse: {connect_params.get('warehouse', 'N/A')}")
-        logger.info(f"  Database: {connect_params.get('database', 'N/A')}")
-        logger.info(f"  Schema: {connect_params.get('schema', 'N/A')}")
-        logger.info(f"  Session ID: {con.session_id}")
+        logger.info(f"  Account: {session.account}")
+        logger.info(f"  User: {session.user}")
+        logger.info(f"  Role: {session.role}")
+        logger.info(f"  Warehouse: {session.warehouse}")
+        logger.info(f"  Database: {session.database}")
+        logger.info(f"  Schema: {session.schema}")
+        logger.info(f"  Session ID: {session.con.session_id}")
 
         # Test a simple query
         logger.info("")
         logger.info("Testing Query Execution...")
-        cursor = con.cursor()
+        cursor = session.con.cursor()
         cursor.execute("SELECT CURRENT_VERSION()")
         snowflake_version = cursor.fetchone()[0]
         cursor.close()
@@ -219,7 +185,7 @@ def verify(config, logger: BoundLogger) -> None:
         logger.info("=" * 80)
 
         # Close the connection
-        con.close()
+        session.con.close()
 
     except snowflake.connector.errors.HttpError as e:
         logger.error("")
@@ -299,34 +265,66 @@ def main():
                 schemachange_version=SCHEMACHANGE_VERSION,
                 application=SNOWFLAKE_APPLICATION_NAME,
                 logger=logger,
+                change_history_table=config.change_history_table,
                 **config.get_session_kwargs(),
             )
             deploy(config=config, session=session)
 
+    except ScriptExecutionError as e:
+        # Script execution failures - provide rich context
+        module_logger.error(f"Script execution failed: {e.script_type} {e.script_name}")
+        module_logger.error(f"  Path: {e.script_path}")
+        if e.sql_error_code or e.sql_state:
+            error_code_info = f"SQL Error {e.sql_error_code}" if e.sql_error_code else ""
+            sql_state_info = f"[{e.sql_state}]" if e.sql_state else ""
+            module_logger.error(f"  Code: {error_code_info} {sql_state_info}".strip())
+        module_logger.error(f"  {e.error_message}")
+        module_logger.error("")
+        module_logger.error(
+            "Troubleshooting: Review SQL syntax, verify objects exist, check permissions, or run with -L DEBUG"
+        )
+
+        # DEBUG level: show the query and structured data (structlog filters automatically)
+        if e.query:
+            module_logger.debug("Failed SQL query", query=e.query)
+        module_logger.debug("Script error details", **e.get_structured_error())
+
+        sys.exit(2)  # Exit code 2 for script errors
+
     except ValueError as e:
-        module_logger.error("Configuration error", error=str(e))
+        module_logger.error(f"Configuration error: {str(e)}")
+        module_logger.error("Run 'schemachange verify' to validate your configuration")
         sys.exit(1)
+
     except FileNotFoundError as e:
-        module_logger.error("File not found", error=str(e))
+        module_logger.error(f"File not found: {str(e)}")
         sys.exit(1)
+
     except PermissionError as e:
-        module_logger.error("Permission denied", error=str(e))
+        module_logger.error(f"Permission denied: {str(e)}")
         sys.exit(1)
+
     except snowflake.connector.errors.HttpError as e:
-        module_logger.error("Snowflake HTTP error", error=str(e))
-        module_logger.error("Please check your Snowflake account identifier and network connectivity.")
-        module_logger.error("Use 'schemachange verify' to test your connection and view configuration.")
-        sys.exit(1)
+        module_logger.error(f"Snowflake HTTP error: {str(e)}")
+        module_logger.error("Check account identifier, network connectivity, and firewall settings")
+        module_logger.error("Run 'schemachange verify' to test connection")
+        sys.exit(3)  # Exit code 3 for connection errors
+
     except (snowflake.connector.errors.DatabaseError, snowflake.connector.errors.ProgrammingError) as e:
-        module_logger.error("Snowflake connection/authentication error", error=str(e))
-        module_logger.error("Please check your Snowflake credentials and connection parameters.")
-        module_logger.error("Use 'schemachange verify' to test your connection and view configuration.")
-        sys.exit(1)
+        module_logger.error(f"Snowflake connection/authentication error: {str(e)}")
+        module_logger.error("Check credentials, account identifier, and role permissions")
+        module_logger.error("Run 'schemachange verify' to test connection")
+        sys.exit(3)  # Exit code 3 for connection errors
+
     except KeyboardInterrupt:
         module_logger.warning("Operation cancelled by user")
         sys.exit(130)  # Standard exit code for SIGINT
+
     except Exception as e:
-        module_logger.error("Unexpected error", error=str(e))
+        module_logger.error(f"Unexpected error [{type(e).__name__}]: {str(e)}")
+        module_logger.debug("Full traceback", traceback=traceback.format_exc())
+        module_logger.error("Run with -L DEBUG for full traceback")
+        module_logger.error("Report issue: https://github.com/Snowflake-Labs/schemachange/issues")
         sys.exit(1)
 
 

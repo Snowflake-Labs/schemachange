@@ -77,3 +77,75 @@ def test_given_vars_with_same_secret_twice_then_only_extracted_once():
 
     assert len(results) == 1
     assert "SECRET_VALUE" in results
+
+
+def test_multiline_secret_stores_multiple_representations():
+    """Test that multi-line secrets are stored in multiple formats - fixes issue #237"""
+    config_vars = {"secrets": {"azure_ad_certificate": "foobarfoobarfoobar\nfoobarfoobarfoobar"}}
+
+    results = get_config_secrets(config_vars)
+
+    # Should store multiple representations for redaction to work with different serialization formats
+    assert "foobarfoobarfoobar\nfoobarfoobarfoobar" in results  # Original
+    assert "foobarfoobarfoobar\nfoobarfoobarfoobar" in results  # Stripped (same in this case)
+    assert "foobarfoobarfoobar foobarfoobarfoobar" in results  # Normalized (newline -> space)
+    assert "foobarfoobarfoobar" in results  # Individual lines
+
+
+def test_multiline_secret_with_indentation_stores_all_variants():
+    """Test that multi-line secrets with indentation are properly extracted - issue #237"""
+    config_vars = {"secrets": {"multiline_key": "  line1\n  line2\n  line3"}}
+
+    results = get_config_secrets(config_vars)
+
+    # Original with indentation
+    assert "  line1\n  line2\n  line3" in results
+    # Stripped version
+    assert "line1\n  line2\n  line3" in results
+    # Normalized
+    assert "line1 line2 line3" in results
+    # Individual lines stripped
+    assert "line1" in results
+    assert "line2" in results
+    assert "line3" in results
+
+
+def test_multiline_secret_with_yaml_literal_block_style():
+    """Test multi-line secret as it would come from YAML |- block style - issue #237"""
+    # This is how YAML parses: |-
+    #   foobarfoobarfoobar
+    #   foobarfoobarfoobar
+    config_vars = {"secrets": {"azure_ad_certificate": "foobarfoobarfoobar\nfoobarfoobarfoobar"}}
+
+    results = get_config_secrets(config_vars)
+
+    # All these should be in results to handle different display formats
+    assert len(results) >= 3  # At least: original, normalized, and individual lines
+    assert "foobarfoobarfoobar" in results  # Individual line
+    assert "foobarfoobarfoobar foobarfoobarfoobar" in results  # Normalized
+
+
+def test_single_line_secret_still_works():
+    """Test that single-line secrets still work correctly after multi-line fix - issue #237"""
+    config_vars = {"secrets": {"simple_secret": "simple_value"}}
+
+    results = get_config_secrets(config_vars)
+
+    # Single-line secrets should store original and stripped (same in this case)
+    assert "simple_value" in results
+    # Should not create extra entries for single-line secrets
+    assert all("simple_value" in s for s in results if s)  # All results should be the value
+
+
+def test_empty_lines_in_multiline_secret_are_handled():
+    """Test that empty lines in multi-line secrets don't create empty string entries - issue #237"""
+    config_vars = {"secrets": {"cert_with_empty_lines": "line1\n\nline2\n\n\nline3"}}
+
+    results = get_config_secrets(config_vars)
+
+    # Should not contain empty strings
+    assert "" not in results
+    # Should contain individual lines
+    assert "line1" in results
+    assert "line2" in results
+    assert "line3" in results

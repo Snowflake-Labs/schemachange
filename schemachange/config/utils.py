@@ -46,8 +46,33 @@ def get_snowflake_identifier_string(input_value: str, input_type: str) -> str | 
         return f'"{input_value}"'
 
 
-def get_config_secrets(config_vars: dict[str, dict | str] | None) -> set[str]:
-    """Extracts all secret values from the vars attributes in config"""
+def get_config_secrets(
+    config_vars: dict[str, dict | str] | None,
+    auth_secrets: dict[str, str] | None = None,
+) -> set[str]:
+    """Extracts all secret values from the vars attributes in config and authentication parameters
+
+    For multi-line secrets, stores multiple representations to ensure
+    redaction works regardless of how the secret is serialized (YAML, JSON, etc.)
+
+    Addresses issue #237: multi-line secrets not being redacted properly.
+    Credit: Root cause analysis and initial fix by @rwberendsen in PR #238.
+    This implementation extends the fix with multiple representation storage
+    and preserves newline structure in redacted output.
+
+    Addresses issue #401: PAT/password from environment variables not being redacted.
+    Authentication secrets (passwords, tokens, passphrases) from env vars or files
+    are now collected via the auth_secrets parameter.
+
+    Args:
+        config_vars: User-defined variables from config file or CLI (-v flag)
+        auth_secrets: Authentication secrets (passwords, tokens, passphrases) to redact
+                     Keys: 'password', 'token', 'private_key_file_pwd'
+                     Values: The secret string values
+
+    Returns:
+        Set of all secret strings that should be redacted from logs
+    """
 
     def inner_extract_dictionary_secrets(
         dictionary: dict[str, dict | str] | None,
@@ -69,11 +94,56 @@ def get_config_secrets(config_vars: dict[str, dict | str] | None) -> set[str]:
                     child_of_secrets = True
                 extracted_secrets = extracted_secrets | inner_extract_dictionary_secrets(value, child_of_secrets)
             elif child_of_secrets or "SECRET" in key.upper():
+                # Store multiple representations of the secret to handle different serialization formats
+                # This fixes issue #237 where multi-line secrets weren't redacted due to YAML serialization
+
+                # 1. Original value (as-is)
+                extracted_secrets.add(value)
+
+                # 2. Stripped value (removes leading/trailing whitespace)
                 extracted_secrets.add(value.strip())
+
+                # 3. If multi-line, also store with normalized whitespace
+                if "\n" in value:
+                    # Replace multiple spaces/newlines with single spaces
+                    normalized = " ".join(value.split())
+                    extracted_secrets.add(normalized)
+
+                    # Store each line separately (for partial matches)
+                    for line in value.split("\n"):
+                        line_stripped = line.strip()
+                        if line_stripped:  # Don't store empty lines
+                            extracted_secrets.add(line_stripped)
 
         return extracted_secrets
 
-    return inner_extract_dictionary_secrets(config_vars)
+    # Extract secrets from config_vars
+    all_secrets = inner_extract_dictionary_secrets(config_vars)
+
+    # Extract secrets from authentication parameters (issue #401 fix)
+    if auth_secrets:
+        for secret_value in auth_secrets.values():
+            if secret_value and isinstance(secret_value, str):
+                # Apply same multi-representation logic as config_vars
+                # 1. Original value
+                all_secrets.add(secret_value)
+
+                # 2. Stripped value
+                all_secrets.add(secret_value.strip())
+
+                # 3. Multi-line handling
+                if "\n" in secret_value:
+                    # Normalized (single-line version)
+                    normalized = " ".join(secret_value.split())
+                    all_secrets.add(normalized)
+
+                    # Each line separately
+                    for line in secret_value.split("\n"):
+                        line_stripped = line.strip()
+                        if line_stripped:
+                            all_secrets.add(line_stripped)
+
+    return all_secrets
 
 
 def validate_file_path(file_path: Path | str | None) -> Path | None:
@@ -368,8 +438,7 @@ def get_snowflake_password() -> str | None:
         # Check legacy/deprecated env variable
         if snowsql_pwd is not None and snowsql_pwd:
             warnings.warn(
-                "Environment variables SNOWFLAKE_PASSWORD and SNOWSQL_PWD "
-                "are both present, using SNOWFLAKE_PASSWORD",
+                "Environment variables SNOWFLAKE_PASSWORD and SNOWSQL_PWD are both present, using SNOWFLAKE_PASSWORD",
                 DeprecationWarning,
                 stacklevel=2,
             )
@@ -649,6 +718,52 @@ def get_snowflake_session_parameters() -> dict | None:
     return None
 
 
+def _expand_env_vars_in_dict(params: dict) -> dict:
+    """
+    Expand environment variables in dictionary values.
+
+    Supports both $VAR and ${VAR} syntax to match Snowflake connector's behavior.
+    If an environment variable is not set, the original value is preserved.
+
+    Args:
+        params: Dictionary with potentially unexpanded environment variables
+
+    Returns:
+        Dictionary with environment variables expanded
+
+    Examples:
+        {"password": "$MY_PASSWORD"} -> {"password": "secret123"}
+        {"account": "${SNOWFLAKE_ACCOUNT}"} -> {"account": "myaccount"}
+        {"user": "$MISSING_VAR"} -> {"user": "$MISSING_VAR"}  # Preserved if not set
+    """
+    import re
+
+    expanded = {}
+    for key, value in params.items():
+        if isinstance(value, str):
+            # Expand ${VAR} syntax
+            def replace_braced(match):
+                var_name = match.group(1)
+                return os.getenv(var_name, match.group(0))  # Keep original if not found
+
+            # Expand $VAR syntax (without braces)
+            def replace_simple(match):
+                var_name = match.group(1)
+                return os.getenv(var_name, match.group(0))  # Keep original if not found
+
+            # First expand ${VAR} syntax
+            expanded_value = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}", replace_braced, value)
+            # Then expand $VAR syntax (but not if already part of ${...})
+            expanded_value = re.sub(r"\$([A-Za-z_][A-Za-z0-9_]*)", replace_simple, expanded_value)
+
+            expanded[key] = expanded_value
+        else:
+            # Non-string values pass through unchanged
+            expanded[key] = value
+
+    return expanded
+
+
 def get_connections_toml_parameters(
     connections_file_path: Path | str | None, connection_name: str | None
 ) -> tuple[dict, dict]:
@@ -757,6 +872,12 @@ def get_connections_toml_parameters(
         session_params = connection_data.get("parameters", {})
         if not isinstance(session_params, dict):
             session_params = {}
+
+        # Expand environment variables in parameter values
+        # Matches Snowflake connector's behavior when it reads connections.toml
+        # Supports both $VAR and ${VAR} syntax
+        connection_params = _expand_env_vars_in_dict(connection_params)
+        session_params = _expand_env_vars_in_dict(session_params)
 
         logger.debug(
             f"Successfully read connection '{connection_name}' from connections.toml",

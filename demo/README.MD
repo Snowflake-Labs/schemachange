@@ -49,6 +49,7 @@ schemachange deploy -C demo --config-folder ./demo/basics_demo
 **🤖 For CI/CD (recommended for automation):**
 ```bash
 # Use environment variables (keeps secrets out of version control)
+# NOTE: Using SNOWFLAKE_* environment variables (NEW in 4.1.0)
 export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
 export SNOWFLAKE_USER="service_account"
 export SNOWFLAKE_PASSWORD="<your_pat_token>"  # Use a PAT for MFA accounts
@@ -59,7 +60,230 @@ export SNOWFLAKE_DATABASE="SCHEMACHANGE_DEMO"
 schemachange deploy --config-folder ./demo/basics_demo
 ```
 
-**📚 Need JWT, SSO, or other authentication methods?** See the [Authentication Guide](../README.md#authentication) in the main README.
+**Alternative: Using CLI arguments (NEW in 4.1.0)**
+```bash
+# Using new --snowflake-* prefixed parameters
+schemachange deploy \
+  --config-folder ./demo/basics_demo \
+  --snowflake-account "myaccount.us-east-1" \
+  --snowflake-user "service_account" \
+  --snowflake-password "${SNOWFLAKE_PASSWORD}" \
+  --snowflake-role "SCHEMACHANGE_DEMO-DEPLOY" \
+  --snowflake-warehouse "SCHEMACHANGE_DEMO_WH" \
+  --snowflake-database "SCHEMACHANGE_DEMO"
+```
+
+**⚠️ Deprecated (still works until 5.0.0):**
+```bash
+# Old -a/-u/-r/-w/-d short forms (deprecated)
+schemachange deploy --config-folder ./demo/basics_demo \
+  -a "myaccount.us-east-1" \
+  -u "service_account" \
+  -r "SCHEMACHANGE_DEMO-DEPLOY" \
+  -w "SCHEMACHANGE_DEMO_WH" \
+  -d "SCHEMACHANGE_DEMO"
+# ⚠️ Shows deprecation warnings. See migration guide below.
+```
+
+**📚 More authentication methods?** See examples below or the [Authentication Guide](../README.md#authentication).
+
+**🔄 Using deprecated parameters?** See the [Migration Guide](#-migrating-to-410-new-in-410) below for parameter mapping.
+
+---
+
+### 🔐 Advanced Authentication Methods (NEW in 4.1.0)
+
+**Choose the right authentication for your use case:**
+
+#### JWT (Private Key) - Best for Service Accounts
+
+**Use when:** CI/CD, service accounts, highest security
+
+```bash
+# 1. Generate key pair (one-time setup)
+openssl genrsa 2048 | openssl pkcs8 -topk8 -v2 des3 -inform PEM -out rsa_key.p8
+openssl rsa -in rsa_key.p8 -pubout -out rsa_key.pub
+
+# 2. Register public key in Snowflake
+ALTER USER service_account SET RSA_PUBLIC_KEY='<contents_of_rsa_key.pub>';
+
+# 3. Run schemachange with JWT (using ENV variables)
+# NOTE: SNOWFLAKE_* and authentication params are NEW in 4.1.0
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_USER="service_account"
+export SNOWFLAKE_AUTHENTICATOR="snowflake_jwt"
+export SNOWFLAKE_PRIVATE_KEY_FILE="~/.ssh/rsa_key.p8"
+export SNOWFLAKE_PRIVATE_KEY_FILE_PWD="your_passphrase"
+export SNOWFLAKE_ROLE="SCHEMACHANGE_DEMO-DEPLOY"
+export SNOWFLAKE_WAREHOUSE="SCHEMACHANGE_DEMO_WH"
+export SNOWFLAKE_DATABASE="SCHEMACHANGE_DEMO"
+
+schemachange deploy --config-folder ./demo/basics_demo
+```
+
+**Alternative: Using CLI arguments (NEW in 4.1.0)**
+```bash
+# CLI authentication parameters are NEW in 4.1.0
+# Note: Passphrase must be in ENV for security (not visible in process list)
+export SNOWFLAKE_PRIVATE_KEY_FILE_PWD="your_passphrase"
+
+schemachange deploy \
+  --config-folder ./demo/basics_demo \
+  --snowflake-account "myaccount.us-east-1" \
+  --snowflake-user "service_account" \
+  --snowflake-authenticator "snowflake_jwt" \
+  --snowflake-private-key-file "~/.ssh/rsa_key.p8" \
+  --snowflake-role "SCHEMACHANGE_DEMO-DEPLOY" \
+  --snowflake-warehouse "SCHEMACHANGE_DEMO_WH" \
+  --snowflake-database "SCHEMACHANGE_DEMO"
+```
+
+**Alternative: connections.toml with JWT**
+
+```toml
+# ~/.snowflake/connections.toml
+[demo_jwt]
+account = "myaccount.us-east-1"
+user = "service_account"
+authenticator = "snowflake_jwt"
+private_key_file = "~/.ssh/rsa_key.p8"
+role = "SCHEMACHANGE_DEMO-DEPLOY"
+warehouse = "SCHEMACHANGE_DEMO_WH"
+database = "SCHEMACHANGE_DEMO"
+```
+
+```bash
+# Passphrase must be in ENV (not in connections.toml for security)
+export SNOWFLAKE_PRIVATE_KEY_FILE_PWD="your_passphrase"
+schemachange deploy -C demo_jwt --config-folder ./demo/basics_demo
+```
+
+**⚠️ Deprecated (still works until 5.0.0):**
+```bash
+# Using old parameter names (deprecated)
+export SNOWFLAKE_PRIVATE_KEY_PATH="~/.ssh/rsa_key.p8"  # ⚠️ Use SNOWFLAKE_PRIVATE_KEY_FILE
+export SNOWFLAKE_PRIVATE_KEY_PASSPHRASE="your_passphrase"  # ⚠️ Use SNOWFLAKE_PRIVATE_KEY_FILE_PWD
+# Shows deprecation warnings
+```
+
+---
+
+#### External Browser / SSO - Best for Interactive Use
+
+**Use when:** Local development, MFA enabled, SSO/Okta
+
+```bash
+# Opens browser for authentication
+# NOTE: SNOWFLAKE_* environment variables are NEW in 4.1.0
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_USER="my_user"
+export SNOWFLAKE_AUTHENTICATOR="externalbrowser"
+export SNOWFLAKE_ROLE="SCHEMACHANGE_DEMO-DEPLOY"
+export SNOWFLAKE_WAREHOUSE="SCHEMACHANGE_DEMO_WH"
+export SNOWFLAKE_DATABASE="SCHEMACHANGE_DEMO"
+
+schemachange deploy --config-folder ./demo/basics_demo
+```
+
+**Alternative: Using CLI arguments (NEW in 4.1.0)**
+```bash
+schemachange deploy \
+  --config-folder ./demo/basics_demo \
+  --snowflake-account "myaccount.us-east-1" \
+  --snowflake-user "my_user" \
+  --snowflake-authenticator "externalbrowser" \
+  --snowflake-role "SCHEMACHANGE_DEMO-DEPLOY" \
+  --snowflake-warehouse "SCHEMACHANGE_DEMO_WH" \
+  --snowflake-database "SCHEMACHANGE_DEMO"
+```
+
+Browser will open automatically for authentication. Works with MFA, Okta, and other SSO providers.
+
+---
+
+#### OAuth Token - For Platform Integrations
+
+**Use when:** Integrating with platforms that provide OAuth tokens
+
+```bash
+# 1. Get OAuth token from your platform and save it
+echo "your_oauth_token" > ~/.snowflake/oauth_token.txt
+chmod 600 ~/.snowflake/oauth_token.txt
+
+# 2. Run schemachange with OAuth (using ENV variables)
+# NOTE: SNOWFLAKE_* and authentication params are NEW in 4.1.0
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_USER="my_user"
+export SNOWFLAKE_AUTHENTICATOR="oauth"
+export SNOWFLAKE_TOKEN_FILE_PATH="~/.snowflake/oauth_token.txt"
+export SNOWFLAKE_ROLE="SCHEMACHANGE_DEMO-DEPLOY"
+export SNOWFLAKE_WAREHOUSE="SCHEMACHANGE_DEMO_WH"
+export SNOWFLAKE_DATABASE="SCHEMACHANGE_DEMO"
+
+schemachange deploy --config-folder ./demo/basics_demo
+```
+
+**Alternative: Using CLI arguments (NEW in 4.1.0)**
+```bash
+schemachange deploy \
+  --config-folder ./demo/basics_demo \
+  --snowflake-account "myaccount.us-east-1" \
+  --snowflake-user "my_user" \
+  --snowflake-authenticator "oauth" \
+  --snowflake-token-file-path "~/.snowflake/oauth_token.txt" \
+  --snowflake-role "SCHEMACHANGE_DEMO-DEPLOY" \
+  --snowflake-warehouse "SCHEMACHANGE_DEMO_WH" \
+  --snowflake-database "SCHEMACHANGE_DEMO"
+```
+
+---
+
+#### Programmatic Access Token (PAT) - For MFA Accounts
+
+**Use when:** MFA enabled, CI/CD
+
+```bash
+# Generate PAT in Snowflake UI: User Preferences → Password → Generate Token
+# NOTE: SNOWFLAKE_* environment variables are NEW in 4.1.0
+export SNOWFLAKE_ACCOUNT="myaccount.us-east-1"
+export SNOWFLAKE_USER="my_user"
+export SNOWFLAKE_PASSWORD="<your_pat_token>"  # PAT, not password!
+export SNOWFLAKE_ROLE="SCHEMACHANGE_DEMO-DEPLOY"
+export SNOWFLAKE_WAREHOUSE="SCHEMACHANGE_DEMO_WH"
+export SNOWFLAKE_DATABASE="SCHEMACHANGE_DEMO"
+
+schemachange deploy --config-folder ./demo/basics_demo
+```
+
+**Alternative: Using CLI arguments (NEW in 4.1.0)**
+```bash
+schemachange deploy \
+  --config-folder ./demo/basics_demo \
+  --snowflake-account "myaccount.us-east-1" \
+  --snowflake-user "my_user" \
+  --snowflake-password "${SNOWFLAKE_PASSWORD}" \
+  --snowflake-role "SCHEMACHANGE_DEMO-DEPLOY" \
+  --snowflake-warehouse "SCHEMACHANGE_DEMO_WH" \
+  --snowflake-database "SCHEMACHANGE_DEMO"
+```
+
+**⚠️ Deprecated (still works until 5.0.0):**
+```bash
+# Using old -a/-u/-r/-w/-d short forms (deprecated)
+export SNOWSQL_PWD="<your_pat_token>"  # ⚠️ SNOWSQL_PWD is deprecated, use SNOWFLAKE_PASSWORD
+
+schemachange deploy --config-folder ./demo/basics_demo \
+  -a "myaccount.us-east-1" \
+  -u "my_user" \
+  -r "SCHEMACHANGE_DEMO-DEPLOY" \
+  -w "SCHEMACHANGE_DEMO_WH" \
+  -d "SCHEMACHANGE_DEMO"
+# ⚠️ Shows deprecation warnings. See migration guide below.
+```
+
+**💡 Tip:** Use `schemachange verify` to test your authentication before running deploy!
+
+---
 
 ### 4. Run Your First Demo
 
@@ -209,6 +433,208 @@ python -m schemachange deploy --config-folder ./demo/basics_demo
 - ✅ Execute all three demos (basics, citibike, citibike_jinja)
 - ✅ Verify your changes don't break existing functionality
 - ✅ Run teardown scripts to clean up
+
+---
+
+## 🔄 Migrating to 4.1.0+ (NEW in 4.1.0)
+
+**Upgrading from 4.0.x?** The 4.1.0 release introduced new prefixed parameter naming for better clarity and consistency. Your existing configurations will continue to work (deprecated parameters supported until 5.0.0), but you'll see deprecation warnings.
+
+### Quick Migration Reference
+
+**Deprecated (works until 5.0.0) → New (recommended)**
+
+**All deprecated CLI arguments** - Complete reference for migration:
+
+| Old (Deprecated) | New (Recommended) | Short Form | Category |
+|------------------|-------------------|------------|----------|
+| `--vars` | `--schemachange-config-vars` | `-V` | Config |
+| `--log-level` | `--schemachange-log-level` | `-L` | Logging |
+| `--verbose` | `-L INFO` or `-L DEBUG` | `-L` | Logging |
+| `--root-folder` | `--schemachange-root-folder` | `-f` | Paths |
+| `--modules-folder` | `--schemachange-modules-folder` | `-m` | Paths |
+| `--change-history-table` | `--schemachange-change-history-table` | `-c` | Deployment |
+| `--autocommit` | `--schemachange-autocommit` | `-ac` | Deployment |
+| `--query-tag` | `--snowflake-query-tag` | `-Q` | Snowflake |
+| `--connection-name` | `--schemachange-connection-name` | `-C` | Connection |
+| `--connections-file-path` | `--schemachange-connections-file-path` | *(none)* | Connection |
+| `--create-change-history-table` | `--schemachange-create-change-history-table` | *(none)* | Deployment |
+| `--dry-run` | `--schemachange-dry-run` | *(none)* | Deployment |
+| `--version-number-validation-regex` | `--schemachange-version-number-validation-regex` | *(none)* | Advanced |
+| `--raise-exception-on-ignored-versioned-script` | `--schemachange-raise-exception-on-ignored-versioned-script` | *(none)* | Advanced |
+| `--snowflake-private-key-path` | `--snowflake-private-key-file` | *(none)* | Auth |
+
+**Environment Variables:**
+
+| Old (Deprecated) | New (Recommended) | Usage |
+|------------------|-------------------|-------|
+| `SNOWSQL_PWD` | `SNOWFLAKE_PASSWORD` | Password or PAT |
+| `SNOWFLAKE_PRIVATE_KEY_PATH` | `SNOWFLAKE_PRIVATE_KEY_FILE` | JWT key file path |
+| `SNOWFLAKE_PRIVATE_KEY_PASSPHRASE` | `SNOWFLAKE_PRIVATE_KEY_FILE_PWD` | JWT key passphrase |
+
+**connections.toml Parameters:**
+
+| Old (Deprecated) | New (Recommended) |
+|------------------|-------------------|
+| `private_key_path` | `private_key_file` |
+| `private_key_passphrase` | `private_key_file_pwd` |
+
+**All deprecated parameters will be removed in 5.0.0** (approximately 12 months after 4.1.0 release)
+
+**NEW in 4.1.0 - Authentication CLI Support:**
+- `--snowflake-password`, `--snowflake-authenticator`, `--snowflake-private-key-file`
+- Previously only available via ENV or YAML, now you can pass them on the command line too!
+
+### Version Pinning Strategy
+
+**Want to control your upgrade path?**
+
+```bash
+# Pin to 4.1.x series (get bug fixes, avoid breaking changes)
+pip install "schemachange>=4.1.0,<4.2.0"
+
+# Pin to 4.x series (stay on 4.x, avoid 5.0.0 breaking changes)
+pip install "schemachange>=4.1.0,<5.0.0"
+
+# Always get latest (not recommended for production)
+pip install schemachange --upgrade
+```
+
+**Recommended for production:** Pin to minor version and test upgrades in non-production first.
+
+### Parameter Style Examples
+
+**🟢 Current Best Practice (4.1.0+)**
+
+```bash
+# CLI with new prefixed arguments
+schemachange deploy \
+  --config-folder ./demo/basics_demo \
+  --schemachange-config-vars '{"env": "prod"}' \
+  --schemachange-log-level INFO \
+  --snowflake-account "myaccount" \
+  --snowflake-user "deploy_user" \
+  --snowflake-password "${SNOWFLAKE_PASSWORD}" \
+  --snowflake-role "DEPLOY_ROLE" \
+  --snowflake-warehouse "DEPLOY_WH" \
+  --snowflake-database "PROD_DB"
+```
+
+**🟡 Legacy Style (still works, shows warnings)**
+
+```bash
+# Old unprefixed arguments (deprecated)
+schemachange deploy \
+  --config-folder ./demo/basics_demo \
+  --vars '{"env": "prod"}' \
+  --log-level INFO \
+  -a "myaccount" \
+  -u "deploy_user" \
+  -r "DEPLOY_ROLE" \
+  -w "DEPLOY_WH" \
+  -d "PROD_DB"
+```
+
+### Configuration Priority Order
+
+**Understanding precedence (highest to lowest):**
+
+```
+CLI Arguments > Environment Variables > YAML Config > connections.toml
+```
+
+**Example - How priority works:**
+
+```bash
+# connections.toml
+[prod]
+database = "PROD_DB"
+warehouse = "SMALL_WH"
+
+# ENV variable overrides connections.toml
+export SNOWFLAKE_WAREHOUSE="LARGE_WH"
+
+# CLI overrides both ENV and connections.toml
+schemachange deploy \
+  -C prod \
+  --snowflake-database "TEST_DB"
+
+# Result: database=TEST_DB, warehouse=LARGE_WH
+```
+
+### Testing Different Parameter Styles
+
+**Want to verify backward compatibility?**
+
+```python
+# Test 1: New prefixed style (recommended)
+import subprocess
+
+result = subprocess.run([
+    "schemachange", "deploy",
+    "--config-folder", "./demo/basics_demo",
+    "--schemachange-config-vars", '{"env": "test"}',
+    "--snowflake-account", "myaccount"
+], capture_output=True, text=True)
+
+# Test 2: Legacy style (should show warnings but work)
+result = subprocess.run([
+    "schemachange", "deploy",
+    "--config-folder", "./demo/basics_demo",
+    "--vars", '{"env": "test"}',
+    "-a", "myaccount"
+], capture_output=True, text=True)
+
+# Check for deprecation warnings
+assert "deprecated" in result.stderr.lower()
+```
+
+### YAML Config Version 2 (NEW in 4.1.0)
+
+**New structured format with separate sections:**
+
+```yaml
+# schemachange.yml (v2 format)
+schemachange:
+  root-folder: ./migrations
+  config-vars:
+    env: production
+  log-level: INFO
+
+snowflake:
+  account: myaccount
+  user: deploy_user
+  role: DEPLOY_ROLE
+  warehouse: DEPLOY_WH
+  database: PROD_DB
+```
+
+**Legacy flat format (still supported):**
+
+```yaml
+# schemachange.yml (v1 format)
+root-folder: ./migrations
+config-vars:
+  env: production
+log-level: INFO
+snowflake-account: myaccount
+snowflake-user: deploy_user
+snowflake-role: DEPLOY_ROLE
+```
+
+### Migration Checklist
+
+**Migrating to 4.1.0+ parameter style:**
+
+- [ ] **Read the deprecation warnings** in your logs
+- [ ] **Test in non-production first** with new parameter style
+- [ ] **Update CLI scripts** to use `--schemachange-*` and `--snowflake-*` prefixes
+- [ ] **Update ENV variables** from `SNOWSQL_PWD` to `SNOWFLAKE_PASSWORD`
+- [ ] **Consider YAML v2 format** for new projects (both formats supported)
+- [ ] **Pin your version** in `requirements.txt` or `pyproject.toml`
+- [ ] **Plan 5.0.0 migration** before the 12-month deprecation period ends
+
+**Need help?** See [TROUBLESHOOTING.md](../TROUBLESHOOTING.md) or [open an issue](https://github.com/Snowflake-Labs/schemachange/issues)
 
 ---
 

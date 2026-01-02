@@ -713,6 +713,18 @@ cases: list = [
         {"key_1": {"key_2": {"key_3a": "******", "key_3b": "*****"}}},
         id="Secrets, nested x 2 dict payload masked",
     ),
+    pytest.param(
+        {"multiline_secret\nwith_newlines"},
+        {"key_1": "This contains multiline_secret\nwith_newlines in it"},
+        {"key_1": "This contains ****************\n************* in it"},
+        id="multiline secret redacted with newlines preserved (PR #238 by @rwberendsen)",
+    ),
+    pytest.param(
+        {"line1\nline2\nline3"},
+        {"azure_cert": "line1\nline2\nline3"},
+        {"azure_cert": "*****\n*****\n*****"},
+        id="multiline certificate redacted preserving structure (issue #237)",
+    ),
 ]
 
 

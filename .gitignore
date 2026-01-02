@@ -128,10 +128,21 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Ruff
+.ruff_cache/
+
 .idea
 
 # Mac files
 **/.DS_Store
 .cache_ggshield
 
-experiments/
+# Experiments folder - track the folder but not its contents (maintainer workspace)
+experiments/*
+!experiments/README.md
+
+.cursor
+.cortex
+.claude
+.snowflake
+.vscode

@@ -663,9 +663,9 @@ def test_integration_get_merged_config_inheritance(
                 get_merged_config(logger=logger)
             factory_kwargs = mock_deploy_config_factory.call_args.kwargs
             for actual_key, actual_value in factory_kwargs.items():
-                assert (
-                    expected[actual_key] == actual_value
-                ), f"Mismatch for {actual_key}: expected {expected[actual_key]}, got {actual_value}"
+                assert expected[actual_key] == actual_value, (
+                    f"Mismatch for {actual_key}: expected {expected[actual_key]}, got {actual_value}"
+                )
                 del expected[actual_key]
             assert len(expected.keys()) == 0
 
@@ -1182,9 +1182,9 @@ def test_priority_env_edge_cases(
 
     # Verify expected parameters
     for key, expected_value in expected_has_param.items():
-        assert (
-            factory_kwargs.get(key) == expected_value
-        ), f"Expected {key}={expected_value}, got {factory_kwargs.get(key)}"
+        assert factory_kwargs.get(key) == expected_value, (
+            f"Expected {key}={expected_value}, got {factory_kwargs.get(key)}"
+        )
 
 
 @pytest.mark.parametrize(
@@ -1316,9 +1316,9 @@ def test_priority_all_four_layers(
             get_merged_config(logger=logger)
             factory_kwargs = mock_deploy_config_factory.call_args.kwargs
             for actual_key, actual_value in factory_kwargs.items():
-                assert (
-                    expected[actual_key] == actual_value
-                ), f"Mismatch for {actual_key}: expected {expected[actual_key]}, got {actual_value}"
+                assert expected[actual_key] == actual_value, (
+                    f"Mismatch for {actual_key}: expected {expected[actual_key]}, got {actual_value}"
+                )
                 del expected[actual_key]
             assert len(expected.keys()) == 0
 
@@ -1439,7 +1439,7 @@ def test_additional_snowflake_params(
     # Verify additional_snowflake_params
     actual_additional_params = factory_kwargs.get("additional_snowflake_params", {})
     assert actual_additional_params == expected_additional_params, (
-        f"Expected additional_snowflake_params={expected_additional_params}, " f"got {actual_additional_params}"
+        f"Expected additional_snowflake_params={expected_additional_params}, got {actual_additional_params}"
     )
 
 
@@ -1691,7 +1691,7 @@ def test_config_vars_merging(
     # Verify config_vars
     actual_config_vars = factory_kwargs.get("config_vars", {})
     assert actual_config_vars == expected_config_vars, (
-        f"Expected config_vars={expected_config_vars}, " f"got {actual_config_vars}"
+        f"Expected config_vars={expected_config_vars}, got {actual_config_vars}"
     )
 
 

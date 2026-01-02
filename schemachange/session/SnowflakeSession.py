@@ -10,18 +10,19 @@ import structlog
 
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import get_snowflake_identifier_string
+from schemachange.ScriptExecutionError import ScriptExecutionError
 from schemachange.session.Script import AlwaysScript, RepeatableScript, VersionedScript
 
 
 class SnowflakeSession:
     account: str
-    user: str | None  # TODO: user: str when connections.toml is enforced
-    role: str | None  # TODO: role: str when connections.toml is enforced
-    warehouse: str | None  # TODO: warehouse: str when connections.toml is enforced
-    database: str | None  # TODO: database: str when connections.toml is enforced
+    user: str | None
+    role: str | None
+    warehouse: str | None
+    database: str | None
     schema: str | None
     autocommit: bool
-    change_history_table: ChangeHistoryTable
+    change_history_table: ChangeHistoryTable | None
     logger: structlog.BoundLogger
     session_parameters: dict[str, str]
     conn: snowflake.connector.SnowflakeConnection
@@ -34,8 +35,8 @@ class SnowflakeSession:
         self,
         schemachange_version: str,
         application: str,
-        change_history_table: ChangeHistoryTable,
         logger: structlog.BoundLogger,
+        change_history_table: ChangeHistoryTable | None = None,
         # NOTE: connection_name and connections_file_path are no longer passed here
         # All parameters from connections.toml are merged in get_merged_config.py before creating SnowflakeSession
         account: str | None = None,  # Merged from CLI > ENV > YAML > connections.toml
@@ -90,7 +91,7 @@ class SnowflakeSession:
             "private_key_file": kwargs.get(
                 "private_key_file"
             ),  # Already mapped from private_key_path in get_session_kwargs()
-            "private_key_file_pwd": kwargs.get("private_key_file_pwd"),
+            "private_key_file_pwd": kwargs.get("private_key_file_pwd"),  # Passphrase for encrypted private keys
             "token": kwargs.get("token"),
             "password": kwargs.get("password"),
             "authenticator": kwargs.get("authenticator"),
@@ -117,7 +118,13 @@ class SnowflakeSession:
         # All parameters from connections.toml have already been read and merged in get_merged_config.py
         # This ensures proper precedence: CLI > ENV > YAML > connections.toml
 
-        self.logger.debug("snowflake.connector.connect kwargs", **connect_kwargs)
+        # Mask sensitive data for logging
+        masked_connect_kwargs = {
+            k: v
+            for k, v in connect_kwargs.items()
+            if k not in ["password", "token", "private_key_passphrase", "private_key_file_pwd"]
+        }
+        self.logger.debug("snowflake.connector.connect kwargs", **masked_connect_kwargs)
         self.con = snowflake.connector.connect(**connect_kwargs)
         self.logger.info("Snowflake connection established", session_id=self.con.session_id)
         self.account = self.con.account
@@ -134,26 +141,110 @@ class SnowflakeSession:
         # (already merged in get_merged_config with CLI > ENV > YAML > connections.toml precedence)
         self.session_parameters = explicit_params.get("session_parameters", {})
 
+        # Initialize session context by executing USE commands for role, warehouse, database, schema
+        # This ensures the warehouse is active before any queries are executed
+        # Fixes issue #233 and #235: "No active warehouse selected in the current session"
+        self._initialize_session_context()
+
     def __del__(self):
         if hasattr(self, "con"):
             self.con.close()
 
+    def _initialize_session_context(self):
+        """
+        Initialize Snowflake session context by executing USE commands.
+
+        This must be called after connection establishment to ensure that role, warehouse,
+        database, and schema are properly set in the session before any queries are executed.
+
+        The Snowflake connector accepts these parameters but doesn't automatically execute
+        USE commands, which can cause "No active warehouse selected" errors when querying
+        INFORMATION_SCHEMA or executing other operations that require a warehouse.
+
+        Fixes issue #233 and #235: Default warehouse ignored / not selected.
+        """
+        use_commands = []
+
+        if self.role:
+            use_commands.append(f"USE ROLE IDENTIFIER('{self.role}');")
+            self.logger.debug("Setting session role", role=self.role)
+
+        if self.warehouse:
+            use_commands.append(f"USE WAREHOUSE IDENTIFIER('{self.warehouse}');")
+            self.logger.debug("Setting session warehouse", warehouse=self.warehouse)
+
+        if self.database:
+            use_commands.append(f"USE DATABASE IDENTIFIER('{self.database}');")
+            self.logger.debug("Setting session database", database=self.database)
+
+        if self.schema:
+            use_commands.append(f"USE SCHEMA IDENTIFIER('{self.schema}');")
+            self.logger.debug("Setting session schema", schema=self.schema)
+
+        if use_commands:
+            query = "\n".join(use_commands)
+            try:
+                self.con.execute_string(query)
+                self.logger.debug("Session context initialized successfully")
+            except Exception as e:
+                self.logger.error(
+                    "Failed to initialize session context",
+                    error=str(e),
+                    role=self.role,
+                    warehouse=self.warehouse,
+                    database=self.database,
+                    schema=self.schema,
+                )
+                raise ValueError(
+                    f"Failed to initialize Snowflake session context. "
+                    f"Please verify that the role '{self.role}' has access to "
+                    f"warehouse '{self.warehouse}', database '{self.database}', and schema '{self.schema}'."
+                ) from e
+
     def execute_snowflake_query(self, query: str, logger: structlog.BoundLogger):
         logger.debug(
-            "Executing query",
-            query=indent(query, prefix="\t"),
+            "Executing query", query_length=len(query), query_preview=query[:200] + "..." if len(query) > 200 else query
         )
+
         try:
             res = self.con.execute_string(query)
             if not self.autocommit:
                 self.con.commit()
+            logger.debug("Query executed")
             return res
-        except Exception as e:
+
+        except snowflake.connector.errors.ProgrammingError as e:
+            # SQL syntax/logic errors
+            logger.error(
+                "SQL execution error",
+                error_code=getattr(e, "errno", None),
+                sql_state=getattr(e, "sqlstate", None),
+                error_msg=str(e),
+            )
+            logger.debug("Failed query", query=indent(query, prefix="\t"))
             if not self.autocommit:
                 self.con.rollback()
-            raise e
+            raise
+
+        except snowflake.connector.errors.DatabaseError as e:
+            # Connection, permission, warehouse errors
+            logger.error("Database error", error_type=type(e).__name__, error_msg=str(e))
+            logger.debug("Failed query", query=indent(query, prefix="\t"))
+            if not self.autocommit:
+                self.con.rollback()
+            raise
+
+        except Exception as e:
+            # Unexpected errors
+            logger.error("Unexpected query error", error_type=type(e).__name__, error_msg=str(e))
+            logger.debug("Failed query", query=indent(query, prefix="\t"))
+            if not self.autocommit:
+                self.con.rollback()
+            raise
 
     def fetch_change_history_metadata(self) -> dict:
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
         # This should only ever return 0 or 1 rows
         query = f"""\
             SELECT
@@ -175,6 +266,8 @@ class SnowflakeSession:
         return change_history_metadata
 
     def change_history_schema_exists(self) -> bool:
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
         query = f"""\
             SELECT
                 COUNT(1)
@@ -187,6 +280,8 @@ class SnowflakeSession:
                 return row[0] > 0
 
     def create_change_history_schema(self, dry_run: bool) -> None:
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
         query = f"CREATE SCHEMA IF NOT EXISTS {self.change_history_table.fully_qualified_schema_name}"
         if dry_run:
             self.logger.info(
@@ -197,6 +292,8 @@ class SnowflakeSession:
             self.execute_snowflake_query(dedent(query), logger=self.logger)
 
     def create_change_history_table(self, dry_run: bool) -> None:
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
         query = f"""\
             CREATE TABLE IF NOT EXISTS {self.change_history_table.fully_qualified} (
                 VERSION VARCHAR,
@@ -246,12 +343,31 @@ class SnowflakeSession:
         dict[str, list[str]] | None,
         str | int | None,
     ]:
-        change_history_table_exists = self.change_history_table_exists(
-            create_change_history_table=create_change_history_table,
-            dry_run=dry_run,
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
+        # Check if change history table exists
+        change_history_metadata = self.fetch_change_history_metadata()
+        table_exists = bool(change_history_metadata)  # Empty dict {} is falsy, non-empty is truthy
+
+        # If table doesn't exist, check if we should create it
+        if not table_exists:
+            if create_change_history_table:
+                # Create the table (4.1.0 behavior - simple and works for all cases)
+                self.change_history_table_exists(
+                    create_change_history_table=create_change_history_table,
+                    dry_run=dry_run,
+                )
+                # Return empty metadata (all scripts are new)
+                return defaultdict(dict), None, None
+            else:
+                # create=false and table missing - error
+                raise ValueError(f"Unable to find change history table {self.change_history_table.fully_qualified}")
+
+        # Table exists, log and proceed normally
+        self.logger.info(
+            f"Using existing change history table {self.change_history_table.fully_qualified}",
+            last_altered=change_history_metadata["last_altered"],
         )
-        if not change_history_table_exists:
-            return None, None, None
 
         change_history, max_published_version = self.fetch_versioned_scripts()
         r_scripts_checksum = self.fetch_repeatable_scripts()
@@ -260,6 +376,8 @@ class SnowflakeSession:
         return change_history, r_scripts_checksum, max_published_version
 
     def fetch_repeatable_scripts(self) -> dict[str, list[str]]:
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
         query = f"""\
         SELECT DISTINCT
             SCRIPT AS SCRIPT_NAME,
@@ -283,12 +401,18 @@ class SnowflakeSession:
     def fetch_versioned_scripts(
         self,
     ) -> tuple[dict[str, dict[str, str | int]], str | int | None]:
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
         query = f"""\
         SELECT VERSION, SCRIPT, CHECKSUM
         FROM {self.change_history_table.fully_qualified}
         WHERE SCRIPT_TYPE = 'V'
-        ORDER BY INSTALLED_ON DESC -- TODO: Why not order by version?
+        ORDER BY INSTALLED_ON DESC
         """
+        # Order by INSTALLED_ON (not VERSION) because version numbers are user-configured
+        # and may not sort consistently across deployments (e.g., semantic versioning, custom
+        # schemes, branch-based versions). INSTALLED_ON is universally sortable and provides
+        # reliable chronological order. The first result (versions[0]) becomes max_published_version.
         results = self.execute_snowflake_query(dedent(query), logger=self.logger)
 
         # Collect all the results into a list
@@ -334,6 +458,8 @@ class SnowflakeSession:
         dry_run: bool,
         logger: structlog.BoundLogger,
     ) -> None:
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
         if dry_run:
             logger.info("Running in dry-run mode. Skipping execution")
             return
@@ -351,8 +477,65 @@ class SnowflakeSession:
             self.reset_query_tag(extra_tag=script.name, logger=logger)
             try:
                 self.execute_snowflake_query(query=script_content, logger=logger)
+            except snowflake.connector.errors.ProgrammingError as e:
+                # SQL syntax/logic errors
+                logger.error(
+                    "SQL execution failed",
+                    script_name=script.name,
+                    script_path=script.file_path.as_posix(),
+                    script_type=script.type,
+                    sql_error_code=getattr(e, "errno", None),
+                    sql_state=getattr(e, "sqlstate", None),
+                    error_message=str(e),
+                )
+
+                raise ScriptExecutionError(
+                    script_name=script.name,
+                    script_path=script.file_path,
+                    script_type=script.type,
+                    error_message=str(e),
+                    sql_error_code=getattr(e, "errno", None),
+                    sql_state=getattr(e, "sqlstate", None),
+                    query=script_content,
+                    original_exception=e,
+                ) from e
+
+            except snowflake.connector.errors.DatabaseError as e:
+                # Connection, permission, warehouse errors
+                logger.error(
+                    "Database error during script execution",
+                    script_name=script.name,
+                    script_path=script.file_path.as_posix(),
+                    script_type=script.type,
+                    error_message=str(e),
+                )
+
+                raise ScriptExecutionError(
+                    script_name=script.name,
+                    script_path=script.file_path,
+                    script_type=script.type,
+                    error_message=f"Database error: {str(e)}",
+                    original_exception=e,
+                ) from e
+
             except Exception as e:
-                raise Exception(f"Failed to execute {script.name}") from e
+                # Unexpected errors
+                logger.error(
+                    "Unexpected error during script execution",
+                    script_name=script.name,
+                    script_path=script.file_path.as_posix(),
+                    script_type=script.type,
+                    error_message=str(e),
+                    error_type=type(e).__name__,
+                )
+
+                raise ScriptExecutionError(
+                    script_name=script.name,
+                    script_path=script.file_path,
+                    script_type=script.type,
+                    error_message=f"Unexpected error: {str(e)}",
+                    original_exception=e,
+                ) from e
             self.reset_query_tag(logger=logger)
             self.reset_session(logger=logger)
             end = time.time()
