@@ -91,35 +91,17 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
 
         checksum_current = hashlib.sha224(content.encode("utf-8")).hexdigest()
 
-        # Apply a versioned-change script only if the version is newer than the most recent change in the database
+        # Apply a versioned-change script only if it has not been applied yet
         # Apply any other scripts, i.e. repeatable scripts, irrespective of the most recent change in the database
         if script.type == "V":
             script_metadata = versioned_scripts.get(script.name)
+            if script_metadata is not None:
+                script_log.debug("Script has already been applied")
+                if script_metadata["checksum"] != checksum_current:
+                    script_log.info("Script checksum has drifted since application")
 
-            if max_published_version is not None and get_alphanum_key(script.version) <= max_published_version:
-                if script_metadata is None:
-                    if config.raise_exception_on_ignored_versioned_script:
-                        raise ValueError(
-                            f"Versioned script will never be applied: {script.name}\n"
-                            f"Version number is less than the max version number: {max_published_version}"
-                        )
-                    else:
-                        script_log.debug(
-                            "Skipping versioned script because it's older than the most recently applied change",
-                            max_published_version=max_published_version,
-                        )
-                        scripts_skipped += 1
-                        continue
-                else:
-                    script_log.debug(
-                        "Script has already been applied",
-                        max_published_version=max_published_version,
-                    )
-                    if script_metadata["checksum"] != checksum_current:
-                        script_log.info("Script checksum has drifted since application")
-
-                    scripts_skipped += 1
-                    continue
+                scripts_skipped += 1
+                continue
 
         # Apply only R scripts where the checksum changed compared to the last execution of snowchange
         if script.type == "R":
