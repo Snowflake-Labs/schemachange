@@ -8,15 +8,12 @@ import hashlib
 import tempfile
 import unittest.mock as mock
 from pathlib import Path
-from textwrap import dedent
 
 import pytest
-import structlog
 
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.DeployConfig import DeployConfig
 from schemachange.deploy import deploy
-from schemachange.session.Script import VersionedScript, RepeatableScript, AlwaysScript
 
 
 @pytest.fixture
@@ -409,7 +406,7 @@ class TestDeployMultipleVersionedScripts:
             (temp_script_dir / filename).write_text(content)
 
         # Mock get_script_metadata - V1.1.0 was already applied
-        checksum_v1_1 = hashlib.sha224("SELECT 2;".encode("utf-8")).hexdigest()
+        checksum_v1_1 = hashlib.sha224(b"SELECT 2;").hexdigest()
         mock_session.get_script_metadata.return_value = (
             {
                 "V1.1.0__second.sql": {
@@ -462,7 +459,7 @@ class TestDeployOutOfOrderVersions:
         (temp_script_dir / "V1.5.0__middle.sql").write_text("SELECT 1.5;")
 
         # Mock that V2.0.0 was already applied
-        checksum_v2 = hashlib.sha224("SELECT 2;".encode("utf-8")).hexdigest()
+        checksum_v2 = hashlib.sha224(b"SELECT 2;").hexdigest()
         mock_session.get_script_metadata.return_value = (
             {
                 "V2.0.0__second.sql": {
@@ -487,6 +484,7 @@ class TestDeployOutOfOrderVersions:
 
         # Run deploy
         with mock.patch("schemachange.deploy.JinjaTemplateProcessor") as mock_jinja:
+
             def render_side_effect(path, vars):
                 if "1.0.0" in path:
                     return "SELECT 1;"
