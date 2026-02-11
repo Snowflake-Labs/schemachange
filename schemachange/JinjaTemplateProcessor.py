@@ -75,6 +75,10 @@ class JinjaTemplateProcessor:
         # SQL-specific processing below
         content = raw_content.strip()
 
+        # Strip trailing semicolon for checksum stability (issue #417)
+        # This ensures checksums remain consistent regardless of trailing semicolon
+        content = content[:-1] if content.endswith(";") else content
+
         # Validate content is not empty after processing
         if not content or content.isspace():
             raise ValueError(

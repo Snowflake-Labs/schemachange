@@ -9,7 +9,7 @@ from schemachange.version import alphanum_convert, get_alphanum_key, sorted_alph
 
 
 def test_cli_given__schemachange_version_change_updated_in_setup_config_file():
-    assert SCHEMACHANGE_VERSION == "4.3.1"
+    assert SCHEMACHANGE_VERSION == "4.3.2"
 
 
 def test_cli_given__constants_exist():

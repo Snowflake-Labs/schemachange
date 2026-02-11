@@ -125,24 +125,30 @@ class TestJinjaTemplateProcessor:
         assert "contains only comments" in str(e.value)
 
     def test_render_empty_content_only_semicolon_should_raise_error(self, processor: JinjaTemplateProcessor):
-        """Test that rendering only semicolon raises ValueError"""
+        """Test that rendering only semicolon raises ValueError.
+
+        After semicolon stripping, content becomes empty.
+        """
         templates = {"test.sql": ";"}
         processor.override_loader(DictLoader(templates))
 
         with pytest.raises(ValueError) as e:
             processor.render("test.sql", None)
 
-        assert "contains only comments or semicolons" in str(e.value)
+        assert "rendered to empty content" in str(e.value)
 
     def test_render_empty_content_whitespace_and_semicolon_should_raise_error(self, processor: JinjaTemplateProcessor):
-        """Test that rendering whitespace + semicolon raises ValueError"""
+        """Test that rendering whitespace + semicolon raises ValueError.
+
+        After whitespace strip and semicolon strip, content becomes empty.
+        """
         templates = {"test.sql": "  \n\t  ;  \n"}
         processor.override_loader(DictLoader(templates))
 
         with pytest.raises(ValueError) as e:
             processor.render("test.sql", None)
 
-        assert "contains only comments or semicolons" in str(e.value)
+        assert "rendered to empty content" in str(e.value)
 
     def test_render_empty_content_false_jinja_conditional_should_raise_error(self, processor: JinjaTemplateProcessor):
         """Test that all false conditionals result in empty content error"""
@@ -184,17 +190,23 @@ class TestJinjaTemplateProcessor:
         assert "contains only comments" in str(e.value)
 
     # ============================================================
-    # Valid SQL pass-through tests - schemachange should NOT modify SQL
+    # Trailing semicolon stripping tests - issue #417
     # ============================================================
 
-    def test_render_valid_sql_passes_through_unchanged(self, processor: JinjaTemplateProcessor):
-        """Test that valid SQL passes through without modification"""
+    def test_render_strips_trailing_semicolon(self, processor: JinjaTemplateProcessor):
+        """Test that trailing semicolon is stripped for checksum stability.
+
+        Schemachange strips the final trailing semicolon before computing checksums.
+        This ensures checksums remain stable regardless of whether users include
+        a trailing semicolon in their scripts.
+        """
         templates = {"test.sql": "CREATE TABLE foo (id INT);"}
         processor.override_loader(DictLoader(templates))
 
         result = processor.render("test.sql", None)
 
-        assert result == "CREATE TABLE foo (id INT);"
+        assert result == "CREATE TABLE foo (id INT)"
+        assert not result.endswith(";")
 
     def test_render_valid_sql_with_inline_comment_passes_through(self, processor: JinjaTemplateProcessor):
         """Test that valid SQL with inline comment passes through"""
@@ -267,8 +279,8 @@ class TestJinjaTemplateProcessor:
 
         result = processor.render("test.sql", None)
 
-        # No modification - semicolon is the last character
-        assert result == "SELECT 1\n-- comment before semicolon\n;"
+        # Trailing semicolon is stripped
+        assert result == "SELECT 1\n-- comment before semicolon\n"
         assert "SELECT 1; -- schemachange" not in result
 
     def test_render_inline_comment_with_semicolon_unchanged(self, processor: JinjaTemplateProcessor):
@@ -324,30 +336,18 @@ class TestJinjaTemplateProcessor:
         assert result == "SELECT 1\n-- trailing comment"
         assert "SELECT 1; -- schemachange" not in result
 
-    def test_render_sql_ending_with_semicolon_only_unchanged(self, processor: JinjaTemplateProcessor):
-        """Test that SQL ending with just semicolon (no trailing content) passes through unchanged."""
-        templates = {"test.sql": "CREATE TABLE foo (id INT);"}
-        processor.override_loader(DictLoader(templates))
+    def test_render_strips_whitespace_and_trailing_semicolon(self, processor: JinjaTemplateProcessor):
+        """Test that both trailing whitespace and semicolon are stripped.
 
-        result = processor.render("test.sql", None)
-
-        # No trailing content after ;
-        assert result == "CREATE TABLE foo (id INT);"
-        assert "SELECT 1; -- schemachange" not in result
-
-    def test_render_whitespace_only_after_semicolon_unchanged(self, processor: JinjaTemplateProcessor):
-        """Test that whitespace-only after semicolon passes through unchanged.
-
-        Whitespace after ; is not a problem - Snowflake handles it fine.
-        Only comments cause the "Empty SQL Statement" error.
+        Trailing whitespace is stripped first, then trailing semicolon.
+        This normalizes scripts for consistent checksum computation.
         """
         templates = {"test.sql": "SELECT 1;\n\n\n"}
         processor.override_loader(DictLoader(templates))
 
         result = processor.render("test.sql", None)
 
-        # Whitespace is stripped, no SELECT 1; added
-        assert result == "SELECT 1;"
+        assert result == "SELECT 1"
         assert "SELECT 1; -- schemachange" not in result
 
     def test_render_semicolon_in_comment_unchanged(self, processor: JinjaTemplateProcessor):
@@ -510,7 +510,7 @@ class TestJinjaTemplateProcessor:
         templates = {"test.sql": "SELECT 1;\n-- trailing comment"}
         processor.override_loader(DictLoader(templates))
 
-        # render() should return content without modification
+        # render() should return content without modification (except semicolon strip)
         rendered = processor.render("test.sql", None)
         assert rendered == "SELECT 1;\n-- trailing comment"
         assert "schemachange" not in rendered
@@ -525,3 +525,65 @@ class TestJinjaTemplateProcessor:
         checksum = hashlib.sha224(rendered.encode()).hexdigest()
         # This checksum should be stable across versions
         assert checksum == hashlib.sha224(b"SELECT 1;\n-- trailing comment").hexdigest()
+
+    # ============================================================
+    # Checksum stability regression tests - issue #417
+    # ============================================================
+
+    def test_render_produces_stable_checksums(self, processor: JinjaTemplateProcessor):
+        """Verify checksums remain stable for common SQL patterns.
+
+        If checksums change, existing deployments will show "checksum has drifted"
+        warnings or re-execute R-scripts. These values must remain constant.
+        """
+        import hashlib
+
+        test_cases = [
+            ("-- Test\nSELECT 1;", "e129d259291ecc5ae22313776fd114d035fc8d61a6445d93138c7a64"),
+            ("-- Test\nSELECT 1", "e129d259291ecc5ae22313776fd114d035fc8d61a6445d93138c7a64"),
+        ]
+
+        for sql, expected_checksum in test_cases:
+            templates = {"test.sql": sql}
+            processor.override_loader(DictLoader(templates))
+            result = processor.render("test.sql", None)
+            actual = hashlib.sha224(result.encode()).hexdigest()
+            assert actual == expected_checksum, (
+                f"Checksum changed for '{sql}': got {actual}, expected {expected_checksum}"
+            )
+
+    @pytest.mark.parametrize(
+        "sql,expected,semicolon_count",
+        [
+            ("SELECT 1;", "SELECT 1", 0),
+            ("SELECT 1;\nSELECT 2;", "SELECT 1;\nSELECT 2", 1),
+            ("SELECT 1;\nSELECT 2;\nSELECT 3;", "SELECT 1;\nSELECT 2;\nSELECT 3", 2),
+            ("SELECT 1;\nSELECT 2", "SELECT 1;\nSELECT 2", 1),
+            ("SELECT 1;\n-- comment", "SELECT 1;\n-- comment", 1),
+        ],
+    )
+    def test_render_strips_only_final_trailing_semicolon(
+        self, processor: JinjaTemplateProcessor, sql, expected, semicolon_count
+    ):
+        """Test that only the final trailing semicolon is stripped.
+
+        Internal semicolons between statements must be preserved.
+        """
+        templates = {"test.sql": sql}
+        processor.override_loader(DictLoader(templates))
+
+        result = processor.render("test.sql", None)
+
+        assert result == expected
+        assert result.count(";") == semicolon_count
+
+    def test_render_handles_bom_and_trailing_semicolon(self, processor: JinjaTemplateProcessor):
+        """Test that BOM removal and semicolon stripping work together."""
+        templates = {"test.sql": "\ufeffSELECT 1;"}
+        processor.override_loader(DictLoader(templates))
+
+        result = processor.render("test.sql", None)
+
+        assert not result.startswith("\ufeff")
+        assert not result.endswith(";")
+        assert result == "SELECT 1"
