@@ -226,7 +226,7 @@ e.g:
 * R__fn_sort_ascii.sql
 
 All repeatable change scripts are applied each time the utility is run, if there is a change in the file.
-Repeatable scripts could be used for maintaining code that always needs to be applied in its entirety. e.g. stores
+Repeatable scripts could be used for maintaining code that always needs to be applied in its entirety. e.g. stored
 procedures, functions and view definitions etc.
 
 Just like Flyway, within a single migration run, repeatable scripts are always applied after all pending versioned
