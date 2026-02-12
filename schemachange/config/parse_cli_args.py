@@ -8,6 +8,8 @@ from enum import Enum
 
 import structlog
 
+from schemachange.config.ChecksumChangedAction import ChecksumChangedAction
+
 logger = structlog.getLogger(__name__)
 
 
@@ -383,6 +385,17 @@ def parse_cli_args(args) -> dict:
         "published version. Useful for parallel development with timestamp-based versioning "
         "(the default is False). "
         "Can also be set via SCHEMACHANGE_OUT_OF_ORDER environment variable.",
+        required=False,
+    )
+    parser_deploy.add_argument(
+        "--schemachange-checksum-changed-action",
+        "--checksum-changed-action",
+        type=ChecksumChangedAction,
+        action=EnumAction,
+        dest="checksum_changed_action",
+        help="Action to take when a versioned script's checksum has changed since it was applied. "
+        "IGNORE (default): Log and skip. ERROR: Fail deployment. EXECUTE: Re-run the script. "
+        "Can also be set via SCHEMACHANGE_CHECKSUM_CHANGED_ACTION environment variable.",
         required=False,
     )
 

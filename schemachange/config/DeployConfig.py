@@ -6,6 +6,7 @@ from typing import Literal
 
 from schemachange.config.BaseConfig import BaseConfig
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
+from schemachange.config.ChecksumChangedAction import ChecksumChangedAction
 from schemachange.config.utils import (
     get_snowflake_authenticator,
     get_snowflake_identifier_string,
@@ -45,6 +46,7 @@ class DeployConfig(BaseConfig):
     version_number_validation_regex: str | None = None
     raise_exception_on_ignored_versioned_script: bool = False
     out_of_order: bool = False  # Allow applying migrations with versions older than max_published_version
+    checksum_changed_action: ChecksumChangedAction = ChecksumChangedAction.IGNORE  # Action when V-script checksum drifts
     session_parameters: dict | None = None  # Session parameters from CLI/ENV/YAML (merged with connections.toml)
     additional_snowflake_params: dict | None = None  # Parameters from YAML v2 or generic SNOWFLAKE_* env vars
 

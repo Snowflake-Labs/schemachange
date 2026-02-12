@@ -1003,6 +1003,20 @@ def get_schemachange_config_from_env() -> dict:
                 f"Valid values are: DEBUG, INFO, WARNING, ERROR, CRITICAL"
             )
 
+    # Checksum changed action parameter (string to enum conversion)
+    from schemachange.config.ChecksumChangedAction import ChecksumChangedAction
+
+    checksum_action_value = os.getenv("SCHEMACHANGE_CHECKSUM_CHANGED_ACTION")
+    if checksum_action_value:
+        checksum_action_upper = checksum_action_value.upper()
+        try:
+            env_config["checksum_changed_action"] = ChecksumChangedAction[checksum_action_upper]
+        except KeyError:
+            raise ValueError(
+                f"Invalid value in SCHEMACHANGE_CHECKSUM_CHANGED_ACTION: {checksum_action_value}. "
+                f"Valid values are: IGNORE, ERROR, EXECUTE"
+            ) from None
+
     return env_config
 
 

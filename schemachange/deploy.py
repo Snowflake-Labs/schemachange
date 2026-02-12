@@ -6,6 +6,7 @@ import structlog
 
 from schemachange.cli_script_executor import execute_cli_script
 from schemachange.CLIScriptExecutionError import CLIScriptExecutionError
+from schemachange.config.ChecksumChangedAction import ChecksumChangedAction
 from schemachange.config.DeployConfig import DeployConfig
 from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
 from schemachange.session.Script import get_all_scripts_recursively
@@ -20,6 +21,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
         "Starting deploy",
         dry_run=config.dry_run,
         out_of_order=config.out_of_order,
+        checksum_changed_action=config.checksum_changed_action.value,
         snowflake_account=session.account,
         default_role=session.role,
         default_warehouse=session.warehouse,
@@ -76,6 +78,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
         # Apply a versioned-change script based on whether it has been applied and version ordering rules
         if script.type == "V":
             script_metadata = versioned_scripts.get(script.name)
+            re_execute_due_to_checksum_change = False
 
             # First check: Has this script already been applied?
             if script_metadata is not None:
@@ -84,12 +87,30 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
                     max_published_version=max_published_version,
                 )
                 if script_metadata["checksum"] != checksum_current:
-                    script_log.info("Script checksum has drifted since application")
-                scripts_skipped += 1
-                continue
+                    if config.checksum_changed_action == ChecksumChangedAction.ERROR:
+                        raise ValueError(
+                            f"Checksum has changed for applied script: {script.name}\n"
+                            f"Expected checksum: {script_metadata['checksum']}\n"
+                            f"Current checksum:  {checksum_current}\n"
+                            "Use --schemachange-checksum-changed-action IGNORE or EXECUTE to override."
+                        )
+                    elif config.checksum_changed_action == ChecksumChangedAction.EXECUTE:
+                        script_log.warning(
+                            "Script checksum has drifted - re-executing due to checksum-changed-action=EXECUTE"
+                        )
+                        re_execute_due_to_checksum_change = True
+                        # Don't skip - fall through to execution
+                    else:  # IGNORE (default)
+                        script_log.info("Script checksum has drifted since application")
+                        scripts_skipped += 1
+                        continue
+                else:
+                    scripts_skipped += 1
+                    continue
 
             # Second check: Version ordering (only if out_of_order is disabled)
-            if not config.out_of_order:
+            # Skip this check if we're re-executing due to checksum change
+            if not config.out_of_order and not re_execute_due_to_checksum_change:
                 if max_published_version is not None and get_alphanum_key(script.version) <= max_published_version:
                     if config.raise_exception_on_ignored_versioned_script:
                         raise ValueError(
