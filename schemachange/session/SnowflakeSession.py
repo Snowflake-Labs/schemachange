@@ -253,14 +253,16 @@ class SnowflakeSession:
     def fetch_change_history_metadata(self) -> dict:
         if self.change_history_table is None:
             raise ValueError("change_history_table is required for deployment operations")
-        # This should only ever return 0 or 1 rows
+        # This should only ever return 0 or 1 rows.
+        # Use UPPER() so lookup is case-insensitive: Snowflake stores identifiers in
+        # uppercase in INFORMATION_SCHEMA (fixes #409).
         query = f"""\
             SELECT
                 CREATED,
                 LAST_ALTERED
             FROM {self.change_history_table.database_name}.INFORMATION_SCHEMA.TABLES
-            WHERE TABLE_SCHEMA = REPLACE('{self.change_history_table.schema_name}','\"','')
-                AND TABLE_NAME = REPLACE('{self.change_history_table.table_name}','\"','')
+            WHERE TABLE_SCHEMA = UPPER(REPLACE('{self.change_history_table.schema_name}','\"',''))
+                AND TABLE_NAME = UPPER(REPLACE('{self.change_history_table.table_name}','\"',''))
         """
         results = self.execute_snowflake_query(query=dedent(query), logger=self.logger)
 
@@ -276,11 +278,12 @@ class SnowflakeSession:
     def change_history_schema_exists(self) -> bool:
         if self.change_history_table is None:
             raise ValueError("change_history_table is required for deployment operations")
+        # Use UPPER() for case-insensitive match with INFORMATION_SCHEMA (#409).
         query = f"""\
             SELECT
                 COUNT(1)
             FROM {self.change_history_table.database_name}.INFORMATION_SCHEMA.SCHEMATA
-            WHERE SCHEMA_NAME = REPLACE('{self.change_history_table.schema_name}','\"','')
+            WHERE SCHEMA_NAME = UPPER(REPLACE('{self.change_history_table.schema_name}','\"',''))
         """
         results = self.execute_snowflake_query(dedent(query), logger=self.logger)
         for cursor in results:
