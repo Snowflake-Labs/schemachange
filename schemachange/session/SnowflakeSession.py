@@ -254,8 +254,7 @@ class SnowflakeSession:
         if self.change_history_table is None:
             raise ValueError("change_history_table is required for deployment operations")
         # This should only ever return 0 or 1 rows.
-        # Use UPPER() so lookup is case-insensitive: Snowflake stores identifiers in
-        # uppercase in INFORMATION_SCHEMA (fixes #409).
+        # UPPER() for case-insensitive match with INFORMATION_SCHEMA.
         query = f"""\
             SELECT
                 CREATED,
@@ -278,7 +277,7 @@ class SnowflakeSession:
     def change_history_schema_exists(self) -> bool:
         if self.change_history_table is None:
             raise ValueError("change_history_table is required for deployment operations")
-        # Use UPPER() for case-insensitive match with INFORMATION_SCHEMA (#409).
+        # UPPER() for case-insensitive match with INFORMATION_SCHEMA.
         query = f"""\
             SELECT
                 COUNT(1)

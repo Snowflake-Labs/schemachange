@@ -65,12 +65,7 @@ class TestSnowflakeSession:
         assert session.con.execute_string.call_count == 1
 
     def test_fetch_change_history_metadata_uses_upper_for_information_schema(self):
-        """Regression test for #409: INFORMATION_SCHEMA stores names in uppercase.
-
-        When change_history_table has lowercase schema/table names (e.g. from config),
-        the query must use UPPER() so it matches Snowflake's INFORMATION_SCHEMA.TABLES.
-        Otherwise the lookup returns no rows and schemachange re-runs all versioned scripts.
-        """
+        """INFORMATION_SCHEMA stores names in uppercase; query must use UPPER() for lookup."""
         change_history_table = ChangeHistoryTable(
             database_name="mydb",
             schema_name="myschema",
@@ -101,12 +96,8 @@ class TestSnowflakeSession:
         session.con.execute_string.reset_mock()
         session.con.execute_string.return_value = [[["2020-01-01", "2020-01-02"]]]
         session.fetch_change_history_metadata()
-        call_args = session.con.execute_string.call_args
-        query = call_args[0][0]
-        assert "UPPER(REPLACE(" in query, (
-            "Query must use UPPER(REPLACE(...)) for TABLE_SCHEMA and TABLE_NAME so "
-            "INFORMATION_SCHEMA lookup is case-insensitive (Snowflake stores names in uppercase)."
-        )
+        query = session.con.execute_string.call_args[0][0]
+        assert "UPPER(REPLACE(" in query
 
     def test_snowflake_session_with_additional_params_from_yaml_v2(self):
         """Test that additional_snowflake_params from YAML v2 are passed to connector."""
