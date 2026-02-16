@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 
 ## [3.5.7] - 2026-02-12
 ### Changed
+- Upgrade Snowflake connector dependency
+
+## [3.5.7] - 2026-02-12
+### Changed
 - Remove pandas dependency
 
 ## [3.5.6] - 2025-03-12
