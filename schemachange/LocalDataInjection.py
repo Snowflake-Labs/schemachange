@@ -75,21 +75,23 @@ class LocalDataInjection(jinja2.ext.Extension):
         csv_path = Path(file_path)
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV file not found: {file_path}")
-        
+
         # Check file size if max_file_size is set
         if max_file_size is not None:
             file_size = csv_path.stat().st_size
             if file_size > max_file_size:
-                raise ValueError(f"CSV file exceeds {max_file_size / 1024 / 1024:.0f}MB limit: {file_path} ({file_size / 1024 / 1024:.2f}MB)")
-        
+                raise ValueError(
+                    f"CSV file exceeds {max_file_size / 1024 / 1024:.0f}MB limit: {file_path} ({file_size / 1024 / 1024:.2f}MB)"
+                )
+
         # Validate delimiter
         if not isinstance(delimiter, str) or len(delimiter) != 1:
             raise ValueError("Delimiter must be a single character")
-        
+
         # Validate quotechar
         if not isinstance(quotechar, str) or len(quotechar) != 1:
             raise ValueError("Quotechar must be a single character")
-        
+
         # Validate escapechar if provided
         if escapechar is not None and (not isinstance(escapechar, str) or len(escapechar) != 1):
             raise ValueError("Escapechar must be a single character or None")
@@ -99,27 +101,27 @@ class LocalDataInjection(jinja2.ext.Extension):
             # Read a sample for the sniffer
             sample = csvfile.read(8192)  # Read first 8KB for analysis
             csvfile.seek(0)  # Reset to beginning
-            
+
             try:
                 sniffer = csv.Sniffer()
                 detected_dialect = sniffer.sniff(sample)
-                
+
                 # Warn if detected delimiter differs from provided delimiter
-                if hasattr(detected_dialect, 'delimiter') and detected_dialect.delimiter != delimiter:
+                if hasattr(detected_dialect, "delimiter") and detected_dialect.delimiter != delimiter:
                     warnings.warn(
                         f"Detected delimiter '{detected_dialect.delimiter}' differs from "
                         f"provided delimiter '{delimiter}' in file {file_path}",
                         UserWarning,
-                        stacklevel=2
+                        stacklevel=2,
                     )
-                
+
                 # Warn if detected quotechar differs from provided quotechar
-                if hasattr(detected_dialect, 'quotechar') and detected_dialect.quotechar != quotechar:
+                if hasattr(detected_dialect, "quotechar") and detected_dialect.quotechar != quotechar:
                     warnings.warn(
                         f"Detected quotechar '{detected_dialect.quotechar}' differs from "
                         f"provided quotechar '{quotechar}' in file {file_path}",
                         UserWarning,
-                        stacklevel=2
+                        stacklevel=2,
                     )
             except csv.Error:
                 # Sniffer couldn't detect the format, continue with provided parameters
@@ -134,7 +136,7 @@ class LocalDataInjection(jinja2.ext.Extension):
             "quoting": quoting,
             "strict": strict,
         }
-        
+
         if escapechar is not None:
             dialect_params["escapechar"] = escapechar
 
@@ -170,12 +172,14 @@ class LocalDataInjection(jinja2.ext.Extension):
         json_path = Path(file_path)
         if not json_path.exists():
             raise FileNotFoundError(f"JSON file not found: {file_path}")
-        
+
         # Check file size if max_file_size is set
         if max_file_size is not None:
             file_size = json_path.stat().st_size
             if file_size > max_file_size:
-                raise ValueError(f"JSON file exceeds {max_file_size / 1024 / 1024:.0f}MB limit: {file_path} ({file_size / 1024 / 1024:.2f}MB)")
+                raise ValueError(
+                    f"JSON file exceeds {max_file_size / 1024 / 1024:.0f}MB limit: {file_path} ({file_size / 1024 / 1024:.2f}MB)"
+                )
 
         with open(json_path, encoding=encoding) as jsonfile:
             data = json.load(jsonfile)
@@ -202,12 +206,14 @@ class LocalDataInjection(jinja2.ext.Extension):
         yaml_path = Path(file_path)
         if not yaml_path.exists():
             raise FileNotFoundError(f"YAML file not found: {file_path}")
-        
+
         # Check file size if max_file_size is set
         if max_file_size is not None:
             file_size = yaml_path.stat().st_size
             if file_size > max_file_size:
-                raise ValueError(f"YAML file exceeds {max_file_size / 1024 / 1024:.0f}MB limit: {file_path} ({file_size / 1024 / 1024:.2f}MB)")
+                raise ValueError(
+                    f"YAML file exceeds {max_file_size / 1024 / 1024:.0f}MB limit: {file_path} ({file_size / 1024 / 1024:.2f}MB)"
+                )
 
         with open(yaml_path, encoding=encoding) as yamlfile:
             data = yaml.safe_load(yamlfile)
