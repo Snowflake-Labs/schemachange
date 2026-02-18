@@ -1,0 +1,9 @@
+{% macro copy_into(operation) -%}
+-- Load the {{ operation.table }} data with metadata
+COPY INTO {{ operation.table }} FROM
+    (
+        {{ operation.select_statement }}
+    )
+    FILE_FORMAT = (FORMAT_NAME = '{{ operation.file_format }}')
+    {% if operation.pattern %}PATTERN = '{{ operation.pattern }}'{% endif %};
+{%- endmacro %}
