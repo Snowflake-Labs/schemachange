@@ -1,0 +1,14 @@
+{% macro create_file_format(file_format) -%}
+CREATE OR REPLACE FILE FORMAT {{ file_format['name'] }}
+    TYPE='{{ file_format['type'] }}'
+    {% if file_format['compression'] is defined %}COMPRESSION = '{{ file_format['compression'] }}'{% endif %}
+    {% if file_format['field_delimiter'] is defined %}FIELD_DELIMITER = '{{ file_format['field_delimiter'] }}'{% endif %}
+    {% if file_format['skip_header'] is defined %}SKIP_HEADER = {{ file_format['skip_header'] }}{% endif %}
+    {% if file_format['field_optionally_enclosed_by'] is defined %}FIELD_OPTIONALLY_ENCLOSED_BY = '{{ file_format['field_optionally_enclosed_by'] }}'{% endif %}
+    {% if file_format['null_if'] is defined %}NULL_IF = ({% for null_val in file_format['null_if'] %}'{{ null_val }}'{% if not loop.last %},{% endif %}{% endfor %}){% endif %}
+    {% if file_format['enable_octal'] is defined %}ENABLE_OCTAL = {{ file_format['enable_octal'] | upper }}{% endif %}
+    {% if file_format['allow_duplicate'] is defined %}ALLOW_DUPLICATE = {{ file_format['allow_duplicate'] | upper }}{% endif %}
+    {% if file_format['strip_outer_array'] is defined %}STRIP_OUTER_ARRAY = {{ file_format['strip_outer_array'] | upper }}{% endif %}
+    {% if file_format['strip_null_values'] is defined %}STRIP_NULL_VALUES = {{ file_format['strip_null_values'] | upper }}{% endif %}
+    {% if file_format['ignore_utf8_errors'] is defined %}IGNORE_UTF8_ERRORS = {{ file_format['ignore_utf8_errors'] | upper }}{% endif %};
+{%- endmacro %}

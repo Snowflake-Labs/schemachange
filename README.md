@@ -942,6 +942,22 @@ Return the value of the environmental variable if it exists, otherwise raise an 
 {{ env_var('<environmental_variable>') }}
 ```
 
+##### from_csv, from_json, from_yaml
+
+These functions provide access to local data files for use in Jinja templates.
+
+**Examples:**
+```jinja
+-- Load CSV data as dictionaries
+{% set table_defs = from_csv('data/tables.csv', as_dict=true) %}
+
+-- Load JSON configuration
+{% set config = from_json('config/settings.json') %}
+
+-- Load YAML parameters
+{% set params = from_yaml('config/parameters.yaml') %}
+```
+
 ### Environment Variables
 
 #### Why Use Environment Variables?

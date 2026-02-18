@@ -1,0 +1,23 @@
+{
+  "file_formats": [
+    {
+      "name": "CSV_NO_HEADER",
+      "type": "CSV",
+      "compression": "AUTO",
+      "field_delimiter": ",",
+      "skip_header": 0,
+      "field_optionally_enclosed_by": "\"",
+      "null_if": ["NULL", "\\N", "\\N", ""]
+    },
+    {
+      "name": "JSON",
+      "type": "JSON",
+      "compression": "AUTO",
+      "enable_octal": false,
+      "allow_duplicate": false,
+      "strip_outer_array": false,
+      "strip_null_values": false,
+      "ignore_utf8_errors": false
+    }
+  ]
+}

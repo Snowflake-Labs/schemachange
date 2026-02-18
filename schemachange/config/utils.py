@@ -23,7 +23,7 @@ else:
     except ImportError:
         tomllib = None  # type: ignore
 
-from schemachange.JinjaEnvVar import JinjaEnvVar
+from schemachange.LocalDataInjection import LocalDataInjection
 
 logger = structlog.getLogger(__name__)
 
@@ -264,7 +264,7 @@ def load_yaml_config(config_file_path: Path | None) -> dict[str, Any]:
             config_template = jinja2.Template(
                 config_file.read(),
                 undefined=jinja2.StrictUndefined,
-                extensions=[JinjaEnvVar],
+                extensions=[LocalDataInjection],
             )
 
             # The SafeLoader parameter handles the conversion from YAML scalar values to Python the dictionary format
