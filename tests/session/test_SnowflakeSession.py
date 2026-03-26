@@ -79,31 +79,42 @@ class TestSnowflakeSession:
         assert "ERROR_MESSAGE" in insert_query
         assert "boom" in insert_query
 
-    def test_apply_change_script_missing_error_message_column(self, session: SnowflakeSession):
-        script = VersionedScript.from_path(Path("V1.0.0__test.sql"))
+    def test_validate_change_history_schema_column_exists(self, session: SnowflakeSession):
+        session.execute_snowflake_query = mock.Mock(return_value=[[]])
+        session.validate_change_history_schema(dry_run=False)
+        check_query = session.execute_snowflake_query.call_args_list[0].args[0]
+        assert "SELECT ERROR_MESSAGE" in check_query
+        assert "LIMIT 0" in check_query
+        assert session.execute_snowflake_query.call_count == 1
+
+    def test_validate_change_history_schema_missing_column_adds_it(self, session: SnowflakeSession):
         session.execute_snowflake_query = mock.Mock(
-            side_effect=[
-                Exception("boom"),
-                ProgrammingError("invalid identifier 'ERROR_MESSAGE'", 0, 0),
-                None,
-                None,
-            ]
+            side_effect=[ProgrammingError("invalid identifier 'ERROR_MESSAGE'", 0, 0), None]
         )
-        with (
-            mock.patch.object(session, "reset_session"),
-            mock.patch.object(session, "reset_query_tag"),
-            pytest.raises(ScriptExecutionError),
-        ):
-            session.apply_change_script(script, "select 1", False, session.logger)
-        assert session.execute_snowflake_query.call_count == 4
-        first_insert = session.execute_snowflake_query.call_args_list[1].args[0]
-        alter_stmt = session.execute_snowflake_query.call_args_list[2].args[0]
-        retry_insert = session.execute_snowflake_query.call_args_list[3].args[0]
-        assert "ERROR_MESSAGE" in first_insert
+        session.validate_change_history_schema(dry_run=False)
+        assert session.execute_snowflake_query.call_count == 2
+        alter_stmt = session.execute_snowflake_query.call_args_list[1].args[0]
         assert "ALTER TABLE" in alter_stmt
         assert "ADD COLUMN" in alter_stmt
         assert "ERROR_MESSAGE" in alter_stmt
-        assert "ERROR_MESSAGE" in retry_insert
+
+    def test_validate_change_history_schema_missing_column_no_privileges(self, session: SnowflakeSession):
+        session.execute_snowflake_query = mock.Mock(
+            side_effect=[
+                ProgrammingError("invalid identifier 'ERROR_MESSAGE'", 0, 0),
+                ProgrammingError("Insufficient privileges to operate on table", 0, 0),
+            ]
+        )
+        with pytest.raises(ValueError, match="Please run the following SQL manually"):
+            session.validate_change_history_schema(dry_run=False)
+
+    def test_validate_change_history_schema_dry_run_warns(self, session: SnowflakeSession):
+        session.execute_snowflake_query = mock.Mock(
+            side_effect=[ProgrammingError("invalid identifier 'ERROR_MESSAGE'", 0, 0)]
+        )
+        session.validate_change_history_schema(dry_run=True)
+        # Should not attempt ALTER in dry-run mode
+        assert session.execute_snowflake_query.call_count == 1
 
     def test_snowflake_session_with_additional_params_from_yaml_v2(self):
         """Test that additional_snowflake_params from YAML v2 are passed to connector."""

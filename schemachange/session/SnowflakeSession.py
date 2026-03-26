@@ -378,6 +378,9 @@ class SnowflakeSession:
             last_altered=change_history_metadata["last_altered"],
         )
 
+        # Validate schema before running any scripts
+        self.validate_change_history_schema(dry_run=dry_run)
+
         change_history, max_published_version = self.fetch_versioned_scripts()
         r_scripts_checksum = self.fetch_repeatable_scripts()
 
@@ -602,6 +605,55 @@ class SnowflakeSession:
             logger=logger,
         )
 
+    def validate_change_history_schema(self, dry_run: bool = False) -> None:
+        """
+        Validate that the change history table has all required columns.
+
+        If ERROR_MESSAGE is missing (e.g., table was created by an older version of schemachange),
+        this method attempts to ALTER the table to add it. In dry-run mode it only warns.
+        If the role lacks ALTER privileges in a real deploy, it fails immediately with a clear
+        message telling the user what to run manually.
+        """
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
+
+        # Fast metadata-only check: LIMIT 0 resolves column names without scanning any data
+        check_query = f"SELECT ERROR_MESSAGE FROM {self.change_history_table.fully_qualified} LIMIT 0"
+        try:
+            self.execute_snowflake_query(check_query, logger=self.logger)
+            return  # Column exists
+        except snowflake.connector.errors.ProgrammingError:
+            pass  # Column is missing, proceed to add it
+
+        if dry_run:
+            self.logger.warning(
+                "Change history table is missing the ERROR_MESSAGE column. "
+                "A real deploy would attempt to add it automatically.",
+                table=self.change_history_table.fully_qualified,
+            )
+            return
+
+        self.logger.info(
+            "Change history table is missing ERROR_MESSAGE column, attempting to add it",
+            table=self.change_history_table.fully_qualified,
+        )
+        alter_query = (
+            f"ALTER TABLE {self.change_history_table.fully_qualified} "
+            "ADD COLUMN IF NOT EXISTS ERROR_MESSAGE VARCHAR"
+        )
+        try:
+            self.execute_snowflake_query(alter_query, logger=self.logger)
+            self.logger.info("Added ERROR_MESSAGE column to change history table")
+        except Exception as e:
+            raise ValueError(
+                f"Change history table {self.change_history_table.fully_qualified} is missing the "
+                f"ERROR_MESSAGE column and schemachange was unable to add it automatically. "
+                f"Please run the following SQL manually with a role that has ALTER TABLE privileges:\n\n"
+                f"    ALTER TABLE {self.change_history_table.fully_qualified} "
+                f"ADD COLUMN IF NOT EXISTS ERROR_MESSAGE VARCHAR;\n\n"
+                f"Original error: {e}"
+            ) from e
+
     def record_change_history(
         self,
         script: VersionedScript
@@ -659,20 +711,4 @@ class SnowflakeSession:
                 CURRENT_TIMESTAMP
             );
         """
-        dedent_query = dedent(query)
-        try:
-            self.execute_snowflake_query(dedent_query, logger=logger)
-        except snowflake.connector.errors.ProgrammingError as e:
-            if "ERROR_MESSAGE" in str(e):
-                logger.warning(
-                    "Change history table missing ERROR_MESSAGE column, adding column",
-                    error=str(e),
-                )
-                alter_query = (
-                    f"ALTER TABLE {self.change_history_table.fully_qualified} "
-                    "ADD COLUMN IF NOT EXISTS ERROR_MESSAGE VARCHAR"
-                )
-                self.execute_snowflake_query(alter_query, logger=logger)
-                self.execute_snowflake_query(dedent_query, logger=logger)
-            else:
-                raise
+        self.execute_snowflake_query(dedent(query), logger=logger)
