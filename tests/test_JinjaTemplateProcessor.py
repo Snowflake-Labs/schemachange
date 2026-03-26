@@ -100,12 +100,12 @@ class TestJinjaTemplateProcessor:
         assert context == "some text myvar_default"
 
     def test_render_ignores_jinja_when_marker_present(self, processor: JinjaTemplateProcessor):
-        templates = {"test.sql": "-- schemachange-no-jinja\nselect '{{ should_ignore }}'"}
+        templates = {"test.sql": "--schemachange-no-jinja\nselect '{{ should_ignore }}'"}
         processor.override_loader(DictLoader(templates))
 
         context = processor.render("test.sql", {"should_ignore": "replacement"})
 
-        assert context == "-- schemachange-no-jinja\nselect '{{ should_ignore }}'"
+        assert context == "--schemachange-no-jinja\nselect '{{ should_ignore }}'"
 
     def test_render_raises_on_undefined_variable_without_marker(self, processor: JinjaTemplateProcessor):
         templates = {"test.sql": "select '{{ should_ignore }}'"}
