@@ -350,7 +350,7 @@ schemachange will replace any variable placeholders before running your change s
 finds any variable placeholders that haven't been replaced.
 
 If a script contains jinja-style syntax that should not be processed by schemachange, add the comment
-`--schemachange-no-jinja` anywhere in the file. When this marker is present, schemachange will skip jinja rendering for
+`-- schemachange-no-jinja` anywhere in the file. When this marker is present, schemachange will skip jinja rendering for
 that script and execute it as-is.
 
 #### Secrets filtering
