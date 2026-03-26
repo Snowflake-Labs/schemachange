@@ -13,6 +13,8 @@ from schemachange.JinjaEnvVar import JinjaEnvVar
 
 logger = structlog.getLogger(__name__)
 
+_NO_JINJA_MARKER = "schemachange-no-jinja"
+
 
 class JinjaTemplateProcessor:
     _env_args = {
@@ -52,8 +54,17 @@ class JinjaTemplateProcessor:
             variables = {}
         # jinja needs posix path
         posix_path = Path(script).as_posix()
-        template = self.__environment.get_template(posix_path)
-        raw_content = template.render(**variables)
+        raw_content = None
+        try:
+            source, _, _ = self.__environment.loader.get_source(self.__environment, posix_path)
+            if _NO_JINJA_MARKER in source.lower():
+                raw_content = source
+        except Exception:
+            raw_content = None
+
+        if raw_content is None:
+            template = self.__environment.get_template(posix_path)
+            raw_content = template.render(**variables)
 
         # Remove UTF-8 BOM if present (issue #250)
         # The BOM character (\ufeff) causes errors
