@@ -54,15 +54,10 @@ class JinjaTemplateProcessor:
             variables = {}
         # jinja needs posix path
         posix_path = Path(script).as_posix()
-        raw_content = None
-        try:
-            source, _, _ = self.__environment.loader.get_source(self.__environment, posix_path)
-            if _NO_JINJA_MARKER in source.lower():
-                raw_content = source
-        except Exception:
-            raw_content = None
-
-        if raw_content is None:
+        source, _, _ = self.__environment.loader.get_source(self.__environment, posix_path)
+        if _NO_JINJA_MARKER in source.lower():
+            raw_content = source
+        else:
             template = self.__environment.get_template(posix_path)
             raw_content = template.render(**variables)
 
