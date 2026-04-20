@@ -64,6 +64,41 @@ class TestSnowflakeSession:
         assert result == {}
         assert session.con.execute_string.call_count == 1
 
+    def test_fetch_change_history_metadata_uses_upper_for_information_schema(self):
+        """INFORMATION_SCHEMA stores names in uppercase; query must use UPPER() for lookup."""
+        change_history_table = ChangeHistoryTable(
+            database_name="mydb",
+            schema_name="myschema",
+            table_name="change_history",
+        )
+        logger = structlog.testing.CapturingLogger()
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "account"
+            mock_conn.user = "user"
+            mock_conn.role = "role"
+            mock_conn.warehouse = "warehouse"
+            mock_conn.database = None
+            mock_conn.schema = None
+            mock_conn.session_id = "session_123"
+            mock_connect.return_value = mock_conn
+            with mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string"):
+                session = SnowflakeSession(
+                    user="user",
+                    account="account",
+                    role="role",
+                    warehouse="warehouse",
+                    schemachange_version="3.6.1.dev",
+                    application="schemachange",
+                    change_history_table=change_history_table,
+                    logger=logger,
+                )
+        session.con.execute_string.reset_mock()
+        session.con.execute_string.return_value = [[["2020-01-01", "2020-01-02"]]]
+        session.fetch_change_history_metadata()
+        query = session.con.execute_string.call_args[0][0]
+        assert "UPPER(REPLACE(" in query
+
     def test_snowflake_session_with_additional_params_from_yaml_v2(self):
         """Test that additional_snowflake_params from YAML v2 are passed to connector."""
         change_history_table = ChangeHistoryTable()
