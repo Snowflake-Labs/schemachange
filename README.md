@@ -1427,6 +1427,9 @@ Most arguments also support short forms (single dash, single letter) for conveni
 | `--schemachange-create-change-history-table`<br/>`--create-change-history-table` *(deprecated)* | `SCHEMACHANGE_CREATE_CHANGE_HISTORY_TABLE` | Create the change history table if it doesn't exist (default: false) |
 | `-ac`<br/>`--schemachange-autocommit`<br/>`--autocommit` *(deprecated)* | `SCHEMACHANGE_AUTOCOMMIT` | Enable autocommit for DML commands (default: false) |
 | `--schemachange-dry-run`<br/>`--dry-run` *(deprecated)* | `SCHEMACHANGE_DRY_RUN` | Run in dry run mode (default: false) |
+| `--continue-all-on-error` | | Continue executing remaining repeatable and always scripts even if one fails. Versioned scripts always stop on failure (default: false) |
+| `--continue-repeatable-on-error` | | Continue executing remaining repeatable scripts after an error (default: false) |
+| `--continue-always-on-error` | | Continue executing remaining always scripts after an error (default: false) |
 | `--out-of-order` | `SCHEMACHANGE_OUT_OF_ORDER` | Allow out-of-order versioned script execution for parallel development (default: false) |
 | `-Q`<br/>`--schemachange-query-tag`<br/>`--query-tag` *(deprecated)* | `SCHEMACHANGE_QUERY_TAG` | String to include in `QUERY_TAG` attached to every SQL statement |
 | `-L`<br/>`--schemachange-log-level`<br/>`--log-level` *(deprecated)* | `SCHEMACHANGE_LOG_LEVEL` | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` (default: `INFO`) |
@@ -1506,6 +1509,8 @@ schemachange deploy --dry-run  # Missing --create-change-history-table
 **Why does dry-run require the change history table?**
 
 Dry-run simulates exactly what would happen during actual execution. If the change history table is missing and you don't specify `--create-change-history-table`, the actual deployment would also fail with "Unable to find change history table". This ensures dry-run accurately reflects reality.
+
+When any continue-on-error flag is used, schemachange records full error messages for failed scripts in the change history table and reports the list of failed scripts before exiting.
 
 ### render
 

@@ -17,4 +17,6 @@ create-change-history-table: false
 autocommit: false
 verbose: false
 dry-run: false
+continue-repeatable-on-error: false
+continue-always-on-error: false
 query-tag: 'query-tag-from-yaml'

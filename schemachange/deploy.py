@@ -54,6 +54,8 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
 
     scripts_skipped = 0
     scripts_applied = 0
+    scripts_failed = 0
+    failed_scripts: list[str] = []
 
     # Loop through each script in order and apply any required changes
     for script_name in all_script_names_sorted:
@@ -117,7 +119,9 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
                 script_log.debug("Skipping change script because there is no change since the last execution")
                 scripts_skipped += 1
                 continue
-
+        should_continue = (script.type == "R" and config.continue_repeatable_on_error) or (
+            script.type == "A" and config.continue_always_on_error
+        )
         # Determine if this is an out-of-order execution (versioned script with version <= max)
         is_out_of_order = (
             script.type == "V"
@@ -125,58 +129,75 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
             and max_published_version is not None
             and get_alphanum_key(script.version) <= max_published_version
         )
+        try:
+            # Prepare content for execution (apply trailing comment fix)
+            # This is done AFTER checksum computation to maintain checksum stability (issue #414)
+            executable_content = jinja_processor.prepare_for_execution(
+                content,
+                jinja_processor.relpath(script.file_path),
+            )
 
-        # Prepare content for execution (apply trailing comment fix)
-        # This is done AFTER checksum computation to maintain checksum stability (issue #414)
-        executable_content = jinja_processor.prepare_for_execution(
-            content,
-            jinja_processor.relpath(script.file_path),
-        )
+            # Execute the script based on its format (SQL or CLI)
+            if script.format == "CLI":
+                # Execute CLI script via subprocess
+                try:
+                    execution_time = execute_cli_script(
+                        script=script,
+                        content=executable_content,
+                        root_folder=config.root_folder,
+                        dry_run=config.dry_run,
+                        log=script_log,
+                        out_of_order=is_out_of_order,
+                    )
 
-        # Execute the script based on its format (SQL or CLI)
-        if script.format == "CLI":
-            # Execute CLI script via subprocess
-            try:
-                execution_time = execute_cli_script(
+                    # Record successful execution in change history (unless dry run)
+                    if not config.dry_run:
+                        session.record_change_history(
+                            script=script,
+                            checksum=checksum_current,
+                            execution_time=execution_time,
+                            status="Success",
+                            logger=script_log,
+                        )
+                except CLIScriptExecutionError as e:
+                    # Record failed execution in change history (unless dry run)
+                    if not config.dry_run:
+                        session.record_change_history(
+                            script=script,
+                            checksum=checksum_current,
+                            execution_time=getattr(e, "execution_time", 0),
+                            status="Failed",
+                            error_message=str(e),
+                            logger=script_log,
+                        )
+                    raise  # Re-raise the exception after recording
+            else:
+                # Execute SQL script via Snowflake session
+                session.apply_change_script(
                     script=script,
-                    content=executable_content,
-                    root_folder=config.root_folder,
+                    script_content=executable_content,
                     dry_run=config.dry_run,
-                    log=script_log,
+                    logger=script_log,
                     out_of_order=is_out_of_order,
                 )
 
-                # Record successful execution in change history (unless dry run)
-                if not config.dry_run:
-                    session.record_change_history(
-                        script=script,
-                        checksum=checksum_current,
-                        execution_time=execution_time,
-                        status="Success",
-                        logger=script_log,
-                    )
-            except CLIScriptExecutionError as e:
-                # Record failed execution in change history (unless dry run)
-                if not config.dry_run:
-                    session.record_change_history(
-                        script=script,
-                        checksum=checksum_current,
-                        execution_time=getattr(e, "execution_time", 0),
-                        status="Failed",
-                        logger=script_log,
-                    )
-                raise  # Re-raise the exception after recording
-        else:
-            # Execute SQL script via Snowflake session
-            session.apply_change_script(
-                script=script,
-                script_content=executable_content,
-                dry_run=config.dry_run,
-                logger=script_log,
-                out_of_order=is_out_of_order,
-            )
+            scripts_applied += 1
+        except Exception as e:
+            scripts_failed += 1
+            failed_scripts.append(script.name)
+            script_log.error("Failed to apply change script", error=str(e))
+            if not should_continue:
+                raise
 
-        scripts_applied += 1
+    if scripts_failed > 0:
+        logger.error(
+            "Completed with errors",
+            scripts_applied=scripts_applied,
+            scripts_skipped=scripts_skipped,
+            scripts_failed=scripts_failed,
+            failed_scripts=failed_scripts,
+        )
+        raise Exception(f"{scripts_failed} change script(s) failed: {', '.join(failed_scripts)}")
 
     logger.info(
         "Completed successfully",
