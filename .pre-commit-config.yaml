@@ -32,9 +32,3 @@ repos:
         args: [ --fix ]  # Auto-fix locally (helpful for developers)
       # Run the formatter (matches CI: ruff format --check .)
       - id: ruff-format
-  - repo: https://github.com/gitguardian/ggshield
-    rev: v1.40.0
-    hooks:
-      - id: ggshield
-        language_version: python3
-        stages: [ pre-commit ]

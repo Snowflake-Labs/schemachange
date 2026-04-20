@@ -1,4 +1,4 @@
-name: dev-pytest
+name: rc-pytest
 
 defaults:
   run:
@@ -12,12 +12,44 @@ on:
 
   pull_request:
     types:
+      - opened
+      - synchronize
+      - reopened
       - labeled
     branches:
-      - dev
+      - 'rc*'
+
 
 jobs:
-  build:
+  lint-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest"]
+        python-version: ["3.13"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: uv sync --all-extras
+      - name: Lint with ruff
+        run: uv run ruff check . --output-format=github
+      - name: Format check with ruff
+        run: uv run ruff format --check .
+      - name: Test with pytest
+        run: uv run pytest
+
+  integration-test:
+    needs: lint-and-test
+    if: ${{ github.event.label.name == 'ci-run-tests' || github.event_name == 'workflow_dispatch' }}
     strategy:
       fail-fast: false
       matrix:
@@ -25,8 +57,6 @@ jobs:
         os: ["ubuntu-latest"]
         python-version: ["3.13"]
     runs-on: ${{ matrix.os }}
-    if: ${{ github.event.label.name == 'ci-run-tests' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
-
     env:
       SNOWFLAKE_PASSWORD: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_PASSWORD }}
       SNOWFLAKE_USER: ${{ secrets.SCHEMACHANGE_SNOWFLAKE_USER }}
@@ -46,34 +76,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      # The next few steps (Install dependencies, Lint with ruff, Test with Pytest) will install Python dependencies,
-      # run tests and lint with a variety of Python versions
-      # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
       - name: Install dependencies
-        run: |
-          uv sync --all-extras
-
-      - name: Lint with ruff
-        run: |
-          # Run ruff linter (checks for errors, style issues)
-          uv run ruff check . --output-format=github
-
-      - name: Format check with ruff
-        run: |
-          # Check if code is formatted according to ruff standards
-          uv run ruff format --check .
-
-      - name: Test with pytest
-        id: pytest
-        run: |
-          uv run pytest
-      # Verify Snowflake connectivity before running demos
+        run: uv sync --all-extras
       - name: Verify Snowflake Connectivity
         run: |
           uv run schemachange verify \
             --config-folder ./demo \
             --config-file-name schemachange-config-setup.yml
-      # Testing Schemachange demo projects
       - name: Test Schemachange on ${{ matrix.os }} targeting ${{ env.SNOWFLAKE_DATABASE }}.${{ env.MY_TARGET_SCHEMA }} schema
         run: |
           echo "Current Directory: ${PWD}"

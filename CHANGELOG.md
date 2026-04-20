@@ -3,6 +3,16 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [4.3.3] - 2026-04-20
+### Fixed
+- Relaxed structlog version constraint to `>=24.1.0,<26.0` to support structlog 25.x ([#429](https://github.com/Snowflake-Labs/schemachange/pull/429) by [@Falydoor](https://github.com/Falydoor)).
+- Updated transitive dependencies to resolve Dependabot security advisories.
+
+### Maintenance
+- Replaced `ggshield` pre-commit hook with GitHub Secret Scanning.
+- Unit tests and linting now run automatically on every pull request.
+- Updated contributor documentation to use `uv` as the recommended dependency manager.
+
 ## [4.3.2] - 2026-02-11
 ### Fixed
 - **Checksum stability fix** (#417): Restored trailing semicolon stripping that was accidentally removed in v4.3.0. This fixes checksum drift for ALL scripts ending with `;`, not just those with trailing comments.
