@@ -99,6 +99,29 @@ class TestJinjaTemplateProcessor:
 
         assert context == "some text myvar_default"
 
+    def test_render_ignores_jinja_when_marker_present(self, processor: JinjaTemplateProcessor):
+        templates = {"test.sql": "-- schemachange-no-jinja\nselect '{{ should_ignore }}'"}
+        processor.override_loader(DictLoader(templates))
+
+        context = processor.render("test.sql", {"should_ignore": "replacement"})
+
+        assert context == "-- schemachange-no-jinja\nselect '{{ should_ignore }}'"
+
+    def test_render_raises_on_undefined_variable_without_marker(self, processor: JinjaTemplateProcessor):
+        templates = {"test.sql": "select '{{ should_ignore }}'"}
+        processor.override_loader(DictLoader(templates))
+
+        with pytest.raises(UndefinedError):
+            processor.render("test.sql", {})
+
+    def test_render_substitutes_variable_without_marker(self, processor: JinjaTemplateProcessor):
+        templates = {"test.sql": "select '{{ my_var }}'"}
+        processor.override_loader(DictLoader(templates))
+
+        context = processor.render("test.sql", {"my_var": "hello"})
+
+        assert context == "select 'hello'"
+
     # ============================================================
     # Empty content validation tests - issue #258
     # ============================================================
