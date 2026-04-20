@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - Replaced `ggshield` pre-commit hook with GitHub Secret Scanning.
 - Unit tests and linting now run automatically on every pull request.
 - Updated contributor documentation to use `uv` as the recommended dependency manager.
+- Bumped GitHub Actions versions: `actions/checkout` v4→v6, `actions/setup-python` v5→v6, `astral-sh/setup-uv` v5→v8.1.0.
 
 ## [4.3.2] - 2026-02-11
 ### Fixed
