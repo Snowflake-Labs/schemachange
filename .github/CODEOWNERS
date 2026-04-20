@@ -1,0 +1,24 @@
+# CI/CD and GitHub configuration
+/.github/                  @sfc-gh-jhansen @sfc-gh-tmathew
+
+# Packaging and dependencies
+/pyproject.toml            @sfc-gh-jhansen @sfc-gh-tmathew
+/setup.cfg                 @sfc-gh-jhansen @sfc-gh-tmathew
+/uv.lock                   @sfc-gh-jhansen @sfc-gh-tmathew
+
+# Container configuration
+/Dockerfile                @sfc-gh-jhansen @sfc-gh-tmathew
+/Dockerfile-src            @sfc-gh-jhansen @sfc-gh-tmathew
+
+# Developer tooling
+/.pre-commit-config.yaml   @sfc-gh-jhansen @sfc-gh-tmathew
+/.gitignore                @sfc-gh-jhansen @sfc-gh-tmathew
+
+# Legal and compliance
+/LICENSE                   @sfc-gh-jhansen @sfc-gh-tmathew
+/LEGAL.md                  @sfc-gh-jhansen @sfc-gh-tmathew
+/NOTICE                    @sfc-gh-jhansen @sfc-gh-tmathew
+/SECURITY.md               @sfc-gh-jhansen @sfc-gh-tmathew
+
+# Release management
+/CHANGELOG.md              @sfc-gh-jhansen @sfc-gh-tmathew
