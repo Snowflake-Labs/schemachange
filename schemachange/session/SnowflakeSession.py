@@ -311,6 +311,7 @@ class SnowflakeSession:
                 CHECKSUM VARCHAR,
                 EXECUTION_TIME NUMBER,
                 STATUS VARCHAR,
+                ERROR_MESSAGE VARCHAR,
                 INSTALLED_BY VARCHAR,
                 INSTALLED_ON TIMESTAMP_LTZ
             )
@@ -376,6 +377,9 @@ class SnowflakeSession:
             f"Using existing change history table {self.change_history_table.fully_qualified}",
             last_altered=change_history_metadata["last_altered"],
         )
+
+        # Validate schema before running any scripts
+        self.validate_change_history_schema(dry_run=dry_run)
 
         change_history, max_published_version = self.fetch_versioned_scripts()
         r_scripts_checksum = self.fetch_repeatable_scripts()
@@ -487,18 +491,15 @@ class SnowflakeSession:
         # noinspection PyTypeChecker
         checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
         execution_time = 0
-
-        # Execute the contents of the script
+        start = time.time()
         if len(script_content) > 0:
-            start = time.time()
             self.reset_session(logger=logger)
             self.reset_query_tag(extra_tag=script.name, logger=logger)
             try:
                 self.execute_snowflake_query(query=script_content, logger=logger)
             except snowflake.connector.errors.ProgrammingError as e:
                 # SQL syntax/logic errors
-                end = time.time()
-                execution_time = round(end - start)
+                execution_time = round(time.time() - start)
                 logger.error(
                     "SQL execution failed",
                     script_name=script.name,
@@ -515,6 +516,7 @@ class SnowflakeSession:
                     checksum=checksum,
                     execution_time=execution_time,
                     status="Failed",
+                    error_message=str(e),
                     logger=logger,
                 )
 
@@ -531,8 +533,7 @@ class SnowflakeSession:
 
             except snowflake.connector.errors.DatabaseError as e:
                 # Connection, permission, warehouse errors
-                end = time.time()
-                execution_time = round(end - start)
+                execution_time = round(time.time() - start)
                 logger.error(
                     "Database error during script execution",
                     script_name=script.name,
@@ -547,6 +548,7 @@ class SnowflakeSession:
                     checksum=checksum,
                     execution_time=execution_time,
                     status="Failed",
+                    error_message=str(e),
                     logger=logger,
                 )
 
@@ -560,8 +562,7 @@ class SnowflakeSession:
 
             except Exception as e:
                 # Unexpected errors
-                end = time.time()
-                execution_time = round(end - start)
+                execution_time = round(time.time() - start)
                 logger.error(
                     "Unexpected error during script execution",
                     script_name=script.name,
@@ -577,6 +578,7 @@ class SnowflakeSession:
                     checksum=checksum,
                     execution_time=execution_time,
                     status="Failed",
+                    error_message=str(e),
                     logger=logger,
                 )
 
@@ -587,10 +589,11 @@ class SnowflakeSession:
                     error_message=f"Unexpected error: {str(e)}",
                     original_exception=e,
                 ) from e
-            self.reset_query_tag(logger=logger)
-            self.reset_session(logger=logger)
-            end = time.time()
-            execution_time = round(end - start)
+            finally:
+                self.reset_query_tag(logger=logger)
+                self.reset_session(logger=logger)
+
+        execution_time = round(time.time() - start)
 
         # Record the successful script execution in change history
         self.record_change_history(
@@ -598,8 +601,58 @@ class SnowflakeSession:
             checksum=checksum,
             execution_time=execution_time,
             status="Success",
+            error_message="",
             logger=logger,
         )
+
+    def validate_change_history_schema(self, dry_run: bool = False) -> None:
+        """
+        Validate that the change history table has all required columns.
+
+        If ERROR_MESSAGE is missing (e.g., table was created by an older version of schemachange),
+        this method attempts to ALTER the table to add it. In dry-run mode it only warns.
+        If the role lacks ALTER privileges in a real deploy, it fails immediately with a clear
+        message telling the user what to run manually.
+        """
+        if self.change_history_table is None:
+            raise ValueError("change_history_table is required for deployment operations")
+
+        # Fast metadata-only check: LIMIT 0 resolves column names without scanning any data
+        check_query = f"SELECT ERROR_MESSAGE FROM {self.change_history_table.fully_qualified} LIMIT 0"
+        try:
+            self.execute_snowflake_query(check_query, logger=self.logger)
+            return  # Column exists
+        except snowflake.connector.errors.ProgrammingError:
+            pass  # Column is missing, proceed to add it
+
+        if dry_run:
+            self.logger.warning(
+                "Change history table is missing the ERROR_MESSAGE column. "
+                "A real deploy would attempt to add it automatically.",
+                table=self.change_history_table.fully_qualified,
+            )
+            return
+
+        self.logger.info(
+            "Change history table is missing ERROR_MESSAGE column, attempting to add it",
+            table=self.change_history_table.fully_qualified,
+        )
+        alter_query = (
+            f"ALTER TABLE {self.change_history_table.fully_qualified} "
+            "ADD COLUMN IF NOT EXISTS ERROR_MESSAGE VARCHAR"
+        )
+        try:
+            self.execute_snowflake_query(alter_query, logger=self.logger)
+            self.logger.info("Added ERROR_MESSAGE column to change history table")
+        except Exception as e:
+            raise ValueError(
+                f"Change history table {self.change_history_table.fully_qualified} is missing the "
+                f"ERROR_MESSAGE column and schemachange was unable to add it automatically. "
+                f"Please run the following SQL manually with a role that has ALTER TABLE privileges:\n\n"
+                f"    ALTER TABLE {self.change_history_table.fully_qualified} "
+                f"ADD COLUMN IF NOT EXISTS ERROR_MESSAGE VARCHAR;\n\n"
+                f"Original error: {e}"
+            ) from e
 
     def record_change_history(
         self,
@@ -613,6 +666,7 @@ class SnowflakeSession:
         execution_time: int,
         status: str,
         logger: structlog.BoundLogger,
+        error_message: str = "",
     ) -> None:
         """
         Record a script execution in the change history table.
@@ -625,11 +679,13 @@ class SnowflakeSession:
             checksum: SHA-224 checksum of the rendered script content
             execution_time: Execution time in seconds
             status: Execution status (e.g., "Success")
+            error_message: Error message for failed scripts (optional)
             logger: Logger instance for this operation
         """
         if self.change_history_table is None:
             raise ValueError("change_history_table is required for deployment operations")
-
+        script_version = getattr(script, "version", "")
+        error_message = (error_message or "").replace("'", "''")
         query = f"""\
             INSERT INTO {self.change_history_table.fully_qualified} (
                 VERSION,
@@ -639,16 +695,18 @@ class SnowflakeSession:
                 CHECKSUM,
                 EXECUTION_TIME,
                 STATUS,
+                ERROR_MESSAGE,
                 INSTALLED_BY,
                 INSTALLED_ON
             ) VALUES (
-                '{getattr(script, "version", "")}',
+                '{script_version}',
                 '{script.description}',
                 '{script.name}',
                 '{script.type}',
                 '{checksum}',
                 {execution_time},
                 '{status}',
+                '{error_message}',
                 '{self.user}',
                 CURRENT_TIMESTAMP
             );
