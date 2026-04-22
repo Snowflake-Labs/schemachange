@@ -1066,6 +1066,7 @@ These Snowflake-specific environment variables are explicitly handled by schemac
 | `SNOWFLAKE_PRIVATE_KEY_FILE` | Path to private key file for JWT authentication | `~/.ssh/snowflake_key.p8` |
 | `SNOWFLAKE_PRIVATE_KEY_FILE_PWD` | Passphrase for encrypted private key | `my_key_password` |
 | `SNOWFLAKE_TOKEN_FILE_PATH` | Path to OAuth token file (for external OAuth only) | `~/.snowflake/oauth_token.txt` |
+| `SNOWFLAKE_PRIVATE_KEY_PEM` | Raw PEM content | |
 
 ##### Generic SNOWFLAKE_* Parameters (Pass-through)
 

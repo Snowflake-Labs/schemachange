@@ -10,6 +10,7 @@ from schemachange.config.utils import (
     get_snowflake_authenticator,
     get_snowflake_identifier_string,
     get_snowflake_password,
+    get_snowflake_private_key,
     get_snowflake_private_key_file,
     get_snowflake_private_key_file_pwd,
     get_snowflake_private_key_passphrase,
@@ -284,5 +285,12 @@ class DeployConfig(BaseConfig):
                 raise PermissionError(f"Permission denied reading token file: {token_file_path}") from None
             except Exception as e:
                 raise ValueError(f"Error reading token file {token_file_path}: {str(e)}") from e
+
+        snowflake_private_key = get_snowflake_private_key()
+        if snowflake_private_key:
+            session_kwargs["private_key"] = snowflake_private_key
+            # Inline PEM takes precedence over file-based key
+            session_kwargs.pop("private_key_file", None)
+            session_kwargs.pop("private_key_file_pwd", None)
 
         return {k: v for k, v in session_kwargs.items() if v is not None}
