@@ -258,7 +258,7 @@ def load_yaml_config(config_file_path: Path | None) -> dict[str, Any]:
     # First read in the yaml config file, if present
     if config_file_path is not None and config_file_path.is_file():
         with config_file_path.open() as config_file:
-            # Run the config file through the jinja engine to give access to environmental variables
+            # Run the config file through the jinja engine to give access to environment variables
             # The config file does not have the same access to the jinja functionality that a script
             # has.
             config_template = jinja2.Template(

@@ -29,7 +29,7 @@ class TestJinjaTemplateProcessor:
     def test_render_simple_string_expecting_variable_that_does_not_exist_should_raise_exception(
         self, processor: JinjaTemplateProcessor
     ):
-        # overide the default loader
+        # override the default loader
         templates = {"test.sql": "some text {{ myvar }}"}
         processor.override_loader(DictLoader(templates))
 
@@ -39,7 +39,7 @@ class TestJinjaTemplateProcessor:
         assert str(e.value) == "'myvar' is undefined"
 
     def test_render_simple_string_expecting_variable(self, processor: JinjaTemplateProcessor):
-        # overide the default loader
+        # override the default loader
         templates = {"test.sql": "Hello {{ myvar }}!"}
         processor.override_loader(DictLoader(templates))
 
@@ -66,20 +66,20 @@ class TestJinjaTemplateProcessor:
         assert context == "Hello world!"
 
     def test_from_environ_not_set(self, processor: JinjaTemplateProcessor):
-        # overide the default loader
+        # override the default loader
         templates = {"test.sql": "some text {{ env_var('MYVAR') }}"}
         processor.override_loader(DictLoader(templates))
 
         with pytest.raises(ValueError) as e:
             processor.render("test.sql", None)
 
-        assert str(e.value) == "Could not find environmental variable MYVAR and no default value was provided"
+        assert str(e.value) == "Could not find environment variable MYVAR and no default value was provided"
 
     def test_from_environ_set(self, processor: JinjaTemplateProcessor):
         # set MYVAR env variable
         os.environ["MYVAR"] = "myvar_from_environment"
 
-        # overide the default loader
+        # override the default loader
         templates = {"test.sql": "some text {{ env_var('MYVAR') }}"}
         processor.override_loader(DictLoader(templates))
 
@@ -91,7 +91,7 @@ class TestJinjaTemplateProcessor:
         assert context == "some text myvar_from_environment"
 
     def test_from_environ_not_set_default(self, processor: JinjaTemplateProcessor):
-        # overide the default loader
+        # override the default loader
         templates = {"test.sql": "some text {{ env_var('MYVAR', 'myvar_default') }}"}
         processor.override_loader(DictLoader(templates))
 

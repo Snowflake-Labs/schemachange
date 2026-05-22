@@ -211,7 +211,7 @@ All notable changes to this project will be documented in this file.
 - Added support for Oauth and external browser and Okta authentication methods.
 - Added `--oauth-config` to accept values for oauth configuration.
 ### Changed
-- Inverted Program Call sequence and refactored all snowflake interactions into a Class. Class now persists connection accross all interactions and updates the snowflake query tag session variable as scripts are executed.
+- Inverted Program Call sequence and refactored all snowflake interactions into a Class. Class now persists connection across all interactions and updates the snowflake query tag session variable as scripts are executed.
 - Cleaned up argument passing and other repetitive code using dictionary and set comparisons for easy maintenance. (Converted variable names to a consistent snake_case from a mix of kebab-case and snake_case)
 - Fixed change history table processing to allow mixed case names when '"' are used in the name.
 - Moved most error, log and warning messages and query strings to global or class variables.
@@ -252,7 +252,7 @@ All notable changes to this project will be documented in this file.
 ## [3.3.0] - 2021-11-06
 ### Added
 - Added processing of schemachange-config.yml with jinja templating engine.
-  - Included new Jinja function env_var for accessing environmental variables from the config file.
+  - Included new Jinja function env_var for accessing environment variables from the config file.
 
 ## [3.2.2] - 2021-11-06
 ### Added
@@ -413,5 +413,5 @@ All notable changes to this project will be documented in this file.
 - Updated the getting started section of the README.md to make the getting started steps more clear
 
 ### Removed
-- The ability for snowchange to create user databases directly (now the user must explicity do so in their change scripts)
+- The ability for snowchange to create user databases directly (now the user must explicitly do so in their change scripts)
 - The `--environment-name` and `--append-environment-name` parameters
