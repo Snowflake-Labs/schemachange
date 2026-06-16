@@ -750,7 +750,7 @@ wheels = [
 
 [[package]]
 name = "schemachange"
-version = "4.3.3"
+version = "4.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "colorama", marker = "sys_platform == 'win32'" },
