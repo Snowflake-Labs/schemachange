@@ -67,7 +67,7 @@ vars:
 
     with pytest.raises(ValueError) as e:
         load_yaml_config(config_file)
-    assert str(e.value) == "Could not find environmental variable TEST_VAR and no default value was provided"
+    assert str(e.value) == "Could not find environment variable TEST_VAR and no default value was provided"
 
 
 @mock.patch("pathlib.Path.is_dir", return_value=True)

@@ -139,9 +139,9 @@ deploy_all_cli_arg_names = pytest.param(
         "snowflake_database": get_snowflake_identifier_string("snowflake-database-from-cli", "placeholder"),
         "snowflake_schema": get_snowflake_identifier_string("snowflake-schema-from-cli", "placeholder"),
         "change_history_table": ChangeHistoryTable(
-            database_name="db",
-            schema_name="schema",
-            table_name="table_from_cli",
+            database_name="DB",
+            schema_name="SCHEMA",
+            table_name="TABLE_FROM_CLI",
         ),
         "config_vars": {
             "var1": "from_cli",
@@ -212,9 +212,9 @@ deploy_all_cli_arg_flags = pytest.param(
         "snowflake_database": get_snowflake_identifier_string("snowflake-database-from-cli", "placeholder"),
         "snowflake_schema": get_snowflake_identifier_string("snowflake-schema-from-cli", "placeholder"),
         "change_history_table": ChangeHistoryTable(
-            database_name="db",
-            schema_name="schema",
-            table_name="table_from_cli",
+            database_name="DB",
+            schema_name="SCHEMA",
+            table_name="TABLE_FROM_CLI",
         ),
         "config_vars": {
             "var1": "from_cli",
@@ -285,9 +285,9 @@ deploy_all_env_all_cli = pytest.param(
         "snowflake_database": get_snowflake_identifier_string("snowflake-database-from-cli", "placeholder"),
         "snowflake_schema": get_snowflake_identifier_string("snowflake-schema-from-cli", "placeholder"),
         "change_history_table": ChangeHistoryTable(
-            database_name="db",
-            schema_name="schema",
-            table_name="table_from_cli",
+            database_name="DB",
+            schema_name="SCHEMA",
+            table_name="TABLE_FROM_CLI",
         ),
         "config_vars": {
             "var1": "from_cli",

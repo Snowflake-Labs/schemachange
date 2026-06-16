@@ -82,23 +82,23 @@ def test_sorted_alphanumeric_mixed_string():
             {
                 "database_name": ChangeHistoryTable._default_database_name,
                 "schema_name": ChangeHistoryTable._default_schema_name,
-                "table_name": "change_history_table",
+                "table_name": "CHANGE_HISTORY_TABLE",
             },
         ),
         (
             "myschema.change_history_table",
             {
                 "database_name": ChangeHistoryTable._default_database_name,
-                "schema_name": "myschema",
-                "table_name": "change_history_table",
+                "schema_name": "MYSCHEMA",
+                "table_name": "CHANGE_HISTORY_TABLE",
             },
         ),
         (
             "mydb.myschema.change_history_table",
             {
-                "database_name": "mydb",
-                "schema_name": "myschema",
-                "table_name": "change_history_table",
+                "database_name": "MYDB",
+                "schema_name": "MYSCHEMA",
+                "table_name": "CHANGE_HISTORY_TABLE",
             },
         ),
         (

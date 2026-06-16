@@ -7,7 +7,7 @@ import jinja2.ext
 
 class JinjaEnvVar(jinja2.ext.Extension):
     """
-    Extends Jinja Templates with access to environmental variables
+    Extends Jinja Templates with access to environment variables
     """
 
     def __init__(self, environment: jinja2.Environment):
@@ -19,13 +19,13 @@ class JinjaEnvVar(jinja2.ext.Extension):
     @staticmethod
     def env_var(env_var: str, default: str | None = None) -> str:
         """
-        Returns the value of the environmental variable or the default.
+        Returns the value of the environment variable or the default.
         """
         result = default
         if env_var in os.environ:
             result = os.environ[env_var]
 
         if result is None:
-            raise ValueError(f"Could not find environmental variable {env_var} and no default value was provided")
+            raise ValueError(f"Could not find environment variable {env_var} and no default value was provided")
 
         return result

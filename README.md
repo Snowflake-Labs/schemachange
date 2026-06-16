@@ -53,6 +53,10 @@ EOF
 
 ### 3. Run your first deployment
 
+> **First time?** The examples below include `--create-change-history-table`, which creates
+> schemachange's tracking table automatically on first run. Your target database (default: `METADATA`)
+> must already exist in Snowflake — schemachange creates the schema and table, not the database.
+
 **Option A: Using environment variables (recommended for CI/CD)**
 ```bash
 export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
@@ -62,7 +66,7 @@ export SNOWFLAKE_ROLE="MY_ROLE"
 export SNOWFLAKE_WAREHOUSE="MY_WH"
 export SNOWFLAKE_DATABASE="MY_DB"
 
-schemachange deploy -f migrations
+schemachange deploy -f migrations --create-change-history-table
 ```
 
 **Option B: Using CLI arguments (quick tests)**
@@ -72,6 +76,7 @@ export SNOWFLAKE_PASSWORD="your_password_or_pat"
 
 schemachange deploy \
   -f migrations \
+  --create-change-history-table \
   -a myaccount.us-east-1.aws \
   -u my_user \
   -r MY_ROLE \
@@ -82,8 +87,10 @@ schemachange deploy \
 **Option C: Using connections.toml (local development)**
 ```bash
 # Create ~/.snowflake/connections.toml with your credentials
-schemachange deploy -f migrations -C my_connection
+schemachange deploy -f migrations -C my_connection --create-change-history-table
 ```
+
+> **Tip:** To store the change history in a different database, pass `-c MY_DB.SCHEMACHANGE.CHANGE_HISTORY`.
 
 ### 4. Verify your deployment
 ```bash
@@ -353,7 +360,7 @@ finds any variable placeholders that haven't been replaced.
 
 While many CI/CD tools already have the capability to filter secrets, it is best that any tool also does not output
 secrets to the console or logs. Schemachange implements secrets filtering in a number of areas to ensure secrets are not
-writen to the console or logs. The only exception is the `render` command which will display secrets.
+written to the console or logs. The only exception is the `render` command which will display secrets.
 
 A secret is just a standard variable that has been tagged as a secret. This is determined using a naming convention and
 either of the following will tag a variable as a secret:
@@ -412,7 +419,7 @@ For detailed troubleshooting and solutions, see [TROUBLESHOOTING.md](TROUBLESHOO
 
 schemachange records all applied changes scripts to the change history table. By default, schemachange will attempt to
 log all activities to the `METADATA.SCHEMACHANGE.CHANGE_HISTORY` table. The name and location of the change history
-table can be overriden via a command line argument (`-c`, `--schemachange-change-history-table`, or `--change-history-table`)
+table can be overridden via a command line argument (`-c`, `--schemachange-change-history-table`, or `--change-history-table`)
 or the `schemachange-config.yml` file (`change-history-table`). The value passed to the parameter can have a one, two, or
 three part name (e.g. "TABLE_NAME", or "SCHEMA_NAME.TABLE_NAME", or "DATABASE_NAME.SCHEMA_NAME.TABLE_NAME"). This can be
 used to support multiple environments (dev, test, prod) or multiple subject areas within the same Snowflake account.
@@ -928,15 +935,15 @@ This behavior ensures:
 
 ##### env_var
 
-Provides access to environmental variables. The function can be used two different ways.
+Provides access to environment variables. The function can be used two different ways.
 
-Return the value of the environmental variable if it exists, otherwise return the default value.
+Return the value of the environment variable if it exists, otherwise return the default value.
 
 ```jinja
 {{ env_var('<environmental_variable>', 'default') }}
 ```
 
-Return the value of the environmental variable if it exists, otherwise raise an error.
+Return the value of the environment variable if it exists, otherwise raise an error.
 
 ```jinja
 {{ env_var('<environmental_variable>') }}
@@ -1683,6 +1690,15 @@ docker run -it --rm \
 ```
 
 Either way, don't forget to configure a [connections.toml file](#connectionstoml-file) for connection parameters
+
+## Staying Current
+
+schemachange follows [semantic versioning](https://semver.org/). To avoid surprises in production:
+
+- **Pin your version in CI/CD:** Use `pip install schemachange==4.3.3` (not `--upgrade`) so deployments are reproducible.
+- **Monitor for updates:** Use [Dependabot](https://docs.github.com/en/code-security/dependabot) or [Renovate](https://docs.renovatebot.com/) to get PRs when new versions are published to PyPI.
+- **Read the [CHANGELOG](CHANGELOG.md)** before upgrading — breaking changes are called out in major version bumps.
+- **Test upgrades in a non-production environment** before rolling out to your main pipeline.
 
 ## Maintainers
 

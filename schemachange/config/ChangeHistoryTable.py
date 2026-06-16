@@ -4,6 +4,19 @@ from typing import ClassVar
 from schemachange.config.utils import get_snowflake_identifier_string
 
 
+def _normalize_identifier(value: str) -> str:
+    """Uppercase unquoted identifiers to match Snowflake's INFORMATION_SCHEMA storage.
+
+    Snowflake stores unquoted identifiers in uppercase in metadata catalogs.
+    Quoted identifiers (e.g. "mySchema") are case-sensitive and left as-is.
+
+    Fixes: https://github.com/Snowflake-Labs/schemachange/issues/432
+    """
+    if value and not (value.startswith('"') and value.endswith('"')):
+        return value.upper()
+    return value
+
+
 @dataclasses.dataclass(frozen=True)
 class ChangeHistoryTable:
     _default_database_name: ClassVar[str] = "METADATA"
@@ -43,7 +56,13 @@ class ChangeHistoryTable:
                 raise ValueError(f"Invalid change history table name: {table_str}")
 
         return cls(
-            table_name=get_snowflake_identifier_string(input_value=table_name, input_type="table_name"),
-            schema_name=get_snowflake_identifier_string(input_value=schema_name, input_type="schema_name"),
-            database_name=get_snowflake_identifier_string(input_value=database_name, input_type="database_name"),
+            table_name=_normalize_identifier(
+                get_snowflake_identifier_string(input_value=table_name, input_type="table_name")
+            ),
+            schema_name=_normalize_identifier(
+                get_snowflake_identifier_string(input_value=schema_name, input_type="schema_name")
+            ),
+            database_name=_normalize_identifier(
+                get_snowflake_identifier_string(input_value=database_name, input_type="database_name")
+            ),
         )
