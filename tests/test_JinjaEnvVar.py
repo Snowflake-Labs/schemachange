@@ -15,7 +15,7 @@ def test_env_var_with_no_default_and_no_environmental_variables_should_raise_exc
 
     with pytest.raises(ValueError) as e:
         JinjaEnvVar.env_var("SF_DATABASE")
-    assert str(e.value) == "Could not find environmental variable SF_DATABASE and no default value was provided"
+    assert str(e.value) == "Could not find environment variable SF_DATABASE and no default value was provided"
 
 
 @mock.patch.dict(os.environ, {}, clear=True)

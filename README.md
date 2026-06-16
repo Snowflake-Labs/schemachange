@@ -353,7 +353,7 @@ finds any variable placeholders that haven't been replaced.
 
 While many CI/CD tools already have the capability to filter secrets, it is best that any tool also does not output
 secrets to the console or logs. Schemachange implements secrets filtering in a number of areas to ensure secrets are not
-writen to the console or logs. The only exception is the `render` command which will display secrets.
+written to the console or logs. The only exception is the `render` command which will display secrets.
 
 A secret is just a standard variable that has been tagged as a secret. This is determined using a naming convention and
 either of the following will tag a variable as a secret:
@@ -412,7 +412,7 @@ For detailed troubleshooting and solutions, see [TROUBLESHOOTING.md](TROUBLESHOO
 
 schemachange records all applied changes scripts to the change history table. By default, schemachange will attempt to
 log all activities to the `METADATA.SCHEMACHANGE.CHANGE_HISTORY` table. The name and location of the change history
-table can be overriden via a command line argument (`-c`, `--schemachange-change-history-table`, or `--change-history-table`)
+table can be overridden via a command line argument (`-c`, `--schemachange-change-history-table`, or `--change-history-table`)
 or the `schemachange-config.yml` file (`change-history-table`). The value passed to the parameter can have a one, two, or
 three part name (e.g. "TABLE_NAME", or "SCHEMA_NAME.TABLE_NAME", or "DATABASE_NAME.SCHEMA_NAME.TABLE_NAME"). This can be
 used to support multiple environments (dev, test, prod) or multiple subject areas within the same Snowflake account.
@@ -928,15 +928,15 @@ This behavior ensures:
 
 ##### env_var
 
-Provides access to environmental variables. The function can be used two different ways.
+Provides access to environment variables. The function can be used two different ways.
 
-Return the value of the environmental variable if it exists, otherwise return the default value.
+Return the value of the environment variable if it exists, otherwise return the default value.
 
 ```jinja
 {{ env_var('<environmental_variable>', 'default') }}
 ```
 
-Return the value of the environmental variable if it exists, otherwise raise an error.
+Return the value of the environment variable if it exists, otherwise raise an error.
 
 ```jinja
 {{ env_var('<environmental_variable>') }}
