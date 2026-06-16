@@ -53,6 +53,10 @@ EOF
 
 ### 3. Run your first deployment
 
+> **First time?** The examples below include `--create-change-history-table`, which creates
+> schemachange's tracking table automatically on first run. Your target database (default: `METADATA`)
+> must already exist in Snowflake — schemachange creates the schema and table, not the database.
+
 **Option A: Using environment variables (recommended for CI/CD)**
 ```bash
 export SNOWFLAKE_ACCOUNT="myaccount.us-east-1.aws"
@@ -62,7 +66,7 @@ export SNOWFLAKE_ROLE="MY_ROLE"
 export SNOWFLAKE_WAREHOUSE="MY_WH"
 export SNOWFLAKE_DATABASE="MY_DB"
 
-schemachange deploy -f migrations
+schemachange deploy -f migrations --create-change-history-table
 ```
 
 **Option B: Using CLI arguments (quick tests)**
@@ -72,6 +76,7 @@ export SNOWFLAKE_PASSWORD="your_password_or_pat"
 
 schemachange deploy \
   -f migrations \
+  --create-change-history-table \
   -a myaccount.us-east-1.aws \
   -u my_user \
   -r MY_ROLE \
@@ -82,8 +87,10 @@ schemachange deploy \
 **Option C: Using connections.toml (local development)**
 ```bash
 # Create ~/.snowflake/connections.toml with your credentials
-schemachange deploy -f migrations -C my_connection
+schemachange deploy -f migrations -C my_connection --create-change-history-table
 ```
+
+> **Tip:** To store the change history in a different database, pass `-c MY_DB.SCHEMACHANGE.CHANGE_HISTORY`.
 
 ### 4. Verify your deployment
 ```bash
@@ -1683,6 +1690,15 @@ docker run -it --rm \
 ```
 
 Either way, don't forget to configure a [connections.toml file](#connectionstoml-file) for connection parameters
+
+## Staying Current
+
+schemachange follows [semantic versioning](https://semver.org/). To avoid surprises in production:
+
+- **Pin your version in CI/CD:** Use `pip install schemachange==4.3.3` (not `--upgrade`) so deployments are reproducible.
+- **Monitor for updates:** Use [Dependabot](https://docs.github.com/en/code-security/dependabot) or [Renovate](https://docs.renovatebot.com/) to get PRs when new versions are published to PyPI.
+- **Read the [CHANGELOG](CHANGELOG.md)** before upgrading — breaking changes are called out in major version bumps.
+- **Test upgrades in a non-production environment** before rolling out to your main pipeline.
 
 ## Maintainers
 
