@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [Unreleased]
+### Fixed
+- **R script checksum mismatch** ([#435](https://github.com/Snowflake-Labs/schemachange/issues/435)): Fixed a bug where R scripts with trailing comments (e.g. `-- comment` after the last `;`) were re-applied on every deployment even when unchanged. The root cause was `apply_change_script()` recomputing the checksum on post-transformation content instead of using the pre-transformation checksum from `deploy.py`.
+
+### Upgrade Notes
+- **Note for users with R scripts that have trailing comments:** If you deployed R scripts with trailing comments under v4.3.x, their checksums stored in the change history table were computed from the post-transformation content. On the **first deploy after upgrading**, those scripts will be re-applied once (schemachange will see a checksum mismatch). For idempotent scripts this is harmless; non-idempotent R scripts should be reviewed before upgrading.
+
 ## [4.3.3] - 2026-04-20
 ### Fixed
 - Relaxed structlog version constraint to `>=24.1.0,<26.0` to support structlog 25.x ([#429](https://github.com/Snowflake-Labs/schemachange/pull/429) by [@Falydoor](https://github.com/Falydoor)).
