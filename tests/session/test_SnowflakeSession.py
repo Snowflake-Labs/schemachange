@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from collections import defaultdict
 from pathlib import Path
 from unittest import mock
@@ -10,7 +11,7 @@ import structlog
 
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.ScriptExecutionError import ScriptExecutionError
-from schemachange.session.Script import VersionedScript
+from schemachange.session.Script import RepeatableScript, VersionedScript
 from schemachange.session.SnowflakeSession import SnowflakeSession
 
 
@@ -808,6 +809,131 @@ class TestSnowflakeSession:
                 # Verify execute_string was only called during initialization
                 # _initialize_session_context makes 1 call with all 4 USE commands
                 assert mock_conn.execute_string.call_count == 1
+
+    def test_apply_change_script_uses_provided_checksum(self):
+        """apply_change_script should store the caller-supplied checksum, not recompute from script_content.
+
+        Regression test for #435: R scripts with trailing comments were reapplied
+        every deployment because apply_change_script recomputed the checksum on
+        post-transformation content (with appended SELECT 1) instead of using the
+        pre-transformation checksum passed by deploy.py.
+        """
+        change_history_table = ChangeHistoryTable()
+        logger = structlog.testing.CapturingLogger()
+
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "test_account"
+            mock_conn.user = "test_user"
+            mock_conn.role = "test_role"
+            mock_conn.warehouse = "test_warehouse"
+            mock_conn.database = "test_db"
+            mock_conn.schema = "test_schema"
+            mock_conn.session_id = "session_123"
+            mock_connect.return_value = mock_conn
+
+            with mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string"):
+                session = SnowflakeSession(
+                    user="test_user",
+                    account="test_account",
+                    role="test_role",
+                    warehouse="test_warehouse",
+                    database="test_db",
+                    schema_name="test_schema",
+                    schemachange_version="4.3.0",
+                    application="schemachange",
+                    change_history_table=change_history_table,
+                    logger=logger,
+                )
+
+                # Simulate an R script with a trailing comment
+                original_content = "CREATE OR REPLACE VIEW my_view AS SELECT 1;\n-- trailing comment"
+                # This is what prepare_for_execution() would produce
+                post_transform_content = (
+                    "CREATE OR REPLACE VIEW my_view AS SELECT 1;\n"
+                    "-- trailing comment\n"
+                    "SELECT 1; -- schemachange: trailing comment fix"
+                )
+
+                # The checksum deploy.py computes BEFORE transformation
+                pre_transform_checksum = hashlib.sha224(original_content.encode("utf-8")).hexdigest()
+                # The (wrong) checksum that would be computed on post-transform content
+                post_transform_checksum = hashlib.sha224(post_transform_content.encode("utf-8")).hexdigest()
+
+                assert pre_transform_checksum != post_transform_checksum, "Test setup: checksums must differ"
+
+                script = RepeatableScript(
+                    description="Create view",
+                    name="R__create_view.sql",
+                    file_path=Path("/scripts/R__create_view.sql"),
+                )
+
+                with mock.patch.object(session, "record_change_history") as mock_record:
+                    session.apply_change_script(
+                        script=script,
+                        script_content=post_transform_content,
+                        dry_run=False,
+                        logger=logger,
+                        checksum=pre_transform_checksum,
+                    )
+
+                # The stored checksum must be the pre-transform one passed by the caller
+                mock_record.assert_called_once()
+                assert mock_record.call_args.kwargs["checksum"] == pre_transform_checksum
+
+    def test_apply_change_script_falls_back_to_computed_checksum_when_none(self):
+        """When checksum is not provided, apply_change_script should compute it from script_content.
+
+        This preserves backward compatibility for callers that don't pass a checksum.
+        """
+        change_history_table = ChangeHistoryTable()
+        logger = structlog.testing.CapturingLogger()
+
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "test_account"
+            mock_conn.user = "test_user"
+            mock_conn.role = "test_role"
+            mock_conn.warehouse = "test_warehouse"
+            mock_conn.database = "test_db"
+            mock_conn.schema = "test_schema"
+            mock_conn.session_id = "session_123"
+            mock_connect.return_value = mock_conn
+
+            with mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string"):
+                session = SnowflakeSession(
+                    user="test_user",
+                    account="test_account",
+                    role="test_role",
+                    warehouse="test_warehouse",
+                    database="test_db",
+                    schema_name="test_schema",
+                    schemachange_version="4.3.0",
+                    application="schemachange",
+                    change_history_table=change_history_table,
+                    logger=logger,
+                )
+
+                script_content = "SELECT 1"
+                expected_checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
+
+                script = RepeatableScript(
+                    description="Test script",
+                    name="R__test.sql",
+                    file_path=Path("/scripts/R__test.sql"),
+                )
+
+                with mock.patch.object(session, "record_change_history") as mock_record:
+                    session.apply_change_script(
+                        script=script,
+                        script_content=script_content,
+                        dry_run=False,
+                        logger=logger,
+                        # checksum intentionally not provided
+                    )
+
+                mock_record.assert_called_once()
+                assert mock_record.call_args.kwargs["checksum"] == expected_checksum
 
     def test_execute_snowflake_query_logs_programming_error_details(self):
         """Test that execute_snowflake_query logs ProgrammingError details and re-raises."""

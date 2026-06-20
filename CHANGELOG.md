@@ -11,7 +11,10 @@ All notable changes to this project will be documented in this file.
 - TBD
 
 ### Fixed
-- TBD
+- **R script checksum mismatch** ([#435](https://github.com/Snowflake-Labs/schemachange/issues/435)): Fixed a bug where R scripts with trailing comments (e.g. `-- comment` after the last `;`) were re-applied on every deployment even when unchanged. The root cause was `apply_change_script()` recomputing the checksum on post-transformation content instead of using the pre-transformation checksum from `deploy.py`.
+
+### Upgrade Notes
+- **Note for users with R scripts that have trailing comments:** If you deployed R scripts with trailing comments under v4.3.x, their checksums stored in the change history table were computed from the post-transformation content. On the **first deploy after upgrading**, those scripts will be re-applied once (schemachange will see a checksum mismatch). For idempotent scripts this is harmless; non-idempotent R scripts should be reviewed before upgrading.
 
 ### Dependencies
 - Updated `uv.lock` with latest dependency versions

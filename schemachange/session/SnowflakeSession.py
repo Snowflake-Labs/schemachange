@@ -472,6 +472,7 @@ class SnowflakeSession:
         dry_run: bool,
         logger: structlog.BoundLogger,
         out_of_order: bool = False,
+        checksum: str | None = None,
     ) -> None:
         if self.change_history_table is None:
             raise ValueError("change_history_table is required for deployment operations")
@@ -485,7 +486,8 @@ class SnowflakeSession:
             logger.info(f"Applying {script.type_desc} change script")
         # Define a few other change related variables
         # noinspection PyTypeChecker
-        checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
+        if checksum is None:
+            checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
         execution_time = 0
 
         # Execute the contents of the script
