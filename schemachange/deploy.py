@@ -174,6 +174,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
                 dry_run=config.dry_run,
                 logger=script_log,
                 out_of_order=is_out_of_order,
+                checksum=checksum_current,
             )
 
         scripts_applied += 1
