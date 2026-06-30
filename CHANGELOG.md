@@ -5,13 +5,13 @@ All notable changes to this project will be documented in this file.
 
 ## [4.4.0] - TBD
 ### Added
-- TBD
-
-### Changed
-- TBD
+- **Quick Start improvements** ([#439](https://github.com/Snowflake-Labs/schemachange/pull/439)): Added `--create-change-history-table` to all Quick Start deploy examples, clarified that the target database must pre-exist, and added a new "Staying Current" section with guidance on version pinning and upgrade hygiene.
 
 ### Fixed
 - **R script checksum mismatch** ([#435](https://github.com/Snowflake-Labs/schemachange/issues/435)): Fixed a bug where R scripts with trailing comments (e.g. `-- comment` after the last `;`) were re-applied on every deployment even when unchanged. The root cause was `apply_change_script()` recomputing the checksum on post-transformation content instead of using the pre-transformation checksum from `deploy.py`.
+- **Lowercase change history table config** ([#432](https://github.com/Snowflake-Labs/schemachange/issues/432)): Unquoted identifiers in the change history table config (e.g. `mydb.myschema.change_history`) are now normalised to uppercase at parse time, matching Snowflake's `INFORMATION_SCHEMA` storage convention. Previously, lowercase configs caused R scripts to be re-applied on every deploy.
+- **Demo docs: removed non-existent `--snowflake-password` CLI flag** ([#442](https://github.com/Snowflake-Labs/schemachange/pull/442)): The demo README referenced `--snowflake-password` as a CLI argument, but this flag was never implemented (passwords are intentionally environment-variable-only to avoid exposure in process lists and shell history). Examples updated to use `SNOWFLAKE_PASSWORD` env var. Also corrected `--schemachange-config-vars` → `--schemachange-vars` (the actual flag name).
+- **Typo fixes and terminology standardisation** ([#438](https://github.com/Snowflake-Labs/schemachange/pull/438)): Fixed typos across README, CHANGELOG, and source (writen → written, overriden → overridden, accross → across, explicity → explicitly). Standardised "environmental variable" → "environment variable" throughout code, tests, and docs.
 
 ### Upgrade Notes
 - **Note for users with R scripts that have trailing comments:** If you deployed R scripts with trailing comments under v4.3.x, their checksums stored in the change history table were computed from the post-transformation content. On the **first deploy after upgrading**, those scripts will be re-applied once (schemachange will see a checksum mismatch). For idempotent scripts this is harmless; non-idempotent R scripts should be reviewed before upgrading.
