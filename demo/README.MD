@@ -62,12 +62,16 @@ schemachange deploy --config-folder ./demo/basics_demo
 
 **Alternative: Using CLI arguments (NEW in 4.1.0)**
 ```bash
+# Set password via environment variable
+# schemachange will read this automatically during deploy
+export SNOWFLAKE_PASSWORD="<your_password>"
+
+
 # Using new --snowflake-* prefixed parameters
 schemachange deploy \
   --config-folder ./demo/basics_demo \
   --snowflake-account "myaccount.us-east-1" \
   --snowflake-user "service_account" \
-  --snowflake-password "${SNOWFLAKE_PASSWORD}" \
   --snowflake-role "SCHEMACHANGE_DEMO-DEPLOY" \
   --snowflake-warehouse "SCHEMACHANGE_DEMO_WH" \
   --snowflake-database "SCHEMACHANGE_DEMO"
@@ -257,11 +261,14 @@ schemachange deploy --config-folder ./demo/basics_demo
 
 **Alternative: Using CLI arguments (NEW in 4.1.0)**
 ```bash
+# Set password via environment variable
+# schemachange will read this automatically during deploy
+export SNOWFLAKE_PASSWORD="<your_password>"
+
 schemachange deploy \
   --config-folder ./demo/basics_demo \
   --snowflake-account "myaccount.us-east-1" \
   --snowflake-user "my_user" \
-  --snowflake-password "${SNOWFLAKE_PASSWORD}" \
   --snowflake-role "SCHEMACHANGE_DEMO-DEPLOY" \
   --snowflake-warehouse "SCHEMACHANGE_DEMO_WH" \
   --snowflake-database "SCHEMACHANGE_DEMO"
@@ -482,8 +489,9 @@ python -m schemachange deploy --config-folder ./demo/basics_demo
 **All deprecated parameters will be removed in 5.0.0** (approximately 12 months after 4.1.0 release)
 
 **NEW in 4.1.0 - Authentication CLI Support:**
-- `--snowflake-password`, `--snowflake-authenticator`, `--snowflake-private-key-file`
+- `--snowflake-authenticator`, `--snowflake-private-key-file`
 - Previously only available via ENV or YAML, now you can pass them on the command line too!
+- Please note: `--snowflake-password` is intentionally NOT a CLI arg as it can be visible in process list/shell history and is not a safe security practice. We recommend you use `SNOWFLAKE_PASSWORD` env var or `connections.toml` instead.
 
 ### Version Pinning Strategy
 
@@ -508,13 +516,14 @@ pip install schemachange --upgrade
 
 ```bash
 # CLI with new prefixed arguments
+export SNOWFLAKE_PASSWORD="${SNOWFLAKE_PASSWORD}"  # Password via env var (not a CLI arg)
+
 schemachange deploy \
   --config-folder ./demo/basics_demo \
-  --schemachange-config-vars '{"env": "prod"}' \
+  --schemachange-vars '{"env": "prod"}' \
   --schemachange-log-level INFO \
   --snowflake-account "myaccount" \
   --snowflake-user "deploy_user" \
-  --snowflake-password "${SNOWFLAKE_PASSWORD}" \
   --snowflake-role "DEPLOY_ROLE" \
   --snowflake-warehouse "DEPLOY_WH" \
   --snowflake-database "PROD_DB"
