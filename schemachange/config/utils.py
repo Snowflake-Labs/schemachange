@@ -23,6 +23,10 @@ else:
     except ImportError:
         tomllib = None  # type: ignore
 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.types import PrivateKeyTypes
+
 from schemachange.JinjaEnvVar import JinjaEnvVar
 
 logger = structlog.getLogger(__name__)
@@ -1070,3 +1074,14 @@ def get_all_snowflake_env_vars() -> dict:
                 snowflake_params[param_name] = value
 
     return snowflake_params
+
+
+def get_snowflake_private_key() -> None | PrivateKeyTypes:
+    snowflake_private_key = os.getenv("SNOWFLAKE_PRIVATE_KEY_PEM")
+
+    if snowflake_private_key:
+        return serialization.load_pem_private_key(
+            snowflake_private_key.encode("utf-8"), password=None, backend=default_backend()
+        )
+
+    return None

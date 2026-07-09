@@ -28,6 +28,7 @@ dependencies = [
     "snowflake-connector-python>=3.0,<5.0",
     "structlog>=24.1.0,<26.0",
     "colorama; platform_system == 'Windows'",
+    "cryptography>=45.0.5,<47",
 ]
 
 [project.urls]

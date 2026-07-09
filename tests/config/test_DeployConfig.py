@@ -425,6 +425,36 @@ def test_config_with_valid_keys_only(_):
 
 
 @mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch(
+    "os.getenv", side_effect=lambda key, default=None: "VALID_PEM" if key == "SNOWFLAKE_PRIVATE_KEY_PEM" else default
+)
+@mock.patch("cryptography.hazmat.primitives.serialization.load_pem_private_key")
+def test_get_session_kwargs_with_valid_private_key_pem(*_):
+    config = DeployConfig.factory(config_file_path=Path("."), root_folder=Path("."), **minimal_deploy_config_kwargs)
+    session_kwargs = config.get_session_kwargs()
+    assert "private_key" in session_kwargs
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch(
+    "os.getenv", side_effect=lambda key, default=None: "INVALID_PEM" if key == "SNOWFLAKE_PRIVATE_KEY_PEM" else default
+)
+@mock.patch("cryptography.hazmat.primitives.serialization.load_pem_private_key", return_value=None)
+def test_get_session_kwargs_with_invalid_private_key_pem(*_):
+    config = DeployConfig.factory(config_file_path=Path("."), root_folder=Path("."), **minimal_deploy_config_kwargs)
+    session_kwargs = config.get_session_kwargs()
+    assert "private_key" not in session_kwargs
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
+@mock.patch("os.getenv", side_effect=lambda key, default=None: None if key == "SNOWFLAKE_PRIVATE_KEY_PEM" else default)
+def test_get_session_kwargs_with_no_private_key_pem(*_):
+    config = DeployConfig.factory(config_file_path=Path("."), root_folder=Path("."), **minimal_deploy_config_kwargs)
+    session_kwargs = config.get_session_kwargs()
+    assert "private_key" not in session_kwargs
+
+
+@mock.patch("pathlib.Path.is_dir", return_value=True)
 def test_config_known_keys_work_with_unknown_keys_present(
     _,
 ):
