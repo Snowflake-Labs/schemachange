@@ -33,6 +33,8 @@ class DeployConfig(BaseConfig):
     create_change_history_table: bool = False
     autocommit: bool = False
     dry_run: bool = False
+    continue_repeatable_on_error: bool = False
+    continue_always_on_error: bool = False
     query_tag: str | None = None
     # Authentication parameters - All Snowflake connector params use snowflake_ prefix internally
     # (Prefix is stripped when building connect_kwargs)

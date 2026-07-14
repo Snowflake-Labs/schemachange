@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **Error messages in change history**: Failed scripts now record the Snowflake error text in a new `ERROR_MESSAGE` column of the change history table (alongside the existing `STATUS`), making failures diagnosable directly from the change history.
 - **Upfront change history schema validation**: Before running any scripts, schemachange verifies the change history table has the required columns. If a table created by an older version is missing `ERROR_MESSAGE`, the column is added automatically on the first deploy (`ALTER TABLE ... ADD COLUMN IF NOT EXISTS ERROR_MESSAGE VARCHAR`). In `--dry-run` mode it only warns.
+- Optional flags to continue deploying remaining scripts after an error, recording full error messages in the change history table and listing failed scripts at completion. (#339 by @luisggc)
 
 ### Fixed
 - **R script checksum mismatch** ([#435](https://github.com/Snowflake-Labs/schemachange/issues/435)): Fixed a bug where R scripts with trailing comments (e.g. `-- comment` after the last `;`) were re-applied on every deployment even when unchanged. The root cause was `apply_change_script()` recomputing the checksum on post-transformation content instead of using the pre-transformation checksum from `deploy.py`.

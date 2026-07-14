@@ -464,6 +464,11 @@ def get_merged_config(
         **{k: v for k, v in env_kwargs.items() if v is not None},  # P2: ENV
         **{k: v for k, v in cli_kwargs.items() if v is not None},  # P1: CLI (highest)
     }
+    if "continue_all_on_error" in kwargs:
+        if kwargs["continue_all_on_error"]:
+            kwargs["continue_repeatable_on_error"] = True
+            kwargs["continue_always_on_error"] = True
+        del kwargs["continue_all_on_error"]
 
     # Add merged session_parameters (already includes connections.toml params at P4)
     if merged_session_params:
