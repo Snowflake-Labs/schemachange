@@ -13,7 +13,11 @@ from schemachange.JinjaEnvVar import JinjaEnvVar
 
 logger = structlog.getLogger(__name__)
 
-_NO_JINJA_MARKER = "schemachange-no-jinja"
+# A script opts out of Jinja rendering with a line-comment marker, e.g.
+#   -- schemachange-no-jinja
+# Scoped to SQL line comments so the token inside a string literal or a
+# block comment does NOT trigger a false positive.
+_NO_JINJA_PATTERN = re.compile(r"--[^\n]*schemachange-no-jinja", re.IGNORECASE)
 
 
 class JinjaTemplateProcessor:
@@ -55,10 +59,11 @@ class JinjaTemplateProcessor:
         # jinja needs posix path
         posix_path = Path(script).as_posix()
         source, _, _ = self.__environment.loader.get_source(self.__environment, posix_path)
-        if _NO_JINJA_MARKER in source.lower():
+        if _NO_JINJA_PATTERN.search(source):
+            logger.debug("Skipping Jinja rendering (schemachange-no-jinja marker)", script=script)
             raw_content = source
         else:
-            template = self.__environment.get_template(posix_path)
+            template = self.__environment.from_string(source)
             raw_content = template.render(**variables)
 
         # Remove UTF-8 BOM if present (issue #250)

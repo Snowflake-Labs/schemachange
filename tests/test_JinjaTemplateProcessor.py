@@ -122,6 +122,25 @@ class TestJinjaTemplateProcessor:
 
         assert context == "select 'hello'"
 
+    def test_marker_in_string_literal_does_not_skip_jinja(self, processor: JinjaTemplateProcessor):
+        """The token inside a string literal must NOT disable Jinja (no false positive)."""
+        templates = {
+            "test.sql": "update config set value = 'schemachange-no-jinja' where env = '{{ my_var }}'",
+        }
+        processor.override_loader(DictLoader(templates))
+
+        context = processor.render("test.sql", {"my_var": "prod"})
+
+        assert context == "update config set value = 'schemachange-no-jinja' where env = 'prod'"
+
+    def test_marker_is_case_insensitive(self, processor: JinjaTemplateProcessor):
+        templates = {"test.sql": "-- SchemaChange-No-Jinja\nselect '{{ should_ignore }}'"}
+        processor.override_loader(DictLoader(templates))
+
+        context = processor.render("test.sql", {"should_ignore": "replacement"})
+
+        assert context == "-- SchemaChange-No-Jinja\nselect '{{ should_ignore }}'"
+
     # ============================================================
     # Empty content validation tests - issue #258
     # ============================================================
