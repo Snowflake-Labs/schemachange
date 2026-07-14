@@ -8,6 +8,7 @@ from unittest import mock
 import pytest
 import snowflake.connector.errors
 import structlog
+from snowflake.connector.errors import ProgrammingError
 
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.ScriptExecutionError import ScriptExecutionError
@@ -64,6 +65,81 @@ class TestSnowflakeSession:
         result = session.fetch_change_history_metadata()
         assert result == {}
         assert session.con.execute_string.call_count == 1
+
+    def test_apply_change_script_failure_records_history(self, session: SnowflakeSession):
+        script = VersionedScript.from_path(Path("V1.0.0__test.sql"))
+        session.execute_snowflake_query = mock.Mock(side_effect=[Exception("boom"), None])
+        with (
+            mock.patch.object(session, "reset_session"),
+            mock.patch.object(session, "reset_query_tag"),
+            pytest.raises(ScriptExecutionError),
+        ):
+            session.apply_change_script(script, "select 1", False, session.logger)
+        assert session.execute_snowflake_query.call_count == 2
+        insert_query = session.execute_snowflake_query.call_args_list[1].args[0]
+        assert "Failed" in insert_query
+        assert "ERROR_MESSAGE" in insert_query
+        assert "boom" in insert_query
+
+    def test_validate_change_history_schema_column_exists(self, session: SnowflakeSession):
+        session.execute_snowflake_query = mock.Mock(return_value=[[]])
+        session.validate_change_history_schema(dry_run=False)
+        check_query = session.execute_snowflake_query.call_args_list[0].args[0]
+        assert "SELECT ERROR_MESSAGE" in check_query
+        assert "LIMIT 0" in check_query
+        assert session.execute_snowflake_query.call_count == 1
+
+    def test_validate_change_history_schema_missing_column_adds_it(self, session: SnowflakeSession):
+        session.execute_snowflake_query = mock.Mock(
+            side_effect=[ProgrammingError("invalid identifier 'ERROR_MESSAGE'", 0, 0), None]
+        )
+        session.validate_change_history_schema(dry_run=False)
+        assert session.execute_snowflake_query.call_count == 2
+        alter_stmt = session.execute_snowflake_query.call_args_list[1].args[0]
+        assert "ALTER TABLE" in alter_stmt
+        assert "ADD COLUMN" in alter_stmt
+        assert "ERROR_MESSAGE" in alter_stmt
+
+    def test_validate_change_history_schema_missing_column_no_privileges(self, session: SnowflakeSession):
+        session.execute_snowflake_query = mock.Mock(
+            side_effect=[
+                ProgrammingError("invalid identifier 'ERROR_MESSAGE'", 0, 0),
+                ProgrammingError("Insufficient privileges to operate on table", 0, 0),
+            ]
+        )
+        with pytest.raises(ValueError, match="Please run the following SQL manually"):
+            session.validate_change_history_schema(dry_run=False)
+
+    def test_validate_change_history_schema_dry_run_warns(self, session: SnowflakeSession):
+        session.execute_snowflake_query = mock.Mock(
+            side_effect=[ProgrammingError("invalid identifier 'ERROR_MESSAGE'", 0, 0)]
+        )
+        session.validate_change_history_schema(dry_run=True)
+        # Should not attempt ALTER in dry-run mode
+        assert session.execute_snowflake_query.call_count == 1
+
+    def test_validate_change_history_schema_non_missing_column_error_propagates(self, session: SnowflakeSession):
+        # A ProgrammingError that is NOT an "invalid identifier" (e.g. wrong db/schema, permissions)
+        # must surface with its real root cause instead of being swallowed and misreported as a
+        # missing ERROR_MESSAGE column. No ALTER should be attempted.
+        session.execute_snowflake_query = mock.Mock(
+            side_effect=ProgrammingError("Insufficient privileges to operate on schema", 3001, 0)
+        )
+        with pytest.raises(ProgrammingError):
+            session.validate_change_history_schema(dry_run=False)
+        assert session.execute_snowflake_query.call_count == 1
+
+    def test_get_script_metadata_calls_validate_schema(self, session: SnowflakeSession):
+        # When the table already exists, get_script_metadata must validate the schema up front,
+        # forwarding the dry_run flag.
+        with (
+            mock.patch.object(session, "fetch_change_history_metadata", return_value={"last_altered": "2025-11-14"}),
+            mock.patch.object(session, "fetch_versioned_scripts", return_value=({}, None)),
+            mock.patch.object(session, "fetch_repeatable_scripts", return_value={}),
+            mock.patch.object(session, "validate_change_history_schema") as mock_validate,
+        ):
+            session.get_script_metadata(create_change_history_table=False, dry_run=True)
+        mock_validate.assert_called_once_with(dry_run=True)
 
     def test_snowflake_session_with_additional_params_from_yaml_v2(self):
         """Test that additional_snowflake_params from YAML v2 are passed to connector."""
