@@ -493,6 +493,9 @@ class SnowflakeSession:
         if checksum is None:
             checksum = hashlib.sha224(script_content.encode("utf-8")).hexdigest()
         execution_time = 0
+        # Timed from here through the finally block below, so the recorded execution_time
+        # intentionally includes the reset_session()/reset_query_tag() round-trips as well
+        # as the script itself.
         start = time.time()
         if len(script_content) > 0:
             self.reset_session(logger=logger)
@@ -624,8 +627,14 @@ class SnowflakeSession:
         try:
             self.execute_snowflake_query(check_query, logger=self.logger)
             return  # Column exists
-        except snowflake.connector.errors.ProgrammingError:
-            pass  # Column is missing, proceed to add it
+        except snowflake.connector.errors.ProgrammingError as e:
+            # Only "invalid identifier" (Snowflake error 904) means the column is missing.
+            # Any other ProgrammingError (wrong database/schema, insufficient privileges, etc.)
+            # is a real problem and must surface with its true root cause rather than be
+            # misreported as a missing ERROR_MESSAGE column.
+            if getattr(e, "errno", None) != 904 and "invalid identifier" not in str(e).lower():
+                raise
+            # Column is missing, proceed to add it
 
         if dry_run:
             self.logger.warning(
@@ -640,8 +649,7 @@ class SnowflakeSession:
             table=self.change_history_table.fully_qualified,
         )
         alter_query = (
-            f"ALTER TABLE {self.change_history_table.fully_qualified} "
-            "ADD COLUMN IF NOT EXISTS ERROR_MESSAGE VARCHAR"
+            f"ALTER TABLE {self.change_history_table.fully_qualified} ADD COLUMN IF NOT EXISTS ERROR_MESSAGE VARCHAR"
         )
         try:
             self.execute_snowflake_query(alter_query, logger=self.logger)

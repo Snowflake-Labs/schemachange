@@ -4,10 +4,18 @@ All notable changes to this project will be documented in this file.
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
 ## [Unreleased]
+### Added
+- **Error messages in change history**: Failed scripts now record the Snowflake error text in a new `ERROR_MESSAGE` column of the change history table (alongside the existing `STATUS`), making failures diagnosable directly from the change history.
+- **Upfront change history schema validation**: Before running any scripts, schemachange verifies the change history table has the required columns. If a table created by an older version is missing `ERROR_MESSAGE`, the column is added automatically on the first deploy (`ALTER TABLE ... ADD COLUMN IF NOT EXISTS ERROR_MESSAGE VARCHAR`). In `--dry-run` mode it only warns.
+
 ### Fixed
 - **R script checksum mismatch** ([#435](https://github.com/Snowflake-Labs/schemachange/issues/435)): Fixed a bug where R scripts with trailing comments (e.g. `-- comment` after the last `;`) were re-applied on every deployment even when unchanged. The root cause was `apply_change_script()` recomputing the checksum on post-transformation content instead of using the pre-transformation checksum from `deploy.py`.
 
 ### Upgrade Notes
+- **New `ALTER TABLE` privilege requirement:** The deploying role now needs `ALTER TABLE` on the change history table (previously only `SELECT`/`INSERT` were required), so schemachange can add the new `ERROR_MESSAGE` column on the first deploy after upgrading. Least-privilege deployments will fail on that first run unless the role has `ALTER TABLE`, or an operator adds the column manually beforehand:
+  ```sql
+  ALTER TABLE <change_history_table> ADD COLUMN IF NOT EXISTS ERROR_MESSAGE VARCHAR;
+  ```
 - **Note for users with R scripts that have trailing comments:** If you deployed R scripts with trailing comments under v4.3.x, their checksums stored in the change history table were computed from the post-transformation content. On the **first deploy after upgrading**, those scripts will be re-applied once (schemachange will see a checksum mismatch). For idempotent scripts this is harmless; non-idempotent R scripts should be reviewed before upgrading.
 
 ## [4.3.3] - 2026-04-20

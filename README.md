@@ -473,6 +473,7 @@ CREATE TABLE IF NOT EXISTS SCHEMACHANGE.CHANGE_HISTORY
     CHECKSUM       VARCHAR,
     EXECUTION_TIME NUMBER,
     STATUS         VARCHAR,
+    ERROR_MESSAGE  VARCHAR,
     INSTALLED_BY   VARCHAR,
     INSTALLED_ON   TIMESTAMP_LTZ
 )
@@ -1235,7 +1236,10 @@ The Snowflake user running schemachange needs appropriate privileges:
 **Minimum Required:**
 - `USAGE` on the target database and schema
 - `SELECT` and `INSERT` on the change history table
+- `ALTER` on the change history table, so schemachange can add the `ERROR_MESSAGE` column to tables created by older versions (see note below)
 - Privileges to execute your change scripts (e.g., `CREATE TABLE`, `CREATE VIEW`, etc.)
+
+> **Note:** On the first deploy after upgrading, schemachange validates the change history table schema and adds the `ERROR_MESSAGE` column if it is missing. This requires `ALTER` on the table. If your deployment role cannot be granted `ALTER`, add the column once manually with a privileged role: `ALTER TABLE <change_history_table> ADD COLUMN IF NOT EXISTS ERROR_MESSAGE VARCHAR;`
 
 **For automatic change history table creation:**
 - `CREATE SCHEMA` on the metadata database (if using `--create-change-history-table`)
@@ -1246,8 +1250,8 @@ The Snowflake user running schemachange needs appropriate privileges:
 GRANT USAGE ON DATABASE my_database TO ROLE deployment_role;
 GRANT USAGE ON SCHEMA my_database.my_schema TO ROLE deployment_role;
 
--- Grant change history table access
-GRANT SELECT, INSERT ON TABLE metadata.schemachange.change_history TO ROLE deployment_role;
+-- Grant change history table access (ALTER lets schemachange add the ERROR_MESSAGE column)
+GRANT SELECT, INSERT, ALTER ON TABLE metadata.schemachange.change_history TO ROLE deployment_role;
 
 -- Grant privileges for change scripts
 GRANT CREATE TABLE, CREATE VIEW ON SCHEMA my_database.my_schema TO ROLE deployment_role;
