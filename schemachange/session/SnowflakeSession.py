@@ -19,6 +19,7 @@ from schemachange.session.Script import (
     VersionedCLIScript,
     VersionedScript,
 )
+from schemachange.sql_splitter import split_sql_statements
 from schemachange.version import max_alphanumeric
 
 
@@ -215,10 +216,17 @@ class SnowflakeSession:
         )
 
         try:
-            res = self.con.execute_string(query)
+            statements = split_sql_statements(query)
+            res = []
+            for stmt in statements:
+                result = self.con.execute_string(stmt)
+                if isinstance(result, list):
+                    res.extend(result)
+                else:
+                    res.append(result)
             if not self.autocommit:
                 self.con.commit()
-            logger.debug("Query executed")
+            logger.debug("Query executed", statement_count=len(statements))
             return res
 
         except snowflake.connector.errors.ProgrammingError as e:
