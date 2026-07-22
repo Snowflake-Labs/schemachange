@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 ## [4.4.0] - TBD
 ### Added
 - **Quick Start improvements** ([#439](https://github.com/Snowflake-Labs/schemachange/pull/439)): Added `--create-change-history-table` to all Quick Start deploy examples, clarified that the target database must pre-exist, and added a new "Staying Current" section with guidance on version pinning and upgrade hygiene.
+- **BEGIN/END-aware SQL statement splitter** ([#421](https://github.com/Snowflake-Labs/schemachange/issues/421), [#444](https://github.com/Snowflake-Labs/schemachange/pull/444)): Stored procedures, tasks, and anonymous blocks with `BEGIN...END` now execute correctly without needing `$$...$$` workarounds. schemachange's new SQL splitter replaces the connector's naive semicolon splitting with a state machine that respects block nesting, `DECLARE...BEGIN` patterns, dollar-quoted blocks, string literals, and comments. Resolves 11 consolidated issues (#29, #124, #135, #138, #171, #203, #212, #253, #262, #270, #393).
 
 ### Fixed
 - **R script checksum mismatch** ([#435](https://github.com/Snowflake-Labs/schemachange/issues/435)): Fixed a bug where R scripts with trailing comments (e.g. `-- comment` after the last `;`) were re-applied on every deployment even when unchanged. The root cause was `apply_change_script()` recomputing the checksum on post-transformation content instead of using the pre-transformation checksum from `deploy.py`.
