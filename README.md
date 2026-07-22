@@ -408,10 +408,10 @@ your change scripts.
 
 Within change scripts, be aware of:
 
-- **Tasks with multi-statement bodies**: Use `EXECUTE IMMEDIATE $$...$$;` or call a stored procedure. Single-statement tasks don't need `BEGIN...END`. Note: `$$` delimiters are NOT valid directly in task definitions.
+- **Tasks with multi-statement bodies**: As of v4.4.0, `BEGIN...END` blocks work natively without workarounds. For older versions, use `EXECUTE IMMEDIATE $$...$$;` or call a stored procedure. Note: `$$` delimiters are still supported and backward compatible.
 - **UTF-8 BOM characters**: Automatically stripped by schemachange (fixed in 4.2.0)
 - **Trailing comments**: When comments appear on new lines after the final `;`, schemachange automatically appends `SELECT 1;` to prevent "Empty SQL Statement" errors
-- **Snowflake Scripting blocks**: The `execute_string()` method splits on semicolons client-side, breaking `BEGIN...END` blocks. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for solutions.
+- **Snowflake Scripting blocks**: As of v4.4.0, schemachange includes a BEGIN/END-aware SQL splitter that correctly handles semicolons inside block structures. The `$$...$$` workaround is no longer required but remains supported.
 
 For detailed troubleshooting and solutions, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 
@@ -914,7 +914,7 @@ out-of-order: false
 
 #### Yaml Jinja support
 
-The YAML config file supports the jinja templating language and has a custom function "env_var" to access environmental
+The YAML config file supports the jinja templating language and has a custom function "env_var" to access environment
 variables. Jinja variables are unavailable and not yet loaded since they are supplied by the YAML file. Customisation of
 the YAML file can only happen through values passed via environment variables.
 
