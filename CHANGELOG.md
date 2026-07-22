@@ -5,27 +5,22 @@ All notable changes to this project will be documented in this file.
 
 ## [4.4.0] - TBD
 ### Added
-- **BEGIN/END-aware SQL statement splitter** ([#421](https://github.com/Snowflake-Labs/schemachange/issues/421), [#444](https://github.com/Snowflake-Labs/schemachange/pull/444) by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia)): Stored procedures, tasks, and anonymous blocks with `BEGIN...END` now execute correctly without needing `$$...$$` workarounds. schemachange's new SQL splitter replaces the connector's naive semicolon splitting with a state machine that respects block nesting, `DECLARE...BEGIN` patterns, dollar-quoted blocks, string literals, and comments. Resolves 11 consolidated issues (#29, #124, #135, #138, #171, #203, #212, #253, #262, #270, #393).
-- **Quick Start improvements** ([#439](https://github.com/Snowflake-Labs/schemachange/pull/439) by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia)): Added `--create-change-history-table` to all Quick Start deploy examples, clarified that the target database must pre-exist, and added a new "Staying Current" section with guidance on version pinning and upgrade hygiene.
+- **BEGIN/END-aware SQL statement splitter** ([#444](https://github.com/Snowflake-Labs/schemachange/pull/444) by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia)): Stored procedures, tasks, and anonymous blocks with `BEGIN...END` now execute correctly without needing `$$...$$` workarounds. The new splitter respects block nesting, `DECLARE...BEGIN` patterns, dollar-quoted blocks, string literals, and comments. Resolves #421 and 11 related issues (#29, #124, #135, #138, #171, #203, #212, #253, #262, #270, #393).
 
 ### Fixed
-- **R script checksum mismatch** ([#435](https://github.com/Snowflake-Labs/schemachange/issues/435), [#437](https://github.com/Snowflake-Labs/schemachange/pull/437) by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia)): Fixed a bug where R scripts with trailing comments (e.g. `-- comment` after the last `;`) were re-applied on every deployment even when unchanged. The root cause was `apply_change_script()` recomputing the checksum on post-transformation content instead of using the pre-transformation checksum from `deploy.py`.
-- **Lowercase change history table config** ([#432](https://github.com/Snowflake-Labs/schemachange/issues/432), [#440](https://github.com/Snowflake-Labs/schemachange/pull/440) by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia)): Unquoted identifiers in the change history table config (e.g. `mydb.myschema.change_history`) are now normalised to uppercase at parse time, matching Snowflake's `INFORMATION_SCHEMA` storage convention. Previously, lowercase configs caused R scripts to be re-applied on every deploy.
-- **Demo docs: removed non-existent `--snowflake-password` CLI flag** ([#442](https://github.com/Snowflake-Labs/schemachange/pull/442) by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia)): The demo README referenced `--snowflake-password` as a CLI argument, but this flag was never implemented (passwords are intentionally environment-variable-only to avoid exposure in process lists and shell history). Examples updated to use `SNOWFLAKE_PASSWORD` env var. Also corrected `--schemachange-config-vars` → `--schemachange-vars` (the actual flag name).
-- **Typo fixes and terminology standardisation** ([#438](https://github.com/Snowflake-Labs/schemachange/pull/438) by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia)): Fixed typos across README, CHANGELOG, and source (writen → written, overriden → overridden, accross → across, explicity → explicitly). Standardised "environmental variable" → "environment variable" throughout code, tests, and docs.
+- R scripts with trailing comments re-applied on every deploy (#435, #437 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
+- Lowercase change history table config caused re-application (#432, #440 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
 
 ### Upgrade Notes
-- **Note for users with R scripts that have trailing comments:** If you deployed R scripts with trailing comments under v4.3.x, their checksums stored in the change history table were computed from the post-transformation content. On the **first deploy after upgrading**, those scripts will be re-applied once (schemachange will see a checksum mismatch). For idempotent scripts this is harmless; non-idempotent R scripts should be reviewed before upgrading.
+- **R scripts with trailing comments:** If deployed under v4.3.x, stored checksums used post-transformation content. On the first deploy after upgrading, those scripts will re-apply once. Idempotent scripts are unaffected; review non-idempotent R scripts before upgrading.
 
-### Contributors
-Thank you to the following contributors for their work in this release:
-- [@sfc-gh-swalia](https://github.com/sfc-gh-swalia) — BEGIN/END SQL splitter, R script checksum fix, identifier normalization, Quick Start docs, demo fixes, typo standardization
-- [@sfc-gh-jhansen](https://github.com/sfc-gh-jhansen) — co-maintainer, code review
-- [@Falydoor](https://github.com/Falydoor) — structlog version relaxation (included from v4.3.3)
-
-### Dependencies
+### Maintenance
+- Added `--create-change-history-table` to all Quick Start examples and new "Staying Current" section (#439 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
+- Removed non-existent `--snowflake-password` from demo CLI examples, corrected `--schemachange-vars` (#442 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
+- Fixed typos and standardised "environment variable" wording throughout (#438 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
+- Bumped urllib3 from 2.6.3 to 2.7.0 (#436)
+- Optimised GitHub Actions CI workflows (#419)
 - Updated `uv.lock` with latest dependency versions
-- Bumped urllib3 from 2.6.3 to 2.7.0 ([#436](https://github.com/Snowflake-Labs/schemachange/pull/436))
 
 ## [4.3.3] - 2026-04-20
 ### Fixed
