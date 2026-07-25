@@ -38,7 +38,6 @@ Homepage = "https://github.com/Snowflake-Labs/schemachange"
 Repository = "https://github.com/Snowflake-Labs/schemachange"
 Issues = "https://github.com/Snowflake-Labs/schemachange/issues"
 Changelog = "https://github.com/Snowflake-Labs/schemachange/blob/master/CHANGELOG.md"
-Documentation = "https://github.com/Snowflake-Labs/schemachange/blob/master/README.md"
 
 [project.scripts]
 schemachange = "schemachange.cli:main"

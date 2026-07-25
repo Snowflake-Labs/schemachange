@@ -11,4 +11,7 @@
 pyproject.toml @sfc-gh-jhansen @sfc-gh-swalia @sfc-gh-tmathew
 
 # Release workflow — high blast radius
-.github/workflows/python-publish.yml @sfc-gh-jhansen @sfc-gh-swalia @sfc-gh-tmathew
+.github/workflows/ @sfc-gh-jhansen @sfc-gh-swalia @sfc-gh-tmathew
+
+# Self Protection Rule
+.github/CODEOWNERS @sfc-gh-swalia @sfc-gh-tmathew
