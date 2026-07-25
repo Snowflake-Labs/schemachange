@@ -21,11 +21,11 @@ between the Declarative and Imperative approaches, please read
 the [Embracing Agile Software Delivery and DevOps with Snowflake](https://www.snowflake.com/blog/embracing-agile-software-delivery-and-devops-with-snowflake/)
 blog post.
 
-For the complete list of changes made to schemachange check out the [CHANGELOG](CHANGELOG.md).
+For the complete list of changes made to schemachange check out the [CHANGELOG](https://github.com/Snowflake-Labs/schemachange/blob/master/CHANGELOG.md).
 
-To learn more about making a contribution to schemachange, please see our [Contributing guide](.github/CONTRIBUTING.md).
+To learn more about making a contribution to schemachange, please see our [Contributing guide](https://github.com/Snowflake-Labs/schemachange/blob/master/.github/CONTRIBUTING.md).
 
-**For maintainers:** See [docs/maintainers](docs/maintainers/) for repository management guides.
+**For maintainers:** See [docs/maintainers](https://github.com/Snowflake-Labs/schemachange/tree/master/docs/maintainers) for repository management guides.
 
 **Please note** that schemachange is a community-developed tool, not an official Snowflake offering. It comes with no
 support or warranty.
@@ -394,7 +394,7 @@ and [template inheritance](https://jinja.palletsprojects.com/en/3.0.x/templates/
 
 These files can be stored in the root-folder but schemachange also provides a separate modules
 folder `--modules-folder`. This allows common logic to be stored outside of the main changes scripts.
-The [demo/citibike_demo_jinja](demo/citibike_demo_jinja) has a simple example that demonstrates this.
+The [demo/citibike_demo_jinja](https://github.com/Snowflake-Labs/schemachange/tree/master/demo/citibike_demo_jinja) has a simple example that demonstrates this.
 
 schemachange uses Jinja's [`PrefixLoader`](https://jinja.palletsprojects.com/en/stable/api/#jinja2.PrefixLoader), so
 regardless of the `--modules-folder` that's used, the file paths (such as those passed to [`include`](https://jinja.palletsprojects.com/en/stable/templates/#include))
@@ -413,7 +413,7 @@ Within change scripts, be aware of:
 - **Trailing comments**: When comments appear on new lines after the final `;`, schemachange automatically appends `SELECT 1;` to prevent "Empty SQL Statement" errors
 - **Snowflake Scripting blocks**: As of v4.4.0, schemachange includes a BEGIN/END-aware SQL splitter that correctly handles semicolons inside block structures. The `$$...$$` workaround is no longer required but remains supported.
 
-For detailed troubleshooting and solutions, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+For detailed troubleshooting and solutions, see [TROUBLESHOOTING.md](https://github.com/Snowflake-Labs/schemachange/blob/master/TROUBLESHOOTING.md)
 
 ## Change History Table
 
@@ -460,7 +460,7 @@ A new row will be added to this table every time a change script has been applie
 this table to identify which changes have been applied to the database and will not apply the same version more than
 once.
 
-Here is the current schema DDL for the change history table (found in the [schemachange/cli.py](schemachange/cli.py)
+Here is the current schema DDL for the change history table (found in the [schemachange/cli.py](https://github.com/Snowflake-Labs/schemachange/blob/master/schemachange/cli.py)
 script), in case you choose to create it manually and not use the `--create-change-history-table` parameter:
 
 ```sql
@@ -494,7 +494,7 @@ The following authenticators are supported:
 
 If an authenticator is unsupported, an exception will be raised.
 
-**Security Note:** For detailed security guidance on credential management, authentication best practices, and preventing credential leakage, please see [SECURITY.md](SECURITY.md).
+**Security Note:** For detailed security guidance on credential management, authentication best practices, and preventing credential leakage, please see [SECURITY.md](https://github.com/Snowflake-Labs/schemachange/blob/master/SECURITY.md).
 
 ### Password Authentication
 
@@ -534,7 +534,7 @@ schemachange deploy
 
 **For detailed PAT setup and best practices, see:**
 - [Snowflake PAT Documentation](https://docs.snowflake.com/en/user-guide/ui-snowsight-profile#generate-a-programmatic-access-token)
-- [SECURITY.md](SECURITY.md) for comprehensive authentication guidance
+- [SECURITY.md](https://github.com/Snowflake-Labs/schemachange/blob/master/SECURITY.md) for comprehensive authentication guidance
 
 #### Password+MFA Authentication (Not Recommended for Automation)
 
@@ -1112,7 +1112,7 @@ These variables are supported for backward compatibility but are superseded by `
 
 #### Complete Authentication Examples
 
-For complete environment variable examples covering JWT, PAT, SSO, and OAuth authentication methods, see the [Authentication](#authentication) section above. For security best practices and decision trees, see [SECURITY.md](SECURITY.md)
+For complete environment variable examples covering JWT, PAT, SSO, and OAuth authentication methods, see the [Authentication](#authentication) section above. For security best practices and decision trees, see [SECURITY.md](https://github.com/Snowflake-Labs/schemachange/blob/master/SECURITY.md)
 
 ### Configuration Priority
 
@@ -1394,7 +1394,7 @@ schemachange deploy
 schemachange deploy --snowflake-private-key-passphrase "my_passphrase"
 ```
 
-**See [SECURITY.md](SECURITY.md) for comprehensive security best practices and authentication guidance.**
+**See [SECURITY.md](https://github.com/Snowflake-Labs/schemachange/blob/master/SECURITY.md) for comprehensive security best practices and authentication guidance.**
 
 ## Commands
 
@@ -1568,11 +1568,11 @@ The verify command accepts the same configuration parameters as deploy (except d
 | **Authentication** | `--snowflake-authenticator`, `--snowflake-private-key-file`, `--snowflake-token-file-path` |
 | **Connection Profile** | `-C`/`--schemachange-connection-name`, `--schemachange-connections-file-path` |
 
-**Note:** For security, passwords and private key passphrases are NOT accepted via CLI arguments. Use `SNOWFLAKE_PASSWORD` and `SNOWFLAKE_PRIVATE_KEY_FILE_PWD` environment variables, or store them in `connections.toml` (with proper file permissions). See [SECURITY.md](SECURITY.md) for security best practices.
+**Note:** For security, passwords and private key passphrases are NOT accepted via CLI arguments. Use `SNOWFLAKE_PASSWORD` and `SNOWFLAKE_PRIVATE_KEY_FILE_PWD` environment variables, or store them in `connections.toml` (with proper file permissions). See [SECURITY.md](https://github.com/Snowflake-Labs/schemachange/blob/master/SECURITY.md) for security best practices.
 
 ## Troubleshooting
 
-For detailed troubleshooting guidance including common errors and solutions, see **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)**.
+For detailed troubleshooting guidance including common errors and solutions, see **[TROUBLESHOOTING.md](https://github.com/Snowflake-Labs/schemachange/blob/master/TROUBLESHOOTING.md)**.
 
 **Quick diagnostics:** Use the [`verify` command](#verify) to test connectivity and validate your configuration:
 ```bash
@@ -1596,9 +1596,9 @@ In order to run schemachange you must have the following:
 * You will need to create the change history table used by schemachange in Snowflake (
   see [Change History Table](#change-history-table) above for more details)
     * First, you will need to create a database to store your change history table (schemachange will not help you with
-      this). For your convenience, [initialize.sql file](demo/provision/initialize.sql) has been provided to get you
+      this). For your convenience, [initialize.sql file](https://github.com/Snowflake-Labs/schemachange/blob/master/demo/provision/initialize.sql) has been provided to get you
       started. Feel free to align the script to your organizations RBAC implementation.
-      The [setup_schemachange_schema.sql](demo/provision/setup_schemachange_schema.sql) file is provided to set up the
+      The [setup_schemachange_schema.sql](https://github.com/Snowflake-Labs/schemachange/blob/master/demo/provision/setup_schemachange_schema.sql) file is provided to set up the
       target schema that will host the change history table for each of the demo projects in this repo. Use it as a
       means to test the required permissions and connectivity in your local setup.
     * Second, you will need to create the change history schema and table. You can do this manually (
@@ -1623,7 +1623,7 @@ schemachange follows Python's official [end-of-life schedule](https://endoflife.
 
 ### Running the Script
 
-schemachange is a single python script located at [schemachange/cli.py](schemachange/cli.py). It can be executed as
+schemachange is a single python script located at [schemachange/cli.py](https://github.com/Snowflake-Labs/schemachange/blob/master/schemachange/cli.py). It can be executed as
 follows:
 
 ```bash
@@ -1643,10 +1643,10 @@ demos showcase the basics and a couple of advanced examples based on the standar
 found in [the Snowflake Hands-on Lab](https://docs.snowflake.net/manuals/other-resources.html#hands-on-lab). Check out
 each demo listed below
 
-- [Basics Demo](demo/basics_demo): Used to test the basic schemachange functionality.
-- [Citibike Demo](demo/citibike_demo): Used to show a simple example of building a database and loading data using
+- [Basics Demo](https://github.com/Snowflake-Labs/schemachange/tree/master/demo/basics_demo): Used to test the basic schemachange functionality.
+- [Citibike Demo](https://github.com/Snowflake-Labs/schemachange/tree/master/demo/citibike_demo): Used to show a simple example of building a database and loading data using
   schemachange.
-- [Citibike Jinja Demo](demo/citibike_demo_jinja): Extends the citibike demo to showcase the use of macros and jinja
+- [Citibike Jinja Demo](https://github.com/Snowflake-Labs/schemachange/tree/master/demo/citibike_demo_jinja): Extends the citibike demo to showcase the use of macros and jinja
   templating.
 
 The [Citibike data](https://www.citibikenyc.com/system-data) for this demo comes from the NYC Citi Bike bike share
@@ -1697,7 +1697,7 @@ schemachange follows [semantic versioning](https://semver.org/). To avoid surpri
 
 - **Pin your version in CI/CD:** Use `pip install schemachange==4.3.3` (not `--upgrade`) so deployments are reproducible.
 - **Monitor for updates:** Use [Dependabot](https://docs.github.com/en/code-security/dependabot) or [Renovate](https://docs.renovatebot.com/) to get PRs when new versions are published to PyPI.
-- **Read the [CHANGELOG](CHANGELOG.md)** before upgrading — breaking changes are called out in major version bumps.
+- **Read the [CHANGELOG](https://github.com/Snowflake-Labs/schemachange/blob/master/CHANGELOG.md)** before upgrading — breaking changes are called out in major version bumps.
 - **Test upgrades in a non-production environment** before rolling out to your main pipeline.
 
 ## Maintainers

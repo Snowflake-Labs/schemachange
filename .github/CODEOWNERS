@@ -1,24 +1,19 @@
-# CI/CD and GitHub configuration
-/.github/                  @sfc-gh-jhansen @sfc-gh-tmathew
+# Each line defines file pattern(s) and the GitHub users/teams responsible.
+# Last matching pattern wins. See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-# Packaging and dependencies
-/pyproject.toml            @sfc-gh-jhansen @sfc-gh-tmathew
-/setup.cfg                 @sfc-gh-jhansen @sfc-gh-tmathew
-/uv.lock                   @sfc-gh-jhansen @sfc-gh-tmathew
+# Default owner for everything not listed below
+* @sfc-gh-swalia @sfc-gh-tmathew
 
-# Container configuration
-/Dockerfile                @sfc-gh-jhansen @sfc-gh-tmathew
-/Dockerfile-src            @sfc-gh-jhansen @sfc-gh-tmathew
+# Core source code
+/schemachange/ @sfc-gh-jhansen @sfc-gh-swalia @sfc-gh-tmathew
 
-# Developer tooling
-/.pre-commit-config.yaml   @sfc-gh-jhansen @sfc-gh-tmathew
-/.gitignore                @sfc-gh-jhansen @sfc-gh-tmathew
+# Build/release config — dependency or packaging changes can break releases
+pyproject.toml @sfc-gh-jhansen @sfc-gh-swalia @sfc-gh-tmathew
+setup.cfg @sfc-gh-jhansen @sfc-gh-swalia @sfc-gh-tmathew
+uv.lock @sfc-gh-jhansen @sfc-gh-swalia @sfc-gh-tmathew
 
-# Legal and compliance
-/LICENSE                   @sfc-gh-jhansen @sfc-gh-tmathew
-/LEGAL.md                  @sfc-gh-jhansen @sfc-gh-tmathew
-/NOTICE                    @sfc-gh-jhansen @sfc-gh-tmathew
-/SECURITY.md               @sfc-gh-jhansen @sfc-gh-tmathew
+# Release workflow — high blast radius
+.github/workflows/ @sfc-gh-jhansen @sfc-gh-swalia @sfc-gh-tmathew
 
-# Release management
-/CHANGELOG.md              @sfc-gh-jhansen @sfc-gh-tmathew
+# Self-protection — prevent silent weakening of ownership rules
+.github/CODEOWNERS @sfc-gh-swalia @sfc-gh-tmathew

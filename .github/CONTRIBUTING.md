@@ -101,7 +101,7 @@ uv run pytest --cov=schemachange
 
 - **Questions?** [Ask in Discussions](https://github.com/Snowflake-Labs/schemachange/discussions/categories/q-a)
 - **Found a bug?** [Open an issue](https://github.com/Snowflake-Labs/schemachange/issues/new/choose)
-- **Confused?** Check the [README](../README.md) or [Troubleshooting Guide](../TROUBLESHOOTING.md)
+- **Confused?** Check the [README](https://github.com/Snowflake-Labs/schemachange/blob/master/README.md) or [Troubleshooting Guide](https://github.com/Snowflake-Labs/schemachange/blob/master/TROUBLESHOOTING.md)
 
 ## Community Guidelines
 
