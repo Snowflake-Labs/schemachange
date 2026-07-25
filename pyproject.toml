@@ -10,7 +10,10 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
 authors = [
-    {name = "jamesweakley/jeremiahhansen"},
+    {name = "Jeremiah Hansen (sfc-gh-jhansen)"},
+    {name = "James Weakley (jamesweakley)"},
+    {name = "Tiji Mathew (sfc-gh-tmathew)"},
+    {name = "Sahil Walia (sfc-gh-swalia)"},
 ]
 classifiers = [
     "License :: OSI Approved :: Apache Software License",
@@ -33,6 +36,8 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/Snowflake-Labs/schemachange"
 Repository = "https://github.com/Snowflake-Labs/schemachange"
+Issues = "https://github.com/Snowflake-Labs/schemachange/issues"
+Changelog = "https://github.com/Snowflake-Labs/schemachange/blob/master/CHANGELOG.md"
 
 [project.scripts]
 schemachange = "schemachange.cli:main"
