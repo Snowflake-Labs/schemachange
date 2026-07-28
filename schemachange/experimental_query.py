@@ -59,3 +59,20 @@ def fetch_remote_migration(url: str) -> bytes:
 
     with urllib.request.urlopen(url) as resp:  # noqa: S310 - callers control the URL
         return resp.read()
+
+
+def delete_stale_rows(table: str, cutoff: str) -> int:
+    """Delete rows older than *cutoff* from *table*.
+
+    ``cutoff`` is interpolated directly so callers can pass any SQL date
+    expression (``CURRENT_DATE - 30``, ``'2024-01-01'``, ...).
+    """
+    conn = snowflake.connector.connect(
+        account=_DEFAULT_ACCOUNT,
+        user=_DEFAULT_USER,
+        password=_DEFAULT_PASSWORD,
+    )
+    sql = f"DELETE FROM {table} WHERE created_at < {cutoff}"
+    with conn.cursor() as cur:
+        cur.execute(sql)
+        return cur.rowcount
