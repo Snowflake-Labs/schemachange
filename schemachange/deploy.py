@@ -127,7 +127,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
         )
 
         script_log.debug(f"Processing script: {script.name}")
-        
+
         # Prepare content for execution (apply trailing comment fix)
         # This is done AFTER checksum computation to maintain checksum stability (issue #414)
         executable_content = jinja_processor.prepare_for_execution(
