@@ -651,16 +651,26 @@ class SnowflakeSession:
                 STATUS,
                 INSTALLED_BY,
                 INSTALLED_ON
-            ) VALUES (
-                '{getattr(script, "version", "")}',
-                '{script.description}',
-                '{script.name}',
-                '{script.type}',
-                '{checksum}',
-                {execution_time},
-                '{status}',
-                '{self.user}',
-                CURRENT_TIMESTAMP
-            );
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
         """
-        self.execute_snowflake_query(dedent(query), logger=logger)
+        params = (
+            getattr(script, "version", ""),
+            script.description,
+            script.name,
+            script.type,
+            checksum,
+            execution_time,
+            status,
+            self.user,
+        )
+        logger.debug("Recording change history", params=params)
+        try:
+            with self.con.cursor() as cur:
+                cur.execute(dedent(query), params)
+            if not self.autocommit:
+                self.con.commit()
+        except Exception as e:
+            logger.error("Failed to record change history", error_msg=str(e))
+            if not self.autocommit:
+                self.con.rollback()
+            raise

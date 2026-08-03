@@ -661,6 +661,9 @@ class TestSnowflakeSession:
                 return None
 
             mock_conn.execute_string.side_effect = side_effect_func
+            mock_cursor = mock.Mock()
+            mock_conn.cursor.return_value.__enter__ = mock.Mock(return_value=mock_cursor)
+            mock_conn.cursor.return_value.__exit__ = mock.Mock(return_value=False)
             mock_connect.return_value = mock_conn
 
             with mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string"):
@@ -725,6 +728,9 @@ class TestSnowflakeSession:
                 return None
 
             mock_conn.execute_string.side_effect = side_effect_func
+            mock_cursor = mock.Mock()
+            mock_conn.cursor.return_value.__enter__ = mock.Mock(return_value=mock_cursor)
+            mock_conn.cursor.return_value.__exit__ = mock.Mock(return_value=False)
             mock_connect.return_value = mock_conn
 
             with mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string"):
@@ -934,6 +940,71 @@ class TestSnowflakeSession:
 
                 mock_record.assert_called_once()
                 assert mock_record.call_args.kwargs["checksum"] == expected_checksum
+
+    def test_record_change_history_logs_params_at_debug(self):
+        """Verify record_change_history emits a debug log with bind params for debuggability."""
+        change_history_table = ChangeHistoryTable()
+        logger = structlog.testing.CapturingLogger()
+
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "test_account"
+            mock_conn.user = "test_user"
+            mock_conn.role = "test_role"
+            mock_conn.warehouse = "test_warehouse"
+            mock_conn.database = "test_db"
+            mock_conn.schema = "test_schema"
+            mock_conn.session_id = "session_123"
+
+            mock_cursor = mock.Mock()
+            mock_conn.cursor.return_value.__enter__ = mock.Mock(return_value=mock_cursor)
+            mock_conn.cursor.return_value.__exit__ = mock.Mock(return_value=False)
+            mock_connect.return_value = mock_conn
+
+            with mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string"):
+                session = SnowflakeSession(
+                    user="test_user",
+                    account="test_account",
+                    role="test_role",
+                    warehouse="test_warehouse",
+                    database="test_db",
+                    schema_name="test_schema",
+                    schemachange_version="4.3.0",
+                    application="schemachange",
+                    change_history_table=change_history_table,
+                    logger=logger,
+                )
+
+                script = VersionedScript(
+                    version="1.0.0",
+                    description="test migration",
+                    name="V1.0.0__test_migration.sql",
+                    file_path=Path("/scripts/V1.0.0__test_migration.sql"),
+                )
+
+                session.record_change_history(
+                    script=script,
+                    checksum="abc123",
+                    execution_time=5,
+                    status="Success",
+                    logger=logger,
+                )
+
+                # Find the debug log entry for record_change_history
+                debug_calls = [
+                    call
+                    for call in logger.calls
+                    if call.method_name == "debug" and "Recording change history" in str(call.args)
+                ]
+                assert len(debug_calls) == 1, f"Expected 1 debug log, got {len(debug_calls)}"
+
+                logged_kwargs = debug_calls[0].kwargs
+                assert "params" in logged_kwargs, "Debug log should include params for debuggability"
+                assert logged_kwargs["params"][0] == "1.0.0"  # version
+                assert logged_kwargs["params"][1] == "test migration"  # description
+                assert logged_kwargs["params"][2] == "V1.0.0__test_migration.sql"  # script name
+                assert logged_kwargs["params"][5] == 5  # execution_time
+                assert logged_kwargs["params"][6] == "Success"  # status
 
     def test_execute_snowflake_query_logs_programming_error_details(self):
         """Test that execute_snowflake_query logs ProgrammingError details and re-raises."""
