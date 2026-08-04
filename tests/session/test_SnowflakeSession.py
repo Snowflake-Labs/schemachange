@@ -1006,6 +1006,77 @@ class TestSnowflakeSession:
                 assert logged_kwargs["params"][5] == 5  # execution_time
                 assert logged_kwargs["params"][6] == "Success"  # status
 
+    def test_record_change_history_uses_parameterized_query(self):
+        """Verify record_change_history passes values as bind params, not interpolated SQL.
+
+        Regression test for CWE-89: a malicious script description containing SQL
+        injection payload must be passed as a bind parameter to cursor.execute(),
+        never spliced into the SQL string itself.
+        """
+        change_history_table = ChangeHistoryTable()
+        logger = structlog.testing.CapturingLogger()
+
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            mock_conn = mock.Mock()
+            mock_conn.account = "test_account"
+            mock_conn.user = "test_user"
+            mock_conn.role = "test_role"
+            mock_conn.warehouse = "test_warehouse"
+            mock_conn.database = "test_db"
+            mock_conn.schema = "test_schema"
+            mock_conn.session_id = "session_123"
+
+            mock_cursor = mock.Mock()
+            mock_conn.cursor.return_value.__enter__ = mock.Mock(return_value=mock_cursor)
+            mock_conn.cursor.return_value.__exit__ = mock.Mock(return_value=False)
+            mock_connect.return_value = mock_conn
+
+            with mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string"):
+                session = SnowflakeSession(
+                    user="test_user",
+                    account="test_account",
+                    role="test_role",
+                    warehouse="test_warehouse",
+                    database="test_db",
+                    schema_name="test_schema",
+                    schemachange_version="4.3.0",
+                    application="schemachange",
+                    change_history_table=change_history_table,
+                    logger=logger,
+                )
+
+                # Malicious payload in description (derived from filename in real usage)
+                injection_payload = "x'; DROP TABLE important_data; --"
+
+                script = VersionedScript(
+                    version="1.0.0",
+                    description=injection_payload,
+                    name="V1.0.0__x.sql",
+                    file_path=Path("/scripts/V1.0.0__x.sql"),
+                )
+
+                session.record_change_history(
+                    script=script,
+                    checksum="abc123",
+                    execution_time=5,
+                    status="Success",
+                    logger=logger,
+                )
+
+                # cursor.execute must have been called with template + params
+                mock_cursor.execute.assert_called_once()
+                call_args = mock_cursor.execute.call_args
+
+                executed_sql = call_args[0][0]
+                bind_params = call_args[0][1]
+
+                # The SQL template must use %s placeholders, not contain the payload
+                assert "%s" in executed_sql, "Query must use bind parameter placeholders"
+                assert injection_payload not in executed_sql, "Injection payload must NOT appear in SQL template"
+
+                # The payload must be safely contained in the params tuple
+                assert injection_payload in bind_params, "Injection payload must be passed as a bind parameter"
+
     def test_execute_snowflake_query_logs_programming_error_details(self):
         """Test that execute_snowflake_query logs ProgrammingError details and re-raises."""
         change_history_table = ChangeHistoryTable()
