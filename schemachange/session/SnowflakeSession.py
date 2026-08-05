@@ -466,7 +466,9 @@ class SnowflakeSession:
         if extra_tag:
             query_tag += f";{extra_tag}"
 
-        self.execute_snowflake_query(f"ALTER SESSION SET QUERY_TAG = '{query_tag}'", logger=logger)
+        # Escape single quotes to prevent SQL injection via user-controlled config values
+        safe_query_tag = query_tag.replace("'", "''")
+        self.execute_snowflake_query(f"ALTER SESSION SET QUERY_TAG = '{safe_query_tag}'", logger=logger)
 
     def apply_change_script(
         self,
