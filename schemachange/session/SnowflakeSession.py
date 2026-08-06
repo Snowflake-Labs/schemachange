@@ -258,6 +258,38 @@ class SnowflakeSession:
                 self.con.rollback()
             raise
 
+    def _execute_parameterized(self, query: str, params: tuple, logger: structlog.BoundLogger):
+        """Execute a single parameterized query with bind variables.
+
+        Unlike execute_snowflake_query (which splits on semicolons and uses
+        execute_string for raw SQL), this method uses cursor.execute with bind
+        parameters to safely pass values without SQL injection risk.
+        """
+        logger.debug("Executing parameterized query", query_preview=query[:200])
+
+        try:
+            with self.con.cursor() as cur:
+                cur.execute(query, params)
+            if not self.autocommit:
+                self.con.commit()
+
+        except snowflake.connector.errors.ProgrammingError as e:
+            logger.error(
+                "SQL execution error",
+                error_code=getattr(e, "errno", None),
+                sql_state=getattr(e, "sqlstate", None),
+                error_msg=str(e),
+            )
+            if not self.autocommit:
+                self.con.rollback()
+            raise
+
+        except snowflake.connector.errors.DatabaseError as e:
+            logger.error("Database error", error_type=type(e).__name__, error_msg=str(e))
+            if not self.autocommit:
+                self.con.rollback()
+            raise
+
     def fetch_change_history_metadata(self) -> dict:
         if self.change_history_table is None:
             raise ValueError("change_history_table is required for deployment operations")
@@ -653,16 +685,17 @@ class SnowflakeSession:
                 STATUS,
                 INSTALLED_BY,
                 INSTALLED_ON
-            ) VALUES (
-                '{getattr(script, "version", "")}',
-                '{script.description}',
-                '{script.name}',
-                '{script.type}',
-                '{checksum}',
-                {execution_time},
-                '{status}',
-                '{self.user}',
-                CURRENT_TIMESTAMP
-            );
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
         """
-        self.execute_snowflake_query(dedent(query), logger=logger)
+        params = (
+            getattr(script, "version", ""),
+            script.description,
+            script.name,
+            script.type,
+            checksum,
+            execution_time,
+            status,
+            self.user,
+        )
+        logger.debug("Recording change history", params=params)
+        self._execute_parameterized(dedent(query), params, logger)
