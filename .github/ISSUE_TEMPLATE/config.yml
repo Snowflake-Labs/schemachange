@@ -10,11 +10,11 @@ contact_links:
     url: https://github.com/Snowflake-Labs/schemachange/discussions
     about: Quick answers to the top 10 common problems
   - name: 📖 Documentation
-    url: https://github.com/Snowflake-Labs/schemachange/blob/main/README.md
+    url: https://github.com/Snowflake-Labs/schemachange/blob/master/README.md
     about: Read the full documentation
   - name: 🛠️ Troubleshooting Guide
-    url: https://github.com/Snowflake-Labs/schemachange/blob/main/TROUBLESHOOTING.md
+    url: https://github.com/Snowflake-Labs/schemachange/blob/master/TROUBLESHOOTING.md
     about: Detailed troubleshooting for common problems
   - name: 🔒 Security & Authentication
-    url: https://github.com/Snowflake-Labs/schemachange/blob/main/SECURITY.md
+    url: https://github.com/Snowflake-Labs/schemachange/blob/master/SECURITY.md
     about: Authentication methods and security best practices
