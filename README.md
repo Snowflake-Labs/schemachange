@@ -1702,8 +1702,9 @@ schemachange follows [semantic versioning](https://semver.org/). To avoid surpri
 
 ## Maintainers
 
-- James Weakley (@jamesweakley)
-- Jeremiah Hansen (@jeremiahhansen)
+- Jeremiah Hansen (@sfc-gh-jhansen)
+- Tiji Mathew (@sfc-gh-tmathew)
+- Sahil Walia (@sfc-gh-swalia)
 
 This is a community-developed tool, not an official Snowflake offering. It comes with no support or warranty. However,
 feel free to raise a GitHub issue if you find a bug or would like a new feature.
