@@ -11,7 +11,6 @@ requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
 authors = [
     {name = "Jeremiah Hansen (sfc-gh-jhansen)"},
-    {name = "James Weakley (jamesweakley)"},
     {name = "Tiji Mathew (sfc-gh-tmathew)"},
     {name = "Sahil Walia (sfc-gh-swalia)"},
 ]
