@@ -356,6 +356,11 @@ JSON object formatted as a string.
 schemachange will replace any variable placeholders before running your change script code and will throw an error if it
 finds any variable placeholders that haven't been replaced.
 
+If a script contains jinja-style syntax that should not be processed by schemachange, add the marker
+`schemachange-no-jinja` in a SQL line comment (e.g. `-- schemachange-no-jinja`). When this marker is present,
+schemachange skips jinja rendering for that script and executes it as-is. The marker is case-insensitive and only
+recognized in a `--` line comment, so the token inside a string literal or block comment does not disable jinja.
+
 #### Secrets filtering
 
 While many CI/CD tools already have the capability to filter secrets, it is best that any tool also does not output
