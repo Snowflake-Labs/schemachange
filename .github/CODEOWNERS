@@ -1,7 +1,7 @@
 # Each line defines file pattern(s) and the GitHub users/teams responsible.
 # Last matching pattern wins. See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-# Default: docs, tests, CI config, demos, etc.
+# Default owner for everything not listed below
 * @sfc-gh-swalia @sfc-gh-tmathew
 
 # Core source code
@@ -9,9 +9,11 @@
 
 # Build/release config — dependency or packaging changes can break releases
 pyproject.toml @sfc-gh-jhansen @sfc-gh-swalia @sfc-gh-tmathew
+setup.cfg @sfc-gh-jhansen @sfc-gh-swalia @sfc-gh-tmathew
+uv.lock @sfc-gh-jhansen @sfc-gh-swalia @sfc-gh-tmathew
 
 # Release workflow — high blast radius
 .github/workflows/ @sfc-gh-jhansen @sfc-gh-swalia @sfc-gh-tmathew
 
-# Self Protection Rule
+# Self-protection — prevent silent weakening of ownership rules
 .github/CODEOWNERS @sfc-gh-swalia @sfc-gh-tmathew
