@@ -3,13 +3,19 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
-## [4.4.0] - TBD
+## [4.4.0] - 2026-09-28
 ### Added
 - **BEGIN/END-aware SQL statement splitter** ([#444](https://github.com/Snowflake-Labs/schemachange/pull/444) by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia)): Stored procedures, tasks, and anonymous blocks with `BEGIN...END` now execute correctly without needing `$$...$$` workarounds. The new splitter respects block nesting, `DECLARE...BEGIN` patterns, dollar-quoted blocks, string literals, and comments. Resolves #421 and 11 related issues (#29, #124, #135, #138, #171, #203, #212, #253, #262, #270, #393).
 
 ### Fixed
 - R scripts with trailing comments re-applied on every deploy (#435, #437 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
 - Lowercase change history table config caused re-application (#432, #440 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
+
+### Security
+- **SQL injection (CWE-89) in `reset_query_tag`** ([#448](https://github.com/Snowflake-Labs/schemachange/pull/448) by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia)): `ALTER SESSION SET QUERY_TAG` interpolated user-controlled config/filename values without escaping. Single quotes are now escaped before interpolation.
+- **SQL injection (CWE-89) in `record_change_history`** ([#449](https://github.com/Snowflake-Labs/schemachange/pull/449) by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia)): The change history INSERT used f-string interpolation for script metadata (name, description, version), allowing a crafted filename to inject arbitrary SQL. Replaced with parameterized bind queries. Resolves #450.
+- **Critical: `snowflake-connector-python` TLS hostname verification bypass** ([#456](https://github.com/Snowflake-Labs/schemachange/pull/456)): Bumped `snowflake-connector-python` from 4.4.0 to 4.7.5, resolving a hostname verification vulnerability (GHSA, Dependabot #30) that could allow a man-in-the-middle attack against Snowflake connections.
+- **`cryptography` dependency vulnerabilities** ([#456](https://github.com/Snowflake-Labs/schemachange/pull/456)): Bumped `cryptography` from 48.0.1 to 50.0.1, resolving a PKCS#7 EnvelopedData Bleichenbacher oracle (Dependabot #29), a certificate path-building denial-of-service via duplicate self-signed intermediates (Dependabot #32), and a wildcard DNS name `permittedSubtrees` escape (Dependabot #31).
 
 ### Upgrade Notes
 - **R scripts with trailing comments:** If deployed under v4.3.x, stored checksums used post-transformation content. On the first deploy after upgrading, those scripts will re-apply once. Idempotent scripts are unaffected; review non-idempotent R scripts before upgrading.
@@ -20,6 +26,10 @@ All notable changes to this project will be documented in this file.
 - Fixed typos and standardised "environment variable" wording throughout (#438 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
 - Bumped urllib3 from 2.6.3 to 2.7.0 (#436)
 - Optimised GitHub Actions CI workflows (#419)
+- Added `CODEOWNERS`, converted README links to absolute GitHub URLs for correct PyPI rendering, expanded `pyproject.toml` project URLs and authors (#445)
+- Updated maintainer listing in README, `pyproject.toml`, and `setup.cfg` (#452 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
+- Bumped GitHub Actions to org allow-listed versions: `actions/checkout` v6→v7.0.0, `astral-sh/setup-uv` v8.1.0→v8.3.0, `actions/github-script` v7→v9, `actions/labeler` v5→v7, `actions/dependency-review-action` v4→v5 (#455 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
+- Fixed issue template links pointing to `main` instead of `master` (#451 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
 - Updated `uv.lock` with latest dependency versions
 
 ## [4.3.3] - 2026-04-20
