@@ -58,12 +58,20 @@ jobs:
 
   integration-test:
     needs: lint-and-test
-    if: ${{ github.event.label.name == 'ci-run-tests' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    # Snowflake credentials are only available on the upstream repository, not forks.
+    if: >-
+      ${{ github.repository == 'Snowflake-Labs/schemachange' &&
+      (github.event.label.name == 'ci-run-tests' || github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     strategy:
       fail-fast: false
       matrix:
         scenario-name: [ 'basics_demo', 'citibike_demo', 'citibike_demo_jinja']
-        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        # Runner labels default to GitHub-hosted runners. Set the repository variables
+        # SCHEMACHANGE_LINUX_RUNNER / _MACOS_RUNNER / _WINDOWS_RUNNER to use custom runners.
+        os:
+          - ${{ vars.SCHEMACHANGE_LINUX_RUNNER || 'ubuntu-latest' }}
+          - ${{ vars.SCHEMACHANGE_MACOS_RUNNER || 'macos-latest' }}
+          - ${{ vars.SCHEMACHANGE_WINDOWS_RUNNER || 'windows-latest' }}
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     runs-on: ${{ matrix.os }}
     env:
