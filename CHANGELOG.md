@@ -8,10 +8,10 @@ All notable changes to this project will be documented in this file.
 - **BEGIN/END-aware SQL statement splitter** ([#444](https://github.com/Snowflake-Labs/schemachange/pull/444) by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia)): Stored procedures, tasks, and anonymous blocks with `BEGIN...END` now execute correctly without needing `$$...$$` workarounds. The new splitter respects block nesting, `DECLARE...BEGIN` patterns, dollar-quoted blocks, string literals, and comments. Resolves #421 and 11 related issues (#29, #124, #135, #138, #171, #203, #212, #253, #262, #270, #393).
 
 ### Fixed
-- **`BEGIN...END` blocks failed against Snowflake** (completes the splitter in #444, resolves #421): stored procedures, tasks and anonymous `DECLARE...BEGIN...END` blocks were split correctly by schemachange but then cut at their first inner semicolon, because each fragment was passed to the connector's `execute_string()`, which splits its input a second time. Fragments are now executed with `cursor.execute()` so each reaches Snowflake as one statement. Verified against a live account on connector 4.4.0 and 4.7.5. `$$...$$` workarounds continue to work
+- `BEGIN...END` blocks (stored procedures, tasks, `DECLARE` blocks) failed with a syntax error because the connector split them a second time (#421, #444)
 - R scripts with trailing comments re-applied on every deploy (#435, #437 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
 - Lowercase change history table config caused re-application (#432, #440 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
-- Scripts ending in a comment after the final `;` failed with `Empty SQL statement` (000900) now that scripts are split client-side. This covers comments on their own line and, as in v4.3.3, a comment on the same line (`SELECT 1; -- note`). schemachange appends a no-op `SELECT 1;` for execution only; your comments are kept and checksums are unchanged
+- Scripts ending in a comment after the final `;` failed with `Empty SQL statement`, including same-line comments that worked in 4.3.3 (#258, #406)
 
 ### Security
 - **SQL injection (CWE-89) in `reset_query_tag`** ([#448](https://github.com/Snowflake-Labs/schemachange/pull/448) by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia)): `ALTER SESSION SET QUERY_TAG` interpolated user-controlled config/filename values without escaping. Single quotes are now escaped before interpolation.
