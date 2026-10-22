@@ -23,6 +23,10 @@ on:
     branches:
       - 'rc*'
 
+  push:
+    branches:
+      - 'rc*'
+
 
 jobs:
   lint-and-test:
@@ -57,7 +61,7 @@ jobs:
     # Snowflake credentials are only available on the upstream repository, not forks.
     if: >-
       ${{ github.repository == 'Snowflake-Labs/schemachange' &&
-      (github.event.label.name == 'ci-run-tests' || github.event_name == 'workflow_dispatch') }}
+      (github.event.label.name == 'ci-run-tests' || github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     strategy:
       fail-fast: false
       matrix:
