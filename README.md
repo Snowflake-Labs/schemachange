@@ -410,7 +410,7 @@ Within change scripts, be aware of:
 
 - **Tasks with multi-statement bodies**: As of v4.4.0, `BEGIN...END` blocks work natively without workarounds. For older versions, use `EXECUTE IMMEDIATE $$...$$;` or call a stored procedure. Note: `$$` delimiters are still supported and backward compatible.
 - **UTF-8 BOM characters**: Automatically stripped by schemachange (fixed in 4.2.0)
-- **Trailing comments**: When comments appear on new lines after the final `;`, schemachange automatically appends `SELECT 1;` to prevent "Empty SQL Statement" errors
+- **Trailing comments**: When a comment follows the final `;` (on the same line or on new lines), schemachange automatically appends `SELECT 1;` to prevent "Empty SQL Statement" errors
 - **Snowflake Scripting blocks**: As of v4.4.0, schemachange includes a BEGIN/END-aware SQL splitter that correctly handles semicolons inside block structures. The `$$...$$` workaround is no longer required but remains supported.
 
 For detailed troubleshooting and solutions, see [TROUBLESHOOTING.md](https://github.com/Snowflake-Labs/schemachange/blob/master/TROUBLESHOOTING.md)

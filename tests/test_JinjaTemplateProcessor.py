@@ -476,6 +476,9 @@ class TestJinjaTemplateProcessor:
             "CREATE TABLE foo (id INT);\n-- Author: John Doe",
             "CREATE TABLE bar (id INT);\n/* Metadata\nblock */",
             "SELECT 1;\n-- comment 1\n-- comment 2",
+            "SELECT 1; -- inline comment",
+            "CREATE TABLE baz (id INT); /* inline block */",
+            "SELECT 1; -- inline comment\n-- and one on its own line",
         ],
     )
     def test_prepare_for_execution_leaves_no_comment_only_statement(self, processor: JinjaTemplateProcessor, content):
@@ -492,14 +495,37 @@ class TestJinjaTemplateProcessor:
             without_comments = re.sub(r"/\*.*?\*/", "", without_comments, flags=re.DOTALL)
             assert without_comments.strip(), f"comment-only statement would be sent to Snowflake: {statement!r}"
 
-    def test_prepare_for_execution_unchanged_for_inline_comment(self, processor: JinjaTemplateProcessor):
-        """Test that prepare_for_execution() doesn't modify inline comments on same line as ;"""
-        content = "SELECT 1; -- inline comment"
+    @pytest.mark.parametrize(
+        "content",
+        [
+            "SELECT 1; -- inline comment",
+            "CREATE TABLE baz (id INT); /* inline block */",
+            "SELECT 1;   -- spaced inline comment",
+        ],
+    )
+    def test_prepare_for_execution_appends_select1_for_same_line_comment(
+        self, processor: JinjaTemplateProcessor, content
+    ):
+        """Regression: a comment on the same line as the final ; is also a comment-only tail.
 
+        This worked before the BEGIN/END-aware splitter (the whole script was sent to
+        execute_string) but the splitter emits the tail as its own statement, which
+        Snowflake rejects with 000900. The comment is kept and rides with the no-op.
+        """
         result = processor.prepare_for_execution(content, "test.sql")
 
-        assert result == "SELECT 1; -- inline comment"
-        assert "SELECT 1; -- schemachange" not in result
+        assert result == content + NOOP_SUFFIX
+        assert result.startswith(content)  # nothing removed or reordered
+
+    def test_prepare_for_execution_same_line_comment_checksum_stable(self, processor: JinjaTemplateProcessor):
+        """The same-line fix is execution-only: render() output (the checksum input) is unchanged."""
+        templates = {"test.sql": "SELECT 1; -- inline comment"}
+        processor.override_loader(DictLoader(templates))
+
+        rendered = processor.render("test.sql", {})
+
+        assert rendered == "SELECT 1; -- inline comment"
+        assert "schemachange: trailing comment fix" not in rendered
 
     def test_prepare_for_execution_unchanged_for_no_trailing_content(self, processor: JinjaTemplateProcessor):
         """Test that prepare_for_execution() doesn't modify SQL ending with just semicolon."""

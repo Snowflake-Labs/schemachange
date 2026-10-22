@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - R scripts with trailing comments re-applied on every deploy (#435, #437 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
 - Lowercase change history table config caused re-application (#432, #440 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
+- Scripts ending in a comment after the final `;` failed with `Empty SQL statement` (000900) now that scripts are split client-side. This covers comments on their own line and, as in v4.3.3, a comment on the same line (`SELECT 1; -- note`). schemachange appends a no-op `SELECT 1;` for execution only; your comments are kept and checksums are unchanged
 
 ### Security
 - **SQL injection (CWE-89) in `reset_query_tag`** ([#448](https://github.com/Snowflake-Labs/schemachange/pull/448) by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia)): `ALTER SESSION SET QUERY_TAG` interpolated user-controlled config/filename values without escaping. Single quotes are now escaped before interpolation.

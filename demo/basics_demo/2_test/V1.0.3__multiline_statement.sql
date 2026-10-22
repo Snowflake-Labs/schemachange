@@ -6,6 +6,18 @@
 -- splitter handles them natively.
 -- =============================================================================
 
+-- 0. Tables used by the examples below
+CREATE TABLE IF NOT EXISTS {{ database_name }}.{{ schema_name }}.demo_target (
+    refreshed_at TIMESTAMP_LTZ,
+    source VARCHAR
+);
+
+CREATE TABLE IF NOT EXISTS {{ database_name }}.{{ schema_name }}.demo_audit_log (
+    logged_at TIMESTAMP_LTZ,
+    task_name VARCHAR,
+    status VARCHAR
+);
+
 -- 1. Stored procedure with BEGIN...END (no $$ needed)
 CREATE OR REPLACE PROCEDURE {{ database_name }}.{{ schema_name }}.demo_refresh_proc()
 RETURNS VARCHAR
