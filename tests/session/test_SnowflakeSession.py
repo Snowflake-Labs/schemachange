@@ -858,7 +858,8 @@ class TestSnowflakeSession:
                 post_transform_content = (
                     "CREATE OR REPLACE VIEW my_view AS SELECT 1;\n"
                     "-- trailing comment\n"
-                    "SELECT 1; -- schemachange: trailing comment fix"
+                    "-- schemachange: trailing comment fix\n"
+                    "SELECT 1;"
                 )
 
                 # The checksum deploy.py computes BEFORE transformation

@@ -203,7 +203,9 @@ class JinjaTemplateProcessor:
                 "Appending SELECT 1; to handle trailing comments after last semicolon",
                 script=script,
             )
-            content = content.rstrip() + "\nSELECT 1; -- schemachange: trailing comment fix"
+            # The marker goes on its own line ABOVE the no-op. Anything after the final
+            # semicolon is split into a comment-only statement that Snowflake rejects.
+            content = content.rstrip() + "\n-- schemachange: trailing comment fix\nSELECT 1;"
 
         return content
 
