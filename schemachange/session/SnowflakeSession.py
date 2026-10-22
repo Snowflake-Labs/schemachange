@@ -219,11 +219,12 @@ class SnowflakeSession:
             statements = split_sql_statements(query)
             res = []
             for stmt in statements:
-                result = self.con.execute_string(stmt)
-                if isinstance(result, list):
-                    res.extend(result)
-                else:
-                    res.append(result)
+                # cursor.execute() sends the fragment as-is. connection.execute_string() would
+                # re-split it on every ';' and cut BEGIN...END blocks apart (issue #421).
+                # The cursor stays open: callers iterate the returned cursors for rows.
+                cursor = self.con.cursor()
+                cursor.execute(stmt)
+                res.append(cursor)
             if not self.autocommit:
                 self.con.commit()
             logger.debug("Query executed", statement_count=len(statements))
@@ -261,9 +262,9 @@ class SnowflakeSession:
     def _execute_parameterized(self, query: str, params: tuple, logger: structlog.BoundLogger):
         """Execute a single parameterized query with bind variables.
 
-        Unlike execute_snowflake_query (which splits on semicolons and uses
-        execute_string for raw SQL), this method uses cursor.execute with bind
-        parameters to safely pass values without SQL injection risk.
+        Unlike execute_snowflake_query (which splits raw SQL with split_sql_statements and
+        runs each fragment with cursor.execute), this method binds values as parameters
+        to safely pass them without SQL injection risk.
         """
         logger.debug("Executing parameterized query", query_preview=query[:200])
 

@@ -46,24 +46,111 @@ def session() -> SnowflakeSession:
             )
 
 
-class TestSnowflakeSession:
-    def test_fetch_change_history_metadata_exists(self, session: SnowflakeSession):
-        # Reset call count after initialization (which calls execute_string for USE commands)
-        session.con.execute_string.reset_mock()
+def cursor_returning(rows: list) -> mock.MagicMock:
+    """A mock cursor that is iterable over `rows` and records execute() calls."""
+    cursor = mock.MagicMock()
+    cursor.__iter__.return_value = iter(rows)
+    return cursor
 
-        session.con.execute_string.return_value = [[["created", "last_altered"]]]
+
+class TestSnowflakeSession:
+    @pytest.mark.parametrize(
+        "block",
+        [
+            "DECLARE\n    a INTEGER DEFAULT 1;\nBEGIN\n    a := a + 1;\n    RETURN a;\nEND;",
+            (
+                "CREATE OR REPLACE PROCEDURE p()\nRETURNS VARCHAR\nLANGUAGE SQL\nAS\n"
+                "BEGIN\n    TRUNCATE TABLE t;\n    INSERT INTO t VALUES (1);\n    RETURN 'ok';\nEND;"
+            ),
+            (
+                "CREATE OR REPLACE TASK tk WAREHOUSE = wh SCHEDULE = '5 MINUTE'\nAS\n"
+                "BEGIN\n    CALL p();\n    INSERT INTO log VALUES (1);\nEND;"
+            ),
+        ],
+    )
+    def test_execute_snowflake_query_sends_begin_end_block_unsplit(self, session: SnowflakeSession, block):
+        """Regression (#421): a BEGIN...END fragment must reach Snowflake as ONE command.
+
+        connection.execute_string() re-splits its input on every ';' with the connector's
+        own splitter, which cut the block at its first inner semicolon (001003 syntax error).
+        """
+        session.con.reset_mock()
+
+        session.execute_snowflake_query(block, logger=session.logger)
+
+        session.con.execute_string.assert_not_called()
+        executed = [call.args[0] for call in session.con.cursor.return_value.execute.call_args_list]
+        assert executed == [block]
+
+    def test_execute_snowflake_query_one_cursor_per_statement_in_order(self, session: SnowflakeSession):
+        """Ordinary multi-statement SQL still runs one statement per execute, in order."""
+        session.con.reset_mock()
+        cursors = [mock.MagicMock(name=f"cursor_{i}") for i in range(3)]
+        session.con.cursor.side_effect = cursors
+
+        results = session.execute_snowflake_query(
+            "CREATE TABLE a (id INT);\nINSERT INTO a VALUES (1);\nSELECT * FROM a;",
+            logger=session.logger,
+        )
+
+        assert results == cursors
+        assert [c.execute.call_args.args[0] for c in cursors] == [
+            "CREATE TABLE a (id INT);",
+            "INSERT INTO a VALUES (1);",
+            "SELECT * FROM a;",
+        ]
+
+    def test_execute_snowflake_query_keeps_cursors_open_for_callers(self, session: SnowflakeSession):
+        """Callers iterate the returned cursors after the call, so they must not be closed."""
+        session.con.reset_mock()
+        cursor = cursor_returning([("row",)])
+        session.con.cursor.return_value = cursor
+
+        results = session.execute_snowflake_query("SELECT 1;", logger=session.logger)
+
+        cursor.close.assert_not_called()
+        assert [list(c) for c in results] == [[("row",)]]
+
+    def test_execute_snowflake_query_commits_once_after_all_statements(self, session: SnowflakeSession):
+        session.con.reset_mock()
+
+        session.execute_snowflake_query("SELECT 1;\nSELECT 2;", logger=session.logger)
+
+        assert session.con.cursor.return_value.execute.call_count == 2
+        session.con.commit.assert_called_once()
+        session.con.rollback.assert_not_called()
+
+    def test_execute_snowflake_query_rolls_back_when_a_statement_fails(self, session: SnowflakeSession):
+        session.con.reset_mock()
+        session.con.cursor.return_value.execute.side_effect = [
+            None,
+            snowflake.connector.errors.ProgrammingError(msg="boom", errno=1003, sqlstate="42000"),
+        ]
+
+        with pytest.raises(snowflake.connector.errors.ProgrammingError):
+            session.execute_snowflake_query("SELECT 1;\nSELECT BAD;", logger=session.logger)
+
+        session.con.rollback.assert_called_once()
+        session.con.commit.assert_not_called()
+
+    def test_fetch_change_history_metadata_exists(self, session: SnowflakeSession):
+        # Initialization runs its USE commands through execute_string; queries run through cursor.execute
+        cursor = cursor_returning([["created", "last_altered"]])
+        session.con.cursor.return_value = cursor
+
         result = session.fetch_change_history_metadata()
+
         assert result == {"created": "created", "last_altered": "last_altered"}
-        assert session.con.execute_string.call_count == 1
+        assert cursor.execute.call_count == 1
 
     def test_fetch_change_history_metadata_does_not_exist(self, session: SnowflakeSession):
-        # Reset call count after initialization (which calls execute_string for USE commands)
-        session.con.execute_string.reset_mock()
+        cursor = cursor_returning([])
+        session.con.cursor.return_value = cursor
 
-        session.con.execute_string.return_value = [[]]
         result = session.fetch_change_history_metadata()
+
         assert result == {}
-        assert session.con.execute_string.call_count == 1
+        assert cursor.execute.call_count == 1
 
     def test_snowflake_session_with_additional_params_from_yaml_v2(self):
         """Test that additional_snowflake_params from YAML v2 are passed to connector."""
@@ -536,8 +623,7 @@ class TestSnowflakeSession:
             assert "USE WAREHOUSE" not in executed_query  # Warehouse should NOT be in query
 
             # Now simulate a query that requires warehouse (like fetching change history)
-            mock_conn.execute_string.reset_mock()
-            mock_conn.execute_string.side_effect = Exception(
+            mock_conn.cursor.return_value.execute.side_effect = Exception(
                 "000606 (57P03): No active warehouse selected in the current session. "
                 "Select an active warehouse with the 'use warehouse' command."
             )
@@ -608,14 +694,11 @@ class TestSnowflakeSession:
             mock_conn.schema = None
             mock_conn.session_id = "session_123"
 
-            # First call: successful connection (no USE commands)
-            # Subsequent calls: warehouse error when querying
-            mock_conn.execute_string.side_effect = [
-                Exception(
-                    "000606 (57P03): No active warehouse selected in the current session. "
-                    "Select an active warehouse with the 'use warehouse' command."
-                )
-            ]
+            # No USE commands run at init (no context), then the query hits a warehouse error
+            mock_conn.cursor.return_value.execute.side_effect = Exception(
+                "000606 (57P03): No active warehouse selected in the current session. "
+                "Select an active warehouse with the 'use warehouse' command."
+            )
             mock_connect.return_value = mock_conn
 
             session = SnowflakeSession(
@@ -653,14 +736,13 @@ class TestSnowflakeSession:
                 sqlstate="42000",
             )
 
-            def side_effect_func(query):
-                # Allow initialization, reset_query_tag calls to succeed
-                # Fail on actual script content
+            def side_effect_func(query, *args, **kwargs):
+                # Allow reset_query_tag calls to succeed; fail on actual script content
                 if "SELECT BAD SYNTAX" in query:
                     raise sql_error
                 return None
 
-            mock_conn.execute_string.side_effect = side_effect_func
+            mock_conn.cursor.return_value.execute.side_effect = side_effect_func
             mock_cursor = mock.Mock()
             mock_conn.cursor.return_value.__enter__ = mock.Mock(return_value=mock_cursor)
             mock_conn.cursor.return_value.__exit__ = mock.Mock(return_value=False)
@@ -720,14 +802,13 @@ class TestSnowflakeSession:
             # Simulate database/permission error
             db_error = snowflake.connector.errors.DatabaseError("Insufficient privileges to operate on table")
 
-            def side_effect_func(query):
-                # Allow initialization, reset_query_tag calls to succeed
-                # Fail on actual script content
+            def side_effect_func(query, *args, **kwargs):
+                # Allow reset_query_tag calls to succeed; fail on actual script content
                 if "CREATE TABLE test" in query:
                     raise db_error
                 return None
 
-            mock_conn.execute_string.side_effect = side_effect_func
+            mock_conn.cursor.return_value.execute.side_effect = side_effect_func
             mock_cursor = mock.Mock()
             mock_conn.cursor.return_value.__enter__ = mock.Mock(return_value=mock_cursor)
             mock_conn.cursor.return_value.__exit__ = mock.Mock(return_value=False)
@@ -1117,12 +1198,12 @@ class TestSnowflakeSession:
                     sqlstate="42000",
                 )
 
-                def side_effect_func(query):
+                def side_effect_func(query, *args, **kwargs):
                     if "SELECT BAD SYNTAX" in query:
                         raise sql_error
                     return None
 
-                mock_conn.execute_string.side_effect = side_effect_func
+                mock_conn.cursor.return_value.execute.side_effect = side_effect_func
 
                 # Create a new logger for this specific test
                 test_logger = structlog.testing.CapturingLogger()
