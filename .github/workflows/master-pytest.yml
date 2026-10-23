@@ -24,6 +24,8 @@ on:
       - master
 
   push:
+    branches:
+      - master # Keeps the README status badge current after each merge
     tags:
       - "v*" # Push events to matching v*, i.e. v3.6.2, v4.0.0
 
