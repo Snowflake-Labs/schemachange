@@ -43,8 +43,6 @@ jobs:
         with:
           enable-cache: true
           cache-suffix: ${{ matrix.python-version }}
-          # Scenarios share a cache key per Python version; save from one to avoid reserve races.
-          save-cache: ${{ matrix.scenario-name == 'basics_demo' }}
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
@@ -92,6 +90,8 @@ jobs:
         with:
           enable-cache: true
           cache-suffix: ${{ matrix.python-version }}
+          # Scenarios share a cache key per Python version; save from one to avoid reserve races.
+          save-cache: ${{ matrix.scenario-name == 'basics_demo' }}
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
