@@ -1,6 +1,8 @@
-# Builds and uploads the package to PyPI with uv.
+# Builds and uploads the package to PyPI with uv, using PyPI Trusted Publishing (OIDC).
 # Runs on a published release, or manually for a given tag (dry run by default).
-# Only org allow-listed actions are used; build/check/publish are plain uv commands.
+# `build` holds no OIDC token. `publish` runs in the `pypi` environment (reviewer-gated),
+# signs the distributions (PEP 740 provenance), and uploads them; dry runs skip it.
+# Only org allow-listed actions are used; build/check/sign/publish are plain uv commands.
 
 name: Upload Python Package
 
@@ -13,7 +15,7 @@ on:
         description: "Release tag to publish (e.g. v4.4.0)"
         required: true
       dry_run:
-        description: "Run every step but skip the upload (uv publish --dry-run)"
+        description: "Build and check only; skip signing and the upload"
         type: boolean
         default: true
 
@@ -21,7 +23,7 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  build:
 
     runs-on: ubuntu-latest
 
@@ -44,8 +46,36 @@ jobs:
           echo "::error::Package version $version does not match tag $TAG"
           exit 1
         fi
+    - name: Upload distributions
+      uses: actions/upload-artifact@v6
+      with:
+        name: dist
+        path: dist/
+        if-no-files-found: error
+
+  publish:
+    needs: build
+    if: ${{ !inputs.dry_run }}
+
+    runs-on: ubuntu-latest
+
+    environment:
+      name: pypi
+      url: https://pypi.org/project/schemachange/
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - name: Download distributions
+      uses: actions/download-artifact@v7
+      with:
+        name: dist
+        path: dist/
+    - name: Install uv
+      uses: astral-sh/setup-uv@v8.3.0
+    - name: Sign distributions (PEP 740)
+      run: uvx --from 'pypi-attestations>=0.0.30' pypi-attestations sign dist/*.whl dist/*.tar.gz
     - name: Publish package
-      env:
-        UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
-        DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
-      run: uv publish $DRY_RUN
+      run: uv publish --trusted-publishing always
