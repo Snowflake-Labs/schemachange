@@ -371,8 +371,7 @@ export SNOWFLAKE_PASSWORD="my_password"
 
 **How Schemachange Handles This:**
 - ✅ **Valid SQL**: Passes through unchanged
-- ✅ **Trailing comments on new lines after `;`**: Auto-appends `SELECT 1;` to prevent empty statement error
-- ✅ **Inline comments on same line as `;`**: Passes through unchanged (Snowflake handles fine)
+- ✅ **Trailing comments after the final `;`** (same line or new lines): Auto-appends `SELECT 1;` for execution only, so the comment is kept and the empty-statement error is avoided
 - ❌ **Comment-only or empty scripts**: Raises clear error with debugging info
 
 **Common Scenarios:**
@@ -414,7 +413,7 @@ export SNOWFLAKE_PASSWORD="my_password"
    - Test locally with same variables to reproduce
    - Check file encoding (UTF-8 without BOM) and line endings
 
-**Note:** Schemachange automatically handles trailing comments on new lines after the final `;` by appending `SELECT 1;` to prevent "Empty SQL Statement" errors.
+**Note:** Schemachange automatically handles trailing comments after the final `;` (on the same line or on new lines) by appending `SELECT 1;` to prevent "Empty SQL Statement" errors.
 
 ---
 

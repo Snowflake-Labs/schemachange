@@ -1,5 +1,11 @@
-FROM python:3.12
+FROM python:3.12-slim
 
-RUN pip install schemachange
+ARG SCHEMACHANGE_VERSION=""
 
-ENTRYPOINT schemachange
+RUN if [ -n "$SCHEMACHANGE_VERSION" ]; then \
+        pip install --no-cache-dir "schemachange==${SCHEMACHANGE_VERSION}"; \
+    else \
+        pip install --no-cache-dir schemachange; \
+    fi
+
+ENTRYPOINT ["schemachange"]

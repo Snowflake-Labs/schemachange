@@ -162,16 +162,16 @@ class JinjaTemplateProcessor:
         return last_real_semicolon
 
     def _handle_trailing_comments(self, content: str, script: str) -> str:
-        """Append SELECT 1; if there are trailing comments on NEW LINES after the last semicolon.
+        """Append SELECT 1; if only comments follow the last semicolon.
 
-        Snowflake's execute_string() splits on semicolons. If there's content after
-        the last ; that is only whitespace/comments ON NEW LINES, Snowflake strips
-        the comments and tries to execute an empty string, causing "Empty SQL Statement".
+        schemachange splits a script on semicolons (see sql_splitter) and sends each
+        piece to Snowflake. Anything after the last ; becomes its own piece, and a
+        piece with only comments is rejected with "Empty SQL Statement". This applies
+        to comments on a new line and to a comment on the same line as the ;
+        (e.g., "SELECT 1; -- comment").
 
-        Inline comments on the same line as ; are fine (e.g., "SELECT 1; -- comment")
-        Only comments on separate lines after ; cause the error.
-
-        This method detects that specific case and appends a no-op SELECT 1;
+        This method detects that case and appends a no-op SELECT 1; so the trailing
+        comment travels with a real statement. No comment is removed.
         """
         # Find the last semicolon that's NOT inside a comment
         last_semicolon_idx = self._find_last_real_semicolon(content)
@@ -181,11 +181,6 @@ class JinjaTemplateProcessor:
 
         # Get content after the last real semicolon
         after_semicolon = content[last_semicolon_idx + 1 :]
-
-        # Only problematic if there's a newline after the semicolon
-        # Inline comments on the same line as ; are handled fine by Snowflake
-        if "\n" not in after_semicolon:
-            return content
 
         # Check if content after ; is only whitespace and/or comments
         after_stripped = after_semicolon
@@ -197,13 +192,15 @@ class JinjaTemplateProcessor:
         after_stripped = after_stripped.strip()
 
         if not after_stripped and after_semicolon.strip():
-            # There IS content after ; on new lines, but it's only comments
+            # There IS content after ;, but it's only comments (same line or new lines)
             # Append SELECT 1; to prevent empty statement error
             logger.debug(
                 "Appending SELECT 1; to handle trailing comments after last semicolon",
                 script=script,
             )
-            content = content.rstrip() + "\nSELECT 1; -- schemachange: trailing comment fix"
+            # The marker goes on its own line ABOVE the no-op. Anything after the final
+            # semicolon is split into a comment-only statement that Snowflake rejects.
+            content = content.rstrip() + "\n-- schemachange: trailing comment fix\nSELECT 1;"
 
         return content
 

@@ -3,12 +3,18 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import re
 
 import pytest
 from jinja2 import DictLoader
 from jinja2.exceptions import UndefinedError
 
 from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
+from schemachange.sql_splitter import split_sql_statements
+
+# Appended by prepare_for_execution(). The marker sits on its own line above the no-op so
+# nothing follows the final semicolon (a trailing comment becomes an empty statement).
+NOOP_SUFFIX = "\n-- schemachange: trailing comment fix\nSELECT 1;"
 
 
 @pytest.fixture()
@@ -230,7 +236,7 @@ class TestJinjaTemplateProcessor:
 
         # render() should NOT append SELECT 1; - that's done by prepare_for_execution()
         assert result == "CREATE TABLE foo (id INT);\n-- Author: John Doe"
-        assert "SELECT 1; -- schemachange: trailing comment fix" not in result
+        assert "schemachange: trailing comment fix" not in result
 
     def test_render_multistatement_sql_passes_through(self, processor: JinjaTemplateProcessor):
         """Test that multi-statement SQL passes through unchanged"""
@@ -308,7 +314,7 @@ class TestJinjaTemplateProcessor:
 
         # render() should NOT modify - prepare_for_execution() handles this
         assert result == "CREATE TABLE bar (id INT);\n/* Metadata\nblock */"
-        assert "SELECT 1; -- schemachange: trailing comment fix" not in result
+        assert "schemachange: trailing comment fix" not in result
 
     def test_render_multiple_trailing_comments_unchanged(self, processor: JinjaTemplateProcessor):
         """Test that multiple trailing comments after semicolon passes through render() unchanged."""
@@ -319,7 +325,7 @@ class TestJinjaTemplateProcessor:
 
         # render() should NOT modify - prepare_for_execution() handles this
         assert result == "SELECT 1;\n-- comment 1\n-- comment 2\n-- comment 3"
-        assert "SELECT 1; -- schemachange: trailing comment fix" not in result
+        assert "schemachange: trailing comment fix" not in result
 
     def test_render_no_semicolon_with_trailing_comment_unchanged(self, processor: JinjaTemplateProcessor):
         """Test that SQL without semicolon and trailing comment passes through unchanged.
@@ -365,7 +371,7 @@ class TestJinjaTemplateProcessor:
         result = processor.render("test.sql", None)
 
         # render() should NOT modify content
-        assert "SELECT 1; -- schemachange: trailing comment fix" not in result
+        assert "schemachange: trailing comment fix" not in result
         assert "CREATE TABLE foo (id INT);" in result
 
     def test_render_semicolon_in_block_comment_unchanged(self, processor: JinjaTemplateProcessor):
@@ -379,7 +385,7 @@ class TestJinjaTemplateProcessor:
         result = processor.render("test.sql", None)
 
         # render() should NOT modify content
-        assert "SELECT 1; -- schemachange: trailing comment fix" not in result
+        assert "schemachange: trailing comment fix" not in result
         assert "SELECT * FROM bar;" in result
 
     # ============================================================
@@ -437,7 +443,9 @@ class TestJinjaTemplateProcessor:
 
         assert "CREATE TABLE foo (id INT);" in result
         assert "-- Author: John Doe" in result
-        assert "SELECT 1; -- schemachange: trailing comment fix" in result
+        # The no-op must be the final statement, with nothing after its semicolon.
+        assert result == content + NOOP_SUFFIX
+        assert result.endswith("\nSELECT 1;")
 
     def test_prepare_for_execution_appends_select1_for_multiline_comment(self, processor: JinjaTemplateProcessor):
         """Test that prepare_for_execution() handles multi-line block comments."""
@@ -447,7 +455,8 @@ class TestJinjaTemplateProcessor:
 
         assert "CREATE TABLE bar (id INT);" in result
         assert "/* Metadata\nblock */" in result
-        assert "SELECT 1; -- schemachange: trailing comment fix" in result
+        assert result == content + NOOP_SUFFIX
+        assert result.endswith("\nSELECT 1;")
 
     def test_prepare_for_execution_appends_select1_for_multiple_trailing_comments(
         self, processor: JinjaTemplateProcessor
@@ -457,18 +466,66 @@ class TestJinjaTemplateProcessor:
 
         result = processor.prepare_for_execution(content, "test.sql")
 
-        assert "SELECT 1;" in result
         assert "-- comment 1" in result
-        assert "SELECT 1; -- schemachange: trailing comment fix" in result
+        assert result == content + NOOP_SUFFIX
+        assert result.endswith("\nSELECT 1;")
 
-    def test_prepare_for_execution_unchanged_for_inline_comment(self, processor: JinjaTemplateProcessor):
-        """Test that prepare_for_execution() doesn't modify inline comments on same line as ;"""
-        content = "SELECT 1; -- inline comment"
+    @pytest.mark.parametrize(
+        "content",
+        [
+            "CREATE TABLE foo (id INT);\n-- Author: John Doe",
+            "CREATE TABLE bar (id INT);\n/* Metadata\nblock */",
+            "SELECT 1;\n-- comment 1\n-- comment 2",
+            "SELECT 1; -- inline comment",
+            "CREATE TABLE baz (id INT); /* inline block */",
+            "SELECT 1; -- inline comment\n-- and one on its own line",
+        ],
+    )
+    def test_prepare_for_execution_leaves_no_comment_only_statement(self, processor: JinjaTemplateProcessor, content):
+        """Regression: the appended no-op must not leave a comment-only statement.
 
+        schemachange splits scripts with split_sql_statements() and sends each piece
+        to Snowflake. A comment-only piece is rejected with "Empty SQL statement"
+        (000900), which is what happened when the no-op carried its own comment.
+        """
         result = processor.prepare_for_execution(content, "test.sql")
 
-        assert result == "SELECT 1; -- inline comment"
-        assert "SELECT 1; -- schemachange" not in result
+        for statement in split_sql_statements(result):
+            without_comments = re.sub(r"--[^\n]*", "", statement)
+            without_comments = re.sub(r"/\*.*?\*/", "", without_comments, flags=re.DOTALL)
+            assert without_comments.strip(), f"comment-only statement would be sent to Snowflake: {statement!r}"
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            "SELECT 1; -- inline comment",
+            "CREATE TABLE baz (id INT); /* inline block */",
+            "SELECT 1;   -- spaced inline comment",
+        ],
+    )
+    def test_prepare_for_execution_appends_select1_for_same_line_comment(
+        self, processor: JinjaTemplateProcessor, content
+    ):
+        """Regression: a comment on the same line as the final ; is also a comment-only tail.
+
+        This worked before the BEGIN/END-aware splitter (the whole script was sent to
+        execute_string) but the splitter emits the tail as its own statement, which
+        Snowflake rejects with 000900. The comment is kept and rides with the no-op.
+        """
+        result = processor.prepare_for_execution(content, "test.sql")
+
+        assert result == content + NOOP_SUFFIX
+        assert result.startswith(content)  # nothing removed or reordered
+
+    def test_prepare_for_execution_same_line_comment_checksum_stable(self, processor: JinjaTemplateProcessor):
+        """The same-line fix is execution-only: render() output (the checksum input) is unchanged."""
+        templates = {"test.sql": "SELECT 1; -- inline comment"}
+        processor.override_loader(DictLoader(templates))
+
+        rendered = processor.render("test.sql", {})
+
+        assert rendered == "SELECT 1; -- inline comment"
+        assert "schemachange: trailing comment fix" not in rendered
 
     def test_prepare_for_execution_unchanged_for_no_trailing_content(self, processor: JinjaTemplateProcessor):
         """Test that prepare_for_execution() doesn't modify SQL ending with just semicolon."""
@@ -498,7 +555,8 @@ class TestJinjaTemplateProcessor:
 
         # The real last semicolon is after "CREATE TABLE foo (id INT)"
         # The trailing comments should trigger SELECT 1; append
-        assert "SELECT 1; -- schemachange: trailing comment fix" in result
+        assert result == content + NOOP_SUFFIX
+        assert result.endswith("\nSELECT 1;")
 
     def test_two_phase_render_checksum_stability(self, processor: JinjaTemplateProcessor):
         """Test that render() output is stable for checksum computation.
@@ -517,7 +575,8 @@ class TestJinjaTemplateProcessor:
 
         # prepare_for_execution() should add the fix
         executable = processor.prepare_for_execution(rendered, "test.sql")
-        assert "SELECT 1; -- schemachange: trailing comment fix" in executable
+        assert executable == rendered + NOOP_SUFFIX
+        assert executable.endswith("\nSELECT 1;")
 
         # Checksum should be computed on rendered content, not executable
         import hashlib

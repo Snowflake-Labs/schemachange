@@ -153,6 +153,8 @@ snow sql -q "SELECT * FROM metadata.schemachange.change_history ORDER BY install
 1. [Integrating With DevOps](#integrating-with-devops)
     1. [Sample DevOps Process Flow](#sample-devops-process-flow)
     1. [Using in a CI/CD Pipeline](#using-in-a-cicd-pipeline)
+1. [Docker](#docker)
+1. [Staying Current](#staying-current)
 1. [Maintainers](#maintainers)
 1. [Third Party Packages](#third-party-packages)
 1. [Legal](#legal)
@@ -410,7 +412,7 @@ Within change scripts, be aware of:
 
 - **Tasks with multi-statement bodies**: As of v4.4.0, `BEGIN...END` blocks work natively without workarounds. For older versions, use `EXECUTE IMMEDIATE $$...$$;` or call a stored procedure. Note: `$$` delimiters are still supported and backward compatible.
 - **UTF-8 BOM characters**: Automatically stripped by schemachange (fixed in 4.2.0)
-- **Trailing comments**: When comments appear on new lines after the final `;`, schemachange automatically appends `SELECT 1;` to prevent "Empty SQL Statement" errors
+- **Trailing comments**: When a comment follows the final `;` (on the same line or on new lines), schemachange automatically appends `SELECT 1;` to prevent "Empty SQL Statement" errors
 - **Snowflake Scripting blocks**: As of v4.4.0, schemachange includes a BEGIN/END-aware SQL splitter that correctly handles semicolons inside block structures. The `$$...$$` workaround is no longer required but remains supported.
 
 For detailed troubleshooting and solutions, see [TROUBLESHOOTING.md](https://github.com/Snowflake-Labs/schemachange/blob/master/TROUBLESHOOTING.md)
@@ -988,7 +990,7 @@ export SNOWFLAKE_ROLE="DEV_ROLE"
 schemachange deploy -f migrations
 ```
 
-**Scenario: Docker container**
+**Scenario: Docker container** (see [Docker](#docker) for full details)
 ```bash
 docker run --rm \
   -e SNOWFLAKE_ACCOUNT \
@@ -997,7 +999,7 @@ docker run --rm \
   -e SNOWFLAKE_ROLE \
   -v "$PWD":/workspace \
   -w /workspace \
-  schemachange/schemachange:latest deploy -f migrations
+  schemachange:pypi deploy -f migrations
 ```
 
 #### Variable Types
@@ -1677,19 +1679,105 @@ pip install schemachange --upgrade
 schemachange deploy [-f ROOT_FOLDER] [-c CHANGE_HISTORY_TABLE] [-V VARS] [--create-change-history-table] [-ac] [-L LOG_LEVEL] [--dry-run] [-Q QUERY_TAG] [--connections-file-path CONNECTIONS_FILE_PATH] [-C CONNECTION_NAME]
 ```
 
-Or if you prefer docker, run like so:
-
-```bash
-docker run -it --rm \
-  --name schemachange-script \
-  -v "$PWD":/usr/src/schemachange \
-  -w /usr/src/schemachange \
-  -e ROOT_FOLDER \
-  -e $CONNECTION_NAME \
-  python:3 /bin/bash -c "pip install schemachange --upgrade && schemachange -f $ROOT_FOLDER --connections-file-path connections.toml --connection-name $CONNECTION_NAME"
-```
+Or if you prefer Docker, see the [Docker](#docker) section below for pre-built images and usage examples.
 
 Either way, don't forget to configure a [connections.toml file](#connectionstoml-file) for connection parameters
+
+## Docker
+
+schemachange ships two Dockerfiles for local testing and CI/CD:
+
+| File | Purpose | Base image |
+|------|---------|------------|
+| `Dockerfile` | Install from **PyPI** (test a published release) | `python:3.12-slim` |
+| `Dockerfile-src` | Build from **local source** (test your branch before pushing) | `uv` builder + `python:3.12-slim` runtime |
+
+### Building the Images
+
+```bash
+# PyPI — latest published version
+docker build -f Dockerfile -t schemachange:pypi .
+
+# PyPI — specific version
+docker build -f Dockerfile --build-arg SCHEMACHANGE_VERSION=4.3.3 -t schemachange:pypi-4.3.3 .
+
+# Local source — whatever is in your working tree
+docker build -f Dockerfile-src -t schemachange:local-src .
+```
+
+### Verifying Connectivity
+
+The quickest smoke test is `verify`, which checks the connection and runs a test query.
+
+**Using `connections.toml` with key-pair auth:**
+
+```bash
+docker run --rm \
+  -v ~/.snowflake/connections.toml:/root/.snowflake/connections.toml:ro \
+  -v ~/.snowflake/snowflake_key.p8:/root/.snowflake/snowflake_key.p8:ro \
+  schemachange:local-src verify \
+    -C my_connection \
+    --snowflake-private-key-file /root/.snowflake/snowflake_key.p8
+```
+
+> **Note:** The `--snowflake-private-key-file` override is needed because `connections.toml` stores the host-side path (e.g. `/Users/you/.snowflake/snowflake_key.p8`) which doesn't exist inside the container. The CLI flag takes precedence per the [configuration priority](#configuration-priority) chain.
+
+**Using environment variables with password auth:**
+
+```bash
+docker run --rm \
+  -e SNOWFLAKE_ACCOUNT=myaccount \
+  -e SNOWFLAKE_USER=myuser \
+  -e SNOWFLAKE_PASSWORD=mypassword \
+  -e SNOWFLAKE_ROLE=MY_ROLE \
+  -e SNOWFLAKE_WAREHOUSE=MY_WH \
+  schemachange:local-src verify
+```
+
+### Running Deployments
+
+Mount your migration scripts (and optionally a [config file](#configuration)) into the container:
+
+```bash
+docker run --rm \
+  -v ~/.snowflake/connections.toml:/root/.snowflake/connections.toml:ro \
+  -v ~/.snowflake/snowflake_key.p8:/root/.snowflake/snowflake_key.p8:ro \
+  -v "$PWD"/demo:/work/demo \
+  schemachange:local-src deploy \
+    -C my_connection \
+    --snowflake-private-key-file /root/.snowflake/snowflake_key.p8 \
+    --config-folder /work/demo/basics_demo \
+    --root-folder /work/demo/basics_demo/2_test \
+    --verbose
+```
+
+### Running the Demo Scenarios
+
+To run the full basics demo (setup, deploy, teardown) against your Snowflake account:
+
+```bash
+docker run --rm \
+  -v ~/.snowflake/connections.toml:/root/.snowflake/connections.toml:ro \
+  -v ~/.snowflake/snowflake_key.p8:/root/.snowflake/snowflake_key.p8:ro \
+  -v "$PWD"/demo:/work/demo \
+  -e SNOWFLAKE_DATABASE=MY_DATABASE \
+  -e SNOWFLAKE_WAREHOUSE=MY_WAREHOUSE \
+  -e SNOWFLAKE_ROLE=MY_ROLE \
+  -e MY_TARGET_SCHEMA=docker_test \
+  -e SCENARIO_NAME=basics_demo \
+  --entrypoint /bin/bash \
+  schemachange:local-src -c '
+    set -e
+    cd /work
+    CONN="-C my_connection --snowflake-private-key-file /root/.snowflake/snowflake_key.p8"
+    schemachange verify --config-folder ./demo --config-file-name schemachange-config-setup.yml $CONN
+    schemachange deploy --config-folder ./demo --config-file-name schemachange-config-setup.yml --root-folder ./demo/basics_demo/1_setup $CONN --verbose
+    schemachange deploy --config-folder ./demo/basics_demo --root-folder ./demo/basics_demo/2_test $CONN --verbose
+    schemachange deploy --config-folder ./demo --config-file-name schemachange-config-teardown.yml --root-folder ./demo/basics_demo/3_teardown $CONN --verbose
+  '
+```
+
+Replace `my_connection` with your connection name from `connections.toml`. The `SNOWFLAKE_DATABASE`, `SNOWFLAKE_WAREHOUSE`, and `SNOWFLAKE_ROLE` environment variables are required because the demo config files reference them via Jinja `{{ env_var(...) }}`. The available demo scenarios are `basics_demo`, `citibike_demo`, and `citibike_demo_jinja`.
 
 ## Staying Current
 
