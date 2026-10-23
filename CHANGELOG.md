@@ -33,6 +33,7 @@ All notable changes to this project will be documented in this file.
 - Bumped GitHub Actions to org allow-listed versions: `actions/checkout` v6→v7.0.0, `astral-sh/setup-uv` v8.1.0→v8.3.0, `actions/github-script` v7→v9, `actions/labeler` v5→v7, `actions/dependency-review-action` v4→v5 (#455 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
 - Fixed issue template links pointing to `main` instead of `master` (#451 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
 - Updated `uv.lock` with latest dependency versions
+- Replaced `pypa/gh-action-pypi-publish` with `uv publish` to comply with the org Actions allow-list; publish runs only on release or manual dispatch
 
 ## [4.3.3] - 2026-04-20
 ### Fixed
