@@ -467,6 +467,10 @@ class SnowflakeSession:
         for cursor in results:
             for version, script, checksum in cursor:
                 versions.append(version if version != "" else None)
+                # Results are newest first. Keep the latest successful execution
+                # when a versioned script has been re-executed after checksum drift.
+                if script in versioned_scripts:
+                    continue
                 versioned_scripts[script] = {
                     "version": version,
                     "script": script,
