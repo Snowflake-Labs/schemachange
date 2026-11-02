@@ -8,6 +8,7 @@ import snowflake.connector
 import structlog
 from structlog import BoundLogger
 
+from schemachange.ChecksumChangedError import ChecksumChangedError
 from schemachange.CLIScriptExecutionError import CLIScriptExecutionError
 from schemachange.config.get_merged_config import get_merged_config
 from schemachange.config.RenderConfig import RenderConfig
@@ -309,6 +310,10 @@ def main():
         module_logger.debug("CLI script error details", **e.get_structured_error())
 
         sys.exit(2)  # Exit code 2 for script errors
+
+    except ChecksumChangedError as e:
+        module_logger.error(str(e))
+        sys.exit(1)
 
     except ValueError as e:
         module_logger.error(f"Configuration error: {str(e)}")

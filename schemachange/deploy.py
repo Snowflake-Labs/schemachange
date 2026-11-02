@@ -4,8 +4,10 @@ import hashlib
 
 import structlog
 
+from schemachange.ChecksumChangedError import ChecksumChangedError
 from schemachange.cli_script_executor import execute_cli_script
 from schemachange.CLIScriptExecutionError import CLIScriptExecutionError
+from schemachange.config.ChecksumChangedAction import ChecksumChangedAction
 from schemachange.config.DeployConfig import DeployConfig
 from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
 from schemachange.session.Script import get_all_scripts_recursively
@@ -20,6 +22,7 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
         "Starting deploy",
         dry_run=config.dry_run,
         out_of_order=config.out_of_order,
+        checksum_changed_action=config.checksum_changed_action.value,
         snowflake_account=session.account,
         default_role=session.role,
         default_warehouse=session.warehouse,
@@ -84,12 +87,39 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
                     max_published_version=max_published_version,
                 )
                 if script_metadata["checksum"] != checksum_current:
-                    script_log.info("Script checksum has drifted since application")
-                scripts_skipped += 1
-                continue
+                    if config.checksum_changed_action == ChecksumChangedAction.ERROR:
+                        raise ChecksumChangedError(
+                            script_name=script.name,
+                            expected_checksum=script_metadata["checksum"],
+                            current_checksum=checksum_current,
+                        )
+                    elif config.checksum_changed_action == ChecksumChangedAction.EXECUTE:
+                        if (
+                            not config.out_of_order
+                            and max_published_version is not None
+                            and get_alphanum_key(script.version) <= max_published_version
+                        ):
+                            script_log.warning(
+                                "Script checksum has drifted - skipping because re-execution requires --out-of-order"
+                            )
+                            scripts_skipped += 1
+                            continue
+                        script_log.warning(
+                            "Script checksum has drifted - would re-execute due to checksum-changed-action=EXECUTE"
+                            if config.dry_run
+                            else "Script checksum has drifted - re-executing due to checksum-changed-action=EXECUTE"
+                        )
+                        # Don't skip - fall through to execution
+                    else:  # IGNORE (default)
+                        script_log.info("Script checksum has drifted since application")
+                        scripts_skipped += 1
+                        continue
+                else:
+                    scripts_skipped += 1
+                    continue
 
-            # Second check: Version ordering (only if out_of_order is disabled)
-            if not config.out_of_order:
+            # Version ordering for NEW scripts. Applied scripts were handled above.
+            elif not config.out_of_order:
                 if max_published_version is not None and get_alphanum_key(script.version) <= max_published_version:
                     if config.raise_exception_on_ignored_versioned_script:
                         raise ValueError(
