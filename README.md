@@ -140,6 +140,7 @@ snow sql -q "SELECT * FROM metadata.schemachange.change_history ORDER BY install
     1. [Required Snowflake Privileges](#required-snowflake-privileges)
 1. [Deployment Scenarios](#deployment-scenarios)
     1. [Out Of Order](#out-of-order)
+    2. [Changed Versioned Scripts](#changed-versioned-scripts)
 1. [Upgrading to 4.1.0](#upgrading-to-410)
 1. [Commands](#commands)
     1. [deploy](#deploy)
@@ -838,6 +839,9 @@ schemachange:
   # Allow out-of-order versioned script execution for parallel development (default: false)
   out-of-order: false
 
+  # Action when an applied versioned script's checksum changes: IGNORE, ERROR, or EXECUTE
+  checksum-changed-action: IGNORE
+
 snowflake:
   # Snowflake connection parameters (these can also come from connections.toml or environment variables)
   account: 'myaccount.us-east-1.aws'
@@ -910,6 +914,9 @@ query-tag: 'QUERY_TAG'
 
 # Allow out-of-order versioned script execution for parallel development (the default is False)
 out-of-order: false
+
+# Action when an applied versioned script's checksum changes (default: IGNORE)
+checksum-changed-action: IGNORE
 ```
 
 **Note:** If `config-version` is not specified, schemachange assumes version 1 for backward compatibility.
@@ -1032,6 +1039,7 @@ These environment variables configure schemachange-specific behavior:
 | `SCHEMACHANGE_AUTOCOMMIT` | Enable autocommit for DML commands | `true` or `false` | boolean |
 | `SCHEMACHANGE_DRY_RUN` | Run in dry run mode | `true` or `false` | boolean |
 | `SCHEMACHANGE_OUT_OF_ORDER` | Allow out-of-order versioned script execution | `true` or `false` | boolean |
+| `SCHEMACHANGE_CHECKSUM_CHANGED_ACTION` | Action when an applied versioned script's checksum changes | `IGNORE`, `ERROR`, or `EXECUTE` (default: `IGNORE`) | string |
 | `SCHEMACHANGE_QUERY_TAG` | String to include in QUERY_TAG for SQL statements | `my-project` | string |
 | `SCHEMACHANGE_LOG_LEVEL` | Logging level | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` | string |
 | `SCHEMACHANGE_CONNECTIONS_FILE_PATH` | Path to connections.toml file (controls where schemachange looks for connection config) | `~/.snowflake/connections.toml` | string |
@@ -1291,6 +1299,8 @@ schemachange deploy --out-of-order
 | Script version ≤ max applied, already run | ⏭️ Skip | ⏭️ Skip |
 | Script version ≤ max applied, never run | ⏭️ Skip | ✅ **Apply** |
 
+This table assumes the default `checksum-changed-action: IGNORE`. To detect or deliberately re-execute modified, already-applied scripts, see [Changed Versioned Scripts](#changed-versioned-scripts).
+
 #### Configuration
 
 **CLI:**
@@ -1329,6 +1339,50 @@ out-of-order: true
 |--------|-------------------------------|
 | `--raise-exception-on-ignored-versioned-script` | Irrelevant—scripts are applied instead of ignored |
 | `--dry-run` | Shows which out-of-order scripts would be applied |
+
+### Changed Versioned Scripts
+
+By default, editing an already-applied versioned (`V`) script does **not** run the edited version: schemachange logs `Script checksum has drifted since application`, skips the script, and continues successfully. Use `--checksum-changed-action ERROR` to make this condition fail a CI/CD deployment.
+
+| Action | Applied V-script with a changed checksum |
+|--------|-----------------------------------------|
+| `IGNORE` (default) | Log at INFO and skip, preserving existing behavior. |
+| `ERROR` | Stop at the first changed script and exit with code 1, including during `--dry-run`. Report the script, both checksums, and recovery guidance. |
+| `EXECUTE` | Re-run the script if version ordering allows it. A version at or below the maximum applied version requires `--out-of-order`; otherwise log a warning and skip. |
+
+Unchanged applied V-scripts are always skipped. New V-scripts retain the existing version-ordering rules. Repeatable (`R`) and always (`A`) scripts are unaffected. The policy applies to both SQL and CLI (`.cli.yml`) V-scripts.
+
+**Configuration** (priority: CLI > environment variable > YAML > default):
+
+```bash
+schemachange deploy --checksum-changed-action ERROR
+# Equivalent CLI spelling: --schemachange-checksum-changed-action ERROR
+
+export SCHEMACHANGE_CHECKSUM_CHANGED_ACTION=ERROR
+schemachange deploy
+```
+
+```yaml
+config-version: 2
+schemachange:
+  checksum-changed-action: ERROR
+```
+
+For YAML config version 1, put `checksum-changed-action: ERROR` at the root level. Environment and YAML values are case-insensitive; CLI values are uppercase.
+
+**Recovering from drift:** Restore the applied script and its rendering inputs, then put intended changes in a new versioned script. Checksums are calculated from rendered content, so changed Jinja variables or included templates can cause drift without an edit to the script itself. Historical changes to checksum calculation can also cause drift after an upgrade; see [checksum upgrade troubleshooting](https://github.com/Snowflake-Labs/schemachange/blob/master/TROUBLESHOOTING.md#checksum-drift-after-upgrading-to-v430-or-v431). `IGNORE` does not update the recorded checksum.
+
+For deliberate re-execution in a development environment:
+
+```bash
+schemachange deploy --checksum-changed-action EXECUTE --out-of-order
+```
+
+Re-execution uses the normal execution and history-recording paths. After a successful re-execution, subsequent deployments compare against its checksum. A failed re-execution stops deployment and does not replace the last successful checksum. Review whether a script is safe to run again before using `EXECUTE`. During `--dry-run`, it reports the intended execution without running migration commands or recording execution history.
+
+`ERROR` checks scripts as deployment reaches them; it is not a pre-deployment scan or a rollback guarantee. Earlier migrations may already have run, particularly with `--out-of-order`. Run a separate `--dry-run --checksum-changed-action ERROR` first if you want to check for drift before executing migrations.
+
+`--raise-exception-on-ignored-versioned-script` remains independent: it errors when a **new**, unapplied script is skipped due to version ordering. `--checksum-changed-action ERROR` detects changes to **already-applied** scripts, regardless of `--out-of-order`.
 
 ## Upgrading to 4.1.0
 
@@ -1407,7 +1461,7 @@ compatibility with versions prior to 3.2.
 
 This is the main command that runs the deployment process.
 
-**Usage:** `schemachange deploy [-h] [--config-folder CONFIG_FOLDER] [--config-file-name CONFIG_FILE_NAME] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-c CHANGE_HISTORY_TABLE] [-V VARS] [--create-change-history-table] [-ac] [--dry-run] [--out-of-order] [-Q QUERY_TAG] [-L LOG_LEVEL] [-C CONNECTION_NAME] [--connections-file-path CONNECTIONS_FILE_PATH] [-a ACCOUNT] [-u USER] [-r ROLE] [-w WAREHOUSE] [-d DATABASE] [-s SCHEMA] [--snowflake-authenticator AUTHENTICATOR] [--snowflake-private-key-path PATH] [--snowflake-token-file-path PATH]`
+**Usage:** `schemachange deploy [-h] [--config-folder CONFIG_FOLDER] [--config-file-name CONFIG_FILE_NAME] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-c CHANGE_HISTORY_TABLE] [-V VARS] [--create-change-history-table] [-ac] [--dry-run] [--out-of-order] [--checksum-changed-action {IGNORE,ERROR,EXECUTE}] [-Q QUERY_TAG] [-L LOG_LEVEL] [-C CONNECTION_NAME] [--connections-file-path CONNECTIONS_FILE_PATH] [-a ACCOUNT] [-u USER] [-r ROLE] [-w WAREHOUSE] [-d DATABASE] [-s SCHEMA] [--snowflake-authenticator AUTHENTICATOR] [--snowflake-private-key-path PATH] [--snowflake-token-file-path PATH]`
 
 #### Command-Line Arguments
 
@@ -1437,6 +1491,7 @@ Most arguments also support short forms (single dash, single letter) for conveni
 | `-ac`<br/>`--schemachange-autocommit`<br/>`--autocommit` *(deprecated)* | `SCHEMACHANGE_AUTOCOMMIT` | Enable autocommit for DML commands (default: false) |
 | `--schemachange-dry-run`<br/>`--dry-run` *(deprecated)* | `SCHEMACHANGE_DRY_RUN` | Run in dry run mode (default: false) |
 | `--out-of-order` | `SCHEMACHANGE_OUT_OF_ORDER` | Allow out-of-order versioned script execution for parallel development (default: false) |
+| `--checksum-changed-action`, `--schemachange-checksum-changed-action` | `SCHEMACHANGE_CHECKSUM_CHANGED_ACTION` | Handle changed applied V-scripts: `IGNORE` (default), `ERROR`, or `EXECUTE`. Re-executing versions at or below the maximum applied version requires `--out-of-order`. |
 | `-Q`<br/>`--schemachange-query-tag`<br/>`--query-tag` *(deprecated)* | `SCHEMACHANGE_QUERY_TAG` | String to include in `QUERY_TAG` attached to every SQL statement |
 | `-L`<br/>`--schemachange-log-level`<br/>`--log-level` *(deprecated)* | `SCHEMACHANGE_LOG_LEVEL` | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` (default: `INFO`) |
 | `-C`<br/>`--schemachange-connection-name`<br/>`--connection-name` *(deprecated)* | `SCHEMACHANGE_CONNECTION_NAME` | Connection profile name from `connections.toml` |

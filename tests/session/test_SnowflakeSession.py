@@ -54,6 +54,25 @@ def cursor_returning(rows: list) -> mock.MagicMock:
 
 
 class TestSnowflakeSession:
+    def test_fetch_versioned_scripts_keeps_latest_success_across_cursors(self, session: SnowflakeSession):
+        # Rows arrive newest first, even when the result spans multiple cursors.
+        with mock.patch.object(session, "execute_snowflake_query") as query:
+            query.return_value = [
+                [("1.2.0", "V1.2.0__example.sql", "new-checksum")],
+                [
+                    ("1.10.0", "V1.10.0__later.sql", "later-checksum"),
+                    ("1.2.0", "V1.2.0__example.sql", "old-checksum"),
+                ],
+            ]
+            history, maximum = session.fetch_versioned_scripts()
+
+        assert history["V1.2.0__example.sql"]["checksum"] == "new-checksum"
+        assert history["V1.10.0__later.sql"]["checksum"] == "later-checksum"
+        assert maximum == "1.10.0"
+        # Failed re-executions must not replace the last successful checksum.
+        assert "STATUS = 'Success'" in query.call_args.args[0]
+        assert "ORDER BY INSTALLED_ON DESC" in query.call_args.args[0]
+
     @pytest.mark.parametrize(
         "block",
         [
