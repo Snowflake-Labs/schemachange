@@ -35,6 +35,11 @@ jobs:
       matrix:
         os: ["ubuntu-latest", "macos-latest", "windows-latest"]
         python-version: ["3.10", "3.11", "3.12", "3.13"]
+        include:
+          # Test connector v4 on Python 3.11+ (lock defaults to v5 there)
+          - os: ubuntu-latest
+            python-version: "3.11"
+            connector-version: "<5.0"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7.0.0
@@ -49,6 +54,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: uv sync --all-extras
+      - name: Pin connector version
+        if: matrix.connector-version
+        run: uv pip install "snowflake-connector-python${{ matrix.connector-version }}"
       - name: Lint with ruff
         run: uv run ruff check . --output-format=github
       - name: Format check with ruff
