@@ -126,12 +126,16 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
             and get_alphanum_key(script.version) <= max_published_version
         )
 
+        script_log.debug(f"Processing script: {script.name}")
+
         # Prepare content for execution (apply trailing comment fix)
         # This is done AFTER checksum computation to maintain checksum stability (issue #414)
         executable_content = jinja_processor.prepare_for_execution(
             content,
             jinja_processor.relpath(script.file_path),
         )
+
+        script_log.debug(executable_content)
 
         # Execute the script based on its format (SQL or CLI)
         if script.format == "CLI":
