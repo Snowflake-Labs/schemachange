@@ -4,7 +4,7 @@ These tests cover issue #421: multi-statement SQL blocks that fail because
 the connector's execute_string() naively splits on semicolons.
 """
 
-from schemachange.sql_splitter import split_sql_statements
+from schemachange.sql_splitter import _find_line_comment_start, split_sql_statements
 
 
 class TestBasicSplitting:
@@ -326,6 +326,57 @@ SELECT 1;
 SELECT 2;"""
         result = split_sql_statements(sql)
         assert len(result) == 2
+
+
+class TestBackslashEscapes:
+    """Snowflake accepts backslash escapes in single-quoted strings (issue #473)."""
+
+    def test_backslash_escaped_quote_does_not_end_string(self):
+        sql = """CREATE OR REPLACE VIEW v1 AS
+SELECT * FROM t WHERE c IN ('WorkerSexCode', 'Total Employer\\'s Legal Expenses');
+CREATE OR REPLACE VIEW v2 AS SELECT 'it''s';"""
+        result = split_sql_statements(sql)
+        assert len(result) == 2
+        assert result[0].startswith("CREATE OR REPLACE VIEW v1")
+        assert result[1].startswith("CREATE OR REPLACE VIEW v2")
+
+    def test_escaped_backslash_before_closing_quote(self):
+        # 'C:\\' is the string C:\ followed by the closing quote.
+        sql = """SELECT 'C:\\\\';
+SELECT 2;"""
+        result = split_sql_statements(sql)
+        assert result == ["SELECT 'C:\\\\';", "SELECT 2;"]
+
+    def test_semicolon_after_backslash_escape_stays_in_string(self):
+        sql = """SELECT 'a\\';b';
+SELECT 2;"""
+        result = split_sql_statements(sql)
+        assert result == ["SELECT 'a\\';b';", "SELECT 2;"]
+
+    def test_backslash_is_literal_in_double_quoted_identifier(self):
+        sql = """SELECT 1 AS "a\\";
+SELECT 2;"""
+        result = split_sql_statements(sql)
+        assert result == ['SELECT 1 AS "a\\";', "SELECT 2;"]
+
+    def test_backslash_escape_inside_begin_block_with_comment_marker(self):
+        sql = """EXECUTE IMMEDIATE $$ SELECT 1 $$;
+CREATE OR REPLACE PROCEDURE p()
+RETURNS STRING
+LANGUAGE SQL
+AS
+BEGIN
+  RETURN 'it\\'s -- not a comment';
+END;
+SELECT 2;"""
+        result = split_sql_statements(sql)
+        assert len(result) == 3
+        assert result[1].endswith("END;")
+        assert result[2] == "SELECT 2;"
+
+    def test_comment_finder_skips_backslash_escaped_quote(self):
+        line = "x := 'it\\'s -- not a comment'; -- real comment"
+        assert _find_line_comment_start(line) == line.index("-- real")
 
 
 class TestEdgeCases:

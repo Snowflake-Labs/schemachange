@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [Unreleased]
+### Fixed
+- Scripts with a backslash-escaped quote in a string (for example `'Employer\'s'`) were split into the wrong statements, causing "Actual statement count 2 did not match the desired statement count 1" (#473)
+
 ## [4.4.0] - 2026-10-23
 ### Added
 - **BEGIN/END-aware SQL statement splitter** ([#444](https://github.com/Snowflake-Labs/schemachange/pull/444) by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia)): Stored procedures, tasks, and anonymous blocks with `BEGIN...END` now execute correctly without needing `$$...$$` workarounds. The new splitter respects block nesting, `DECLARE...BEGIN` patterns, dollar-quoted blocks, string literals, and comments. Resolves #421 and 11 related issues (#29, #124, #135, #138, #171, #203, #212, #253, #262, #270, #393).
