@@ -55,6 +55,55 @@ def cursor_returning(rows: list) -> mock.MagicMock:
 
 class TestSnowflakeSession:
     @pytest.mark.parametrize(
+        "error",
+        [
+            snowflake.connector.errors.ProgrammingError(msg="boom", errno=1003, sqlstate="42000"),
+            snowflake.connector.errors.DatabaseError("Insufficient privileges"),
+            RuntimeError("unexpected"),
+        ],
+        ids=["programming_error", "database_error", "unexpected_error"],
+    )
+    def test_failed_script_resets_session_before_recording_history(self, session: SnowflakeSession, error):
+        # A script may leave the session on a role that can't reach the change history table (#453).
+        script = VersionedScript(
+            version="1.0.0", description="test", name="V1.0.0__test.sql", file_path=Path("V1.0.0__test.sql")
+        )
+        calls = mock.Mock()
+        with (
+            mock.patch.object(session, "execute_snowflake_query", side_effect=error),
+            mock.patch.object(session, "reset_session", side_effect=lambda **_: calls.reset_session()),
+            mock.patch.object(session, "reset_query_tag"),
+            mock.patch.object(session, "record_change_history", side_effect=lambda **kw: calls.record(kw["status"])),
+            pytest.raises(ScriptExecutionError),
+        ):
+            session.apply_change_script(script=script, script_content="SELECT 1", dry_run=False, logger=session.logger)
+
+        assert calls.mock_calls == [mock.call.reset_session(), mock.call.reset_session(), mock.call.record("Failed")]
+
+    def test_failed_reset_does_not_hide_script_error(self, session: SnowflakeSession):
+        script = VersionedScript(
+            version="1.0.0", description="test", name="V1.0.0__test.sql", file_path=Path("V1.0.0__test.sql")
+        )
+        script_error = snowflake.connector.errors.ProgrammingError(msg="script failed", errno=1003)
+        resets = iter([None, snowflake.connector.errors.DatabaseError("reset failed")])
+
+        def reset_session(**_):
+            outcome = next(resets)
+            if outcome is not None:
+                raise outcome
+
+        with (
+            mock.patch.object(session, "execute_snowflake_query", side_effect=script_error),
+            mock.patch.object(session, "reset_session", side_effect=reset_session),
+            mock.patch.object(session, "reset_query_tag"),
+            mock.patch.object(session, "record_change_history") as record,
+            pytest.raises(ScriptExecutionError, match="script failed"),
+        ):
+            session.apply_change_script(script=script, script_content="SELECT 1", dry_run=False, logger=session.logger)
+
+        assert record.call_args.kwargs["status"] == "Failed"
+
+    @pytest.mark.parametrize(
         "block",
         [
             "DECLARE\n    a INTEGER DEFAULT 1;\nBEGIN\n    a := a + 1;\n    RETURN a;\nEND;",
