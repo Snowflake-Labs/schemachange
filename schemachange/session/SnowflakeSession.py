@@ -494,6 +494,14 @@ class SnowflakeSession:
 
         self.execute_snowflake_query("\n".join(reset_query), logger=logger)
 
+    def _reset_session_before_failure_history(self, logger: structlog.BoundLogger) -> None:
+        """Restore the configured role/warehouse/database/schema before recording a failure (#453)."""
+        try:
+            self.reset_session(logger=logger)
+        except Exception as e:
+            # Never hide the script's own error; the history insert may still succeed.
+            logger.warning("Could not reset session before recording failed script", error_message=str(e))
+
     def reset_query_tag(self, logger: structlog.BoundLogger, extra_tag=None):
         query_tag = self.session_parameters["QUERY_TAG"]
         if extra_tag:
@@ -555,6 +563,7 @@ class SnowflakeSession:
                 )
 
                 # Record the failed execution in change history
+                self._reset_session_before_failure_history(logger=logger)
                 self.record_change_history(
                     script=script,
                     checksum=checksum,
@@ -587,6 +596,7 @@ class SnowflakeSession:
                 )
 
                 # Record the failed execution in change history
+                self._reset_session_before_failure_history(logger=logger)
                 self.record_change_history(
                     script=script,
                     checksum=checksum,
@@ -617,6 +627,7 @@ class SnowflakeSession:
                 )
 
                 # Record the failed execution in change history
+                self._reset_session_before_failure_history(logger=logger)
                 self.record_change_history(
                     script=script,
                     checksum=checksum,
