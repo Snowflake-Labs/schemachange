@@ -7,7 +7,7 @@ dollar-quoting.
 
 This module provides a `split_sql_statements()` function that respects:
 - $$ ... $$ dollar-quoted blocks (same as connector)
-- Single and double-quoted strings (same as connector)
+- Single and double-quoted strings, including '' and \' escapes (same as connector)
 - -- and /* */ comments (same as connector)
 - BEGIN...END block nesting (NEW — the gap this fills)
 - DECLARE...BEGIN pattern for anonymous blocks and procedures
@@ -102,7 +102,9 @@ def _split_iter(sql_text: str) -> Iterator[str]:
 
         # --- Single-quoted string ---
         if in_single_quote:
-            if char == "'" and pos + 1 < length and sql_text[pos + 1] == "'":
+            if char == "\\":
+                pos += 2  # backslash escape (\' or \\), as Snowflake allows
+            elif char == "'" and pos + 1 < length and sql_text[pos + 1] == "'":
                 pos += 2  # escaped quote ('')
             elif char == "'":
                 in_single_quote = False
@@ -317,6 +319,9 @@ def _find_line_comment_start(line: str) -> int:
     while i < len(line):
         ch = line[i]
         if in_quote:
+            if ch == "\\" and quote_char == "'":
+                i += 2  # backslash escape inside a string literal
+                continue
             if ch == quote_char:
                 if i + 1 < len(line) and line[i + 1] == quote_char:
                     i += 2  # escaped quote
