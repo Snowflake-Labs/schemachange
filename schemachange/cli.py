@@ -35,7 +35,22 @@ def render(config: RenderConfig, script_path: Path, logger: BoundLogger) -> None
     content = jinja_processor.render(jinja_processor.relpath(script_path), config.config_vars)
 
     checksum = hashlib.sha224(content.encode("utf-8")).hexdigest()
-    logger.info("Success", checksum=checksum, content=content)
+    if config.raw:
+        logger.info("Success", checksum=checksum)
+        print(content, file=sys.stdout)
+    else:
+        logger.info("Success", checksum=checksum, content=content)
+
+
+def _is_raw_render(args: list[str]) -> bool:
+    """
+    Returns True when the CLI arguments request `schemachange render --raw`.
+
+    Checked before the configuration is parsed so that every log message (including those emitted
+    while parsing the configuration) can be redirected to stderr, leaving stdout with only the
+    rendered script content.
+    """
+    return len(args) > 0 and args[0].lower() == "render" and "--raw" in args[1:]
 
 
 def verify(config, logger: BoundLogger) -> None:
@@ -235,6 +250,10 @@ def verify(config, logger: BoundLogger) -> None:
 
 def main():
     try:
+        if _is_raw_render(sys.argv[1:]):
+            # Keep stdout clean for the rendered content; send all log output to stderr
+            structlog.configure(logger_factory=structlog.PrintLoggerFactory(file=sys.stderr))
+
         module_logger.info(f"schemachange version: {SCHEMACHANGE_VERSION}")
 
         config = get_merged_config(logger=module_logger)

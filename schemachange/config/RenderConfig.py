@@ -11,6 +11,7 @@ from schemachange.config.utils import validate_file_path
 @dataclasses.dataclass(frozen=True)
 class RenderConfig(BaseConfig):
     script_path: Path | None = None
+    raw: bool = False
     subcommand: Literal["render"] = "render"
 
     @classmethod

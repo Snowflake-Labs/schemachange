@@ -392,6 +392,16 @@ def parse_cli_args(args) -> dict:
         parents=[parent_parser],
     )
     parser_render.add_argument("script_path", type=str, help="Path to the script to render")
+    parser_render.add_argument(
+        "--raw",
+        action="store_const",
+        const=True,
+        default=None,
+        dest="raw",
+        help="Write only the rendered script content to stdout. All log messages (version, config, checksum) "
+        "are written to stderr instead, so the output can be piped to other tools (the default is False).",
+        required=False,
+    )
 
     parser_verify = subcommands.add_parser(
         "verify",
