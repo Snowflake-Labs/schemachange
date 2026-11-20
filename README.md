@@ -1521,7 +1521,7 @@ Dry-run simulates exactly what would happen during actual execution. If the chan
 This subcommand is used to render a single script to the console. It is intended to support the development and
 troubleshooting of script that use features from the jinja template engine.
 
-**Usage:** `schemachange render [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-V VARS] [-L LOG_LEVEL] script`
+**Usage:** `schemachange render [-h] [--config-folder CONFIG_FOLDER] [-f ROOT_FOLDER] [-m MODULES_FOLDER] [-V VARS] [-L LOG_LEVEL] [--raw] script`
 
 | Parameter | Description |
 |-----------|-------------|
@@ -1530,7 +1530,14 @@ troubleshooting of script that use features from the jinja template engine.
 | `-m`<br/>`--schemachange-modules-folder`<br/>`--modules-folder` *(deprecated)* | The modules folder for jinja macros and templates |
 | `-V`<br/>`--schemachange-vars`<br/>`--vars` *(deprecated)* | Define variables in JSON format (e.g., `'{"var1": "value1", "var2": "value2"}'`) |
 | `-L`<br/>`--schemachange-log-level`<br/>`--log-level` *(deprecated)* | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` (default: `INFO`) |
+| `--raw` | Write only the rendered script content to stdout. All log messages (version, configuration, checksum) are written to stderr instead (default: `False`) |
 | `script` | Path to the script to render |
+
+Use `--raw` to pipe the rendered SQL into other tools, for example:
+
+```bash
+schemachange render --raw path/to/V1.0.0__script.sql | sqlfluff parse -
+```
 
 ### verify
 

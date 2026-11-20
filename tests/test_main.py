@@ -9,10 +9,12 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+import structlog
 
 import schemachange.cli as cli
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
 from schemachange.config.utils import get_snowflake_identifier_string
+from schemachange.JinjaTemplateProcessor import JinjaTemplateProcessor
 
 assets_path = Path(__file__).parent / "config"
 
@@ -598,3 +600,70 @@ def test_main_deploy_modules_folder(
                             assert actual_value == expected_value
                     if expected_script_path is not None:
                         assert call_kwargs["script_path"] == expected_script_path
+
+
+def test_render_raw_flag_parsed_into_config():
+    with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch("schemachange.cli.render") as mock_command:
+            with mock.patch(
+                "sys.argv",
+                ["schemachange", "render", "--raw", str(script_path), "--config-folder", str(assets_path)],
+            ):
+                try:
+                    cli.main()
+                finally:
+                    structlog.reset_defaults()
+            mock_command.assert_called_once()
+            _, call_kwargs = mock_command.call_args
+            assert call_kwargs["config"].raw is True
+
+
+@pytest.mark.parametrize(
+    "args, expected",
+    [
+        (["render", "--raw", "script.sql"], True),
+        (["render", "script.sql", "--raw"], True),
+        (["render", "script.sql"], False),
+        (["deploy", "--raw"], False),
+        (["--raw"], False),
+        ([], False),
+    ],
+)
+def test_is_raw_render(args: list[str], expected: bool):
+    assert cli._is_raw_render(args) is expected
+
+
+def _render_script(raw: bool, capsys) -> tuple[str, str, str]:
+    root_folder = script_path.parent
+    expected_content = JinjaTemplateProcessor(project_root=root_folder, modules_folder=None).render(
+        script_path.name, {}
+    )
+    args = ["schemachange", "render", str(script_path), "--root-folder", str(root_folder)]
+    args += ["--config-folder", str(assets_path)]
+    if raw:
+        args.append("--raw")
+
+    with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch("sys.argv", args):
+            try:
+                cli.main()
+            finally:
+                structlog.reset_defaults()
+
+    captured = capsys.readouterr()
+    return expected_content, captured.out, captured.err
+
+
+def test_render_raw_writes_only_content_to_stdout(capsys):
+    expected_content, out, err = _render_script(raw=True, capsys=capsys)
+
+    assert out == expected_content + "\n"
+    assert "schemachange version" in err
+    assert "checksum" in err
+
+
+def test_render_without_raw_logs_to_stdout(capsys):
+    _, out, _ = _render_script(raw=False, capsys=capsys)
+
+    assert "schemachange version" in out
+    assert "checksum" in out
