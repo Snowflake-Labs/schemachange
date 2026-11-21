@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 
 *The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).*
 
+## [Unreleased]
+### Added
+- **Private key from an environment variable** ([#252](https://github.com/Snowflake-Labs/schemachange/issues/252)): Key-pair authentication can now use the key content directly via `SNOWFLAKE_PRIVATE_KEY` (or `private-key` in the YAML `snowflake:` section), so CI/CD pipelines no longer need to write the key to a file. See the README for the expected format.
+
+### Fixed
+- Private key content set through `SNOWFLAKE_PRIVATE_KEY` or YAML `private-key` appeared in `--log-level DEBUG` output; it is now redacted (#484, #252)
+
 ## [4.4.0] - 2026-10-23
 ### Added
 - **BEGIN/END-aware SQL statement splitter** ([#444](https://github.com/Snowflake-Labs/schemachange/pull/444) by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia)): Stored procedures, tasks, and anonymous blocks with `BEGIN...END` now execute correctly without needing `$$...$$` workarounds. The new splitter respects block nesting, `DECLARE...BEGIN` patterns, dollar-quoted blocks, string literals, and comments. Resolves #421 and 11 related issues (#29, #124, #135, #138, #171, #203, #212, #253, #262, #270, #393).

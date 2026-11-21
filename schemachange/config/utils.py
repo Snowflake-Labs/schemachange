@@ -378,6 +378,7 @@ def _parse_yaml_v2(raw_config: dict) -> dict[str, Any]:
         # Check for sensitive parameters in YAML (security warning)
         sensitive_params = {
             "password": "SNOWFLAKE_PASSWORD environment variable or connections.toml",
+            "private-key": "SNOWFLAKE_PRIVATE_KEY environment variable or private-key-file",
             "private-key-passphrase": "SNOWFLAKE_PRIVATE_KEY_PASSPHRASE environment variable or connections.toml (deprecated: use SNOWFLAKE_PRIVATE_KEY_FILE_PWD)",
             "private-key-file-pwd": "SNOWFLAKE_PRIVATE_KEY_FILE_PWD environment variable or connections.toml",
             "token": "token-file-path with SNOWFLAKE_TOKEN_FILE_PATH or connections.toml",

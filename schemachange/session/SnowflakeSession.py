@@ -131,7 +131,7 @@ class SnowflakeSession:
         masked_connect_kwargs = {
             k: v
             for k, v in connect_kwargs.items()
-            if k not in ["password", "token", "private_key_passphrase", "private_key_file_pwd"]
+            if k not in ["password", "token", "private_key", "private_key_passphrase", "private_key_file_pwd"]
         }
         self.logger.debug("snowflake.connector.connect kwargs", **masked_connect_kwargs)
         self.con = snowflake.connector.connect(**connect_kwargs)

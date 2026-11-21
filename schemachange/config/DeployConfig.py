@@ -130,6 +130,13 @@ class DeployConfig(BaseConfig):
                 # We just won't redact it (non-ideal but not a regression)
                 pass
 
+        # 4. Private key content passed through to the connector's private_key parameter,
+        # either via SNOWFLAKE_PRIVATE_KEY or the YAML v2 snowflake section (private-key)
+        additional_params = kwargs.get("additional_snowflake_params") or {}
+        private_key = additional_params.get("private_key") or additional_params.get("private-key")
+        if private_key and isinstance(private_key, str):
+            auth_secrets["private_key"] = private_key
+
         return auth_secrets
 
     def get_session_kwargs(self) -> dict:
