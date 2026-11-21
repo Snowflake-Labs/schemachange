@@ -122,6 +122,7 @@ snow sql -q "SELECT * FROM metadata.schemachange.change_history ORDER BY install
     1. [Using Variables in Scripts](#using-variables-in-scripts)
         1. [Secrets filtering](#secrets-filtering)
     1. [Jinja templating engine](#jinja-templating-engine)
+        1. [Escaping Jinja syntax](#escaping-jinja-syntax)
     1. [Gotchas](#gotchas)
 1. [Change History Table](#change-history-table)
 1. [Authentication](#authentication)
@@ -405,6 +406,30 @@ should be prefixed with `modules/`.
 The Jinja auto-escaping feature is disabled in schemachange, this feature in Jinja is currently designed for where the
 output language is HTML/XML. So if you are using schemachange with untrusted inputs you will need to handle this within
 your change scripts.
+
+#### Escaping Jinja syntax
+
+schemachange renders every script with Jinja, so any `{{ }}`, `{% %}` or `{# #}` in a script is treated as Jinja
+syntax. If a script needs those characters passed through to Snowflake as-is (for example, a JavaScript UDF or a
+string literal that contains `{{`), wrap that part in Jinja's built-in
+[`{% raw %}...{% endraw %}`](https://jinja.palletsprojects.com/en/stable/templates/#escaping) block.
+
+You can wrap just the literal portion and keep using variables in the rest of the script:
+
+```sql
+CREATE OR REPLACE FUNCTION {{ env }}.my_func()
+RETURNS STRING
+LANGUAGE JAVASCRIPT
+AS $$
+{% raw %}
+  return `{"time": "{{EVENT_TIME}}"}`;
+{% endraw %}
+$$;
+```
+
+Here `{{ env }}` is replaced by schemachange, while `{{EVENT_TIME}}` reaches Snowflake unchanged.
+
+To skip Jinja for a whole script, put `{% raw %}` on the first line and `{% endraw %}` on the last line.
 
 ### Common Pitfalls
 
