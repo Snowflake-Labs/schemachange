@@ -610,6 +610,35 @@ For better alignment with the Snowflake Python Connector, schemachange now suppo
 
 The old parameter names continue to work but show deprecation warnings. Please migrate to the new names to match the Snowflake Python Connector's parameter naming convention.
 
+#### Private Key Content from an Environment Variable
+
+If your CI/CD system stores the private key as a secret value and you'd rather not write it to a file, set
+`SNOWFLAKE_PRIVATE_KEY` to the key content instead of using `SNOWFLAKE_PRIVATE_KEY_FILE`. schemachange passes it to the
+Snowflake Python Connector's `private_key` parameter.
+
+The connector expects an **unencrypted** key as **base64-encoded DER** text (not PEM). Convert an existing key with:
+
+```bash
+openssl pkcs8 -topk8 -in rsa_key.p8 -outform DER -nocrypt | base64 | tr -d '\n'
+```
+
+If your private key file is encrypted, `openssl` prompts for its passphrase. Encrypted keys and
+`SNOWFLAKE_PRIVATE_KEY_FILE_PWD` aren't supported with `SNOWFLAKE_PRIVATE_KEY`; keep using a key file for those.
+
+```yaml
+# GitHub Actions example
+- name: Deploy
+  env:
+    SNOWFLAKE_ACCOUNT: myaccount
+    SNOWFLAKE_USER: deploy_user
+    SNOWFLAKE_AUTHENTICATOR: snowflake_jwt
+    SNOWFLAKE_PRIVATE_KEY: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_DER_B64 }}
+  run: schemachange deploy
+```
+
+The key content is never written to schemachange's logs, including at `DEBUG` level. Set either
+`SNOWFLAKE_PRIVATE_KEY_FILE` or `SNOWFLAKE_PRIVATE_KEY`, not both.
+
 ## Configuration
 
 schemachange supports multiple configuration methods for both Snowflake connection parameters and schemachange-specific settings. Configuration can be supplied through (in order of priority):
@@ -1073,6 +1102,7 @@ These Snowflake-specific environment variables are explicitly handled by schemac
 |---------------------|-------------|---------|
 | `SNOWFLAKE_AUTHENTICATOR` | Authentication method | `snowflake`, `oauth`, `externalbrowser`, `snowflake_jwt`, or `https://<okta_account>.okta.com` |
 | `SNOWFLAKE_PRIVATE_KEY_FILE` | Path to private key file for JWT authentication | `~/.ssh/snowflake_key.p8` |
+| `SNOWFLAKE_PRIVATE_KEY` | Unencrypted private key content (base64-encoded DER) for JWT authentication, instead of a key file. See [Private Key Content from an Environment Variable](#private-key-content-from-an-environment-variable) | `MIIEvQIBADANBgkqhkiG9w0B...` |
 | `SNOWFLAKE_PRIVATE_KEY_FILE_PWD` | Passphrase for encrypted private key | `my_key_password` |
 | `SNOWFLAKE_TOKEN_FILE_PATH` | Path to OAuth token file (for external OAuth only) | `~/.snowflake/oauth_token.txt` |
 

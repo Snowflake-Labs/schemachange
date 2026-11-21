@@ -73,3 +73,45 @@ class TestPrivateKeyContentRedaction:
 
         with pytest.warns(UserWarning, match="private-key"):
             _parse_yaml_v2(raw_config)
+
+
+class TestPrivateKeyContentPassThrough:
+    def _connect(self, **kwargs):
+        logger = structlog.testing.CapturingLogger()
+        with mock.patch("snowflake.connector.connect") as mock_connect:
+            with mock.patch("schemachange.session.SnowflakeSession.get_snowflake_identifier_string"):
+                # noinspection PyTypeChecker
+                SnowflakeSession(
+                    user="user",
+                    account="account",
+                    schemachange_version="4.4.0",
+                    application="schemachange",
+                    change_history_table=ChangeHistoryTable(),
+                    logger=logger,
+                    **kwargs,
+                )
+        return mock_connect.call_args.kwargs, logger
+
+    def test_file_and_content_are_both_passed_to_the_connector(self):
+        # The connector decides what to do when both are set (v5 rejects it with a clear error)
+        connect_kwargs, logger = self._connect(
+            private_key_file="/path/to/key.p8",
+            additional_snowflake_params={"private_key": FAKE_KEY},
+        )
+
+        assert connect_kwargs["private_key_file"] == "/path/to/key.p8"
+        assert connect_kwargs["private_key"] == FAKE_KEY
+        assert FAKE_KEY not in str(logger.calls)
+
+    def test_content_only_is_passed_without_warning(self):
+        connect_kwargs, logger = self._connect(additional_snowflake_params={"private_key": FAKE_KEY})
+
+        assert connect_kwargs["private_key"] == FAKE_KEY
+        assert not [call for call in logger.calls if call.method_name == "warning"]
+
+    def test_file_only_is_passed_without_warning(self):
+        connect_kwargs, logger = self._connect(private_key_file="/path/to/key.p8")
+
+        assert connect_kwargs["private_key_file"] == "/path/to/key.p8"
+        assert "private_key" not in connect_kwargs
+        assert not [call for call in logger.calls if call.method_name == "warning"]
