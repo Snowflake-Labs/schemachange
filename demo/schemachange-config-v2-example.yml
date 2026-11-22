@@ -38,7 +38,7 @@ schemachange:
   raise-exception-on-ignored-versioned-script: false
 
   # Action when an applied versioned script's checksum changes: IGNORE, ERROR, or EXECUTE
-  # EXECUTE requires out-of-order: true for versions at or below the maximum applied version.
+  # EXECUTE requires out-of-order: true; otherwise changed applied scripts are skipped.
   checksum-changed-action: IGNORE
 
 snowflake:

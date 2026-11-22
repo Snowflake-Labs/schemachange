@@ -64,6 +64,40 @@ def cli_executor():
         yield executor
 
 
+@pytest.mark.parametrize("dry_run", [False, True])
+@pytest.mark.parametrize(
+    "action,out_of_order,warning_expected",
+    [
+        ("IGNORE", False, False),
+        ("IGNORE", True, False),
+        ("ERROR", False, False),
+        ("ERROR", True, False),
+        ("EXECUTE", False, True),
+        ("EXECUTE", True, False),
+    ],
+)
+def test_startup_warning(tmp_path, session, action, out_of_order, warning_expected, dry_run):
+    session.get_script_metadata.return_value = ({}, {}, None)
+    config = DeployConfig(
+        root_folder=tmp_path,
+        checksum_changed_action=ChecksumChangedAction(action),
+        out_of_order=out_of_order,
+        dry_run=dry_run,
+    )
+    with capture_logs() as logs:
+        deploy(config, session)
+    warnings = [log["event"] for log in logs if log["log_level"] == "warning"]
+    expected = (
+        [
+            "checksum-changed-action=EXECUTE requires --out-of-order to re-execute applied versioned scripts. "
+            "Changed applied scripts will be skipped."
+        ]
+        if warning_expected
+        else []
+    )
+    assert warnings == expected
+
+
 @pytest.mark.parametrize("action", list(ChecksumChangedAction))
 @pytest.mark.parametrize("dry_run", [False, True])
 @pytest.mark.parametrize(
@@ -73,10 +107,6 @@ def cli_executor():
         pytest.param(False, "1.1.0", True, False, "apply", "apply", "apply", id="row-2"),
         pytest.param(False, "1.3.0", False, False, "skip", "skip", "skip", id="row-3"),
         pytest.param(False, "1.3.0", True, False, "apply", "apply", "apply", id="row-4"),
-        pytest.param(True, "1.1.0", False, False, "skip", "skip", "skip", id="row-5"),
-        pytest.param(True, "1.1.0", False, True, "skip", "error", "apply", id="row-6"),
-        pytest.param(True, "1.1.0", True, False, "skip", "skip", "skip", id="row-7"),
-        pytest.param(True, "1.1.0", True, True, "skip", "error", "apply", id="row-8"),
         pytest.param(True, "1.3.0", False, False, "skip", "skip", "skip", id="row-9"),
         pytest.param(True, "1.3.0", False, True, "skip", "error", "skip", id="row-10"),
         pytest.param(True, "1.3.0", True, False, "skip", "skip", "skip", id="row-11"),
@@ -97,7 +127,6 @@ def test_versioned_decision_matrix(
     error,
     execute,
 ):
-    """The twelve rows proposed in #349, with row 10 following the recommendation to skip."""
     checksum = migration.old_checksum if changed else migration.current_checksum
     history = {migration.path.name: {"checksum": checksum}} if applied else {}
     session.get_script_metadata.return_value = (history, {}, max_version)

@@ -6,7 +6,7 @@ class ChecksumChangedAction(Enum):
 
     IGNORE (default): Log info message and skip the script (current behavior)
     ERROR: Raise an exception and fail the deployment
-    EXECUTE: Re-execute the modified script, subject to out-of-order settings
+    EXECUTE: Re-execute the modified script; requires out-of-order execution
     """
 
     IGNORE = "IGNORE"

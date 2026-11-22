@@ -395,7 +395,7 @@ def parse_cli_args(args) -> dict:
         dest="checksum_changed_action",
         help="Action to take when a versioned script's checksum has changed since it was applied. "
         "IGNORE (default): Log and skip. ERROR: Fail deployment, including in dry-run mode. "
-        "EXECUTE: Re-run the script (requires --out-of-order when its version is at or below the latest applied version). "
+        "EXECUTE: Re-run the script. Requires --out-of-order; otherwise changed applied scripts are skipped. "
         "Can also be set via SCHEMACHANGE_CHECKSUM_CHANGED_ACTION environment variable.",
         required=False,
     )

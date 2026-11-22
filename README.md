@@ -1348,7 +1348,7 @@ By default, editing an already-applied versioned (`V`) script does **not** run t
 |--------|-----------------------------------------|
 | `IGNORE` (default) | Log at INFO and skip, preserving existing behavior. |
 | `ERROR` | Stop at the first changed script and exit with code 1, including during `--dry-run`. Report the script, both checksums, and recovery guidance. |
-| `EXECUTE` | Re-run the script if version ordering allows it. A version at or below the maximum applied version requires `--out-of-order`; otherwise log a warning and skip. |
+| `EXECUTE` | Re-run the script. Requires `--out-of-order`; otherwise warn at startup and skip changed applied scripts. |
 
 Unchanged applied V-scripts are always skipped. New V-scripts retain the existing version-ordering rules. Repeatable (`R`) and always (`A`) scripts are unaffected. The policy applies to both SQL and CLI (`.cli.yml`) V-scripts.
 
@@ -1381,6 +1381,15 @@ schemachange deploy --checksum-changed-action EXECUTE --out-of-order
 Re-execution uses the normal execution and history-recording paths. After a successful re-execution, subsequent deployments compare against its checksum. A failed re-execution stops deployment and does not replace the last successful checksum. Review whether a script is safe to run again before using `EXECUTE`. During `--dry-run`, it reports the intended execution without running migration commands or recording execution history.
 
 `ERROR` checks scripts as deployment reaches them; it is not a pre-deployment scan or a rollback guarantee. Earlier migrations may already have run, particularly with `--out-of-order`. Run a separate `--dry-run --checksum-changed-action ERROR` first if you want to check for drift before executing migrations.
+
+For example, in a CI shell step:
+
+```bash
+schemachange deploy --dry-run --checksum-changed-action ERROR &&
+  schemachange deploy --checksum-changed-action ERROR
+```
+
+The real deployment runs only if the dry-run succeeds. Use the same connection, script folder, variables, and ordering options for both commands. Keeping `ERROR` on the real deployment checks for drift again, but does not make deployment atomic or roll back earlier DDL if a later script fails.
 
 `--raise-exception-on-ignored-versioned-script` remains independent: it errors when a **new**, unapplied script is skipped due to version ordering. `--checksum-changed-action ERROR` detects changes to **already-applied** scripts, regardless of `--out-of-order`.
 
@@ -1491,7 +1500,7 @@ Most arguments also support short forms (single dash, single letter) for conveni
 | `-ac`<br/>`--schemachange-autocommit`<br/>`--autocommit` *(deprecated)* | `SCHEMACHANGE_AUTOCOMMIT` | Enable autocommit for DML commands (default: false) |
 | `--schemachange-dry-run`<br/>`--dry-run` *(deprecated)* | `SCHEMACHANGE_DRY_RUN` | Run in dry run mode (default: false) |
 | `--out-of-order` | `SCHEMACHANGE_OUT_OF_ORDER` | Allow out-of-order versioned script execution for parallel development (default: false) |
-| `--checksum-changed-action`, `--schemachange-checksum-changed-action` | `SCHEMACHANGE_CHECKSUM_CHANGED_ACTION` | Handle changed applied V-scripts: `IGNORE` (default), `ERROR`, or `EXECUTE`. Re-executing versions at or below the maximum applied version requires `--out-of-order`. |
+| `--checksum-changed-action`, `--schemachange-checksum-changed-action` | `SCHEMACHANGE_CHECKSUM_CHANGED_ACTION` | Handle changed applied V-scripts: `IGNORE` (default), `ERROR`, or `EXECUTE`. `EXECUTE` requires `--out-of-order`; otherwise changed applied scripts are skipped. |
 | `-Q`<br/>`--schemachange-query-tag`<br/>`--query-tag` *(deprecated)* | `SCHEMACHANGE_QUERY_TAG` | String to include in `QUERY_TAG` attached to every SQL statement |
 | `-L`<br/>`--schemachange-log-level`<br/>`--log-level` *(deprecated)* | `SCHEMACHANGE_LOG_LEVEL` | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL` (default: `INFO`) |
 | `-C`<br/>`--schemachange-connection-name`<br/>`--connection-name` *(deprecated)* | `SCHEMACHANGE_CONNECTION_NAME` | Connection profile name from `connections.toml` |

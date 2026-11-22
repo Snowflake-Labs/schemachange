@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 ### Added
-- `--checksum-changed-action` (`IGNORE`, `ERROR`, or `EXECUTE`) for changed, already-applied versioned scripts, configurable through CLI, environment, or YAML (#349). The default remains `IGNORE`; `ERROR` exits with code 1, including during dry-run. `EXECUTE` respects `--out-of-order`.
+- `--checksum-changed-action` (`IGNORE`, `ERROR`, or `EXECUTE`) for changed, already-applied versioned scripts, configurable through CLI, environment, or YAML (#349). The default remains `IGNORE`; `ERROR` exits with code 1, including during dry-run. `EXECUTE` requires `--out-of-order` and warns at startup if it is omitted.
 
 ### Fixed
 - Use the latest successful execution's checksum when a versioned script has multiple history entries, so a successful re-execution is not repeatedly flagged as drift.

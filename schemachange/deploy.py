@@ -31,6 +31,12 @@ def deploy(config: DeployConfig, session: SnowflakeSession):
         change_history_table=session.change_history_table.fully_qualified,
     )
 
+    if config.checksum_changed_action == ChecksumChangedAction.EXECUTE and not config.out_of_order:
+        logger.warning(
+            "checksum-changed-action=EXECUTE requires --out-of-order to re-execute applied versioned scripts. "
+            "Changed applied scripts will be skipped."
+        )
+
     (
         versioned_scripts,
         r_scripts_checksum,
