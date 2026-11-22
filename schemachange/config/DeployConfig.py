@@ -6,6 +6,7 @@ from typing import Literal
 
 from schemachange.config.BaseConfig import BaseConfig
 from schemachange.config.ChangeHistoryTable import ChangeHistoryTable
+from schemachange.config.ChecksumChangedAction import ChecksumChangedAction
 from schemachange.config.utils import (
     get_snowflake_authenticator,
     get_snowflake_identifier_string,
@@ -45,6 +46,7 @@ class DeployConfig(BaseConfig):
     version_number_validation_regex: str | None = None
     raise_exception_on_ignored_versioned_script: bool = False
     out_of_order: bool = False  # Allow applying migrations with versions older than max_published_version
+    checksum_changed_action: ChecksumChangedAction = ChecksumChangedAction.IGNORE
     session_parameters: dict | None = None  # Session parameters from CLI/ENV/YAML (merged with connections.toml)
     additional_snowflake_params: dict | None = None  # Parameters from YAML v2 or generic SNOWFLAKE_* env vars
 
@@ -53,10 +55,22 @@ class DeployConfig(BaseConfig):
         cls,
         config_file_path: Path,
         change_history_table: str | None = None,
+        checksum_changed_action: ChecksumChangedAction | str = ChecksumChangedAction.IGNORE,
         **kwargs,
     ):
         if "subcommand" in kwargs:
             kwargs.pop("subcommand")
+
+        # YAML supplies strings; CLI and environment parsing supply enum members.
+        try:
+            checksum_changed_action = ChecksumChangedAction(
+                checksum_changed_action.upper() if isinstance(checksum_changed_action, str) else checksum_changed_action
+            )
+        except (ValueError, TypeError):
+            raise ValueError(
+                f"Invalid checksum-changed-action: {checksum_changed_action!r}. "
+                "Valid values are: IGNORE, ERROR, EXECUTE"
+            ) from None
 
         for sf_input in [
             "snowflake_role",
@@ -82,6 +96,7 @@ class DeployConfig(BaseConfig):
             subcommand="deploy",
             config_file_path=config_file_path,
             change_history_table=change_history_table,
+            checksum_changed_action=checksum_changed_action,
             **kwargs,
         )
 
