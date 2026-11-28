@@ -58,11 +58,13 @@ jobs:
         if: matrix.connector-version
         run: uv pip install "snowflake-connector-python${{ matrix.connector-version }}"
       - name: Lint with ruff
-        run: uv run ruff check . --output-format=github
+        run: uv run --no-sync ruff check . --output-format=github
       - name: Format check with ruff
-        run: uv run ruff format --check .
+        run: uv run --no-sync ruff format --check .
       - name: Test with pytest
-        run: uv run pytest
+        run: |
+          uv run --no-sync python -c "import snowflake.connector as s; print('connector', s.__version__)"
+          uv run --no-sync pytest
 
   integration-test:
     needs: lint-and-test

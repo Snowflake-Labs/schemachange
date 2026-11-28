@@ -793,7 +793,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pyyaml", specifier = "~=6.0" },
     { name = "ruff", marker = "extra == 'dev'" },
-    { name = "snowflake-connector-python", specifier = ">=3.0,<6.0" },
+    { name = "snowflake-connector-python", specifier = ">=4.0,<5.3" },
     { name = "structlog", specifier = ">=24.1.0,<26.0" },
 ]
 provides-extras = ["dev"]
