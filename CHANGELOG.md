@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 ### Upgrade Notes
 - **R scripts with trailing comments:** If deployed under v4.3.x, stored checksums used post-transformation content. On the first deploy after upgrading, those scripts will re-apply once. Idempotent scripts are unaffected; review non-idempotent R scripts before upgrading.
 - **Snowflake Connector upgrade:** Support for `snowflake-connector-python` is now `>=4.0,<5.3`. Connector 4.0.0 rejects configuration files writable by group or others (`ConfigSourceError`) and may require permissions on shared runners to be corrected. Connector 5.1.0 has removed the `disable_console_login` and `oauth_disable_console_login` parameters in favor of warnings.
+- - **Network error handling with connector v5:** Connector 5.x no longer raises `HttpError`. Network failures are now reported through the `DatabaseError` handler. The exit code is unchanged (3), but the error message is different.
 
 ### Maintenance
 - Added `--create-change-history-table` to all Quick Start examples and new "Staying Current" section (#439 by [@sfc-gh-swalia](https://github.com/sfc-gh-swalia))
